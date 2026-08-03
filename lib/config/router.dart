@@ -6,6 +6,7 @@ import '../components/navigation_shell.dart';
 import '../providers/auth_provider.dart';
 import '../screens/chats_screen.dart';
 import '../screens/communities_screen.dart';
+import '../screens/conversation_screen.dart';
 import '../screens/create_screen.dart';
 import '../screens/discover_screen.dart';
 import '../screens/forgot_password_screen.dart';
@@ -82,6 +83,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/kyc',
         builder: (_, _) => const KycScreen(),
+      ),
+      GoRoute(
+        path: '/app/conversation/:id',
+        builder: (_, state) => ConversationScreen(
+          conversationId: int.parse(state.pathParameters['id']!),
+        ),
       ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) => AppShell(

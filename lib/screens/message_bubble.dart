@@ -1,0 +1,420 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+import '../core/design_tokens.dart';
+import '../models/chat_models.dart';
+import '../utils/format.dart';
+
+/// One chat bubble with reactions, status and long-press actions.
+class MessageBubble extends StatelessWidget {
+  final Message message;
+  final int? myId;
+  final ValueChanged<String> onReact;
+  final VoidCallback onReply;
+  final ValueChanged<bool> onDelete;
+  final VoidCallback onForward;
+  final VoidCallback? onRetry;
+
+  const MessageBubble({
+    super.key,
+    required this.message,
+    required this.myId,
+    required this.onReact,
+    required this.onReply,
+    required this.onDelete,
+    required this.onForward,
+    this.onRetry,
+  });
+
+  bool get _mine => message.userId == myId;
+
+  static const _emojis = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
+
+  @override
+  Widget build(BuildContext context) {
+    final mine = _mine;
+    final showName = !mine && message.user?.name != null && message.user!.name.isNotEmpty;
+
+    return Align(
+      alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
+      child: Column(
+        crossAxisAlignment: mine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+        children: [
+          if (showName) _SenderName(name: message.user!.name),
+          GestureDetector(
+            onLongPress: () => _showActions(context),
+            onTap: () => _showReactions(context),
+            child: _BubbleContent(message: message, mine: mine),
+          ),
+          if (message.reactions.isNotEmpty)
+            _ReactionChips(reactions: message.reactions, onToggle: onReact),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showActions(BuildContext context) async {
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Colors.white,
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+              child: Text(
+                'Message actions',
+                style: Theme.of(context)
+                    .textTheme
+                    .titleSmall
+                    ?.copyWith(fontWeight: FontWeight.w700),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  for (final emoji in _emojis)
+                    _EmojiAction(emoji: emoji, onTap: () => Navigator.pop(context, 'react:$emoji')),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            ListTile(
+              leading: const Icon(Icons.reply),
+              title: const Text('Reply'),
+              onTap: () => Navigator.pop(context, 'reply'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.forward),
+              title: const Text('Forward'),
+              onTap: () => Navigator.pop(context, 'forward'),
+            ),
+            if (!message.deleted)
+              ListTile(
+                leading: const Icon(Icons.content_copy),
+                title: const Text('Copy'),
+                onTap: () => Navigator.pop(context, 'copy'),
+              ),
+            if (!message.deleted)
+              ListTile(
+                leading: Icon(Icons.delete_outline, color: Theme.of(context).colorScheme.error),
+                title: Text(
+                  message.userId == myId ? 'Delete' : 'Delete for me',
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+                onTap: () => Navigator.pop(context, 'delete'),
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+
+    if (action == null || !context.mounted) return;
+    switch (action) {
+      case 'reply':
+        onReply();
+      case 'forward':
+        onForward();
+      case 'copy':
+        await Clipboard.setData(ClipboardData(text: message.content));
+      case 'delete':
+        await _confirmDelete(context);
+      default:
+        if (action.startsWith('react:')) onReact(action.substring('react:'.length));
+    }
+  }
+
+  Future<void> _showReactions(BuildContext context) async {
+    final result = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Colors.white,
+      builder: (_) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              for (final emoji in _emojis)
+                InkWell(
+                  onTap: () => Navigator.pop(context, emoji),
+                  borderRadius: BorderRadius.circular(24),
+                  child: Padding(
+                    padding: const EdgeInsets.all(6),
+                    child: Text(emoji, style: const TextStyle(fontSize: 26)),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (result != null) onReact(result);
+  }
+
+  Future<void> _confirmDelete(BuildContext context) async {
+    final mine = message.userId == myId;
+    final choice = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete message'),
+        content: Text(mine ? 'Delete this message for everyone, or only for you?' : 'Delete this message for you?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, 'me'),
+            child: Text(mine ? 'Delete for me' : 'Delete'),
+          ),
+          if (mine)
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, 'everyone'),
+              child: const Text('Delete for everyone'),
+            ),
+          TextButton(onPressed: () => Navigator.pop(ctx, null), child: const Text('Cancel')),
+        ],
+      ),
+    );
+    if (choice == null) return;
+    if (choice == 'me') onDelete(false);
+    if (choice == 'everyone') onDelete(true);
+  }
+}
+
+class _SenderName extends StatelessWidget {
+  final String name;
+
+  const _SenderName({required this.name});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 4, top: 6, bottom: 2),
+      child: Text(
+        name,
+        style: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          color: DesignTokens.primaryDark,
+        ),
+      ),
+    );
+  }
+}
+
+class _BubbleContent extends StatelessWidget {
+  final Message message;
+  final bool mine;
+
+  const _BubbleContent({required this.message, required this.mine});
+
+  @override
+  Widget build(BuildContext context) {
+    final maxWidth = MediaQuery.of(context).size.width * 0.72;
+    final bubbleColor = mine ? DesignTokens.primary : Colors.white;
+    final textColor = mine ? Colors.white : DesignTokens.textPrimary;
+
+    return Container(
+      constraints: BoxConstraints(maxWidth: maxWidth),
+      margin: const EdgeInsets.only(top: 2, bottom: 2),
+      padding: message.hasAttachment && message.isImage
+          ? const EdgeInsets.all(3)
+          : const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: bubbleColor,
+        borderRadius: BorderRadius.only(
+          topLeft: const Radius.circular(16),
+          topRight: const Radius.circular(16),
+          bottomLeft: Radius.circular(mine ? 16 : 4),
+          bottomRight: Radius.circular(mine ? 4 : 16),
+        ),
+        border: mine ? null : Border.all(color: DesignTokens.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (message.replyTo != null) _ReplyPreview(message: message.replyTo!, mine: mine),
+          if (message.hasAttachment && message.isImage)
+            ClipRRect(
+              borderRadius: BorderRadius.circular(13),
+              child: Image.network(
+                message.attachmentUrl!,
+                width: maxWidth - 8,
+                fit: BoxFit.cover,
+                errorBuilder: (_, _, _) => Container(
+                  width: 220,
+                  height: 160,
+                  color: mine ? const Color(0xFF2E5A78) : const Color(0xFFF2F5F8),
+                  child: const Icon(Icons.broken_image_outlined, color: Colors.white70),
+                ),
+              ),
+            )
+          else if (message.isVoice)
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.graphic_eq, color: mine ? Colors.white : DesignTokens.primaryDark),
+                const SizedBox(width: 8),
+                Text('Voice message', style: TextStyle(color: textColor)),
+              ],
+            )
+          else if (!message.deleted)
+            Text(
+              message.content,
+              style: TextStyle(color: textColor, fontSize: 15, height: 1.35),
+            ),
+          if (message.deleted)
+            Text(
+              'This message was deleted',
+              style: TextStyle(color: textColor.withValues(alpha: 0.8), fontStyle: FontStyle.italic),
+            ),
+          _MetaRow(message: message, mine: mine),
+        ],
+      ),
+    );
+  }
+}
+
+class _ReplyPreview extends StatelessWidget {
+  final Message message;
+  final bool mine;
+
+  const _ReplyPreview({required this.message, required this.mine});
+
+  @override
+  Widget build(BuildContext context) {
+    final borderColor = mine ? Colors.white54 : DesignTokens.primary;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.only(left: 8),
+      decoration: BoxDecoration(
+        border: Border(left: BorderSide(color: borderColor, width: 3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            message.user?.name ?? 'Message',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: mine ? Colors.white : DesignTokens.primaryDark,
+            ),
+          ),
+          Text(
+            message.attachmentType == 'image' ? 'Photo' : message.content,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 12,
+              color: mine ? Colors.white70 : DesignTokens.textSecondary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MetaRow extends StatelessWidget {
+  final Message message;
+  final bool mine;
+
+  const _MetaRow({required this.message, required this.mine});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 3),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (message.replyTo != null)
+            const Padding(
+              padding: EdgeInsets.only(right: 6),
+              child: Icon(Icons.reply, size: 12, color: Colors.white70),
+            ),
+          if (message.forwardedFromMessageId != null)
+            const Padding(
+              padding: EdgeInsets.only(right: 6),
+              child: Icon(Icons.forward, size: 12, color: Colors.white70),
+            ),
+          Text(
+            formatMessageTime(message.createdAt),
+            style: TextStyle(fontSize: 11, color: mine ? Colors.white70 : DesignTokens.textSecondary),
+          ),
+          if (mine) ...[
+            const SizedBox(width: 4),
+            if (message.status == 'sending')
+              const Icon(Icons.schedule, size: 12, color: Colors.white70)
+            else if (message.status == 'failed')
+              Icon(Icons.error_outline, size: 13, color: mine ? const Color(0xFFFFB4B4) : Theme.of(context).colorScheme.error)
+            else
+              const Icon(Icons.done, size: 13, color: Colors.white70),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ReactionChips extends StatelessWidget {
+  final List<ReactionSummary> reactions;
+  final ValueChanged<String> onToggle;
+
+  const _ReactionChips({required this.reactions, required this.onToggle});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 2),
+      child: Wrap(
+        spacing: 4,
+        children: [
+          for (final r in reactions)
+            InkWell(
+              onTap: () => onToggle(r.emoji),
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: r.byMe ? DesignTokens.primarySoft : Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: r.byMe ? DesignTokens.primary : DesignTokens.border),
+                ),
+                child: Text(
+                  '${r.emoji} ${r.count}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: r.byMe ? FontWeight.w700 : FontWeight.w500,
+                    color: r.byMe ? DesignTokens.primaryDark : DesignTokens.textSecondary,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmojiAction extends StatelessWidget {
+  final String emoji;
+  final VoidCallback onTap;
+
+  const _EmojiAction({required this.emoji, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(24),
+      child: Padding(
+        padding: const EdgeInsets.all(6),
+        child: Text(emoji, style: const TextStyle(fontSize: 24)),
+      ),
+    );
+  }
+}

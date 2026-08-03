@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/core/roles.dart';
 import 'package:mobile/main.dart';
 import 'package:mobile/providers/auth_provider.dart';
+import 'package:mobile/providers/chat_provider.dart';
 
 void main() {
   testWidgets('App routes to onboarding when signed out', (tester) async {
@@ -38,6 +39,7 @@ void main() {
       ProviderScope(
         overrides: [
           authProvider.overrideWith(() => _SignedInAuthNotifier(user)),
+          conversationsProvider.overrideWith(_EmptyConversationsNotifier.new),
         ],
         child: const MurihSpaceApp(),
       ),
@@ -48,8 +50,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Chats'), findsWidgets);
-    expect(find.text('Communities'), findsOneWidget);
-    expect(find.text('You'), findsOneWidget);
+    expect(find.text('Communities'), findsWidgets);
+    expect(find.text('You'), findsWidgets);
+    expect(find.text('No conversations yet'), findsOneWidget);
   });
 }
 
@@ -68,5 +71,12 @@ class _SignedOutAuthNotifier extends AuthNotifier {
   @override
   AuthState build() {
     return const AuthState();
+  }
+}
+
+class _EmptyConversationsNotifier extends ConversationsNotifier {
+  @override
+  ConversationsState build() {
+    return const ConversationsState();
   }
 }

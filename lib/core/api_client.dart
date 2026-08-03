@@ -2,7 +2,6 @@ import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../config/env.dart';
-
 const _secureStorage = FlutterSecureStorage();
 
 /// A typed API error carrying the backend envelope fields.
@@ -111,5 +110,39 @@ class ApiClient {
   static String generateIdempotencyKey() {
     final micros = DateTime.now().microsecondsSinceEpoch;
     return 'mob-$micros-${DateTime.now().millisecondsSinceEpoch}';
+  }
+
+  /// Authorizes a Reverb private channel via `POST /broadcasting/auth`.
+  ///
+  /// The route lives at the app origin (outside `/api/v1`), so the origin is
+  /// derived from [Env.apiBaseUrl] and the call is signed with the stored token.
+  static Future<String?> broadcastAuth({
+    required String socketId,
+    required String channelName,
+  }) async {
+    final base = Env.apiBaseUrl;
+    final origin = base.endsWith('/api/v1')
+        ? base.substring(0, base.length - '/api/v1'.length)
+        : base;
+    final token = await readToken();
+    final dio = Dio(BaseOptions(
+      baseUrl: origin,
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+      },
+    ));
+    try {
+      final response = await dio.post('/broadcasting/auth', data: {
+        'socket_id': socketId,
+        'channel_name': channelName,
+      });
+      final data = response.data;
+      if (data is Map<String, dynamic>) return data['auth'] as String?;
+    } catch (_) {
+      // Authorization failures are non-fatal: the UI keeps working via REST.
+    }
+    return null;
   }
 }

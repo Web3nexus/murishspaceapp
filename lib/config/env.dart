@@ -23,4 +23,9 @@ class Env {
     'REVERB_SCHEME',
     defaultValue: 'ws',
   );
+
+  static const String reverbAppKey = String.fromEnvironment(
+    'REVERB_APP_KEY',
+    defaultValue: 'murihspace',
+  );
 }
