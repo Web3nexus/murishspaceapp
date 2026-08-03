@@ -334,8 +334,18 @@ class PostsNotifier extends Notifier<PostsState> {
     }
   }
 
-  Future<bool> addComment(Post post, String content) async {
+  /// Shares a post (increments the share count server-side) and confirms.
+  Future<void> share(Post post) async {
+    final target = post.copyWith(sharesCount: post.sharesCount + 1);
+    _replace(target);
     try {
+      await _dio.post('/posts/${post.id}/share');
+    } catch (_) {
+      _replace(post);
+    }
+  }
+
+  Future<bool> addComment(Post post, String content) async {    try {
       final response = await _dio.post('/posts/${post.id}/comments', data: {'content': content});
       final payload = response.data;
       final raw = payload is Map<String, dynamic> ? payload['comment'] : null;
@@ -367,6 +377,59 @@ class PostsNotifier extends Notifier<PostsState> {
 
 final postsProvider =
     NotifierProvider.family<PostsNotifier, PostsState, PostsSource>(PostsNotifier.new);
+
+// ─────────────────────────────────────────────────────────────────────────
+// Saved posts
+// ─────────────────────────────────────────────────────────────────────────
+
+class SavedPostsNotifier extends Notifier<PostsState> {
+  Dio get _dio => ApiClient.instance.dio;
+
+  @override
+  PostsState build() {
+    _load();
+    return const PostsState(loading: true);
+  }
+
+  Future<void> _load({bool showLoading = false}) async {
+    if (showLoading) state = state.copyWith(loading: true, clearError: true);
+    try {
+      final response = await _dio.get('/posts/saved');
+      final list = ApiClient.instance.unwrapList<Post>(response, Post.fromJson);
+      state = PostsState(posts: list);
+    } on DioException catch (e) {
+      state = state.copyWith(loading: false, error: _errorMessage(e));
+    } catch (_) {
+      state = state.copyWith(loading: false, error: 'Failed to load saved posts.');
+    }
+  }
+
+  Future<void> refresh() => _load(showLoading: true);
+
+  void remove(int postId) {
+    state = state.copyWith(
+      posts: state.posts.where((p) => p.id != postId).toList(),
+    );
+  }
+
+  /// Un-saves a post on the server and removes it from the local list.
+  Future<void> unsave(Post post) async {
+    remove(post.id);
+    try {
+      await _dio.post('/posts/${post.id}/save');
+    } catch (_) {
+      // Local removal is intentional; the server call is best-effort.
+    }
+  }
+
+  String _errorMessage(DioException e) {
+    final data = e.response?.data;
+    if (data is Map<String, dynamic>) return data['message'] as String? ?? 'Failed to load saved posts.';
+    return 'Failed to load saved posts.';
+  }
+}
+
+final savedPostsProvider = NotifierProvider<SavedPostsNotifier, PostsState>(SavedPostsNotifier.new);
 
 // ─────────────────────────────────────────────────────────────────────────
 // Community detail (by slug) + membership
@@ -591,4 +654,97 @@ class CommunityMembersNotifier extends Notifier<CommunityMembersState> {
 final communityMembersProvider =
     NotifierProvider.family<CommunityMembersNotifier, CommunityMembersState, int>(
   CommunityMembersNotifier.new,
+);
+
+// ─────────────────────────────────────────────────────────────────────────
+// Pending join requests (creator moderation)
+// ─────────────────────────────────────────────────────────────────────────
+
+class CommunityRequestsState {
+  final bool loading;
+  final String? error;
+  final List<CommunityMember> requests;
+
+  const CommunityRequestsState({
+    this.loading = false,
+    this.error,
+    this.requests = const [],
+  });
+
+  CommunityRequestsState copyWith({
+    bool? loading,
+    String? error,
+    List<CommunityMember>? requests,
+    bool clearError = false,
+  }) {
+    return CommunityRequestsState(
+      loading: loading ?? this.loading,
+      error: clearError ? null : (error ?? this.error),
+      requests: requests ?? this.requests,
+    );
+  }
+}
+
+class CommunityRequestsNotifier extends Notifier<CommunityRequestsState> {
+  CommunityRequestsNotifier(this.communityId);
+
+  final int communityId;
+
+  Dio get _dio => ApiClient.instance.dio;
+
+  @override
+  CommunityRequestsState build() {
+    _load();
+    return const CommunityRequestsState(loading: true);
+  }
+
+  Future<void> _load() async {
+    try {
+      final response = await _dio.get('/communities/$communityId/requests');
+      final payload = ApiClient.instance.unwrap(response);
+      final raw = payload is Map<String, dynamic> ? payload['requests'] : null;
+      final list = raw is List
+          ? raw.whereType<Map<String, dynamic>>().map(CommunityMember.fromJson).toList()
+          : <CommunityMember>[];
+      state = CommunityRequestsState(requests: list);
+    } on DioException catch (e) {
+      state = state.copyWith(loading: false, error: _errorMessage(e));
+    } catch (_) {
+      state = state.copyWith(loading: false, error: 'Failed to load join requests.');
+    }
+  }
+
+  Future<void> refresh() {
+    state = state.copyWith(loading: true, clearError: true);
+    return _load();
+  }
+
+  Future<void> _resolve(CommunityMember request, bool approve) async {
+    final path = approve
+        ? '/memberships/${request.id}/approve'
+        : '/memberships/${request.id}/reject';
+    try {
+      await _dio.post(path);
+      state = state.copyWith(
+        requests: state.requests.where((r) => r.id != request.id).toList(),
+      );
+    } catch (_) {
+      // Keep the request so the user can retry.
+    }
+  }
+
+  Future<void> approve(CommunityMember request) => _resolve(request, true);
+
+  Future<void> reject(CommunityMember request) => _resolve(request, false);
+
+  String _errorMessage(DioException e) {
+    final data = e.response?.data;
+    if (data is Map<String, dynamic>) return data['message'] as String? ?? 'Failed to load join requests.';
+    return 'Failed to load join requests.';
+  }
+}
+
+final communityRequestsProvider =
+    NotifierProvider.family<CommunityRequestsNotifier, CommunityRequestsState, int>(
+  CommunityRequestsNotifier.new,
 );

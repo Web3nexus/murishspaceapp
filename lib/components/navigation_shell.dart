@@ -5,6 +5,9 @@ import 'package:go_router/go_router.dart';
 import '../core/design_tokens.dart';
 import '../core/roles.dart';
 import '../providers/auth_provider.dart';
+import '../providers/community_provider.dart';
+import '../screens/community_create_dialog.dart';
+import '../screens/post_composer_sheet.dart';
 
 /// The app's main shell: a five-item bottom navigation.
 ///
@@ -27,7 +30,7 @@ class AppShell extends ConsumerWidget {
         role: role,
         onSelect: (index) {
           if (index == _BottomBar.createIndex) {
-            _openCreateSheet(context, role);
+            _openCreateSheet(context, ref, role);
             return;
           }
           navigationShell.goBranch(
@@ -40,7 +43,7 @@ class AppShell extends ConsumerWidget {
   }
 
   /// Central "Create" action. Options are role/permission aware.
-  void _openCreateSheet(BuildContext context, UserRole role) {
+  void _openCreateSheet(BuildContext context, WidgetRef ref, UserRole role) {
     final canStream = role.isSeller || role == UserRole.admin;
     final canSell = role.isSeller;
     final options = <_CreateOption>[
@@ -100,9 +103,7 @@ class AppShell extends ConsumerWidget {
                 subtitle: Text(option.subtitle, style: const TextStyle(fontSize: 12)),
                 onTap: () {
                   Navigator.of(ctx).pop();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('${option.title} — coming in a later phase')),
-                  );
+                  _onCreateOptionSelected(context, ref, option.title);
                 },
               ),
             const SizedBox(height: 12),
@@ -110,6 +111,37 @@ class AppShell extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  void _onCreateOptionSelected(BuildContext context, WidgetRef ref, String title) {
+    switch (title) {
+      case 'New post':
+        _startNewPost(context, ref);
+      case 'Create community':
+        _startCreateCommunity(context, ref);
+      default:
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$title — coming in a later phase')),
+        );
+    }
+  }
+
+  Future<void> _startNewPost(BuildContext context, WidgetRef ref) async {
+    final post = await showPostComposer(context);
+    if (post != null) {
+      ref.read(postsProvider(const PostsSource.feed('home')).notifier).prepend(post);
+    }
+  }
+
+  Future<void> _startCreateCommunity(BuildContext context, WidgetRef ref) async {
+    final community = await showCreateCommunityDialog(context);
+    if (community != null && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Community created!')),
+      );
+      ref.read(myCommunitiesProvider.notifier).upsert(community);
+      context.push('/app/community/${community.slug}');
+    }
   }
 }
 

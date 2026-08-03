@@ -14,9 +14,11 @@ import '../screens/forgot_password_screen.dart';
 import '../screens/gifts_screen.dart';
 import '../screens/kyc_screen.dart';
 import '../screens/login_screen.dart';
+import '../screens/notifications_screen.dart';
 import '../screens/onboarding_screen.dart';
 import '../screens/profile_screen.dart';
 import '../screens/register_screen.dart';
+import '../screens/saved_posts_screen.dart';
 import '../screens/splash_screen.dart';
 import '../screens/wallet_screen.dart';
 import '../screens/you_screen.dart';
@@ -96,6 +98,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (_, state) => CommunityDetailScreen(
           slug: state.pathParameters['slug']!,
         ),
+      ),
+      GoRoute(
+        path: '/app/notifications',
+        builder: (_, _) => const NotificationsScreen(),
+      ),
+      GoRoute(
+        path: '/app/saved',
+        builder: (_, _) => const SavedPostsScreen(),
       ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) => AppShell(

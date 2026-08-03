@@ -86,6 +86,18 @@ class YouScreen extends ConsumerWidget {
           const SizedBox(height: 20),
           _SectionLabel('Account'),
           _EntryTile(
+            icon: Icons.notifications_outlined,
+            title: 'Notifications',
+            subtitle: 'Message alerts and activity',
+            onTap: () => context.push('/app/notifications'),
+          ),
+          _EntryTile(
+            icon: Icons.bookmark_outline,
+            title: 'Saved Posts',
+            subtitle: 'Posts you have bookmarked',
+            onTap: () => context.push('/app/saved'),
+          ),
+          _EntryTile(
             icon: Icons.account_balance_wallet_outlined,
             title: 'Wallet',
             subtitle: 'Coins, transfers, escrow',

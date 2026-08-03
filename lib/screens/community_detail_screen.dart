@@ -25,12 +25,25 @@ class CommunityDetailScreen extends ConsumerStatefulWidget {
 
 class _CommunityDetailScreenState extends ConsumerState<CommunityDetailScreen>
     with SingleTickerProviderStateMixin {
-  late final TabController _tabController = TabController(length: 3, vsync: this);
+  late TabController _tabController;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 3, vsync: this);
+  }
 
   @override
   void dispose() {
     _tabController.dispose();
     super.dispose();
+  }
+
+  void _syncTabCount(int length) {
+    if (_tabController.length == length) return;
+    final index = _tabController.index.clamp(0, length - 1);
+    _tabController.dispose();
+    _tabController = TabController(length: length, vsync: this, initialIndex: index);
   }
 
   Future<void> _openChat(int communityId) async {
@@ -52,6 +65,8 @@ class _CommunityDetailScreenState extends ConsumerState<CommunityDetailScreen>
     final detail = ref.watch(communityDetailProvider(widget.slug));
     final community = detail.community;
     final membership = detail.membership;
+    final myId = ref.watch(authProvider).user?.id;
+    final isCreator = community?.creator?.id == myId;
 
     return Scaffold(
       appBar: AppBar(title: Text(community?.name ?? 'Community')),
@@ -60,19 +75,19 @@ class _CommunityDetailScreenState extends ConsumerState<CommunityDetailScreen>
           const LoadingStateWidget(message: 'Loading community…'),
         _ when detail.error != null && community == null =>
           ErrorStateWidget(title: 'Could not load community', description: detail.error!, onRetry: () => ref.read(communityDetailProvider(widget.slug).notifier).refresh()),
-        _ => _buildContent(community!, membership),
+        _ => _buildContent(community!, membership, isCreator),
       },
     );
   }
 
-  Widget _buildContent(Community community, MembershipStatus? membership) {
+  Widget _buildContent(Community community, MembershipStatus? membership, bool isCreator) {
     final isMember = membership?.isMember ?? false;
+    final tabCount = isCreator ? 4 : 3;
+    _syncTabCount(tabCount);
 
-    return DefaultTabController(
-      length: 3,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
           _CommunityHeader(
             community: community,
             membership: membership,
@@ -86,10 +101,11 @@ class _CommunityDetailScreenState extends ConsumerState<CommunityDetailScreen>
               labelColor: DesignTokens.primaryDark,
               unselectedLabelColor: DesignTokens.textSecondary,
               indicatorColor: DesignTokens.primary,
-              tabs: const [
-                Tab(text: 'Feed'),
-                Tab(text: 'Chats'),
-                Tab(text: 'Members'),
+              tabs: [
+                const Tab(text: 'Feed'),
+                const Tab(text: 'Chats'),
+                const Tab(text: 'Members'),
+                if (isCreator) const Tab(text: 'Requests'),
               ],
             ),
           ),
@@ -108,11 +124,11 @@ class _CommunityDetailScreenState extends ConsumerState<CommunityDetailScreen>
                   onOpenChat: () => _openChat(community.id),
                 ),
                 _MembersTab(communityId: community.id),
+                if (isCreator) _RequestsTab(communityId: community.id),
               ],
             ),
           ),
-        ],
-      ),
+      ],
     );
   }
 
@@ -351,10 +367,13 @@ class _FeedTab extends ConsumerWidget {
             myId: myId ?? 0,
             onAddComment: (content) => notifier.addComment(post, content),
           ),
-          onShare: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Sharing is not available yet.')),
-            );
+          onShare: () async {
+            await notifier.share(post);
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Post shared.')),
+              );
+            }
           },
           onReport: () async {
             final reason = await showPostReportDialog(context, post: post);
@@ -455,6 +474,78 @@ class _MembersTab extends ConsumerWidget {
               : null,
         );
       },
+    );
+  }
+}
+
+class _RequestsTab extends ConsumerWidget {
+  final int communityId;
+
+  const _RequestsTab({required this.communityId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(communityRequestsProvider(communityId));
+    final notifier = ref.read(communityRequestsProvider(communityId).notifier);
+
+    if (state.loading && state.requests.isEmpty) {
+      return const LoadingStateWidget(message: 'Loading requests…');
+    }
+    if (state.error != null && state.requests.isEmpty) {
+      return ErrorStateWidget(
+        title: 'Could not load requests',
+        description: state.error!,
+        onRetry: () => notifier.refresh(),
+      );
+    }
+    if (state.requests.isEmpty) {
+      return const EmptyStateWidget(
+        icon: Icons.pending_actions_outlined,
+        title: 'No pending requests',
+        description: 'Join requests from users will appear here for approval.',
+      );
+    }
+    return RefreshIndicator(
+      onRefresh: () => notifier.refresh(),
+      child: ListView.separated(
+        physics: const AlwaysScrollableScrollPhysics(),
+        itemCount: state.requests.length,
+        separatorBuilder: (_, _) => const Divider(height: 1, indent: 72),
+        itemBuilder: (_, i) {
+          final request = state.requests[i];
+          final user = request.user;
+          final avatarUrl = user?.avatarUrl;
+          return ListTile(
+            leading: CircleAvatar(
+              backgroundColor: DesignTokens.primarySoft,
+              backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty ? NetworkImage(avatarUrl) : null,
+              child: avatarUrl == null || avatarUrl.isEmpty
+                  ? Text(
+                      (user?.name ?? '?').isEmpty ? '?' : (user!.name).substring(0, 1).toUpperCase(),
+                      style: const TextStyle(color: DesignTokens.primaryDark, fontWeight: FontWeight.w700),
+                    )
+                  : null,
+            ),
+            title: Text(user?.name ?? 'MurihSpace user'),
+            subtitle: const Text('Wants to join'),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  onPressed: () => notifier.approve(request),
+                  icon: const Icon(Icons.check_circle_outline, color: DesignTokens.primary),
+                  tooltip: 'Approve',
+                ),
+                IconButton(
+                  onPressed: () => notifier.reject(request),
+                  icon: const Icon(Icons.cancel_outlined, color: DesignTokens.danger),
+                  tooltip: 'Reject',
+                ),
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 }

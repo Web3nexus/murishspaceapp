@@ -123,10 +123,13 @@ class _FeedList extends ConsumerWidget {
             myId: myId,
             onAddComment: (content) => notifier.addComment(post, content),
           ),
-          onShare: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Sharing is not available yet.')),
-            );
+          onShare: () async {
+            await notifier.share(post);
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Post shared.')),
+              );
+            }
           },
           onReport: () async {
             final reason = await showPostReportDialog(context, post: post);
