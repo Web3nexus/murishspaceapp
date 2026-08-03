@@ -6,6 +6,7 @@ import '../components/navigation_shell.dart';
 import '../providers/auth_provider.dart';
 import '../screens/chats_screen.dart';
 import '../screens/communities_screen.dart';
+import '../screens/community_detail_screen.dart';
 import '../screens/conversation_screen.dart';
 import '../screens/create_screen.dart';
 import '../screens/discover_screen.dart';
@@ -88,6 +89,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/app/conversation/:id',
         builder: (_, state) => ConversationScreen(
           conversationId: int.parse(state.pathParameters['id']!),
+        ),
+      ),
+      GoRoute(
+        path: '/app/community/:slug',
+        builder: (_, state) => CommunityDetailScreen(
+          slug: state.pathParameters['slug']!,
         ),
       ),
       StatefulShellRoute.indexedStack(

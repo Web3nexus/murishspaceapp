@@ -1,20 +1,145 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../components/ui_states.dart';
+import '../core/design_tokens.dart';
+import '../providers/auth_provider.dart';
+import '../providers/community_provider.dart';
+import 'post_card.dart';
+import 'post_comments_sheet.dart';
+import 'post_composer_sheet.dart';
+import 'post_report_dialog.dart';
 
-/// Discover tab (Phase 2). Empty state for now.
-class DiscoverScreen extends StatelessWidget {
+/// Discover tab — ranked feed (For You / Following) with post engagement.
+class DiscoverScreen extends ConsumerStatefulWidget {
   const DiscoverScreen({super.key});
+
+  @override
+  ConsumerState<DiscoverScreen> createState() => _DiscoverScreenState();
+}
+
+class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tab = TabController(length: 2, vsync: this);
+
+  @override
+  void dispose() {
+    _tab.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Discover')),
-      body: const EmptyStateWidget(
-        icon: Icons.explore_outlined,
-        title: 'Explore MurihSpace',
-        description: 'Find people, creators, communities, products and events.',
+      appBar: AppBar(
+        title: const Text('Discover', style: TextStyle(fontWeight: FontWeight.w700)),
+        bottom: TabBar(
+          controller: _tab,
+          labelColor: DesignTokens.primaryDark,
+          unselectedLabelColor: DesignTokens.textSecondary,
+          indicatorColor: DesignTokens.primary,
+          tabs: const [Tab(text: 'For You'), Tab(text: 'Following')],
+        ),
       ),
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: DesignTokens.primary,
+        foregroundColor: Colors.white,
+        onPressed: () => _compose(),
+        child: const Icon(Icons.edit_outlined),
+      ),
+      body: TabBarView(
+        controller: _tab,
+        children: const [
+          _FeedList(feedType: 'home'),
+          _FeedList(feedType: 'following'),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _compose() async {
+    final post = await showPostComposer(context);
+    if (post != null) {
+      ref.read(postsProvider(const PostsSource.feed('home')).notifier).prepend(post);
+    }
+  }
+}
+
+class _FeedList extends ConsumerWidget {
+  final String feedType;
+
+  const _FeedList({required this.feedType});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final source = PostsSource.feed(feedType);
+    final state = ref.watch(postsProvider(source));
+    final myId = ref.watch(authProvider).user?.id ?? 0;
+    final notifier = ref.read(postsProvider(source).notifier);
+
+    return RefreshIndicator(
+      onRefresh: () => notifier.refresh(),
+      child: _body(context, state, myId, notifier),
+    );
+  }
+
+  Widget _body(BuildContext context, PostsState state, int myId, PostsNotifier notifier) {
+    if (state.loading && state.posts.isEmpty) {
+      return const LoadingStateWidget(message: 'Loading feed…');
+    }
+    if (state.error != null && state.posts.isEmpty) {
+      return ErrorStateWidget(title: 'Could not load feed', description: state.error!, onRetry: () => notifier.refresh());
+    }
+    if (state.posts.isEmpty) {
+      return const EmptyStateWidget(
+        icon: Icons.explore_outlined,
+        title: 'Nothing here yet',
+        description: 'Follow people and join communities to build your feed.',
+      );
+    }
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      itemCount: state.posts.length + (state.hasMore ? 1 : 0),
+      itemBuilder: (_, i) {
+        if (i >= state.posts.length) {
+          return Padding(
+            padding: const EdgeInsets.all(12),
+            child: Center(
+              child: state.loadingMore
+                  ? const CircularProgressIndicator(strokeWidth: 2)
+                  : TextButton(onPressed: () => notifier.loadMore(), child: const Text('Load more')),
+            ),
+          );
+        }
+        final post = state.posts[i];
+        return PostCard(
+          post: post,
+          myId: myId,
+          onLike: () => notifier.toggleLike(post, myId: myId),
+          onSave: () => notifier.toggleSave(post),
+          onCommentTap: () => showPostComments(
+            context,
+            post: post,
+            myId: myId,
+            onAddComment: (content) => notifier.addComment(post, content),
+          ),
+          onShare: () {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Sharing is not available yet.')),
+            );
+          },
+          onReport: () async {
+            final reason = await showPostReportDialog(context, post: post);
+            if (reason == null) return;
+            final ok = await notifier.report(post, reason);
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(ok ? 'Post reported. Thanks!' : 'Could not report this post.')),
+              );
+            }
+          },
+        );
+      },
     );
   }
 }
