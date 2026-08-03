@@ -91,6 +91,39 @@ void main() {
       );
       expect(container.read(conversationsProvider).conversations.first.unreadCount, 0);
     });
+
+    test('applyMessage and markRead preserve archive/mute metadata', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final notifier = container.read(conversationsProvider.notifier);
+
+      notifier.upsert(const Conversation(
+        id: 12,
+        type: 'community',
+        title: 'Murih Society',
+        isArchived: true,
+        isMuted: true,
+        memberCount: 7,
+        unreadCount: 3,
+      ));
+
+      notifier.applyMessage(
+        Message(id: 9, conversationId: 12, userId: 9, content: 'hi', type: 'text', status: 'sent'),
+        currentUserId: 5,
+      );
+      var conv = container.read(conversationsProvider).conversations.first;
+      expect(conv.unreadCount, 4);
+      expect(conv.isArchived, true);
+      expect(conv.isMuted, true);
+      expect(conv.memberCount, 7);
+
+      notifier.markRead(12, 5);
+      conv = container.read(conversationsProvider).conversations.first;
+      expect(conv.unreadCount, 0);
+      expect(conv.isArchived, true);
+      expect(conv.isMuted, true);
+      expect(conv.memberCount, 7);
+    });
   });
 }
 

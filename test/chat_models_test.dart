@@ -73,6 +73,11 @@ void main() {
       final voice = Message.fromJson({'id': 3, 'attachment_type': 'voice'});
       expect(voice.isVoice, true);
     });
+
+    test('parses read receipt flag', () {
+      expect(Message.fromJson({'id': 1, 'read': true}).read, true);
+      expect(Message.fromJson({'id': 2}).read, false);
+    });
   });
 
   group('Conversation', () {
@@ -92,6 +97,39 @@ void main() {
       expect(conversation.latestMessage?.content, 'hi');
       expect(conversation.unreadCount, 3);
       expect(conversation.updatedAt, isNotNull);
+    });
+
+    test('parses community chat metadata', () {
+      final conversation = Conversation.fromJson({
+        'id': 12,
+        'type': 'community',
+        'title': 'Murih Society',
+        'community': {'id': 4, 'name': 'Murih Society', 'slug': 'murih'},
+        'is_archived': true,
+        'is_muted': true,
+        'member_count': 42,
+      });
+      expect(conversation.type, 'community');
+      expect(conversation.community?.name, 'Murih Society');
+      expect(conversation.isArchived, true);
+      expect(conversation.isMuted, true);
+      expect(conversation.memberCount, 42);
+      expect(conversation.avatarUrl, isNull);
+    });
+
+    test('copyWith preserves metadata fields', () {
+      final conversation = Conversation(
+        id: 12,
+        type: 'community',
+        title: 'Murih Society',
+        isArchived: false,
+        isMuted: true,
+        memberCount: 7,
+      );
+      final archived = conversation.copyWith(isArchived: true, unreadCount: 0);
+      expect(archived.isArchived, true);
+      expect(archived.isMuted, true);
+      expect(archived.memberCount, 7);
     });
 
     test('initials from title', () {

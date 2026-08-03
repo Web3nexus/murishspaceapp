@@ -9,6 +9,7 @@ import '../utils/format.dart';
 class MessageBubble extends StatelessWidget {
   final Message message;
   final int? myId;
+  final bool showSenderName;
   final ValueChanged<String> onReact;
   final VoidCallback onReply;
   final ValueChanged<bool> onDelete;
@@ -19,6 +20,7 @@ class MessageBubble extends StatelessWidget {
     super.key,
     required this.message,
     required this.myId,
+    this.showSenderName = true,
     required this.onReact,
     required this.onReply,
     required this.onDelete,
@@ -33,7 +35,7 @@ class MessageBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final mine = _mine;
-    final showName = !mine && message.user?.name != null && message.user!.name.isNotEmpty;
+    final showName = !mine && showSenderName && message.user?.name != null && message.user!.name.isNotEmpty;
 
     return Align(
       alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
@@ -351,6 +353,8 @@ class _MetaRow extends StatelessWidget {
               const Icon(Icons.schedule, size: 12, color: Colors.white70)
             else if (message.status == 'failed')
               Icon(Icons.error_outline, size: 13, color: mine ? const Color(0xFFFFB4B4) : Theme.of(context).colorScheme.error)
+            else if (message.read)
+              const Icon(Icons.done_all, size: 13, color: Color(0xFF9BE0FF))
             else
               const Icon(Icons.done, size: 13, color: Colors.white70),
           ],

@@ -120,6 +120,24 @@ void main() {
     final field = tester.widget<TextField>(find.byType(TextField));
     expect(field.controller!.text, isEmpty);
   });
+
+  testWidgets('community chat shows sender names and member count', (tester) async {
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        authProvider.overrideWith(() => _AuthNotifier(_signedInUser)),
+        conversationsProvider.overrideWith(_GroupConversationsNotifier.new),
+        conversationMessagesProvider(50).overrideWith(_GroupMessagesNotifier.new),
+        realtimeProvider.overrideWith(_StubRealtime.new),
+      ],
+      child: const MaterialApp(home: ConversationScreen(conversationId: 50)),
+    ));
+    await tester.pump();
+
+    expect(find.text('Murih Society'), findsOneWidget);
+    expect(find.text('Community · 42 members'), findsOneWidget);
+    // Sender name shown for the other member's message in a group.
+    expect(find.text('Ann'), findsWidgets);
+  });
 }
 
 class _AuthNotifier extends AuthNotifier {
@@ -131,4 +149,46 @@ class _AuthNotifier extends AuthNotifier {
   AuthState build() {
     return AuthState(user: profile, token: 'test-token');
   }
+}
+
+class _GroupConversationsNotifier extends ConversationsNotifier {
+  @override
+  ConversationsState build() {
+    return const ConversationsState(
+      conversations: [
+        Conversation(
+          id: 50,
+          type: 'community',
+          title: 'Murih Society',
+          community: CommunityRef(id: 4, name: 'Murih Society', slug: 'murih'),
+          memberCount: 42,
+        ),
+      ],
+    );
+  }
+}
+
+class _GroupMessagesNotifier extends ConversationMessagesNotifier {
+  _GroupMessagesNotifier() : super(50);
+
+  @override
+  ConversationMessagesState build() {
+    return const ConversationMessagesState(
+      loading: false,
+      messages: [
+        Message(
+          id: 10,
+          conversationId: 50,
+          userId: 9,
+          content: 'Welcome everyone',
+          type: 'text',
+          status: 'sent',
+          user: ChatUser(id: 9, name: 'Ann', username: 'ann'),
+        ),
+      ],
+    );
+  }
+
+  @override
+  Future<void> sendTyping(bool isTyping) async {}
 }

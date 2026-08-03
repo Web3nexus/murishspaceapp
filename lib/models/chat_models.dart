@@ -94,6 +94,7 @@ class Message {
   final ChatUser? user;
   final List<ReactionSummary> reactions;
   final bool deleted;
+  final bool read;
 
   const Message({
     required this.id,
@@ -113,6 +114,7 @@ class Message {
     this.user,
     this.reactions = const [],
     this.deleted = false,
+    this.read = false,
   });
 
   bool get hasAttachment =>
@@ -126,6 +128,7 @@ class Message {
     String? content,
     List<ReactionSummary>? reactions,
     bool? deleted,
+    bool? read,
   }) {
     return Message(
       id: id,
@@ -145,6 +148,7 @@ class Message {
       user: user,
       reactions: reactions ?? this.reactions,
       deleted: deleted ?? this.deleted,
+      read: read ?? this.read,
     );
   }
 
@@ -173,6 +177,7 @@ class Message {
       user: ChatUser.fromJson(json['user']),
       reactions: _reactionsFrom(json['reactions']),
       deleted: json['deleted'] as bool? ?? false,
+      read: json['read'] as bool? ?? false,
     );
   }
 
@@ -203,6 +208,9 @@ class Conversation {
   final Message? latestMessage;
   final int unreadCount;
   final DateTime? updatedAt;
+  final bool isArchived;
+  final bool isMuted;
+  final int? memberCount;
 
   const Conversation({
     required this.id,
@@ -213,6 +221,9 @@ class Conversation {
     this.latestMessage,
     this.unreadCount = 0,
     this.updatedAt,
+    this.isArchived = false,
+    this.isMuted = false,
+    this.memberCount,
   });
 
   String? get avatarUrl => otherUser?.avatarUrl ?? community?.logoUrl;
@@ -221,6 +232,28 @@ class Conversation {
     if (parts.isEmpty) return '?';
     if (parts.length == 1) return parts.first.substring(0, 1).toUpperCase();
     return (parts.first.substring(0, 1) + parts.last.substring(0, 1)).toUpperCase();
+  }
+
+  Conversation copyWith({
+    Message? latestMessage,
+    int? unreadCount,
+    DateTime? updatedAt,
+    bool? isArchived,
+    bool? isMuted,
+  }) {
+    return Conversation(
+      id: id,
+      type: type,
+      title: title,
+      community: community,
+      otherUser: otherUser,
+      latestMessage: latestMessage ?? this.latestMessage,
+      unreadCount: unreadCount ?? this.unreadCount,
+      updatedAt: updatedAt ?? this.updatedAt,
+      isArchived: isArchived ?? this.isArchived,
+      isMuted: isMuted ?? this.isMuted,
+      memberCount: memberCount,
+    );
   }
 
   factory Conversation.fromJson(dynamic json) {
@@ -236,6 +269,9 @@ class Conversation {
       latestMessage: Message.fromJson(json['latest_message']),
       unreadCount: (json['unread_count'] as num?)?.toInt() ?? 0,
       updatedAt: DateTime.tryParse(json['updated_at'] as String? ?? ''),
+      isArchived: json['is_archived'] as bool? ?? false,
+      isMuted: json['is_muted'] as bool? ?? false,
+      memberCount: (json['member_count'] as num?)?.toInt(),
     );
   }
 }

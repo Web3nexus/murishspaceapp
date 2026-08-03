@@ -197,6 +197,12 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
     final typer = typing.values.isNotEmpty ? typing.values.first : null;
     final showTopLoader = state.hasMore;
     final itemCount = messages.length + (typer != null ? 1 : 0) + (showTopLoader ? 1 : 0);
+    final conversation = ref
+        .read(conversationsProvider)
+        .conversations
+        .where((c) => c.id == widget.conversationId)
+        .firstOrNull;
+    final isGroup = conversation?.type == 'community';
 
     return ListView.builder(
       controller: _scroll,
@@ -215,6 +221,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
         return MessageBubble(
           message: messages[i],
           myId: ref.watch(authProvider).user?.id,
+          showSenderName: isGroup,
           onReact: (emoji) => _toggleReaction(messages[i], emoji),
           onReply: () => setState(() => _replyTo = messages[i]),
           onDelete: (forEveryone) => _deleteMessage(messages[i], forEveryone),
@@ -291,6 +298,15 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
   }
 
   void _openChatMenu() {
+    final notifier = ref.read(conversationsProvider.notifier);
+    final conversation = ref
+        .read(conversationsProvider)
+        .conversations
+        .where((c) => c.id == widget.conversationId)
+        .firstOrNull;
+    final isMuted = conversation?.isMuted ?? false;
+    final isArchived = conversation?.isArchived ?? false;
+
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.white,
@@ -299,14 +315,20 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: const Icon(Icons.notifications_off_outlined),
-              title: const Text('Mute notifications'),
-              onTap: () => Navigator.pop(context),
+              leading: Icon(isMuted ? Icons.volume_up_outlined : Icons.notifications_off_outlined),
+              title: Text(isMuted ? 'Unmute notifications' : 'Mute notifications'),
+              onTap: () {
+                Navigator.pop(context);
+                notifier.setSettings(widget.conversationId, muted: !isMuted);
+              },
             ),
             ListTile(
-              leading: const Icon(Icons.delete_outline),
-              title: const Text('Delete conversation'),
-              onTap: () => Navigator.pop(context),
+              leading: Icon(isArchived ? Icons.unarchive_outlined : Icons.archive_outlined),
+              title: Text(isArchived ? 'Unarchive chat' : 'Archive chat'),
+              onTap: () {
+                Navigator.pop(context);
+                notifier.setSettings(widget.conversationId, archived: !isArchived);
+              },
             ),
             const SizedBox(height: 8),
           ],
@@ -333,6 +355,8 @@ class _ConversationTitle extends ConsumerWidget {
     }
     final title = conversation?.title ?? 'Chat';
     final avatar = conversation?.avatarUrl;
+    final isCommunity = conversation?.type == 'community';
+    final memberCount = conversation?.memberCount;
 
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -350,7 +374,22 @@ class _ConversationTitle extends ConsumerWidget {
         ),
         const SizedBox(width: 10),
         Flexible(
-          child: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
+              if (isCommunity) ...[
+                const SizedBox(height: 1),
+                Text(
+                  memberCount == null ? 'Community' : 'Community · $memberCount members',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 11, color: DesignTokens.textSecondary),
+                ),
+              ],
+            ],
+          ),
         ),
       ],
     );
