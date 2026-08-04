@@ -19,9 +19,13 @@ import '../screens/onboarding_screen.dart';
 import '../screens/profile_screen.dart';
 import '../screens/register_screen.dart';
 import '../screens/saved_posts_screen.dart';
+import '../screens/social_accounts_screen.dart';
 import '../screens/splash_screen.dart';
+import '../screens/upgrade_account_screen.dart';
+import '../screens/verification_badge_screen.dart';
 import '../screens/wallet_screen.dart';
 import '../screens/you_screen.dart';
+import '../core/roles.dart';
 
 /// Notifies the router whenever auth state changes so redirects re-evaluate.
 final _routerRefresh = _RouterRefresh();
@@ -45,8 +49,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
       final isAuthEntry = path == '/onboarding' || path.startsWith('/auth/');
       if (loggedIn && (isAuthEntry || path == '/splash')) return '/app/chats';
-      if (!loggedIn && (path.startsWith('/app') || path == '/wallet' || path == '/gifts' || path == '/profile' || path == '/kyc')) {
+      if (!loggedIn && (path.startsWith('/app') || path == '/wallet' || path == '/gifts' || path == '/profile' || path == '/kyc' || path == '/social-accounts')) {
         return '/auth/login';
+      }
+      if (loggedIn && path == '/social-accounts') {
+        final role = auth.user?.role ?? UserRole.member;
+        if (!Permissions.roleHas(role, 'ai_onboarding.access')) {
+          return '/app/chats';
+        }
       }
       return null;
     },
@@ -86,6 +96,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/kyc',
         builder: (_, _) => const KycScreen(),
+      ),
+      GoRoute(
+        path: '/upgrade-account',
+        builder: (_, _) => const UpgradeAccountScreen(),
+      ),
+      GoRoute(
+        path: '/verification-badge',
+        builder: (_, _) => const VerificationBadgeScreen(),
+      ),
+      GoRoute(
+        path: '/social-accounts',
+        builder: (_, _) => const SocialAccountsScreen(),
       ),
       GoRoute(
         path: '/app/conversation/:id',

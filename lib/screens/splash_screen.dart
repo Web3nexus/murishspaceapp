@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../components/brand.dart';
 import '../core/design_tokens.dart';
 import '../providers/auth_provider.dart';
 
@@ -30,9 +31,10 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
       duration: const Duration(milliseconds: 1100),
     );
     _fade = CurvedAnimation(parent: _controller, curve: Curves.easeOut);
-    _slide = Tween<Offset>(begin: const Offset(0, 0.35), end: Offset.zero)
-        .chain(CurveTween(curve: Curves.easeOutBack))
-        .animate(_controller);
+    _slide = Tween<Offset>(
+      begin: const Offset(0, 0.35),
+      end: Offset.zero,
+    ).chain(CurveTween(curve: Curves.easeOutBack)).animate(_controller);
     _controller.forward();
 
     _timer = Timer(const Duration(milliseconds: 1600), _maybeRoute);
@@ -57,64 +59,48 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final auth = ref.watch(authProvider);
+    
     return Scaffold(
-      body: DecoratedBox(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Colors.white, DesignTokens.primarySoft],
-          ),
-        ),
-        child: Center(
-          child: FadeTransition(
-            opacity: _fade,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 96,
-                  height: 96,
-                  decoration: BoxDecoration(
-                    color: DesignTokens.primary,
-                    borderRadius: BorderRadius.circular(24),
-                    boxShadow: [
-                      BoxShadow(
-                        color: DesignTokens.primary.withValues(alpha: 0.35),
-                        blurRadius: 28,
-                        offset: const Offset(0, 10),
+      backgroundColor: isDark ? const Color(0xFF081826) : Colors.white,
+      body: Center(
+        child: FadeTransition(
+          opacity: _fade,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              BrandIcon(size: 96, role: auth.role),
+              const SizedBox(height: 24),
+              SlideTransition(
+                position: _slide,
+                child: Column(
+                  children: [
+                    Text(
+                      'MurihSpace',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        color: isDark
+                            ? const Color(0xFFEAF2F9)
+                            : DesignTokens.navy,
+                        fontSize: 30,
+                        letterSpacing: -0.5,
                       ),
-                    ],
-                  ),
-                  child: const Icon(Icons.forum, color: Colors.white, size: 52),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Connect. Create. Sell. Belong.',
+                      style: TextStyle(
+                        color: isDark
+                            ? Colors.white60
+                            : DesignTokens.textSecondary,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 24),
-                SlideTransition(
-                  position: _slide,
-                  child: Column(
-                    children: [
-                      Text(
-                        'MurihSpace',
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              color: DesignTokens.navy,
-                              fontSize: 30,
-                              letterSpacing: -0.5,
-                            ),
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'Connect. Create. Sell. Belong.',
-                        style: TextStyle(
-                          color: DesignTokens.textSecondary,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),

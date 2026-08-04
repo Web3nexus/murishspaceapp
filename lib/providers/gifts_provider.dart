@@ -166,8 +166,20 @@ class GiftsNotifier extends Notifier<GiftsState> {
       final gifts = api.unwrapList<GiftItem>(results[0], GiftItem.fromJson);
       final packs = api.unwrapList<CoinPack>(results[1], CoinPack.fromJson);
       final txnList = api.unwrapList<GiftTransaction>(results[2], GiftTransaction.fromJson);
-      final walletPayload = api.unwrap(results[3]) as Map<String, dynamic>?;
-      final walletInfo = walletPayload != null ? WalletInfo.fromJson(walletPayload) : null;
+
+      // Sprint 9: GET /wallet now returns a LIST of multi-type wallets.
+      // Coin balance lives on the system wallet's available balance.
+      final wallets = api.unwrapList<dynamic>(results[3], (json) => json);
+      WalletInfo? walletInfo;
+      for (final raw in wallets) {
+        if (raw is Map<String, dynamic> && raw['wallet_type'] == 'system') {
+          walletInfo = WalletInfo(
+            balance: (raw['available'] as num?)?.toInt() ?? 0,
+            currency: raw['currency'] as String? ?? 'NGN',
+          );
+          break;
+        }
+      }
 
       state = GiftsState(
         loading: false,
@@ -192,13 +204,10 @@ class GiftsNotifier extends Notifier<GiftsState> {
         '/coins/purchase',
         data: {'coin_pack_id': pack.id, 'reference': ApiClient.generateIdempotencyKey()},
       );
-      final wallet = ApiClient.instance.unwrap(response) as Map<String, dynamic>?;
-      if (wallet != null) {
-        state = state.copyWith(wallet: WalletInfo.fromJson(wallet), clearError: true);
-      } else {
-        await loadAll();
-      }
-      return true;
+      // The purchase response returns a CoinPurchase record, not a wallet.
+      // Reload the full wallet/gifts state so balances are server-sourced.
+      await loadAll();
+      return response.statusCode == 201;
     } on DioException catch (e) {
       state = state.copyWith(error: _dioError(e));
       return false;
@@ -213,6 +222,7 @@ class GiftsNotifier extends Notifier<GiftsState> {
     required int recipientId,
     String? message,
     bool isAnonymous = false,
+    String walletType = 'system',
   }) async {
     try {
       await _dio.post(
@@ -220,9 +230,8 @@ class GiftsNotifier extends Notifier<GiftsState> {
         data: {
           'gift_id': giftId,
           'recipient_id': recipientId,
-          'giftable_type': 'App\\Models\\User',
-          'giftable_id': recipientId,
           'is_anonymous': isAnonymous,
+          'wallet_type': walletType,
           if (message != null && message.isNotEmpty) 'message': message,
           'idempotency_key': ApiClient.generateIdempotencyKey(),
         },

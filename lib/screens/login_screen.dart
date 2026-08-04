@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../components/brand.dart';
 import '../core/design_tokens.dart';
 import '../providers/auth_provider.dart';
 
@@ -26,14 +27,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   Future<void> _submit() async {
     if (_formKey.currentState?.validate() ?? false) {
-      final success = await ref.read(authProvider.notifier).login(
-            _emailController.text.trim(),
-            _passwordController.text,
-          );
+      final success = await ref
+          .read(authProvider.notifier)
+          .login(_emailController.text.trim(), _passwordController.text);
       if (success && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Login successful!')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Login successful!')));
         // The router redirects to /app/chats once the session is set.
       }
     }
@@ -54,16 +54,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Container(
-                    width: 72,
-                    height: 72,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: DesignTokens.primary,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: const Icon(Icons.forum, color: Colors.white, size: 38),
-                  ),
+                  const BrandLogo(height: 34),
                   const SizedBox(height: 20),
                   const Text(
                     'Welcome back',
@@ -104,7 +95,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ),
                     keyboardType: TextInputType.emailAddress,
                     validator: (val) {
-                      if (val == null || val.isEmpty) return 'Email is required';
+                      if (val == null || val.isEmpty)
+                        return 'Email is required';
                       if (!val.contains('@')) return 'Enter a valid email';
                       return null;
                     },
@@ -118,7 +110,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ),
                     obscureText: true,
                     validator: (val) {
-                      if (val == null || val.isEmpty) return 'Password is required';
+                      if (val == null || val.isEmpty)
+                        return 'Password is required';
                       return null;
                     },
                   ),

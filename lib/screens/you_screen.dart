@@ -14,6 +14,7 @@ class YouScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final auth = ref.watch(authProvider);
     final user = auth.user;
+    final role = user?.role ?? UserRole.member;
 
     return Scaffold(
       appBar: AppBar(title: const Text('You')),
@@ -121,6 +122,26 @@ class YouScreen extends ConsumerWidget {
             subtitle: 'Identity and badge status',
             onTap: () => context.push('/kyc'),
           ),
+          _EntryTile(
+            icon: Icons.workspace_premium_outlined,
+            title: 'Verification Badge',
+            subtitle: 'Paid verified badge status',
+            onTap: () => context.push('/verification-badge'),
+          ),
+          if (Permissions.roleHas(role, 'role.upgrade.apply'))
+            _EntryTile(
+              icon: Icons.upgrade_outlined,
+              title: 'Upgrade Account',
+              subtitle: 'Apply as creator or vendor',
+              onTap: () => context.push('/upgrade-account'),
+            ),
+          if (Permissions.roleHas(role, 'ai_onboarding.access'))
+            _EntryTile(
+              icon: Icons.alternate_email_outlined,
+              title: 'Social Accounts',
+              subtitle: 'Combined followers and connections',
+              onTap: () => context.push('/social-accounts'),
+            ),
           _EntryTile(
             icon: Icons.settings_outlined,
             title: 'Settings',

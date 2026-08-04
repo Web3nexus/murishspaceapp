@@ -44,17 +44,15 @@ class AppShell extends ConsumerWidget {
 
   /// Central "Create" action. Options are role/permission aware.
   void _openCreateSheet(BuildContext context, WidgetRef ref, UserRole role) {
-    final canStream = role.isSeller || role == UserRole.admin;
-    final canSell = role.isSeller;
     final options = <_CreateOption>[
       _CreateOption(Icons.article_outlined, 'New post', 'Share a post to the feed', const Color(0xFF38A8D8)),
       _CreateOption(Icons.photo_camera_outlined, 'New story', 'Share a disappearing story', const Color(0xFF8B5CF6)),
-      if (canStream) _CreateOption(Icons.radio, 'Go live', 'Stream to your audience', const Color(0xFFDC4C64)),
-      if (canStream) _CreateOption(Icons.record_voice_over_outlined, 'Start audio room', 'Host a live conversation', const Color(0xFF22A06B)),
-      _CreateOption(Icons.group_add_outlined, 'Create community', 'Build a space to belong', const Color(0xFF237DA7)),
-      if (canStream) _CreateOption(Icons.campaign_outlined, 'Create channel', 'Broadcast to followers', const Color(0xFFF59E0B)),
-      if (canSell) _CreateOption(Icons.sell_outlined, 'Add product', 'List something to sell', const Color(0xFFDC4C64)),
-      _CreateOption(Icons.event_outlined, 'Create event', 'Plan a meetup or event', const Color(0xFF22A06B)),
+      if (Permissions.roleHas(role, 'live.host')) _CreateOption(Icons.radio, 'Go live', 'Stream to your audience', const Color(0xFFDC4C64)),
+      if (Permissions.roleHas(role, 'live.host')) _CreateOption(Icons.record_voice_over_outlined, 'Start audio room', 'Host a live conversation', const Color(0xFF22A06B)),
+      if (Permissions.roleHas(role, 'community.create')) _CreateOption(Icons.group_add_outlined, 'Create community', 'Build a space to belong', const Color(0xFF237DA7)),
+      if (Permissions.roleHas(role, 'community.create')) _CreateOption(Icons.campaign_outlined, 'Create channel', 'Broadcast to followers', const Color(0xFFF59E0B)),
+      if (Permissions.roleHas(role, 'product.create')) _CreateOption(Icons.sell_outlined, 'Add product', 'List something to sell', const Color(0xFFDC4C64)),
+      if (Permissions.roleHas(role, 'event.create')) _CreateOption(Icons.event_outlined, 'Create event', 'Plan a meetup or event', const Color(0xFF22A06B)),
     ];
 
     showModalBottomSheet<void>(

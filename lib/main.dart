@@ -24,7 +24,9 @@ class MurihSpaceApp extends ConsumerWidget {
       title: Env.appName,
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
-      themeMode: ThemeMode.system,
+      // Dark theme is not fully implemented yet (partial scaffold/appbar only).
+      // Keep the app in light mode until dark-mode tokens are complete.
+      themeMode: ThemeMode.light,
       routerConfig: router,
       debugShowCheckedModeBanner: false,
     );
