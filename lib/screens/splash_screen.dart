@@ -70,7 +70,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              BrandIcon(size: 96, role: auth.role),
+              BrandIcon(size: 96, role: auth.user?.role),
               const SizedBox(height: 24),
               SlideTransition(
                 position: _slide,

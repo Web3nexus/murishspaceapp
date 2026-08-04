@@ -1,5 +1,3 @@
-import 'package:intl/intl.dart';
-
 class CurrencyFormatter {
   /// Formats an amount in minor units (e.g. 1000 = $10.00) into a string with the currency symbol.
   static String format(int minorUnits, String currency) {
