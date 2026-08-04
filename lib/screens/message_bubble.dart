@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -241,15 +242,20 @@ class _BubbleContent extends StatelessWidget {
           if (message.hasAttachment && message.isImage)
             ClipRRect(
               borderRadius: BorderRadius.circular(13),
-              child: Image.network(
-                message.attachmentUrl!,
+              child: CachedNetworkImage(
+                imageUrl: message.attachmentUrl!,
                 width: maxWidth - 8,
                 fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => Container(
+                errorWidget: (_, __, ___) => Container(
                   width: 220,
                   height: 160,
                   color: mine ? const Color(0xFF2E5A78) : const Color(0xFFF2F5F8),
                   child: const Icon(Icons.broken_image_outlined, color: Colors.white70),
+                ),
+                placeholder: (_, __) => Container(
+                  width: 220,
+                  height: 160,
+                  color: mine ? const Color(0xFF2E5A78) : const Color(0xFFF2F5F8),
                 ),
               ),
             )

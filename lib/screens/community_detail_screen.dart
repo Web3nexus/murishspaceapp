@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -196,10 +197,14 @@ class _CommunityHeader extends StatelessWidget {
             SizedBox(
               width: double.infinity,
               height: 120,
-              child: Image.network(
-                coverUrl,
+              child: CachedNetworkImage(
+                imageUrl: coverUrl,
                 fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => Container(
+                errorWidget: (_, __, ___) => Container(
+                  height: 120,
+                  color: DesignTokens.primarySoft,
+                ),
+                placeholder: (_, __) => Container(
                   height: 120,
                   color: DesignTokens.primarySoft,
                 ),
@@ -281,7 +286,7 @@ class _Logo extends StatelessWidget {
     return CircleAvatar(
       radius: size / 2,
       backgroundColor: DesignTokens.primarySoft,
-      backgroundImage: logoUrl != null && logoUrl.isNotEmpty ? NetworkImage(logoUrl) : null,
+      backgroundImage: logoUrl != null && logoUrl.isNotEmpty ? CachedNetworkImageProvider(logoUrl) : null,
       child: logoUrl == null || logoUrl.isEmpty
           ? Text(
               community.initials,
@@ -460,7 +465,7 @@ class _MembersTab extends ConsumerWidget {
         return ListTile(
           leading: CircleAvatar(
             backgroundColor: DesignTokens.primarySoft,
-            backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty ? NetworkImage(avatarUrl) : null,
+            backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty ? CachedNetworkImageProvider(avatarUrl) : null,
             child: avatarUrl == null || avatarUrl.isEmpty
                 ? Text(
                     (user?.name ?? '?').isEmpty ? '?' : (user!.name).substring(0, 1).toUpperCase(),
@@ -518,7 +523,7 @@ class _RequestsTab extends ConsumerWidget {
           return ListTile(
             leading: CircleAvatar(
               backgroundColor: DesignTokens.primarySoft,
-              backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty ? NetworkImage(avatarUrl) : null,
+              backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty ? CachedNetworkImageProvider(avatarUrl) : null,
               child: avatarUrl == null || avatarUrl.isEmpty
                   ? Text(
                       (user?.name ?? '?').isEmpty ? '?' : (user!.name).substring(0, 1).toUpperCase(),

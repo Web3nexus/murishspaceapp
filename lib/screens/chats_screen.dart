@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -171,7 +172,7 @@ class _CommunityPickerSheet extends StatelessWidget {
                     leading: CircleAvatar(
                       backgroundColor: DesignTokens.primarySoft,
                       backgroundImage: c.logoUrl != null && c.logoUrl!.isNotEmpty
-                          ? NetworkImage(c.logoUrl!)
+                          ? CachedNetworkImageProvider(c.logoUrl!)
                           : null,
                       child: c.logoUrl == null || c.logoUrl!.isEmpty
                           ? Text(
@@ -547,7 +548,7 @@ class _Avatar extends StatelessWidget {
           radius: 26,
           backgroundColor: unread ? DesignTokens.primary : DesignTokens.primarySoft,
           backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
-              ? NetworkImage(avatarUrl)
+              ? CachedNetworkImageProvider(avatarUrl)
               : null,
           child: avatarUrl == null || avatarUrl.isEmpty
               ? Text(

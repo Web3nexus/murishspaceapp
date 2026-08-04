@@ -116,6 +116,67 @@ class AuthNotifier extends Notifier<AuthState> {
     }
   }
 
+  Future<Map<String, dynamic>?> requestOtp({
+    required String intent,
+    required String phoneE164,
+  }) async {
+    state = state.copyWith(loading: true, clearError: true);
+    try {
+      final response = await _dio.post('/auth/otp/request', data: {
+        'intent': intent,
+        'phone_e164': phoneE164,
+      });
+      final data = ApiClient.instance.unwrap(response) as Map<String, dynamic>;
+      state = state.copyWith(loading: false);
+      return data;
+    } on ApiException catch (e) {
+      state = state.copyWith(loading: false, errorMessage: e.message);
+      return null;
+    } on DioException catch (e) {
+      state = state.copyWith(loading: false, errorMessage: _dioError(e, 'Failed to send code'));
+      return null;
+    } catch (_) {
+      state = state.copyWith(loading: false, errorMessage: 'An error occurred');
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>?> verifyOtp({
+    required String intent,
+    required String phoneE164,
+    required String code,
+  }) async {
+    state = state.copyWith(loading: true, clearError: true);
+    try {
+      final response = await _dio.post('/auth/otp/verify', data: {
+        'intent': intent,
+        'phone_e164': phoneE164,
+        'code': code,
+      });
+      final data = ApiClient.instance.unwrap(response) as Map<String, dynamic>;
+      
+      // If logging in and account exists, set the user and token
+      if (intent == 'login' && data['account_exists'] == true && data['token'] != null) {
+        final token = data['token'] as String;
+        final user = UserProfile.fromJson(data['user'] as Map<String, dynamic>);
+        await ApiClient.saveToken(token);
+        state = AuthState(user: user, token: token);
+      } else {
+        state = state.copyWith(loading: false);
+      }
+      return data;
+    } on ApiException catch (e) {
+      state = state.copyWith(loading: false, errorMessage: e.message);
+      return null;
+    } on DioException catch (e) {
+      state = state.copyWith(loading: false, errorMessage: _dioError(e, 'Verification failed'));
+      return null;
+    } catch (_) {
+      state = state.copyWith(loading: false, errorMessage: 'An error occurred');
+      return null;
+    }
+  }
+
   Future<bool> register({
     required String name,
     required String email,
@@ -123,17 +184,23 @@ class AuthNotifier extends Notifier<AuthState> {
     required String role,
     required String password,
     required String passwordConfirmation,
+    String? registrationSessionId,
   }) async {
     state = state.copyWith(loading: true, clearError: true);
     try {
-      final response = await _dio.post('/auth/register', data: {
+      final data = <String, dynamic>{
         'name': name,
         'email': email,
         'username': username,
         'role': role,
         'password': password,
         'password_confirmation': passwordConfirmation,
-      });
+      };
+      if (registrationSessionId != null) {
+        data['registration_session_id'] = registrationSessionId;
+      }
+
+      final response = await _dio.post('/auth/register', data: data);
       final payload = ApiClient.instance.unwrap(response) as Map<String, dynamic>;
       final token = payload['token'] as String;
       final user = UserProfile.fromJson(payload['user'] as Map<String, dynamic>);

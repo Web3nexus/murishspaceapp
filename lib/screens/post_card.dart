@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../core/design_tokens.dart';
@@ -95,7 +96,7 @@ class _Header extends StatelessWidget {
         CircleAvatar(
           radius: 20,
           backgroundColor: DesignTokens.primarySoft,
-          backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty ? NetworkImage(avatarUrl) : null,
+          backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty ? CachedNetworkImageProvider(avatarUrl) : null,
           child: avatarUrl == null || avatarUrl.isEmpty
               ? Text(
                   name.isEmpty ? '?' : name.substring(0, 1).toUpperCase(),
@@ -148,11 +149,12 @@ class _MediaGrid extends StatelessWidget {
       child: SizedBox(
         height: height,
         child: urls.length == 1
-            ? Image.network(
-                urls[0],
+            ? CachedNetworkImage(
+                imageUrl: urls[0],
                 width: double.infinity,
                 fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => _mediaPlaceholder(),
+                errorWidget: (_, __, ___) => _mediaPlaceholder(),
+                placeholder: (_, __) => _mediaPlaceholder(),
               )
             : GridView.count(
                 crossAxisCount: 2,
@@ -162,10 +164,11 @@ class _MediaGrid extends StatelessWidget {
                 crossAxisSpacing: 6,
                 children: [
                   for (final url in urls)
-                    Image.network(
-                      url,
+                    CachedNetworkImage(
+                      imageUrl: url,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => _mediaPlaceholder(),
+                      errorWidget: (_, __, ___) => _mediaPlaceholder(),
+                      placeholder: (_, __) => _mediaPlaceholder(),
                     ),
                 ],
               ),
