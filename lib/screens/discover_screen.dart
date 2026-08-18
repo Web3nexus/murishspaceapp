@@ -21,28 +21,99 @@ class DiscoverScreen extends ConsumerStatefulWidget {
 class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tab = TabController(length: 2, vsync: this);
+  final _searchController = TextEditingController();
 
   @override
   void dispose() {
     _tab.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = isDark ? Colors.black : const Color(0xFFF7FAFC);
+    final searchBg = isDark ? const Color(0xFF1C1C1E) : const Color(0xFFEFF3F6);
+
     return Scaffold(
+      backgroundColor: bg,
       appBar: AppBar(
-        title: const Text('Discover', style: TextStyle(fontWeight: FontWeight.w700)),
-        bottom: TabBar(
-          controller: _tab,
-          labelColor: DesignTokens.primaryDark,
-          unselectedLabelColor: DesignTokens.textSecondary,
-          indicatorColor: DesignTokens.primary,
-          tabs: const [Tab(text: 'For You'), Tab(text: 'Following')],
+        backgroundColor: bg,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        title: Text(
+          'Discover',
+          style: TextStyle(
+            fontWeight: FontWeight.w800,
+            fontSize: 22,
+            color: isDark ? Colors.white : Colors.black,
+          ),
+        ),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(100),
+          child: Column(
+            children: [
+              // Telegram Search Input
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Container(
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: searchBg,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.search_rounded,
+                        color: isDark ? const Color(0xFF8E8E93) : const Color(0xFF8E8E93),
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: TextField(
+                          controller: _searchController,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: isDark ? Colors.white : Colors.black,
+                          ),
+                          decoration: InputDecoration(
+                            hintText: 'Search topics, creators, public channels…',
+                            hintStyle: TextStyle(
+                              fontSize: 14,
+                              color: isDark ? const Color(0xFF8E8E93) : const Color(0xFF8E8E93),
+                            ),
+                            border: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            focusedBorder: InputBorder.none,
+                            isDense: true,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              // Segmented TabBar
+              TabBar(
+                controller: _tab,
+                labelColor: const Color(0xFF007AFF),
+                unselectedLabelColor: isDark ? const Color(0xFF8E8E93) : const Color(0xFF61758A),
+                indicatorColor: const Color(0xFF007AFF),
+                indicatorWeight: 3,
+                labelStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+                unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                tabs: const [Tab(text: 'For You'), Tab(text: 'Following')],
+              ),
+            ],
+          ),
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        backgroundColor: DesignTokens.primary,
+        backgroundColor: const Color(0xFF007AFF),
         foregroundColor: Colors.white,
         onPressed: () => _compose(),
         child: const Icon(Icons.edit_outlined),

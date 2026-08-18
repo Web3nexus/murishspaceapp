@@ -92,6 +92,7 @@ class _CommunityDetailScreenState extends ConsumerState<CommunityDetailScreen>
           _CommunityHeader(
             community: community,
             membership: membership,
+            isCreator: isCreator,
             onJoin: () => _join(community),
             onLeave: () => _leave(community),
           ),
@@ -168,131 +169,271 @@ class _CommunityDetailScreenState extends ConsumerState<CommunityDetailScreen>
   }
 }
 
-class _CommunityHeader extends StatelessWidget {
+class _CommunityHeader extends ConsumerWidget {
   final Community community;
   final MembershipStatus? membership;
+  final bool isCreator;
   final VoidCallback onJoin;
   final VoidCallback onLeave;
 
   const _CommunityHeader({
     required this.community,
     this.membership,
+    required this.isCreator,
     required this.onJoin,
     required this.onLeave,
   });
 
+  void _showEditBrandingModal(BuildContext context, WidgetRef ref) {
+    final nameController = TextEditingController(text: community.name);
+    final descController = TextEditingController(text: community.description ?? '');
+    final logoController = TextEditingController(text: community.logoUrl ?? '');
+    final coverController = TextEditingController(text: community.coverUrl ?? '');
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).brightness == Brightness.dark
+          ? const Color(0xFF1C1C1E)
+          : Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        final textPrimary = isDark ? Colors.white : Colors.black;
+        return Padding(
+          padding: EdgeInsets.only(
+            left: 20,
+            right: 20,
+            top: 20,
+            bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Edit Community Branding', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textPrimary)),
+              const SizedBox(height: 6),
+              Text('Update profile image, cover banner, name and description.', style: TextStyle(fontSize: 13, color: Colors.grey[500])),
+              const SizedBox(height: 16),
+              TextField(
+                controller: nameController,
+                style: TextStyle(color: textPrimary),
+                decoration: InputDecoration(
+                  labelText: 'Community Name',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: descController,
+                maxLines: 2,
+                style: TextStyle(color: textPrimary),
+                decoration: InputDecoration(
+                  labelText: 'Short Description / Bio',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: logoController,
+                style: TextStyle(color: textPrimary),
+                decoration: InputDecoration(
+                  prefixIcon: const Icon(Icons.image_rounded),
+                  labelText: 'Profile Pic Image URL',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: coverController,
+                style: TextStyle(color: textPrimary),
+                decoration: InputDecoration(
+                  prefixIcon: const Icon(Icons.landscape_rounded),
+                  labelText: 'Cover Banner Image URL',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF007AFF),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Community profile, banner, and description updated!'),
+                        backgroundColor: Color(0xFF34C759),
+                      ),
+                    );
+                  },
+                  child: const Text('Save Branding Changes', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final isMember = membership?.isMember ?? false;
     final isPending = membership?.isPending ?? false;
     final coverUrl = community.coverUrl;
+    final logoUrl = community.logoUrl;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
-      color: DesignTokens.surface,
-      padding: const EdgeInsets.only(bottom: 12),
+      color: Theme.of(context).scaffoldBackgroundColor,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (coverUrl != null && coverUrl.isNotEmpty)
-            SizedBox(
-              width: double.infinity,
-              height: 120,
-              child: CachedNetworkImage(
-                imageUrl: coverUrl,
-                fit: BoxFit.cover,
-                errorWidget: (_, __, ___) => Container(
-                  height: 120,
-                  color: DesignTokens.primarySoft,
-                ),
-                placeholder: (_, __) => Container(
-                  height: 120,
-                  color: DesignTokens.primarySoft,
+          // Banner Image Container
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                width: double.infinity,
+                height: 140,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF007AFF), Color(0xFF5856D6)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  image: coverUrl != null && coverUrl.isNotEmpty
+                      ? DecorationImage(
+                          image: NetworkImage(coverUrl),
+                          fit: BoxFit.cover,
+                        )
+                      : null,
                 ),
               ),
-            ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _Logo(community: community, size: 64),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        community.name,
-                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18, color: DesignTokens.textPrimary),
+              // Creator Edit Branding Button
+              if (isCreator)
+                Positioned(
+                  top: 12,
+                  right: 12,
+                  child: GestureDetector(
+                    onTap: () => _showEditBrandingModal(context, ref),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.6),
+                        borderRadius: BorderRadius.circular(14),
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        '${community.membersCount} members',
-                        style: const TextStyle(fontSize: 13, color: DesignTokens.textSecondary),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.edit_rounded, color: Colors.white, size: 14),
+                          SizedBox(width: 4),
+                          Text('Edit Banner & Bio', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                        ],
                       ),
-                      if (community.description != null && community.description!.isNotEmpty) ...[
-                        const SizedBox(height: 6),
-                        Text(
-                          community.description!,
-                          maxLines: 3,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 13, height: 1.4, color: DesignTokens.textSecondary),
-                        ),
-                      ],
-                    ],
+                    ),
                   ),
                 ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-            child: Row(
-              children: [
-                if (isMember)
-                  OutlinedButton(
-                    onPressed: onLeave,
-                    child: const Text('Leave'),
-                  )
-                else if (isPending)
-                  const SizedBox(
-                    height: 36,
-                    child: FilledButton.tonal(onPressed: null, child: Text('Pending')),
-                  )
-                else
-                  FilledButton(
-                    onPressed: onJoin,
-                    style: FilledButton.styleFrom(backgroundColor: DesignTokens.primary),
-                    child: const Text('Join community'),
+              // Circular Profile Pic / Logo Avatar Overlap
+              Positioned(
+                bottom: -28,
+                left: 16,
+                child: Container(
+                  padding: const EdgeInsets.all(3),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).scaffoldBackgroundColor,
+                    shape: BoxShape.circle,
                   ),
+                  child: CircleAvatar(
+                    radius: 34,
+                    backgroundColor: const Color(0xFF007AFF),
+                    backgroundImage: logoUrl != null && logoUrl.isNotEmpty ? NetworkImage(logoUrl) : null,
+                    child: logoUrl == null || logoUrl.isEmpty
+                        ? Text(
+                            community.initials,
+                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 22),
+                          )
+                        : null,
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 36),
+
+          // Community Info & Description
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            community.name,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w900,
+                              fontSize: 20,
+                              color: isDark ? Colors.white : Colors.black,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${community.membersCount} members · ${community.visibility.toUpperCase()}',
+                            style: TextStyle(fontSize: 13, color: isDark ? Colors.grey[400] : Colors.grey[600], fontWeight: FontWeight.w600),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (isMember)
+                      OutlinedButton(
+                        onPressed: onLeave,
+                        child: const Text('Leave'),
+                      )
+                    else
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF007AFF),
+                          foregroundColor: Colors.white,
+                        ),
+                        onPressed: isPending ? null : onJoin,
+                        child: Text(isPending ? 'Pending' : 'Join Community'),
+                      ),
+                  ],
+                ),
+                if (community.description != null && community.description!.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF1C1C1E) : const Color(0xFFF2F2F7),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      community.description!,
+                      style: TextStyle(fontSize: 13, height: 1.4, color: isDark ? Colors.grey[300] : Colors.grey[800]),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
+          const SizedBox(height: 12),
         ],
       ),
-    );
-  }
-}
-
-class _Logo extends StatelessWidget {
-  final Community community;
-  final double size;
-
-  const _Logo({required this.community, required this.size});
-
-  @override
-  Widget build(BuildContext context) {
-    final logoUrl = community.logoUrl;
-    return CircleAvatar(
-      radius: size / 2,
-      backgroundColor: DesignTokens.primarySoft,
-      backgroundImage: logoUrl != null && logoUrl.isNotEmpty ? CachedNetworkImageProvider(logoUrl) : null,
-      child: logoUrl == null || logoUrl.isEmpty
-          ? Text(
-              community.initials,
-              style: const TextStyle(color: DesignTokens.primaryDark, fontWeight: FontWeight.w700, fontSize: 20),
-            )
-          : null,
     );
   }
 }

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../components/ui_states.dart';
 import '../core/design_tokens.dart';
 import '../providers/kyc_provider.dart';
+import '../providers/platform_provider.dart';
 
 /// Screen for displaying KYC status and submitting verification documents.
 /// Wired to `/kyc/status` and `/kyc/triggers` (Sprint 2 logic).
@@ -30,11 +31,30 @@ class _KycScreenState extends ConsumerState<KycScreen> {
     final notifier = ref.read(kycProvider.notifier);
     final status = state.status;
 
+    final platformState = ref.watch(platformProvider);
+    final isKycEnabled = platformState.config?.kycEnabled ?? true;
+
+    if (!isKycEnabled) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Identity Verification (KYC)')),
+        body: const Center(
+          child: Padding(
+            padding: EdgeInsets.all(24.0),
+            child: Text(
+              'Identity Verification is currently disabled by the platform.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: DesignTokens.textSecondary),
+            ),
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(title: const Text('Identity Verification (KYC)')),
       body: RefreshIndicator(
         onRefresh: () => notifier.refresh(),
-        child: _body(context, state, status, notifier),
+        child: _body(context, state, status, notifier, platformState.config?.kycProvider ?? 'didit'),
       ),
     );
   }
@@ -44,6 +64,7 @@ class _KycScreenState extends ConsumerState<KycScreen> {
     KycState state,
     KycStatusInfo? status,
     KycNotifier notifier,
+    String kycProvider,
   ) {
     if (state.loading && status == null) {
       return const LoadingStateWidget(message: 'Loading verification status…');
@@ -126,25 +147,63 @@ class _KycScreenState extends ConsumerState<KycScreen> {
         ],
         if (!status.isVerified) ...[
           const SizedBox(height: 24),
-          TextFormField(
-            controller: _docController,
-            decoration: const InputDecoration(
-              labelText: 'Passport or ID Reference',
-              hintText: 'e.g. PASSPORT-12345678',
+          if (kycProvider == 'manual') ...[
+            TextFormField(
+              controller: _docController,
+              decoration: const InputDecoration(
+                labelText: 'Passport or ID Reference',
+                hintText: 'e.g. PASSPORT-12345678',
+              ),
             ),
-          ),
-          const SizedBox(height: 16),
-          ElevatedButton.icon(
-            onPressed: _isSubmitting ? null : () => _submit(notifier),
-            icon: const Icon(Icons.upload_file),
-            label: _isSubmitting
-                ? const SizedBox(
-                    height: 18,
-                    width: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Text('Submit Verification'),
-          ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: _isSubmitting ? null : () => _submit(notifier),
+              icon: const Icon(Icons.upload_file),
+              label: _isSubmitting
+                  ? const SizedBox(
+                      height: 18,
+                      width: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Submit Verification'),
+            ),
+          ] else ...[
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: DesignTokens.surface,
+                borderRadius: BorderRadius.circular(DesignTokens.radiusMd),
+                border: Border.all(color: DesignTokens.border),
+              ),
+              child: Column(
+                children: [
+                  const Icon(Icons.verified_user_outlined, size: 48, color: DesignTokens.primary),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Verify your identity seamlessly.',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'We use ${kycProvider == 'didit' ? 'Didit' : kycProvider == 'sumsub' ? 'Sumsub' : 'our trusted provider'} to securely verify your identity. This process only takes a few minutes.',
+                    style: const TextStyle(fontSize: 13, color: DesignTokens.textSecondary),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 24),
+                  FilledButton(
+                    onPressed: () {
+                      // TODO: Launch Provider SDK (Didit / Sumsub)
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('The $kycProvider SDK is not yet implemented.')),
+                      );
+                    },
+                    child: Text('Verify with ${kycProvider == 'didit' ? 'Didit' : kycProvider == 'sumsub' ? 'Sumsub' : 'Provider'}'),
+                  ),
+                ],
+              ),
+            ),
+          ]
         ],
       ],
     );

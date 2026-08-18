@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../components/community_manage_sheet.dart';
 import '../components/ui_states.dart';
 import '../core/api_client.dart';
 import '../core/design_tokens.dart';
@@ -23,10 +24,12 @@ class CommunitiesScreen extends ConsumerStatefulWidget {
 class _CommunitiesScreenState extends ConsumerState<CommunitiesScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tab = TabController(length: 2, vsync: this);
+  final _searchController = TextEditingController();
 
   @override
   void dispose() {
     _tab.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -34,26 +37,96 @@ class _CommunitiesScreenState extends ConsumerState<CommunitiesScreen>
   Widget build(BuildContext context) {
     final user = ref.watch(authProvider).user;
     final canCreate = user != null && user.role.isSeller;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = isDark ? Colors.black : const Color(0xFFF7FAFC);
+    final searchBg = isDark ? const Color(0xFF1C1C1E) : const Color(0xFFEFF3F6);
 
     return Scaffold(
+      backgroundColor: bg,
       appBar: AppBar(
-        title: const Text('Communities', style: TextStyle(fontWeight: FontWeight.w700)),
-        bottom: TabBar(
-          controller: _tab,
-          labelColor: DesignTokens.primaryDark,
-          unselectedLabelColor: DesignTokens.textSecondary,
-          indicatorColor: DesignTokens.primary,
-          tabs: const [Tab(text: 'My'), Tab(text: 'Discover')],
+        backgroundColor: bg,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        title: Text(
+          'Communities',
+          style: TextStyle(
+            fontWeight: FontWeight.w800,
+            fontSize: 22,
+            color: isDark ? Colors.white : Colors.black,
+          ),
+        ),
+        actions: [
+          if (canCreate)
+            IconButton(
+              onPressed: () => _showCreateCommunity(),
+              icon: Icon(
+                Icons.add_circle_outline_rounded,
+                color: isDark ? Colors.white : Colors.black,
+              ),
+              tooltip: 'Create Community',
+            ),
+        ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(100),
+          child: Column(
+            children: [
+              // Search Input Bar
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Container(
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: searchBg,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.search_rounded,
+                        color: isDark ? const Color(0xFF8E8E93) : const Color(0xFF8E8E93),
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: TextField(
+                          controller: _searchController,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: isDark ? Colors.white : Colors.black,
+                          ),
+                          decoration: InputDecoration(
+                            hintText: 'Search communities & public channels…',
+                            hintStyle: TextStyle(
+                              fontSize: 14,
+                              color: isDark ? const Color(0xFF8E8E93) : const Color(0xFF8E8E93),
+                            ),
+                            border: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            focusedBorder: InputBorder.none,
+                            isDense: true,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              TabBar(
+                controller: _tab,
+                labelColor: const Color(0xFF007AFF),
+                unselectedLabelColor: isDark ? const Color(0xFF8E8E93) : const Color(0xFF61758A),
+                indicatorColor: const Color(0xFF007AFF),
+                indicatorWeight: 3,
+                labelStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+                unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                tabs: const [Tab(text: 'My Space'), Tab(text: 'Public Channels')],
+              ),
+            ],
+          ),
         ),
       ),
-      floatingActionButton: canCreate
-          ? FloatingActionButton(
-              backgroundColor: DesignTokens.primary,
-              foregroundColor: Colors.white,
-              onPressed: () => _showCreateCommunity(),
-              child: const Icon(Icons.add),
-            )
-          : null,
       body: TabBarView(
         controller: _tab,
         children: const [
@@ -325,6 +398,11 @@ class _DiscoverCard extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
+            IconButton(
+              icon: const Icon(Icons.settings_outlined, size: 20),
+              tooltip: 'Manage Community',
+              onPressed: () => CommunityManageSheet.show(context, community),
+            ),
             joined
                 ? OutlinedButton(onPressed: onJoin, child: const Text('Joined'))
                 : FilledButton(

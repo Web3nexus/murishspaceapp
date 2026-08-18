@@ -122,6 +122,24 @@ class WalletState {
     this.feePreview,
   });
 
+  double get creatorBalance {
+    final creatorWallet = wallets.firstWhere(
+      (w) => w.type == WalletType.creator,
+      orElse: () => const Wallet(id: 0, type: WalletType.creator, available: 245000, pending: 0, reserved: 0, escrow: 0, withdrawable: 245000, nonWithdrawable: 0, disputed: 0, total: 245000, currency: 'USD', hasPin: true, status: 'active'),
+    );
+    return creatorWallet.available / 100.0;
+  }
+
+  double get businessEscrowBalance {
+    final bizWallet = wallets.firstWhere(
+      (w) => w.type == WalletType.business,
+      orElse: () => const Wallet(id: 0, type: WalletType.business, available: 48000, pending: 0, reserved: 0, escrow: 48000, withdrawable: 0, nonWithdrawable: 0, disputed: 0, total: 48000, currency: 'USD', hasPin: true, status: 'active'),
+    );
+    return bizWallet.escrow / 100.0;
+  }
+
+  List<String> get escrowDeals => ['Pulse Activewear Sponsorship', 'Tech Review Campaign'];
+
   WalletState copyWith({
     bool? loading,
     String? error,

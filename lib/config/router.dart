@@ -2,6 +2,18 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../screens/admin_moderation_screen.dart';
+import '../screens/appearance_screen.dart';
+import '../screens/ads_manager_screen.dart';
+import '../screens/brand_deals_screen.dart';
+import '../screens/calls_screen.dart';
+import '../screens/chat_backup_screen.dart';
+import '../screens/chat_folders_screen.dart';
+import '../screens/devices_screen.dart';
+import '../screens/friends_screen.dart';
+import '../screens/home_screen.dart';
+import '../screens/language_screen.dart';
+import '../screens/marketplace_screen.dart';
 import '../components/navigation_shell.dart';
 import '../providers/auth_provider.dart';
 import '../screens/chats_screen.dart';
@@ -25,6 +37,12 @@ import '../screens/upgrade_account_screen.dart';
 import '../screens/verification_badge_screen.dart';
 import '../screens/wallet_screen.dart';
 import '../screens/you_screen.dart';
+import '../screens/security_settings_screen.dart';
+import '../screens/pin_setup_screen.dart';
+import '../screens/conference_meeting_screen.dart';
+import '../screens/live_stream_screen.dart';
+import '../screens/link_in_bio_screen.dart';
+import '../screens/user_profile_screen.dart';
 import '../core/roles.dart';
 
 /// Notifies the router whenever auth state changes so redirects re-evaluate.
@@ -44,11 +62,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final path = state.uri.path;
       final loggedIn = auth.token != null;
 
+      if (path == '/') return loggedIn ? '/app/home' : '/splash';
+
       // Keep the splash on screen while auto-login resolves.
       if (auth.loading) return null;
 
-      final isAuthEntry = path == '/onboarding' || path.startsWith('/auth/');
-      if (loggedIn && (isAuthEntry || path == '/splash')) return '/app/chats';
+      final isAuthEntry = path.startsWith('/auth/');
+      if (loggedIn && (isAuthEntry || path == '/splash')) {
+        if (auth.user != null && !auth.user!.onboardingCompleted) {
+          return '/onboarding';
+        }
+        return '/app/home';
+      }
+      if (loggedIn && path == '/app') return '/app/home';
       if (!loggedIn && (path.startsWith('/app') || path == '/wallet' || path == '/gifts' || path == '/profile' || path == '/kyc' || path == '/social-accounts')) {
         return '/auth/login';
       }
@@ -61,6 +87,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       return null;
     },
     routes: [
+      GoRoute(
+        path: '/',
+        redirect: (_, __) => '/splash',
+      ),
+      GoRoute(
+        path: '/app',
+        redirect: (_, __) => '/app/chats',
+      ),
       GoRoute(
         path: '/splash',
         builder: (_, _) => const SplashScreen(),
@@ -86,12 +120,80 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (_, _) => const WalletScreen(),
       ),
       GoRoute(
+        path: '/brand-deals',
+        builder: (_, _) => const BrandDealsScreen(),
+      ),
+      GoRoute(
+        path: '/ads-manager',
+        builder: (_, _) => const AdsManagerScreen(),
+      ),
+      GoRoute(
+        path: '/app/ads-manager',
+        builder: (_, _) => const AdsManagerScreen(),
+      ),
+      GoRoute(
+        path: '/ads',
+        builder: (_, _) => const AdsManagerScreen(),
+      ),
+      GoRoute(
+        path: '/app/ads',
+        builder: (_, _) => const AdsManagerScreen(),
+      ),
+      GoRoute(
+        path: '/create-ads',
+        builder: (_, _) => const AdsManagerScreen(),
+      ),
+      GoRoute(
         path: '/gifts',
         builder: (_, _) => const GiftsScreen(),
       ),
       GoRoute(
         path: '/profile',
         builder: (_, _) => const ProfileScreen(),
+      ),
+      GoRoute(
+        path: '/admin/moderation',
+        builder: (_, _) => const AdminModerationScreen(),
+      ),
+      GoRoute(
+        path: '/profile/security',
+        builder: (_, _) => const SecuritySettingsScreen(),
+      ),
+      GoRoute(
+        path: '/security-settings',
+        builder: (_, _) => const SecuritySettingsScreen(),
+      ),
+      GoRoute(
+        path: '/profile/security/setup-pin',
+        builder: (_, _) => const PinSetupScreen(),
+      ),
+      GoRoute(
+        path: '/profile/devices',
+        builder: (_, _) => const DevicesScreen(),
+      ),
+      GoRoute(
+        path: '/profile/appearance',
+        builder: (_, _) => const AppearanceScreen(),
+      ),
+      GoRoute(
+        path: '/profile/chat-folders',
+        builder: (_, _) => const ChatFoldersScreen(),
+      ),
+      GoRoute(
+        path: '/profile/chat-backup',
+        builder: (_, _) => const ChatBackupScreen(),
+      ),
+      GoRoute(
+        path: '/profile/language',
+        builder: (_, _) => const LanguageScreen(),
+      ),
+      GoRoute(
+        path: '/app/calls',
+        builder: (_, _) => const CallsScreen(),
+      ),
+      GoRoute(
+        path: '/profile/notifications',
+        builder: (_, _) => const NotificationsScreen(),
       ),
       GoRoute(
         path: '/kyc',
@@ -122,6 +224,30 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         ),
       ),
       GoRoute(
+        path: '/friends',
+        builder: (_, _) => const FriendsScreen(),
+      ),
+      GoRoute(
+        path: '/profile/user/:id',
+        builder: (_, state) => UserProfileScreen(
+          userId: int.tryParse(state.pathParameters['id'] ?? '1') ?? 1,
+          name: state.uri.queryParameters['name'] ?? 'Friend User',
+          username: state.uri.queryParameters['username'] ?? 'friend_user',
+        ),
+      ),
+      GoRoute(
+        path: '/app/conference',
+        builder: (_, _) => const ConferenceMeetingScreen(),
+      ),
+      GoRoute(
+        path: '/app/live',
+        builder: (_, _) => const LiveStreamScreen(),
+      ),
+      GoRoute(
+        path: '/link-in-bio',
+        builder: (_, _) => const LinkInBioScreen(),
+      ),
+      GoRoute(
         path: '/app/notifications',
         builder: (_, _) => const NotificationsScreen(),
       ),
@@ -137,16 +263,21 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           StatefulShellBranch(
             routes: [
               GoRoute(
-                path: '/app/chats',
-                builder: (_, _) => const ChatsScreen(),
+                path: '/app/home',
+                builder: (context, _) => HomeScreen(
+                  onOpenMessages: () {
+                    final shell = StatefulNavigationShell.of(context);
+                    shell.goBranch(1);
+                  },
+                ),
               ),
             ],
           ),
           StatefulShellBranch(
             routes: [
               GoRoute(
-                path: '/app/communities',
-                builder: (_, _) => const CommunitiesScreen(),
+                path: '/app/chats',
+                builder: (_, _) => const ChatsScreen(),
               ),
             ],
           ),
@@ -161,15 +292,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           StatefulShellBranch(
             routes: [
               GoRoute(
-                path: '/app/discover',
-                builder: (_, _) => const DiscoverScreen(),
+                path: '/app/marketplace',
+                builder: (_, _) => const MarketplaceScreen(),
               ),
             ],
           ),
           StatefulShellBranch(
             routes: [
               GoRoute(
-                path: '/app/you',
+                path: '/app/profile',
                 builder: (_, _) => const YouScreen(),
               ),
             ],

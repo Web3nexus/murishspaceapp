@@ -3,11 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl_phone_field/intl_phone_field.dart';
+import 'package:pinput/pinput.dart';
 
 import '../components/brand.dart';
 import '../components/inline_field_error.dart';
 import '../core/design_tokens.dart';
+import '../core/roles.dart';
 import '../providers/auth_provider.dart';
+import '../providers/platform_provider.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -38,6 +41,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _emailFormKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  bool _obscurePassword = true;
   String? _emailError;
   String? _passwordError;
 
@@ -89,7 +93,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Future<void> _verifyPhoneOtp() async {
-    if (!(_otpFormKey.currentState?.validate() ?? false)) return;
+    if (ref.read(authProvider).loading) return;
+    final code = _otpController.text.trim();
+    if (code.length != 6) {
+      setState(() => _otpError = 'Enter the 6-digit code.');
+      return;
+    }
     setState(() {
       _otpError = null;
       _noAccount = false;
@@ -98,7 +107,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final data = await ref.read(authProvider.notifier).verifyOtp(
           intent: 'login',
           phoneE164: _phoneE164,
-          code: _otpController.text,
+          code: code,
         );
 
     if (data != null) {
@@ -107,7 +116,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         return;
       }
       if (data['token'] != null && mounted) {
-        context.go('/app');
+        context.go('/app/home');
       }
     }
   }
@@ -138,7 +147,40 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             _passwordController.text,
           );
       if (success && mounted) {
-        context.go('/app');
+        final role = ref.read(authProvider).user?.role;
+        if (role == UserRole.admin) {
+          await ref.read(authProvider.notifier).logout();
+          if (!mounted) return;
+          showDialog<void>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              title: const Row(
+                children: [
+                  Icon(Icons.admin_panel_settings_rounded, color: Color(0xFF007AFF), size: 28),
+                  SizedBox(width: 8),
+                  Text('Admin Web Portal Only', style: TextStyle(fontWeight: FontWeight.w800)),
+                ],
+              ),
+              content: const Text(
+                'Admin accounts manage ecosystem growth, KYC approvals, fee configurations, and dispute releases exclusively on the Web Admin Dashboard.\n\nPlease log in at https://murihspace.com/admin on a browser.',
+                style: TextStyle(fontSize: 13, height: 1.45),
+              ),
+              actions: [
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF007AFF),
+                    foregroundColor: Colors.white,
+                  ),
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Understood'),
+                ),
+              ],
+            ),
+          );
+          return;
+        }
+        context.go('/app/home');
       }
     }
   }
@@ -146,6 +188,32 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
+    final platformState = ref.watch(platformProvider);
+
+    if (platformState.isLoading && platformState.config == null) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    final config = platformState.config;
+    final phoneEnabled = config?.isLoginEnabled('phone_otp') ?? true;
+    final emailEnabled = config?.isLoginEnabled('email_password') ?? true;
+    final googleEnabled = config?.isLoginEnabled('google') ?? true;
+    final appleEnabled = config?.isLoginEnabled('apple') ?? true;
+    
+    // Ensure we don't land on a disabled tab
+    if (_tabIndex == 0 && !phoneEnabled && emailEnabled) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() => _tabIndex = 1);
+      });
+    } else if (_tabIndex == 1 && !emailEnabled && phoneEnabled) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() => _tabIndex = 0);
+      });
+    }
 
     return Scaffold(
       body: SafeArea(
@@ -156,13 +224,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const BrandLogo(height: 34),
-                const SizedBox(height: 20),
+                const BrandLogo(height: 42),
+                const SizedBox(height: 24),
                 const Text(
-                  'Welcome back',
+                  'Connect Safely.',
                   style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w800,
+                    fontSize: 32,
+                    fontWeight: FontWeight.w900,
                     color: DesignTokens.textPrimary,
                   ),
                   textAlign: TextAlign.center,
@@ -170,72 +238,76 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 const SizedBox(height: 8),
                 Text(
                   _tabIndex == 0 ? 'We\'ll text you a code to verify it\'s you.' : 'Enter your credentials to access your account.',
-                  style: const TextStyle(color: DesignTokens.textSecondary),
+                  style: const TextStyle(color: DesignTokens.textSecondary, fontSize: 15),
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 32),
                 
                 // Tabs
-                Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: DesignTokens.surface,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: DesignTokens.border),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: () => setState(() {
-                            _tabIndex = 0;
-                            _otpStep = false;
-                          }),
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 200),
-                            padding: const EdgeInsets.symmetric(vertical: 10),
-                            decoration: BoxDecoration(
-                              color: _tabIndex == 0 ? DesignTokens.primary : Colors.transparent,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              'Phone',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: _tabIndex == 0 ? Colors.white : DesignTokens.textSecondary,
+                if (phoneEnabled && emailEnabled)
+                  Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: DesignTokens.surface,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: DesignTokens.border),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () => setState(() {
+                              _tabIndex = 0;
+                              _otpStep = false;
+                            }),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              decoration: BoxDecoration(
+                                color: _tabIndex == 0 ? DesignTokens.primary : Colors.transparent,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                'Phone',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: _tabIndex == 0 ? Colors.white : DesignTokens.textSecondary,
+                                ),
                               ),
                             ),
                           ),
                         ),
-                      ),
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: () => setState(() {
-                            _tabIndex = 1;
-                            _otpStep = false;
-                          }),
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 200),
-                            padding: const EdgeInsets.symmetric(vertical: 10),
-                            decoration: BoxDecoration(
-                              color: _tabIndex == 1 ? DesignTokens.primary : Colors.transparent,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              'Email & Password',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: _tabIndex == 1 ? Colors.white : DesignTokens.textSecondary,
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () => setState(() {
+                              _tabIndex = 1;
+                              _otpStep = false;
+                            }),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              decoration: BoxDecoration(
+                                color: _tabIndex == 1 ? DesignTokens.primary : Colors.transparent,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                'Email & Password',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: _tabIndex == 1 ? Colors.white : DesignTokens.textSecondary,
+                                ),
                               ),
                             ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                ),
+                      ],
+                    ),
+                  )
+                else if (!phoneEnabled && !emailEnabled)
+                  const Text('Login is currently disabled.', textAlign: TextAlign.center, style: TextStyle(color: DesignTokens.danger)),
+                
                 const SizedBox(height: 24),
 
                 if (authState.errorMessage != null && !_noAccount && _otpError == null) ...[
@@ -255,56 +327,56 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 ],
 
                 // Flow Forms
-                if (_tabIndex == 0) 
+                if (_tabIndex == 0 && phoneEnabled) 
                   _otpStep ? _buildOtpForm(authState.loading) : _buildPhoneForm(authState.loading)
-                else 
+                else if (_tabIndex == 1 && emailEnabled)
                   _buildEmailForm(authState.loading),
                 
-                const SizedBox(height: 24),
-
-                // Divider
-                const Row(
-                  children: [
-                    Expanded(child: Divider()),
-                    Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 16),
-                      child: Text('OR', style: TextStyle(color: DesignTokens.textSecondary, fontSize: 12, fontWeight: FontWeight.bold)),
-                    ),
-                    Expanded(child: Divider()),
-                  ],
-                ),
-                const SizedBox(height: 16),
-
-                // Social Logins Placeholders
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () {
-                          // TODO: Implement Google Sign In natively or via webview
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Google sign in is coming soon.')),
-                          );
-                        },
-                        icon: const Text('G', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-                        label: const Text('Google'),
+                if (googleEnabled || appleEnabled) ...[
+                  const SizedBox(height: 24),
+                  const Row(
+                    children: [
+                      Expanded(child: Divider()),
+                      Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 16),
+                        child: Text('OR', style: TextStyle(color: DesignTokens.textSecondary, fontSize: 12, fontWeight: FontWeight.bold)),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () {
-                          // TODO: Implement Apple Sign In natively or via webview
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Apple sign in is coming soon.')),
-                          );
-                        },
-                        icon: const Text('A', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-                        label: const Text('Apple'),
-                      ),
-                    ),
-                  ],
-                ),
+                      Expanded(child: Divider()),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      if (googleEnabled)
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () async {
+                              final success = await ref.read(authProvider.notifier).loginWithGoogle();
+                              if (success && mounted) {
+                                context.go('/app/home');
+                              }
+                            },
+                            icon: const Text('G', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                            label: const Text('Google'),
+                          ),
+                        ),
+                      if (googleEnabled && appleEnabled) const SizedBox(width: 12),
+                      if (appleEnabled)
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () async {
+                              final success = await ref.read(authProvider.notifier).loginWithApple();
+                              if (success && mounted) {
+                                context.go('/app/home');
+                              }
+                            },
+                            icon: const Text('A', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                            label: const Text('Apple'),
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
                 
                 const SizedBox(height: 24),
                 OutlinedButton(
@@ -336,8 +408,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             ),
             initialCountryCode: 'NG',
             onChanged: (phone) {
-              _phoneE164 = phone.completeNumber;
-              if (_phoneError != null) setState(() => _phoneError = null);
+              setState(() {
+                _phoneE164 = phone.completeNumber;
+                if (_phoneError != null) _phoneError = null;
+              });
             },
           ),
           InlineFieldError(error: _phoneError),
@@ -379,18 +453,33 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          TextFormField(
+          Pinput(
             controller: _otpController,
-            keyboardType: TextInputType.number,
-            maxLength: 6,
-            decoration: const InputDecoration(
-              labelText: '6-digit Code',
-              prefixIcon: Icon(Icons.security),
+            length: 6,
+            defaultPinTheme: PinTheme(
+              width: 48,
+              height: 56,
+              textStyle: const TextStyle(fontSize: 22, color: DesignTokens.textPrimary, fontWeight: FontWeight.w600),
+              decoration: BoxDecoration(
+                border: Border.all(color: DesignTokens.border),
+                borderRadius: BorderRadius.circular(12),
+                color: DesignTokens.surface,
+              ),
             ),
-            validator: (v) => v == null || v.length < 6 ? 'Enter full code' : null,
+            focusedPinTheme: PinTheme(
+              width: 48,
+              height: 56,
+              textStyle: const TextStyle(fontSize: 22, color: DesignTokens.textPrimary, fontWeight: FontWeight.w600),
+              decoration: BoxDecoration(
+                border: Border.all(color: DesignTokens.primary, width: 2),
+                borderRadius: BorderRadius.circular(12),
+                color: DesignTokens.surface,
+              ),
+            ),
             onChanged: (_) {
               if (_otpError != null) setState(() => _otpError = null);
             },
+            onCompleted: (_) => _verifyPhoneOtp(),
           ),
           InlineFieldError(error: _otpError ?? ref.read(authProvider).errorMessage),
           
@@ -478,11 +567,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           const SizedBox(height: 16),
           TextFormField(
             controller: _passwordController,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               labelText: 'Password',
-              prefixIcon: Icon(Icons.lock_outline),
+              prefixIcon: const Icon(Icons.lock_outline),
+              suffixIcon: IconButton(
+                icon: Icon(
+                  _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                  color: Colors.grey,
+                ),
+                onPressed: () {
+                  setState(() {
+                    _obscurePassword = !_obscurePassword;
+                  });
+                },
+              ),
             ),
-            obscureText: true,
+            obscureText: _obscurePassword,
             validator: (val) {
               if (val == null || val.isEmpty) return 'Password is required';
               return null;

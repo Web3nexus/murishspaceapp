@@ -152,6 +152,16 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
     final state = ref.watch(conversationMessagesProvider(widget.conversationId));
     final typing = ref.watch(typingProvider)[widget.conversationId] ?? const {};
 
+    final conversation = ref
+        .watch(conversationsProvider)
+        .conversations
+        .where((c) => c.id == widget.conversationId)
+        .firstOrNull;
+    final isEscrowActive = conversation?.hasActiveEscrow ?? false;
+    final escrowAmountText = conversation?.escrowAmount != null
+        ? '${conversation!.escrowCurrency ?? '\$'} ${conversation.escrowAmount!.toStringAsFixed(2)} LOCKED'
+        : 'FUNDS LOCKED IN ESCROW';
+
     return Scaffold(
       appBar: AppBar(
         title: _ConversationTitle(conversationId: widget.conversationId),
@@ -164,6 +174,39 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
       ),
       body: Column(
         children: [
+          if (isEscrowActive)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: const BoxDecoration(
+                color: Color(0xFF007AFF),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.security_rounded, color: Colors.white, size: 20),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '🔒 ESCROW TRANSACTION ACTIVE · $escrowAmountText',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 12,
+                            letterSpacing: 0.3,
+                          ),
+                        ),
+                        const Text(
+                          'Auto-Tagged: #Business: Escrow Deal · Messages preserved until release',
+                          style: TextStyle(color: Colors.white70, fontSize: 11),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
           Expanded(child: _messageArea(state, typing)),
           Composer(
             controller: _controller,
@@ -261,6 +304,43 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
   }
 
   Future<void> _deleteMessage(Message message, bool forEveryone) async {
+    final conversation = ref
+        .read(conversationsProvider)
+        .conversations
+        .where((c) => c.id == widget.conversationId)
+        .firstOrNull;
+    final isEscrowActive = conversation?.hasActiveEscrow ?? false;
+    if (isEscrowActive) {
+      showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Row(
+            children: [
+              Icon(Icons.lock_rounded, color: Color(0xFF007AFF), size: 28),
+              SizedBox(width: 8),
+              Text('Messages Locked', style: TextStyle(fontWeight: FontWeight.w800)),
+            ],
+          ),
+          content: const Text(
+            'Messages in active Escrow transactions or Brand Deals cannot be deleted until all funds are released or closed.',
+            style: TextStyle(fontSize: 13, height: 1.45),
+          ),
+          actions: [
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF007AFF),
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Understood'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
     await ref
         .read(conversationMessagesProvider(widget.conversationId).notifier)
         .deleteMessage(message.id, forEveryone: forEveryone);

@@ -5,20 +5,52 @@ import '../components/ui_states.dart';
 import '../core/design_tokens.dart';
 import '../providers/verification_badge_provider.dart';
 
-/// Paid verification badge (Sprint 2 logic): status, apply, renew.
-class VerificationBadgeScreen extends ConsumerWidget {
+class VerificationBadgeScreen extends ConsumerStatefulWidget {
   const VerificationBadgeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<VerificationBadgeScreen> createState() => _VerificationBadgeScreenState();
+}
+
+class _VerificationBadgeScreenState extends ConsumerState<VerificationBadgeScreen>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _starAnim = AnimationController(
+    vsync: this,
+    duration: const Duration(seconds: 8),
+  )..repeat();
+
+  String _billingCycle = 'annual'; // 'monthly' | 'annual'
+
+  @override
+  void dispose() {
+    _starAnim.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final state = ref.watch(verificationBadgeProvider);
     final notifier = ref.read(verificationBadgeProvider.notifier);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = isDark ? Colors.black : const Color(0xFFF2F2F7);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Verification Badge')),
+      backgroundColor: bg,
+      appBar: AppBar(
+        backgroundColor: bg,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        title: Text(
+          'MurihSpace Premium',
+          style: TextStyle(
+            color: isDark ? Colors.white : Colors.black,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ),
       body: RefreshIndicator(
         onRefresh: () => notifier.refresh(),
-        child: _body(context, ref, state, notifier),
+        child: _body(context, ref, state, notifier, isDark),
       ),
     );
   }
@@ -28,96 +60,267 @@ class VerificationBadgeScreen extends ConsumerWidget {
     WidgetRef ref,
     VerificationBadgeState state,
     VerificationBadgeNotifier notifier,
+    bool isDark,
   ) {
     if (state.loading && state.status == null) {
-      return const LoadingStateWidget(message: 'Loading badge status…');
+      return const LoadingStateWidget(message: 'Loading Premium status…');
     }
     if (state.error != null && state.status == null) {
       return ErrorStateWidget(
-        title: 'Could not load badge status',
+        title: 'Could not load status',
         description: state.error!,
         onRetry: () => notifier.refresh(),
       );
     }
     final status = state.status;
-    if (status == null) {
-      return const ErrorStateWidget(
-        title: 'No badge status',
-        description: 'Please try again.',
-      );
-    }
-
-    final active = status.isActive;
-    final pending = status.isPending;
+    final active = status?.isActive ?? false;
+    final pending = status?.isPending ?? false;
+    final cardBg = isDark ? const Color(0xFF1C1C1E) : Colors.white;
 
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       children: [
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              children: [
-                Icon(
-                  active ? Icons.verified : Icons.verified_outlined,
-                  size: 56,
-                  color: active ? DesignTokens.primary : DesignTokens.textSecondary,
-                ),
-                const SizedBox(height: 12),
-                const Text(
-                  'Verification Badge',
-                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 6),
-                Chip(
-                  label: Text(_statusLabel(status.status)),
-                  backgroundColor: _statusColor(status.status).withValues(alpha: 0.15),
-                  labelStyle: TextStyle(
-                    color: _statusColor(status.status),
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  'Monthly fee: ${_formatMoney(status.monthlyFee)}',
-                  style: const TextStyle(fontSize: 13, color: DesignTokens.textSecondary),
-                ),
-                if (!status.kycVerified)
-                  const Padding(
-                    padding: EdgeInsets.only(top: 10),
-                    child: Text(
-                      'KYC verification is required before applying for the paid badge.',
-                      style: TextStyle(fontSize: 13, color: DesignTokens.warning),
-                      textAlign: TextAlign.center,
+        // 3D Animated Star & Hero Header
+        Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: cardBg,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF007AFF).withOpacity(0.15),
+                blurRadius: 24,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              RotationTransition(
+                turns: _starAnim,
+                child: Container(
+                  width: 86,
+                  height: 86,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF007AFF), Color(0xFF5856D6), Color(0xFFFF2D55)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
                     ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF007AFF).withOpacity(0.4),
+                        blurRadius: 20,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
                   ),
+                  child: const Icon(
+                    Icons.stars_rounded,
+                    size: 52,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'MurihSpace Premium',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w900,
+                  color: isDark ? Colors.white : Colors.black,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Unlock exclusive badges, 4GB uploads, and creator tools',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: isDark ? Colors.grey[400] : Colors.grey[600],
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Monthly vs Annual Segmented Switcher
+              Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFEFF3F6),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => setState(() => _billingCycle = 'annual'),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          decoration: BoxDecoration(
+                            color: _billingCycle == 'annual'
+                                ? const Color(0xFF007AFF)
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Column(
+                            children: [
+                              Text(
+                                'Annual (Save 33%)',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w800,
+                                  color: _billingCycle == 'annual' ? Colors.white : (isDark ? Colors.grey[400] : Colors.black),
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                '\$39.99 / year',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: _billingCycle == 'annual' ? Colors.white70 : Colors.grey[500],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => setState(() => _billingCycle = 'monthly'),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          decoration: BoxDecoration(
+                            color: _billingCycle == 'monthly'
+                                ? const Color(0xFF007AFF)
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Column(
+                            children: [
+                              Text(
+                                'Monthly',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w800,
+                                  color: _billingCycle == 'monthly' ? Colors.white : (isDark ? Colors.grey[400] : Colors.black),
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                '\$4.99 / month',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: _billingCycle == 'monthly' ? Colors.white70 : Colors.grey[500],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 20),
+
+        // Features List Group
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: cardBg,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'INCLUDED BENEFITS',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  color: isDark ? Colors.grey[500] : Colors.grey[600],
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const SizedBox(height: 12),
+              _featureRow('Official Blue Checkmark badge on your profile', isDark),
+              const Divider(height: 20),
+              _featureRow('Priority placement in community & discover search', isDark),
+              const Divider(height: 20),
+              _featureRow('Exclusive access to send gifts & custom sticker packs', isDark),
+            ],
+          ),
+        ),
+        const SizedBox(height: 24),
+
+        if (status != null && !active && !pending && status.status != 'not_applied') ...[
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFF9500).withOpacity(0.12),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.info_outline_rounded, color: Color(0xFFFF9500)),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Current Badge Status: ${status.status.toUpperCase().replaceAll('_', ' ')}',
+                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: Color(0xFFFF9500)),
+                  ),
+                ),
               ],
             ),
           ),
-        ),
-        const SizedBox(height: 16),
+          const SizedBox(height: 16),
+        ],
+
         if (!active && !pending)
           SizedBox(
             width: double.infinity,
-            child: FilledButton(
+            height: 52,
+            child: ElevatedButton(
               onPressed: state.loading
                   ? null
-                  : () => _run(context, ref, notifier.apply, 'Applied for the badge!'),
+                  : () => _run(context, ref, () => notifier.apply(billingCycle: _billingCycle), 'Applied for the badge!'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF007AFF),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              ),
               child: state.loading
                   ? const SizedBox(
-                      height: 18,
-                      width: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                     )
-                  : const Text('Apply for Badge'),
+                  : const Text(
+                      'Apply for Badge',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                    ),
             ),
           ),
         if (active) ...[
           SizedBox(
             width: double.infinity,
-            child: OutlinedButton(
+            height: 52,
+            child: ElevatedButton(
               onPressed: state.loading ? null : () => _run(context, ref, notifier.renew, 'Badge renewed!'),
-              child: const Text('Renew Badge'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF34C759),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              ),
+              child: const Text('Renew Badge', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
             ),
           ),
           const SizedBox(height: 8),
@@ -206,5 +409,23 @@ class VerificationBadgeScreen extends ConsumerWidget {
       default:
         return DesignTokens.textSecondary;
     }
+  }
+  Widget _featureRow(String title, bool isDark) {
+    return Row(
+      children: [
+        const Icon(Icons.check_circle_rounded, color: Color(0xFF007AFF), size: 20),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            title,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: isDark ? Colors.white : Colors.black,
+            ),
+          ),
+        ),
+      ],
+    );
   }
 }

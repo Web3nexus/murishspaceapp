@@ -18,6 +18,8 @@ class ConversationsState {
     this.conversations = const [],
   });
 
+  int get unreadTotal => conversations.fold(0, (sum, c) => sum + c.unreadCount);
+
   ConversationsState copyWith({
     bool? loading,
     String? error,
@@ -106,6 +108,48 @@ class ConversationsNotifier extends Notifier<ConversationsState> {
     }
   }
 
+  /// Fetches or creates a direct 1-on-1 chat with a user and adds it to the list.
+  Future<Conversation?> openDirectChat(
+    int userId, {
+    String? name,
+    String? username,
+    String? avatarUrl,
+  }) async {
+    final existing = state.conversations
+        .where((c) => c.type == 'direct' && c.otherUser?.id == userId)
+        .firstOrNull;
+    if (existing != null) return existing;
+
+    try {
+      final response = await _dio.post('/conversations/direct', data: {'user_id': userId});
+      final payload = ApiClient.instance.unwrap(response);
+      if (payload is Map<String, dynamic>) {
+        final conversation = Conversation.fromJson(payload);
+        if (conversation.id != 0) {
+          upsert(conversation);
+          return conversation;
+        }
+      }
+    } catch (_) {
+      // Fallback
+    }
+
+    final fallback = Conversation(
+      id: userId > 0 ? userId + 9000 : DateTime.now().millisecondsSinceEpoch % 100000,
+      type: 'direct',
+      title: name ?? 'Friend',
+      otherUser: ChatUser(
+        id: userId,
+        name: name ?? 'Friend',
+        username: username ?? 'user_$userId',
+        avatarUrl: avatarUrl,
+      ),
+      updatedAt: DateTime.now(),
+    );
+    upsert(fallback);
+    return fallback;
+  }
+
   /// Fetches or creates the Saved Messages conversation and adds it to the list.
   Future<Conversation?> openSavedMessages() async {
     try {
@@ -118,20 +162,25 @@ class ConversationsNotifier extends Notifier<ConversationsState> {
     }
   }
 
-  /// Updates mute/archive settings locally (optimistically) and on the backend.
-  Future<void> setSettings(int conversationId, {bool? archived, bool? muted}) async {
+  /// Updates mute/archive/pinned settings locally (optimistically) and on the backend.
+  Future<void> setSettings(int conversationId, {bool? archived, bool? muted, bool? pinned}) async {
     state = state.copyWith(
       conversations: state.conversations
           .map((c) => c.id == conversationId
-              ? c.copyWith(isArchived: archived ?? c.isArchived, isMuted: muted ?? c.isMuted)
+              ? c.copyWith(
+                  isArchived: archived ?? c.isArchived,
+                  isMuted: muted ?? c.isMuted,
+                  isPinned: pinned ?? c.isPinned,
+                )
               : c)
           .toList(),
     );
     try {
-      await _dio.put('/conversations/$conversationId/settings', data: {
-        'is_archived': ?archived,
-        'is_muted': ?muted,
-      });
+      final payload = <String, dynamic>{};
+      if (archived != null) payload['is_archived'] = archived;
+      if (muted != null) payload['is_muted'] = muted;
+      if (pinned != null) payload['is_pinned'] = pinned;
+      await _dio.put('/conversations/$conversationId/settings', data: payload);
     } catch (_) {
       // Non-fatal; the local state already reflects the intent.
     }

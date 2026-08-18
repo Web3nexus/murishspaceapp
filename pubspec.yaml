@@ -43,6 +43,13 @@ dependencies:
   intl: ^0.20.3
   cached_network_image: ^3.4.1
   intl_phone_field: ^3.2.0
+  google_sign_in: ^6.2.1
+  sign_in_with_apple: ^8.1.0
+  pinput: ^6.0.2
+  url_launcher: ^6.3.1
+  local_auth: ^3.0.1
+  shared_preferences: ^2.5.5
+  crypto: ^3.0.7
 
 dev_dependencies:
   flutter_test:
@@ -57,13 +64,13 @@ dev_dependencies:
   flutter_launcher_icons: ^0.14.3
 
 flutter_launcher_icons:
-  image_path: "assets/images/brand/icon_blue.png"
+  image_path: "assets/images/brand/app_icon.png"
   android: true
   ios: true
   remove_alpha_ios: true
   min_sdk_android: 21
   adaptive_icon_background: "#081826"
-  adaptive_icon_foreground: "assets/images/brand/icon_blue.png"
+  adaptive_icon_foreground: "assets/images/brand/app_icon.png"
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

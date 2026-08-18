@@ -9,6 +9,7 @@ import '../core/api_client.dart';
 import '../core/design_tokens.dart';
 import '../models/community_models.dart';
 import '../providers/community_provider.dart';
+import '../providers/follow_provider.dart';
 
 /// Full-screen composer for a community post (text + up to 4 images).
 /// Returns the created [Post] (or null on cancel/failure).
@@ -91,6 +92,9 @@ class _PostComposerState extends ConsumerState<_PostComposer> {
       });
       final payload = response.data;
       final rawPost = payload is Map<String, dynamic> ? payload['post'] : null;
+
+      ref.read(followProvider.notifier).incrementPostsCount(1);
+
       if (!mounted) return;
       Navigator.pop(context, rawPost is Map<String, dynamic> ? Post.fromJson(rawPost) : null);
     } catch (_) {
@@ -142,9 +146,11 @@ class _PostComposerState extends ConsumerState<_PostComposer> {
             else
               DropdownButtonFormField<int>(
                 initialValue: _communityId,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'Community',
-                  border: OutlineInputBorder(),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Colors.grey)),
+                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFF007AFF), width: 1.5)),
                   isDense: true,
                 ),
                 items: [
@@ -159,9 +165,12 @@ class _PostComposerState extends ConsumerState<_PostComposer> {
               minLines: 4,
               maxLines: 10,
               onChanged: (_) => setState(() {}),
-              decoration: const InputDecoration(
-                hintText: "What's happening?",
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                hintText: "What's on your mind?",
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(18)),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(18), borderSide: BorderSide(color: Colors.grey.withOpacity(0.4))),
+                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(18), borderSide: const BorderSide(color: Color(0xFF007AFF), width: 1.5)),
+                contentPadding: const EdgeInsets.all(16),
                 alignLabelWithHint: true,
               ),
             ),

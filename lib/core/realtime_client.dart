@@ -87,7 +87,12 @@ class ReverbClient {
       return;
     }
     _socket = socket;
-    _sub = socket.stream.listen(_onMessage, onDone: _onDone, onError: (_) => _onDone());
+    _sub = socket.stream.listen(
+      _onMessage,
+      onDone: _onDone,
+      onError: (_) => _onDone(),
+      cancelOnError: true,
+    );
   }
 
   Future<void> subscribe(String channel) async {

@@ -210,7 +210,11 @@ class Conversation {
   final DateTime? updatedAt;
   final bool isArchived;
   final bool isMuted;
+  final bool isPinned;
   final int? memberCount;
+  final bool hasActiveEscrow;
+  final double? escrowAmount;
+  final String? escrowCurrency;
 
   const Conversation({
     required this.id,
@@ -223,7 +227,11 @@ class Conversation {
     this.updatedAt,
     this.isArchived = false,
     this.isMuted = false,
+    this.isPinned = false,
     this.memberCount,
+    this.hasActiveEscrow = false,
+    this.escrowAmount,
+    this.escrowCurrency = 'USD',
   });
 
   String? get avatarUrl => otherUser?.avatarUrl ?? community?.logoUrl;
@@ -240,6 +248,10 @@ class Conversation {
     DateTime? updatedAt,
     bool? isArchived,
     bool? isMuted,
+    bool? isPinned,
+    bool? hasActiveEscrow,
+    double? escrowAmount,
+    String? escrowCurrency,
   }) {
     return Conversation(
       id: id,
@@ -252,7 +264,11 @@ class Conversation {
       updatedAt: updatedAt ?? this.updatedAt,
       isArchived: isArchived ?? this.isArchived,
       isMuted: isMuted ?? this.isMuted,
+      isPinned: isPinned ?? this.isPinned,
       memberCount: memberCount,
+      hasActiveEscrow: hasActiveEscrow ?? this.hasActiveEscrow,
+      escrowAmount: escrowAmount ?? this.escrowAmount,
+      escrowCurrency: escrowCurrency ?? this.escrowCurrency,
     );
   }
 
@@ -271,7 +287,11 @@ class Conversation {
       updatedAt: DateTime.tryParse(json['updated_at'] as String? ?? ''),
       isArchived: json['is_archived'] as bool? ?? false,
       isMuted: json['is_muted'] as bool? ?? false,
+      isPinned: json['is_pinned'] as bool? ?? false,
       memberCount: (json['member_count'] as num?)?.toInt(),
+      hasActiveEscrow: json['has_active_escrow'] as bool? ?? (json['escrow_amount'] != null),
+      escrowAmount: (json['escrow_amount'] as num?)?.toDouble(),
+      escrowCurrency: json['escrow_currency'] as String? ?? 'USD',
     );
   }
 }

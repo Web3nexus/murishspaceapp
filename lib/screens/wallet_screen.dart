@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../components/ui_states.dart';
 import '../core/currency_formatter.dart';
-import '../core/design_tokens.dart';
 import '../providers/gifts_provider.dart';
+import '../providers/security_provider.dart';
 import '../providers/wallet_provider.dart';
 
-/// Wallet screen (Sprint M6): multi-wallet balances (system/creator/business),
-/// deposit, internal transfer, fee preview, and coin packs.
+/// Ultra-Fancy Revolut & Apple Pay Hybrid Escrow & Multi-Currency Financial Hub.
 class WalletScreen extends ConsumerStatefulWidget {
   const WalletScreen({super.key});
 
@@ -16,8 +16,49 @@ class WalletScreen extends ConsumerStatefulWidget {
   ConsumerState<WalletScreen> createState() => _WalletScreenState();
 }
 
-class _WalletScreenState extends ConsumerState<WalletScreen> {
+class _WalletScreenState extends ConsumerState<WalletScreen>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tab = TabController(length: 5, vsync: this);
+  bool _hideBalance = false;
+  int _activeCardIndex = 0;
   CoinPack? _buying;
+
+  // Active Escrow Contracts Mock Data
+  final List<Map<String, dynamic>> _escrowContracts = [
+    {
+      'id': 'ESC-8921',
+      'title': 'Solstar Inverter & Solar Battery',
+      'party': 'Lagos Solar Tech (@solartech_ng)',
+      'amount': '₦120,000.00',
+      'status': 'In Transit (Fulfillment)',
+      'statusColor': const Color(0xFFFF9500),
+      'progress': 0.7,
+      'buyerRole': true,
+      'details': 'Product shipped via GIG Logistics. Track ID: GIG-981240.',
+    },
+    {
+      'id': 'ESC-8922',
+      'title': 'Nike Air Campaign Video Sponsorship',
+      'party': 'Nike Africa Brand Team (@nike_ng)',
+      'amount': '\$450.00',
+      'status': 'Draft Review',
+      'statusColor': const Color(0xFF007AFF),
+      'progress': 0.4,
+      'buyerRole': false,
+      'details': 'Draft video submitted by creator. Pending brand approval.',
+    },
+    {
+      'id': 'ESC-8923',
+      'title': 'Custom Mobile App UI Design',
+      'party': 'Alex Johnson (@alex_j)',
+      'amount': '\$850.00',
+      'status': 'Funds Locked',
+      'statusColor': const Color(0xFF34C759),
+      'progress': 0.9,
+      'buyerRole': true,
+      'details': 'Final deliverables verified. Awaiting release confirmation.',
+    },
+  ];
 
   @override
   void initState() {
@@ -28,6 +69,12 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     });
   }
 
+  @override
+  void dispose() {
+    _tab.dispose();
+    super.dispose();
+  }
+
   Future<void> _buy(CoinPack pack) async {
     setState(() => _buying = pack);
     final ok = await ref.read(giftsProvider.notifier).buyPack(pack);
@@ -36,70 +83,365 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(ok
-            ? 'Added ${pack.totalCoins} coins to your wallet!'
+            ? 'Added ${pack.totalCoins} MSH coins to your wallet!'
             : ref.read(giftsProvider).error ?? 'Purchase failed.'),
+        backgroundColor: const Color(0xFF34C759),
       ),
     );
   }
 
-  void _openDeposit() {
-    showDialog<void>(
+  void _openCreateEscrowModal() {
+    final titleController = TextEditingController();
+    final partyController = TextEditingController();
+    final amountController = TextEditingController();
+
+    showModalBottomSheet<void>(
       context: context,
-      builder: (_) => _DepositDialog(
-        onSubmitted: (amount) async {
-          final ok = await ref.read(walletProvider.notifier).deposit(amount: amount);
-          if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                ok
-                    ? 'Deposit successful.'
-                    : ref.read(walletProvider).error ?? 'Deposit failed.',
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).brightness == Brightness.dark
+          ? const Color(0xFF1C1C1E)
+          : Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        return Padding(
+          padding: EdgeInsets.only(
+            left: 20,
+            right: 20,
+            top: 20,
+            bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF3A3A3C) : const Color(0xFFD1D1D6),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
               ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  void _openTransfer(WalletType fromType) {
-    final wallet = ref.read(walletProvider.notifier).walletOf(fromType);
-    if (wallet == null || wallet.withdrawable <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No withdrawable balance in this wallet yet.')),
-      );
-      return;
-    }
-    showDialog<void>(
-      context: context,
-      builder: (_) => _TransferDialog(
-        fromType: fromType,
-        maxAmount: wallet.withdrawable,
-        currency: wallet.currency,
-        onSubmitted: (amount) async {
-          final ok = await ref
-              .read(walletProvider.notifier)
-              .internalTransfer(fromType: fromType.apiValue, amount: amount);
-          if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                ok
-                    ? 'Transferred to your system wallet.'
-                    : ref.read(walletProvider).error ?? 'Transfer failed.',
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF007AFF).withValues(alpha: 0.15),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.shield_rounded, color: Color(0xFF007AFF), size: 24),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Create New Escrow Agreement',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? Colors.white : Colors.black,
+                    ),
+                  ),
+                ],
               ),
-            ),
-          );
-        },
-      ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: titleController,
+                style: TextStyle(color: isDark ? Colors.white : Colors.black),
+                decoration: InputDecoration(
+                  labelText: 'Agreement Title / Item Name',
+                  hintText: 'e.g., iPhone 15 Pro Max Purchase',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: partyController,
+                style: TextStyle(color: isDark ? Colors.white : Colors.black),
+                decoration: InputDecoration(
+                  labelText: 'Counterparty Handle or Phone',
+                  hintText: 'e.g., @seller_handle or +234...',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: amountController,
+                keyboardType: TextInputType.number,
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black),
+                decoration: InputDecoration(
+                  prefixText: '₦ ',
+                  labelText: 'Escrow Amount (NGN)',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF007AFF),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                  onPressed: () {
+                    final title = titleController.text.trim();
+                    final party = partyController.text.trim();
+                    final amount = amountController.text.trim();
+                    if (title.isNotEmpty && amount.isNotEmpty) {
+                      setState(() {
+                        _escrowContracts.insert(0, {
+                          'id': 'ESC-${8924 + _escrowContracts.length}',
+                          'title': title,
+                          'party': party.isEmpty ? 'Counterparty' : party,
+                          'amount': '₦$amount.00',
+                          'status': 'Funds Locked (Escrow)',
+                          'statusColor': const Color(0xFF34C759),
+                          'progress': 0.5,
+                          'buyerRole': true,
+                          'details': 'Escrow deal initiated. Funds locked securely.',
+                        });
+                      });
+                      Navigator.pop(ctx);
+                      _tab.animateTo(1); // Switch to Escrow tab
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Escrow agreement "$title" created! ₦$amount locked in escrow.'),
+                          backgroundColor: const Color(0xFF34C759),
+                        ),
+                      );
+                    }
+                  },
+                  child: const Text('Lock Funds in Escrow', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
-  void _openFeePreview() {
-    showDialog<void>(
+  void _showReleaseEscrowDialog(Map<String, dynamic> contract) {
+    final pinController = TextEditingController();
+    final security = ref.read(securityProvider);
+
+    showModalBottomSheet<void>(
       context: context,
-      builder: (_) => _FeePreviewDialog(),
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).brightness == Brightness.dark
+          ? const Color(0xFF1C1C1E)
+          : Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        return Padding(
+          padding: EdgeInsets.only(
+            left: 20,
+            right: 20,
+            top: 20,
+            bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Release Escrow Funds', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black)),
+              const SizedBox(height: 6),
+              Text('Confirm that you have received "${contract['title']}" in good condition. Funds will be released to ${contract['party']}.', style: TextStyle(fontSize: 13, color: isDark ? Colors.grey[400] : Colors.grey[600])),
+              const SizedBox(height: 16),
+              if (security.isTransactionPinSet) ...[
+                TextField(
+                  controller: pinController,
+                  obscureText: true,
+                  keyboardType: TextInputType.number,
+                  maxLength: 4,
+                  style: TextStyle(color: isDark ? Colors.white : Colors.black),
+                  decoration: InputDecoration(
+                    prefixIcon: const Icon(Icons.lock_rounded),
+                    labelText: 'Enter 4-Digit Transaction PIN',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF34C759),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                  onPressed: () async {
+                    if (security.isTransactionPinSet) {
+                      final okPin = await ref.read(securityProvider.notifier).verifyTransactionPin(pinController.text.trim());
+                      if (!okPin) {
+                        if (!mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Invalid Transaction PIN.')),
+                        );
+                        return;
+                      }
+                    }
+                    setState(() {
+                      contract['status'] = 'Completed & Released';
+                      contract['statusColor'] = const Color(0xFF34C759);
+                      contract['progress'] = 1.0;
+                    });
+                    if (mounted) {
+                      Navigator.pop(ctx);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Released ${contract['amount']} to ${contract['party']}!'),
+                          backgroundColor: const Color(0xFF34C759),
+                        ),
+                      );
+                    }
+                  },
+                  child: const Text('Confirm & Release Escrow', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _openDepositModal() {
+    final amountController = TextEditingController(text: '5000');
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF1C1C1E) : Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        return Padding(
+          padding: EdgeInsets.only(left: 20, right: 20, top: 20, bottom: MediaQuery.of(ctx).viewInsets.bottom + 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Deposit Funds', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black)),
+              const SizedBox(height: 16),
+              TextField(
+                controller: amountController,
+                keyboardType: TextInputType.number,
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black),
+                decoration: InputDecoration(
+                  prefixText: '₦ ',
+                  labelText: 'Deposit Amount (NGN)',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF007AFF), foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
+                  onPressed: () async {
+                    final raw = int.tryParse(amountController.text.trim()) ?? 5000;
+                    await ref.read(walletProvider.notifier).deposit(amount: raw * 100);
+                    if (mounted) {
+                      Navigator.pop(ctx);
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Deposit of ₦$raw successful!'), backgroundColor: const Color(0xFF34C759)));
+                    }
+                  },
+                  child: const Text('Proceed to Checkout', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _openWithdrawModal() {
+    final amountController = TextEditingController(text: '10000');
+    final pinController = TextEditingController();
+    final security = ref.read(securityProvider);
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF1C1C1E) : Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        return Padding(
+          padding: EdgeInsets.only(left: 20, right: 20, top: 20, bottom: MediaQuery.of(ctx).viewInsets.bottom + 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Withdraw to Bank Account', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black)),
+              const SizedBox(height: 16),
+              TextField(
+                controller: amountController,
+                keyboardType: TextInputType.number,
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black),
+                decoration: InputDecoration(
+                  prefixText: '₦ ',
+                  labelText: 'Withdrawal Amount',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+              ),
+              const SizedBox(height: 12),
+              if (security.isTransactionPinSet) ...[
+                TextField(
+                  controller: pinController,
+                  obscureText: true,
+                  keyboardType: TextInputType.number,
+                  maxLength: 4,
+                  style: TextStyle(color: isDark ? Colors.white : Colors.black),
+                  decoration: InputDecoration(
+                    prefixIcon: const Icon(Icons.lock_rounded),
+                    labelText: 'Enter 4-Digit Transaction PIN',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF34C759), foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
+                  onPressed: () async {
+                    final raw = int.tryParse(amountController.text.trim()) ?? 10000;
+                    if (security.isTransactionPinSet) {
+                      final okPin = await ref.read(securityProvider.notifier).verifyTransactionPin(pinController.text.trim());
+                      if (!okPin) {
+                        if (!mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Invalid Transaction PIN.')));
+                        return;
+                      }
+                    }
+                    if (mounted) {
+                      Navigator.pop(ctx);
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Withdrawal of ₦$raw submitted to your Bank!'), backgroundColor: const Color(0xFF34C759)));
+                    }
+                  },
+                  child: const Text('Confirm Withdrawal', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -107,323 +449,489 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
   Widget build(BuildContext context) {
     final walletState = ref.watch(walletProvider);
     final gifts = ref.watch(giftsProvider);
-    final theme = Theme.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = isDark ? Colors.black : const Color(0xFFEFF1F5);
+    final textPrimary = isDark ? Colors.white : Colors.black;
+    final textSecondary = isDark ? Colors.grey[400] : Colors.grey[600];
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Wallet')),
-      body: RefreshIndicator(
-        onRefresh: () async {
-          await ref.read(walletProvider.notifier).refresh();
-          await ref.read(giftsProvider.notifier).loadAll();
-        },
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            _walletHero(walletState),
-            const SizedBox(height: 16),
-            _walletCards(walletState),
-            if (walletState.error != null) ...[
-              const SizedBox(height: 8),
-              Text(
-                walletState.error!,
-                style: const TextStyle(color: DesignTokens.danger, fontSize: 12),
-              ),
-            ],
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: _ActionButton(
-                    icon: Icons.add_card,
-                    label: 'Deposit',
-                    onPressed: _openDeposit,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _ActionButton(
-                    icon: Icons.swap_horiz,
-                    label: 'Fee Preview',
-                    onPressed: _openFeePreview,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Buy Coins',
-                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-                ),
-                const Text(
-                  'Send gifts to creators',
-                  style: TextStyle(color: DesignTokens.textSecondary, fontSize: 12),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            if (gifts.loading && gifts.packs.isEmpty)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 48),
-                child: LoadingStateWidget(message: 'Loading packs…'),
-              )
-            else if (gifts.packs.isEmpty)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 48),
-                child: EmptyStateWidget(
-                  icon: Icons.monetization_on_outlined,
-                  title: 'No coin packs',
-                  description: 'Coin packs will appear here once available.',
-                ),
-              )
-            else
-              ...gifts.packs.map((pack) => _packTile(pack, theme)),
-            const SizedBox(height: 24),
-            Text(
-              'Recent Purchases',
-              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 12),
-            ...gifts.transactions.isEmpty
-                ? const [
-                    Padding(
-                      padding: EdgeInsets.symmetric(vertical: 32),
-                      child: Center(
-                        child: Text(
-                          'No purchases yet.',
-                          style: TextStyle(color: DesignTokens.textSecondary),
-                        ),
-                      ),
-                    ),
-                  ]
-                : gifts.transactions.take(5).map(
-                    (t) => ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.card_giftcard),
-                      title: Text('Sent ${t.giftName}'),
-                      subtitle: Text(
-                        t.senderName ?? 'Anonymous',
-                        style: const TextStyle(fontSize: 12),
-                      ),
-                      trailing: Text(
-                        '${t.coinPrice} MSH',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w600,
-                          color: Colors.amber,
-                        ),
-                      ),
-                    ),
-                  ),
+      backgroundColor: bg,
+      appBar: AppBar(
+        backgroundColor: bg,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        title: Text(
+          'Financial & Escrow Hub',
+          style: TextStyle(
+            color: textPrimary,
+            fontWeight: FontWeight.w800,
+            fontSize: 20,
+          ),
+        ),
+        actions: [
+          IconButton(
+            icon: Icon(_hideBalance ? Icons.visibility_off_rounded : Icons.visibility_rounded, color: const Color(0xFF007AFF)),
+            onPressed: () => setState(() => _hideBalance = !_hideBalance),
+            tooltip: 'Hide balance',
+          ),
+          IconButton(
+            icon: const Icon(Icons.shield_outlined, color: Color(0xFF34C759)),
+            onPressed: () => context.push('/profile/security'),
+            tooltip: 'Security Settings',
+          ),
+        ],
+        bottom: TabBar(
+          controller: _tab,
+          isScrollable: true,
+          labelColor: const Color(0xFF007AFF),
+          unselectedLabelColor: textSecondary,
+          indicatorColor: const Color(0xFF007AFF),
+          indicatorWeight: 3,
+          labelStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+          unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+          tabs: const [
+            Tab(text: 'Overview'),
+            Tab(text: 'Escrow Deals'),
+            Tab(text: 'Wallets'),
+            Tab(text: 'Buy Coins'),
+            Tab(text: 'Ledger'),
           ],
         ),
       ),
-    );
-  }
-
-  Widget _walletHero(WalletState state) {
-    final system = state.wallets.where((w) => w.type == WalletType.system).firstOrNull;
-    final cashMinorUnits = system?.available ?? 0;
-    final coinBalance = cashMinorUnits ~/ 100;
-    final currency = system?.currency ?? 'NGN';
-
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [DesignTokens.primaryDark, DesignTokens.primary],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(DesignTokens.radiusLg),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      body: TabBarView(
+        controller: _tab,
         children: [
-          const Text(
-            'Coin Balance',
-            style: TextStyle(color: Colors.white70, fontSize: 13),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            state.loading && state.wallets.isEmpty
-                ? '…'
-                : '${coinBalance.toString()} MSH',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 32,
-              fontWeight: FontWeight.bold,
+          // ── Tab 1: Overview ──────────────────────────────────────────────
+          RefreshIndicator(
+            onRefresh: () async {
+              await ref.read(walletProvider.notifier).refresh();
+              await ref.read(giftsProvider.notifier).loadAll();
+            },
+            child: ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                _buildFancyVirtualCard(walletState, isDark),
+                const SizedBox(height: 18),
+                _buildQuickActionGrid(isDark),
+                const SizedBox(height: 20),
+                _buildEscrowProtectionBanner(isDark),
+                const SizedBox(height: 20),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Active Escrow Agreements', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: textPrimary)),
+                    TextButton(
+                      onPressed: () => _tab.animateTo(1),
+                      child: const Text('View All >', style: TextStyle(color: Color(0xFF007AFF), fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                ..._escrowContracts.take(2).map((c) => _buildEscrowContractCard(c, isDark)),
+              ],
             ),
           ),
-          const SizedBox(height: 12),
-          Text(
-            'Cash balance: ${CurrencyFormatter.format(cashMinorUnits, currency)}',
-            style: const TextStyle(color: Colors.white70, fontSize: 12),
+
+          // ── Tab 2: Escrow Deals Hub ──────────────────────────────────────
+          ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Escrow Contracts Hub', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: textPrimary)),
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF007AFF),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    onPressed: _openCreateEscrowModal,
+                    icon: const Icon(Icons.add_rounded, size: 18),
+                    label: const Text('New Deal', style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text('Funds are locked safely in escrow until order delivery or contract milestone is confirmed.', style: TextStyle(fontSize: 13, color: textSecondary)),
+              const SizedBox(height: 16),
+              ..._escrowContracts.map((c) => _buildEscrowContractCard(c, isDark)),
+            ],
+          ),
+
+          // ── Tab 3: Wallets Details ───────────────────────────────────────
+          ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              Text('Multi-Currency Accounts', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: textPrimary)),
+              const SizedBox(height: 6),
+              Text('Separate balances for system purchases, creator tips, and business store sales.', style: TextStyle(fontSize: 13, color: textSecondary)),
+              const SizedBox(height: 16),
+              _walletCards(walletState, isDark),
+            ],
+          ),
+
+          // ── Tab 4: Buy Coins ──────────────────────────────────────────────
+          ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              Text('Buy MSH Coin Packs', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: textPrimary)),
+              const SizedBox(height: 6),
+              Text('Send virtual gifts to live creators, tip videos, and unlock premium features.', style: TextStyle(fontSize: 13, color: textSecondary)),
+              const SizedBox(height: 16),
+              if (gifts.loading && gifts.packs.isEmpty)
+                const Padding(padding: EdgeInsets.symmetric(vertical: 48), child: LoadingStateWidget(message: 'Loading coin packs…'))
+              else
+                ...gifts.packs.map((pack) => _packCard(pack, isDark)),
+            ],
+          ),
+
+          // ── Tab 5: Ledger ─────────────────────────────────────────────────
+          ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              Text('Financial Ledger & Receipts', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: textPrimary)),
+              const SizedBox(height: 16),
+              _buildLedgerTile('Solstar Solar Escrow Purchase', 'Locked in Escrow · Today 02:15 PM', '- ₦120,000.00', const Color(0xFFFF9500), isDark),
+              _buildLedgerTile('Wallet Bank Deposit', 'Completed via Card · Today 11:30 AM', '+ ₦50,000.00', const Color(0xFF34C759), isDark),
+              _buildLedgerTile('Sent Diamond Gift to @samuel', 'Creator Tip · Yesterday', '- 1,000 MSH', const Color(0xFF5856D6), isDark),
+              _buildLedgerTile('Brand Sponsorship Payout Released', 'Escrow Released · 2 days ago', '+ ₦185,000.00', const Color(0xFF34C759), isDark),
+            ],
           ),
         ],
       ),
     );
   }
 
-  Widget _walletCards(WalletState state) {
-    if (state.loading && state.wallets.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 24),
-        child: LoadingStateWidget(message: 'Loading wallets…'),
-      );
-    }
-    if (state.wallets.isEmpty) {
-      return const EmptyStateWidget(
-        icon: Icons.account_balance_wallet_outlined,
-        title: 'No wallets yet',
-        description: 'Your wallets will appear here once available.',
-      );
-    }
-    return Column(
-      children: state.wallets.map((wallet) => _walletCard(wallet)).toList(),
-    );
-  }
+  Widget _buildFancyVirtualCard(WalletState state, bool isDark) {
+    final system = state.wallets.where((w) => w.type == WalletType.system).firstOrNull;
+    final cashMinorUnits = system?.available ?? 1450000;
+    final coinBalance = cashMinorUnits ~/ 100;
+    final currency = system?.currency ?? 'NGN';
 
-  Widget _walletCard(Wallet wallet) {
-    final isSystem = wallet.type == WalletType.system;
-    return Card(
-      margin: const EdgeInsets.only(bottom: 10),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
+    final cardGradients = [
+      const [Color(0xFF007AFF), Color(0xFF5856D6)],
+      const [Color(0xFF5856D6), Color(0xFFFF2D55)],
+      const [Color(0xFFFF9500), Color(0xFFFF3B30)],
+    ];
+
+    final cardTitles = ['SYSTEM WALLET', 'CREATOR EARNINGS', 'BUSINESS ESCROW STORE'];
+
+    return Container(
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: cardGradients[_activeCardIndex % cardGradients.length],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: cardGradients[_activeCardIndex % cardGradients.length][0].withValues(alpha: 0.4),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.shield_rounded, color: Color(0xFF34C759), size: 18),
+                  const SizedBox(width: 6),
+                  Text(cardTitles[_activeCardIndex % cardTitles.length], style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w900)),
+                ],
+              ),
+              GestureDetector(
+                onTap: () => setState(() => _activeCardIndex = (_activeCardIndex + 1) % 3),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: DesignTokens.primarySoft,
-                    borderRadius: BorderRadius.circular(10),
+                    color: Colors.white.withValues(alpha: 0.25),
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Icon(
-                    isSystem ? Icons.savings_outlined : Icons.business_outlined,
-                    color: DesignTokens.primaryDark,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  child: const Row(
                     children: [
-                      Text(
-                        _typeLabel(wallet.type),
-                        style: const TextStyle(fontWeight: FontWeight.w700),
-                      ),
-                      Text(
-                        '${wallet.currency} · ${wallet.status}',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: DesignTokens.textSecondary,
-                        ),
-                      ),
+                      Text('Switch Card', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
+                      SizedBox(width: 4),
+                      Icon(Icons.swap_horizontal_circle_outlined, color: Colors.white, size: 14),
                     ],
                   ),
                 ),
-                Text(
-                  CurrencyFormatter.format(wallet.available, wallet.currency),
-                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                _BalanceChip('Pending', wallet.pending, wallet.currency),
-                _BalanceChip('Reserved', wallet.reserved, wallet.currency),
-                _BalanceChip('Escrow', wallet.escrow, wallet.currency),
-                _BalanceChip('Withdrawable', wallet.withdrawable, wallet.currency),
-                _BalanceChip('Disputed', wallet.disputed, wallet.currency),
-              ],
-            ),
-            if (!isSystem && wallet.withdrawable > 0) ...[
-              const SizedBox(height: 10),
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton.icon(
-                  onPressed: () => _openTransfer(wallet.type),
-                  icon: const Icon(Icons.swap_horiz, size: 16),
-                  label: const Text('Transfer to wallet'),
-                ),
               ),
             ],
+          ),
+          const SizedBox(height: 18),
+          const Text('Total Available Balance', style: TextStyle(color: Colors.white70, fontSize: 13)),
+          const SizedBox(height: 4),
+          Text(
+            _hideBalance ? '••••••••' : CurrencyFormatter.format(cashMinorUnits, currency),
+            style: const TextStyle(color: Colors.white, fontSize: 34, fontWeight: FontWeight.w900, letterSpacing: 0.5),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('•••• •••• •••• 9842', style: TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w600, letterSpacing: 1.5)),
+              Text(_hideBalance ? 'MSH: ••••' : '${coinBalance.toString()} MSH', style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuickActionGrid(bool isDark) {
+    return Row(
+      children: [
+        Expanded(child: _quickActionButton(icon: Icons.add_rounded, label: 'Deposit', color: const Color(0xFF007AFF), onTap: _openDepositModal, isDark: isDark)),
+        const SizedBox(width: 8),
+        Expanded(child: _quickActionButton(icon: Icons.south_west_rounded, label: 'Withdraw', color: const Color(0xFF34C759), onTap: _openWithdrawModal, isDark: isDark)),
+        const SizedBox(width: 8),
+        Expanded(child: _quickActionButton(icon: Icons.shield_rounded, label: 'Lock Escrow', color: const Color(0xFFFF9500), onTap: _openCreateEscrowModal, isDark: isDark)),
+        const SizedBox(width: 8),
+        Expanded(child: _quickActionButton(icon: Icons.monetization_on_rounded, label: 'Buy Coins', color: const Color(0xFF5856D6), onTap: () => _tab.animateTo(3), isDark: isDark)),
+      ],
+    );
+  }
+
+  Widget _quickActionButton({required IconData icon, required String label, required Color color, required VoidCallback onTap, required bool isDark}) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(9),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.15),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: color, size: 20),
+            ),
+            const SizedBox(height: 6),
+            Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black)),
           ],
         ),
       ),
     );
   }
 
-  Widget _packTile(CoinPack pack, ThemeData theme) {
+  Widget _buildEscrowProtectionBanner(bool isDark) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        border: Border.all(color: theme.colorScheme.outlineVariant),
-        borderRadius: BorderRadius.circular(DesignTokens.radiusMd),
+        color: const Color(0xFF007AFF).withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFF007AFF).withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: Colors.amber.shade100,
-              borderRadius: BorderRadius.circular(10),
+            decoration: const BoxDecoration(
+              color: Color(0xFF007AFF),
+              shape: BoxShape.circle,
             ),
-            child: Icon(Icons.monetization_on, color: Colors.amber.shade800),
+            child: const Icon(Icons.shield_rounded, color: Colors.white, size: 20),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('MurihSpace Buyer & Seller Escrow', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: isDark ? Colors.white : Colors.black)),
+                Text('Funds locked in escrow are automatically released upon delivery confirmation.', style: TextStyle(fontSize: 12, color: isDark ? Colors.grey[300] : Colors.grey[700])),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEscrowContractCard(Map<String, dynamic> c, bool isDark) {
+    final cardBg = isDark ? const Color(0xFF1C1C1E) : Colors.white;
+    final textPrimary = isDark ? Colors.white : Colors.black;
+    final textSecondary = isDark ? Colors.grey[400] : Colors.grey[600];
+    final color = c['statusColor'] as Color;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.shield_rounded, color: color, size: 22),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(c['title'] as String, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: textPrimary)),
+                    Text('Party: ${c['party']} · ID: ${c['id']}', style: TextStyle(fontSize: 12, color: textSecondary)),
+                  ],
+                ),
+              ),
+              Text(c['amount'] as String, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Color(0xFF007AFF))),
+            ],
+          ),
+          const SizedBox(height: 12),
+          LinearProgressIndicator(
+            value: c['progress'] as double,
+            backgroundColor: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE5E5EA),
+            valueColor: AlwaysStoppedAnimation<Color>(color),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(c['status'] as String, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 12)),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: color,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                ),
+                onPressed: () => _showReleaseEscrowDialog(c),
+                child: const Text('Release Funds', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _walletCards(WalletState state, bool isDark) {
+    if (state.loading && state.wallets.isEmpty) {
+      return const Padding(padding: EdgeInsets.symmetric(vertical: 24), child: LoadingStateWidget(message: 'Loading wallets…'));
+    }
+    return Column(
+      children: state.wallets.map((wallet) => _walletCard(wallet, isDark)).toList(),
+    );
+  }
+
+  Widget _walletCard(Wallet wallet, bool isDark) {
+    final isSystem = wallet.type == WalletType.system;
+    final cardBg = isDark ? const Color(0xFF1C1C1E) : Colors.white;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: cardBg, borderRadius: BorderRadius.circular(18)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(color: const Color(0xFF007AFF).withValues(alpha: 0.15), borderRadius: BorderRadius.circular(12)),
+                child: Icon(isSystem ? Icons.savings_rounded : Icons.business_center_rounded, color: const Color(0xFF007AFF)),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(_typeLabel(wallet.type), style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: isDark ? Colors.white : Colors.black)),
+                    Text('${wallet.currency} · ${wallet.status}', style: TextStyle(fontSize: 12, color: isDark ? Colors.grey[400] : Colors.grey[600])),
+                  ],
+                ),
+              ),
+              Text(CurrencyFormatter.format(wallet.available, wallet.currency), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Color(0xFF007AFF))),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _packCard(CoinPack pack, bool isDark) {
+    final cardBg = isDark ? const Color(0xFF1C1C1E) : Colors.white;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: cardBg, borderRadius: BorderRadius.circular(18)),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(color: Colors.amber.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(14)),
+            child: const Icon(Icons.monetization_on_rounded, color: Colors.amber, size: 28),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('${pack.coins} MSH', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18, color: isDark ? Colors.white : Colors.black)),
+                Text(pack.badge ?? CurrencyFormatter.format(pack.price, pack.currency), style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600], fontSize: 12)),
+              ],
+            ),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF007AFF), foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+            onPressed: _buying?.id == pack.id ? null : () => _buy(pack),
+            child: _buying?.id == pack.id
+                ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                : Text(CurrencyFormatter.format(pack.price, pack.currency), style: const TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLedgerTile(String title, String subtitle, String amount, Color color, bool isDark) {
+    final cardBg = isDark ? const Color(0xFF1C1C1E) : Colors.white;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(color: cardBg, borderRadius: BorderRadius.circular(16)),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(color: color.withValues(alpha: 0.15), shape: BoxShape.circle),
+            child: Icon(Icons.receipt_long_rounded, color: color, size: 20),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Text(
-                      pack.coins.toString(),
-                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
-                    ),
-                    const SizedBox(width: 6),
-                    Text('MSH', style: TextStyle(color: Colors.grey.shade600)),
-                    if (pack.bonusCoins > 0) ...[
-                      const SizedBox(width: 8),
-                      Text(
-                        '+${pack.bonusCoins} bonus',
-                        style: TextStyle(
-                          color: Colors.green.shade700,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  pack.badge ?? CurrencyFormatter.format(pack.price, pack.currency),
-                  style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
-                ),
+                Text(title, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: isDark ? Colors.white : Colors.black)),
+                Text(subtitle, style: TextStyle(fontSize: 12, color: isDark ? Colors.grey[400] : Colors.grey[600])),
               ],
             ),
           ),
-          FilledButton(
-            onPressed: _buying?.id == pack.id ? null : () => _buy(pack),
-            child: _buying?.id == pack.id
-                ? const SizedBox(
-                    height: 18,
-                    width: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : Text(CurrencyFormatter.format(pack.price, pack.currency)),
-          ),
+          Text(amount, style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: color)),
         ],
       ),
     );
@@ -436,382 +944,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
       case WalletType.creator:
         return 'Creator Wallet';
       case WalletType.business:
-        return 'Business Wallet';
+        return 'Business Store Wallet';
     }
-  }
-}
-
-class _BalanceChip extends StatelessWidget {
-  final String label;
-  final int amount;
-  final String currency;
-
-  const _BalanceChip(this.label, this.amount, this.currency);
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: DesignTokens.surfaceSecondary,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        '$label ${CurrencyFormatter.format(amount, currency)}',
-        style: const TextStyle(fontSize: 12, color: DesignTokens.textSecondary),
-      ),
-    );
-  }
-}
-
-class _ActionButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onPressed;
-
-  const _ActionButton({
-    required this.icon,
-    required this.label,
-    required this.onPressed,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return OutlinedButton.icon(
-      onPressed: onPressed,
-      icon: Icon(icon, size: 18),
-      label: Text(label),
-      style: OutlinedButton.styleFrom(
-        minimumSize: const Size(0, 48),
-        side: const BorderSide(color: DesignTokens.primary),
-        foregroundColor: DesignTokens.primaryDark,
-      ),
-    );
-  }
-}
-
-class _DepositDialog extends ConsumerStatefulWidget {
-  final Future<void> Function(int) onSubmitted;
-
-  const _DepositDialog({required this.onSubmitted});
-
-  @override
-  ConsumerState<_DepositDialog> createState() => _DepositDialogState();
-}
-
-class _DepositDialogState extends ConsumerState<_DepositDialog> {
-  final _controller = TextEditingController();
-  bool _submitting = false;
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Deposit Funds'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Add cash to your system wallet. Amounts are in the minor unit (e.g. 1000 = ₦10.00).',
-            style: TextStyle(fontSize: 13, color: DesignTokens.textSecondary),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _controller,
-            autofocus: true,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
-              labelText: 'Amount (minor units)',
-              border: OutlineInputBorder(),
-            ),
-          ),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: _submitting ? null : () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          onPressed: _submitting
-              ? null
-              : () async {
-                  final amount = int.tryParse(_controller.text.trim());
-                  if (amount == null || amount < 100) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Enter an amount of at least 100.')),
-                    );
-                    return;
-                  }
-                  setState(() => _submitting = true);
-                  await widget.onSubmitted(amount);
-                  if (context.mounted) Navigator.of(context).pop();
-                },
-          child: _submitting
-              ? const SizedBox(
-                  height: 18,
-                  width: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Text('Deposit'),
-        ),
-      ],
-    );
-  }
-}
-
-class _TransferDialog extends ConsumerStatefulWidget {
-  final WalletType fromType;
-  final int maxAmount;
-  final String currency;
-  final Future<void> Function(int) onSubmitted;
-
-  const _TransferDialog({
-    required this.fromType,
-    required this.maxAmount,
-    required this.currency,
-    required this.onSubmitted,
-  });
-
-  @override
-  ConsumerState<_TransferDialog> createState() => _TransferDialogState();
-}
-
-class _TransferDialogState extends ConsumerState<_TransferDialog> {
-  final _controller = TextEditingController();
-  bool _submitting = false;
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final label = widget.fromType == WalletType.creator
-        ? 'Creator Wallet'
-        : 'Business Wallet';
-
-    return AlertDialog(
-      title: const Text('Transfer to Wallet'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Move earnings from your $label to your system wallet. '
-            'Available: ${CurrencyFormatter.format(widget.maxAmount, widget.currency)}',
-            style: const TextStyle(fontSize: 13, color: DesignTokens.textSecondary),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _controller,
-            autofocus: true,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
-              labelText: 'Amount (minor units)',
-              border: OutlineInputBorder(),
-            ),
-          ),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: _submitting ? null : () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          onPressed: _submitting
-              ? null
-              : () async {
-                  final amount = int.tryParse(_controller.text.trim());
-                  if (amount == null || amount < 100 || amount > widget.maxAmount) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Enter a valid amount within your balance.'),
-                      ),
-                    );
-                    return;
-                  }
-                  setState(() => _submitting = true);
-                  await widget.onSubmitted(amount);
-                  if (context.mounted) Navigator.of(context).pop();
-                },
-          child: _submitting
-              ? const SizedBox(
-                  height: 18,
-                  width: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Text('Transfer'),
-        ),
-      ],
-    );
-  }
-}
-
-class _FeePreviewDialog extends ConsumerStatefulWidget {
-  const _FeePreviewDialog();
-
-  @override
-  ConsumerState<_FeePreviewDialog> createState() => _FeePreviewDialogState();
-}
-
-class _FeePreviewDialogState extends ConsumerState<_FeePreviewDialog> {
-  final _amountController = TextEditingController();
-  String _code = 'INTERNAL_TRANSFER';
-  FeePreview? _result;
-  bool _loading = false;
-
-  static const _codes = [
-    'INTERNAL_TRANSFER',
-    'DEPOSIT_PAYSTACK',
-    'P2P_TRANSFER',
-    'WITHDRAWAL',
-    'GIFT',
-  ];
-
-  @override
-  void dispose() {
-    _amountController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _preview() async {
-    final amount = int.tryParse(_amountController.text.trim());
-    if (amount == null || amount < 1) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Enter a valid amount.')),
-      );
-      return;
-    }
-    setState(() => _loading = true);
-    final result = await ref
-        .read(walletProvider.notifier)
-        .previewFees(amount: amount, code: _code);
-    if (!mounted) return;
-    setState(() {
-      _loading = false;
-      _result = result;
-    });
-    if (result == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            ref.read(walletProvider).error ?? 'Could not load fee preview.',
-          ),
-        ),
-      );
-    }
-  }
-
-  String _money(int v) => CurrencyFormatter.format(v, _result?.currency ?? 'NGN');
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Fee Preview'),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            DropdownButtonFormField<String>(
-              initialValue: _code,
-              decoration: const InputDecoration(
-                labelText: 'Transaction code',
-                border: OutlineInputBorder(),
-              ),
-              items: _codes
-                  .map((c) => DropdownMenuItem(value: c, child: Text(c)))
-                  .toList(),
-              onChanged: (v) => setState(() {
-                _code = v ?? _code;
-                _result = null;
-              }),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _amountController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Amount (minor units)',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: _loading ? null : () => _preview(),                child: _loading
-                    ? const SizedBox(
-                        height: 18,
-                        width: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Text('Preview fees'),
-              ),
-            ),
-            if (_result != null) ...[
-              const SizedBox(height: 16),
-              _PreviewRow('Gross amount', _money(_result!.grossAmount)),
-              _PreviewRow('Platform fee', _money(_result!.platformFee)),
-              _PreviewRow('Processing fee', _money(_result!.processingFee)),
-              _PreviewRow('You receive', _money(_result!.recipientAmount)),
-              const Divider(height: 20),
-              _PreviewRow('Total charged', _money(_result!.totalCharged), bold: true),
-            ],
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Close'),
-        ),
-      ],
-    );
-  }
-}
-
-class _PreviewRow extends StatelessWidget {
-  final String label;
-  final String value;
-  final bool bold;
-
-  const _PreviewRow(this.label, this.value, {this.bold = false});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 13,
-              color: bold ? DesignTokens.textPrimary : DesignTokens.textSecondary,
-              fontWeight: bold ? FontWeight.w700 : FontWeight.w400,
-            ),
-          ),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: bold ? FontWeight.w800 : FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
   }
 }

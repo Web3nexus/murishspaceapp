@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../core/roles.dart';
+import '../providers/auth_provider.dart';
 
 /// MurihSpace brand asset paths organized by role
 abstract final class BrandAssets {
@@ -21,18 +24,24 @@ abstract final class BrandAssets {
   static const String vendorIconBlue = 'assets/images/brand/vendor-icon-light.png';
   static const String vendorIconWhite = 'assets/images/brand/vendor-icon-dark.png';
 
+  // Admin role logos
+  static const String adminLogoBlue = 'assets/images/brand/admin-logo-light.png';
+  static const String adminLogoWhite = 'assets/images/brand/admin-logo-dark.png';
+  static const String adminIconBlue = 'assets/images/brand/admin-icon-light.png';
+  static const String adminIconWhite = 'assets/images/brand/admin-icon-dark.png';
+
   // Fallback/Legacy assets
   static const String logoBlue = 'assets/images/brand/logo_blue.png';
   static const String logoWhite = 'assets/images/brand/logo_white.png';
   static const String iconBlue = 'assets/images/brand/icon_blue.png';
   static const String iconWhite = 'assets/images/brand/icon_white.png';
 
-  /// Get logo path for a specific role
+  /// Get logo path for a specific role (dark variant)
   static String getLogoDark(UserRole role) {
     return switch (role) {
       UserRole.creator => creatorLogoWhite,
       UserRole.vendor => vendorLogoWhite,
-      UserRole.admin => logoWhite, // Admin uses standard white logo
+      UserRole.admin => adminLogoWhite,
       UserRole.member => memberLogoWhite,
     };
   }
@@ -42,17 +51,17 @@ abstract final class BrandAssets {
     return switch (role) {
       UserRole.creator => creatorLogoBlue,
       UserRole.vendor => vendorLogoBlue,
-      UserRole.admin => logoBlue, // Admin uses standard blue logo
+      UserRole.admin => adminLogoBlue,
       UserRole.member => memberLogoBlue,
     };
   }
 
-  /// Get icon path for a specific role
+  /// Get icon path for a specific role (dark variant)
   static String getIconDark(UserRole role) {
     return switch (role) {
       UserRole.creator => creatorIconWhite,
       UserRole.vendor => vendorIconWhite,
-      UserRole.admin => iconWhite,
+      UserRole.admin => adminIconWhite,
       UserRole.member => memberIconWhite,
     };
   }
@@ -62,7 +71,7 @@ abstract final class BrandAssets {
     return switch (role) {
       UserRole.creator => creatorIconBlue,
       UserRole.vendor => vendorIconBlue,
-      UserRole.admin => iconBlue,
+      UserRole.admin => adminIconBlue,
       UserRole.member => memberIconBlue,
     };
   }
@@ -70,23 +79,24 @@ abstract final class BrandAssets {
 
 /// The full horizontal MurihSpace logo wordmark. Picks the variant that matches
 /// the current theme brightness (blue on light, white on dark).
-/// Optionally respects a specific user role for role-specific branding.
-class BrandLogo extends StatelessWidget {
+/// Automatically auto-detects the logged-in user's role (creator, vendor, member, admin).
+class BrandLogo extends ConsumerWidget {
   final double height;
-  final bool isDark;
+  final bool? isDark;
   final UserRole? role;
 
   const BrandLogo({
     super.key,
     this.height = 28,
-    this.isDark = false,
+    this.isDark,
     this.role,
   });
 
   @override
-  Widget build(BuildContext context) {
-    final dark = isDark || Theme.of(context).brightness == Brightness.dark;
-    final activeRole = role ?? UserRole.member;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final themeDark = Theme.of(context).brightness == Brightness.dark;
+    final dark = isDark ?? themeDark;
+    final activeRole = role ?? ref.watch(authProvider).user?.role ?? UserRole.member;
     final asset = dark
         ? BrandAssets.getLogoDark(activeRole)
         : BrandAssets.getLogoLight(activeRole);
@@ -95,7 +105,7 @@ class BrandLogo extends StatelessWidget {
       asset,
       height: height,
       fit: BoxFit.contain,
-      errorBuilder: (_, __, ___) {
+      errorBuilder: (context, error, stackTrace) {
         // Fallback to standard logo if role-specific asset not found
         return Image.asset(
           dark ? BrandAssets.logoWhite : BrandAssets.logoBlue,
@@ -108,23 +118,24 @@ class BrandLogo extends StatelessWidget {
 }
 
 /// The square MurihSpace brand mark (icon). Picks the variant for the theme.
-/// Optionally respects a specific user role for role-specific branding.
-class BrandIcon extends StatelessWidget {
+/// Automatically auto-detects the logged-in user's role (creator, vendor, member, admin).
+class BrandIcon extends ConsumerWidget {
   final double size;
-  final bool isDark;
+  final bool? isDark;
   final UserRole? role;
 
   const BrandIcon({
     super.key,
     this.size = 48,
-    this.isDark = false,
+    this.isDark,
     this.role,
   });
 
   @override
-  Widget build(BuildContext context) {
-    final dark = isDark || Theme.of(context).brightness == Brightness.dark;
-    final activeRole = role ?? UserRole.member;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final themeDark = Theme.of(context).brightness == Brightness.dark;
+    final dark = isDark ?? themeDark;
+    final activeRole = role ?? ref.watch(authProvider).user?.role ?? UserRole.member;
     final asset = dark
         ? BrandAssets.getIconDark(activeRole)
         : BrandAssets.getIconLight(activeRole);
@@ -134,13 +145,50 @@ class BrandIcon extends StatelessWidget {
       width: size,
       height: size,
       fit: BoxFit.contain,
-      errorBuilder: (_, __, ___) {
+      errorBuilder: (context, error, stackTrace) {
         // Fallback to standard icon if role-specific asset not found
         return Image.asset(
           dark ? BrandAssets.iconWhite : BrandAssets.iconBlue,
           width: size,
           height: size,
           fit: BoxFit.contain,
+        );
+      },
+    );
+  }
+}
+
+/// The cropped MurihSpace favicon mark from splashlogo.png.
+class BrandFavicon extends StatelessWidget {
+  final double size;
+  final bool? isDark;
+
+  const BrandFavicon({
+    super.key,
+    this.size = 24,
+    this.isDark,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final themeDark = Theme.of(context).brightness == Brightness.dark;
+    final dark = isDark ?? themeDark;
+    return Image.asset(
+      dark ? BrandAssets.iconWhite : BrandAssets.iconBlue,
+      width: size,
+      height: size,
+      fit: BoxFit.contain,
+      errorBuilder: (context, error, stackTrace) {
+        return Image.asset(
+          dark ? BrandAssets.memberIconWhite : BrandAssets.memberIconBlue,
+          width: size,
+          height: size,
+          fit: BoxFit.contain,
+          errorBuilder: (_, __, ___) => Icon(
+            Icons.chat_bubble_rounded,
+            size: size,
+            color: const Color(0xFF007AFF),
+          ),
         );
       },
     );

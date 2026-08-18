@@ -214,9 +214,14 @@ class _BubbleContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final maxWidth = MediaQuery.of(context).size.width * 0.72;
-    final bubbleColor = mine ? DesignTokens.primary : Colors.white;
-    final textColor = mine ? Colors.white : DesignTokens.textPrimary;
+    final Color bubbleColor = mine
+        ? const Color(0xFF007AFF)
+        : (isDark ? const Color(0xFF1C1C1E) : Colors.white);
+    final Color textColor = mine
+        ? Colors.white
+        : (isDark ? Colors.white : Colors.black87);
 
     return Container(
       constraints: BoxConstraints(maxWidth: maxWidth),
@@ -232,7 +237,12 @@ class _BubbleContent extends StatelessWidget {
           bottomLeft: Radius.circular(mine ? 16 : 4),
           bottomRight: Radius.circular(mine ? 4 : 16),
         ),
-        border: mine ? null : Border.all(color: DesignTokens.border),
+        border: mine
+            ? null
+            : Border.all(
+                color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE5E5EA),
+                width: 0.8,
+              ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -263,7 +273,7 @@ class _BubbleContent extends StatelessWidget {
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.graphic_eq, color: mine ? Colors.white : DesignTokens.primaryDark),
+                Icon(Icons.graphic_eq, color: mine ? Colors.white : const Color(0xFF007AFF)),
                 const SizedBox(width: 8),
                 Text('Voice message', style: TextStyle(color: textColor)),
               ],
@@ -276,7 +286,7 @@ class _BubbleContent extends StatelessWidget {
           if (message.deleted)
             Text(
               'This message was deleted',
-              style: TextStyle(color: textColor.withValues(alpha: 0.8), fontStyle: FontStyle.italic),
+              style: TextStyle(color: textColor.withOpacity(0.8), fontStyle: FontStyle.italic),
             ),
           _MetaRow(message: message, mine: mine),
         ],
@@ -378,6 +388,7 @@ class _ReactionChips extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
       padding: const EdgeInsets.only(top: 2),
       child: Wrap(
@@ -390,16 +401,23 @@ class _ReactionChips extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: r.byMe ? DesignTokens.primarySoft : Colors.white,
+                  color: r.byMe
+                      ? const Color(0xFF007AFF).withOpacity(0.15)
+                      : (isDark ? const Color(0xFF2C2C2E) : Colors.white),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: r.byMe ? DesignTokens.primary : DesignTokens.border),
+                  border: Border.all(
+                    color: r.byMe
+                        ? const Color(0xFF007AFF)
+                        : (isDark ? const Color(0xFF38383A) : const Color(0xFFE5E5EA)),
+                  ),
                 ),
                 child: Text(
                   '${r.emoji} ${r.count}',
                   style: TextStyle(
                     fontSize: 12,
-                    fontWeight: r.byMe ? FontWeight.w700 : FontWeight.w500,
-                    color: r.byMe ? DesignTokens.primaryDark : DesignTokens.textSecondary,
+                    color: r.byMe
+                        ? const Color(0xFF007AFF)
+                        : (isDark ? Colors.white70 : Colors.black87),
                   ),
                 ),
               ),

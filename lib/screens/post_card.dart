@@ -1,8 +1,10 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/design_tokens.dart';
 import '../models/community_models.dart';
+import '../providers/follow_provider.dart';
 import '../utils/format.dart';
 
 /// One post card with author header, content, media and engagement actions.
@@ -29,23 +31,31 @@ class PostCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final author = post.author;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
       decoration: BoxDecoration(
-        color: DesignTokens.surface,
-        borderRadius: BorderRadius.circular(DesignTokens.radiusLg),
-        border: Border.all(color: DesignTokens.border),
+        color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+        borderRadius: BorderRadius.circular(DesignTokens.rLg),
+        border: Border.all(
+          color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE5E5EA),
+          width: 0.8,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _Header(post: post, author: author, onReport: onReport),
+          _Header(post: post, author: author, onReport: onReport, isDark: isDark),
           if (post.content.isNotEmpty) ...[
             const SizedBox(height: 8),
             Text(
               post.content,
-              style: const TextStyle(fontSize: 15, height: 1.4, color: DesignTokens.textPrimary),
+              style: TextStyle(
+                fontSize: 15,
+                height: 1.4,
+                color: isDark ? Colors.white : Colors.black87,
+              ),
             ),
           ],
           if (post.hasMedia) ...[
@@ -56,23 +66,24 @@ class PostCard extends StatelessWidget {
             const SizedBox(height: 8),
             const Row(
               children: [
-                Icon(Icons.push_pin, size: 13, color: DesignTokens.primaryDark),
+                Icon(Icons.push_pin, size: 13, color: DesignTokens.primary),
                 SizedBox(width: 4),
                 Text(
                   'Pinned post',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: DesignTokens.primaryDark),
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: DesignTokens.primary),
                 ),
               ],
             ),
           ],
           const SizedBox(height: 8),
-          const Divider(height: 1),
+          Divider(height: 1, color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE5E5EA)),
           _ActionRow(
             post: post,
             onCommentTap: onCommentTap,
             onLike: onLike,
             onSave: onSave,
             onShare: onShare,
+            isDark: isDark,
           ),
         ],
       ),
@@ -80,27 +91,39 @@ class PostCard extends StatelessWidget {
   }
 }
 
-class _Header extends StatelessWidget {
+class _Header extends ConsumerWidget {
   final Post post;
   final dynamic author;
   final VoidCallback? onReport;
+  final bool isDark;
 
-  const _Header({required this.post, required this.author, this.onReport});
+  const _Header({
+    required this.post,
+    required this.author,
+    this.onReport,
+    required this.isDark,
+  });
 
   @override
-  Widget build(BuildContext context) {
-    final avatarUrl = author?.avatarUrl;
-    final name = author?.name ?? 'MurihSpace user';
+  Widget build(BuildContext context, WidgetRef ref) {
+    final followState = ref.watch(followProvider);
+    final followNotifier = ref.read(followProvider.notifier);
+
+    final name = author?.name ?? 'Anonymous';
+    final photo = author?.avatarUrl;
+    final authorId = author?.id ?? 0;
+    final isFollowing = followState.isFollowing(authorId);
+
     return Row(
       children: [
         CircleAvatar(
-          radius: 20,
-          backgroundColor: DesignTokens.primarySoft,
-          backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty ? CachedNetworkImageProvider(avatarUrl) : null,
-          child: avatarUrl == null || avatarUrl.isEmpty
+          radius: 18,
+          backgroundColor: const Color(0xFF007AFF).withValues(alpha: 0.15),
+          backgroundImage: photo != null && photo.isNotEmpty ? NetworkImage(photo) : null,
+          child: photo == null || photo.isEmpty
               ? Text(
-                  name.isEmpty ? '?' : name.substring(0, 1).toUpperCase(),
-                  style: const TextStyle(color: DesignTokens.primaryDark, fontWeight: FontWeight.w700),
+                  name.isNotEmpty ? name[0].toUpperCase() : '?',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF007AFF)),
                 )
               : null,
         ),
@@ -109,17 +132,50 @@ class _Header extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: DesignTokens.textPrimary),
+              Row(
+                children: [
+                  Text(
+                    name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                      color: isDark ? Colors.white : Colors.black,
+                    ),
+                  ),
+                  if (authorId > 0 && authorId != 1) ...[
+                    const SizedBox(width: 8),
+                    GestureDetector(
+                      onTap: () {
+                        followNotifier.toggleFollow(authorId);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(isFollowing ? 'Unfollowed $name' : 'Following $name!'),
+                            duration: const Duration(seconds: 1),
+                          ),
+                        );
+                      },
+                      child: Text(
+                        isFollowing ? '· Following' : '· Follow',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: isFollowing ? Colors.grey : const Color(0xFF007AFF),
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
               ),
               Text(
                 post.community?.name != null ? '${post.community!.name} · ${formatRelativeTime(post.createdAt)}' : formatRelativeTime(post.createdAt),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 12, color: DesignTokens.textSecondary),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isDark ? Colors.grey[400] : Colors.grey[600],
+                ),
               ),
             ],
           ),
@@ -127,7 +183,11 @@ class _Header extends StatelessWidget {
         if (onReport != null)
           IconButton(
             onPressed: onReport,
-            icon: const Icon(Icons.more_horiz, size: 20, color: DesignTokens.textSecondary),
+            icon: Icon(
+              Icons.more_horiz,
+              size: 20,
+              color: isDark ? Colors.grey[400] : Colors.grey[600],
+            ),
             visualDensity: VisualDensity.compact,
           ),
       ],
@@ -190,6 +250,7 @@ class _ActionRow extends StatelessWidget {
   final VoidCallback? onLike;
   final VoidCallback? onSave;
   final VoidCallback? onShare;
+  final bool isDark;
 
   const _ActionRow({
     required this.post,
@@ -197,36 +258,38 @@ class _ActionRow extends StatelessWidget {
     this.onLike,
     this.onSave,
     this.onShare,
+    required this.isDark,
   });
 
   @override
   Widget build(BuildContext context) {
+    final defaultColor = isDark ? const Color(0xFF8E8E93) : const Color(0xFF61758A);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
           _ActionButton(
             icon: post.likedByMe ? Icons.favorite : Icons.favorite_border,
-            color: post.likedByMe ? DesignTokens.danger : DesignTokens.textSecondary,
+            color: post.likedByMe ? DesignTokens.danger : defaultColor,
             label: _count(post.likesCount),
             onTap: onLike,
           ),
           _ActionButton(
             icon: Icons.chat_bubble_outline,
-            color: DesignTokens.textSecondary,
+            color: defaultColor,
             label: _count(post.commentsCount),
             onTap: onCommentTap,
           ),
           const Spacer(),
           _ActionButton(
             icon: post.savedByMe ? Icons.bookmark : Icons.bookmark_border,
-            color: post.savedByMe ? DesignTokens.primaryDark : DesignTokens.textSecondary,
+            color: post.savedByMe ? DesignTokens.primary : defaultColor,
             label: _count(post.savesCount),
             onTap: onSave,
           ),
           _ActionButton(
             icon: Icons.share_outlined,
-            color: DesignTokens.textSecondary,
+            color: defaultColor,
             label: _count(post.sharesCount),
             onTap: onShare,
           ),

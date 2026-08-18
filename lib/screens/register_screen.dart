@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl_phone_field/intl_phone_field.dart';
+import 'package:pinput/pinput.dart';
 
 import '../components/brand.dart';
 import '../components/inline_field_error.dart';
@@ -10,6 +11,7 @@ import '../core/api_client.dart';
 import '../core/design_tokens.dart';
 import '../core/roles.dart';
 import '../providers/auth_provider.dart';
+import '../providers/platform_provider.dart';
 
 enum _UsernameCheck { idle, checking, available, taken, invalid }
 
@@ -142,13 +144,18 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
   // --- Step 2: OTP Logic ---
   Future<void> _handleVerifyOtp() async {
-    if (!(_otpFormKey.currentState?.validate() ?? false)) return;
+    if (ref.read(authProvider).loading) return;
+    final code = _otpController.text.trim();
+    if (code.length != 6) {
+      setState(() => _otpError = 'Enter the 6-digit code.');
+      return;
+    }
     setState(() => _otpError = null);
 
     final data = await ref.read(authProvider.notifier).verifyOtp(
           intent: 'register',
           phoneE164: _phoneE164,
-          code: _otpController.text,
+          code: code,
         );
 
     if (data != null) {
@@ -242,8 +249,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     final pass = _passwordController.text;
     final conf = _confirmPasswordController.text;
 
-    if (pass.length < 8) {
-      setState(() => _passwordError = 'Password must be at least 8 characters');
+    if (pass.length < 8 ||
+        !RegExp(r'[A-Z]').hasMatch(pass) ||
+        !RegExp(r'[a-z]').hasMatch(pass) ||
+        !RegExp(r'[0-9]').hasMatch(pass)) {
+      setState(() => _passwordError = 'Please ensure your password meets all requirements');
       return;
     }
     if (pass != conf) {
@@ -266,13 +276,29 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         );
 
     if (success && mounted) {
-      context.go('/app'); // Or wherever authenticated users go
+      if (_role == UserRole.creator || _role == UserRole.vendor) {
+        context.go('/social-accounts');
+      } else {
+        context.go('/app');
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
+    final platformState = ref.watch(platformProvider);
+
+    if (platformState.isLoading && platformState.config == null) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    final config = platformState.config;
+    final phoneRegistrationEnabled = config?.isRegistrationEnabled('phone_otp') ?? true;
 
     final title = switch (_step) {
       1 => 'Verify your number',
@@ -369,7 +395,21 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               ),
               const SizedBox(height: 16),
             ],
-            Expanded(
+            if (!phoneRegistrationEnabled && _step == 1)
+              const Expanded(
+                child: Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(24.0),
+                    child: Text(
+                      'Registration via mobile number is currently disabled.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: DesignTokens.danger, fontSize: 16),
+                    ),
+                  ),
+                ),
+              )
+            else
+              Expanded(
               child: PageView(
                 controller: _pageController,
                 physics: const NeverScrollableScrollPhysics(),
@@ -408,11 +448,13 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               ),
               initialCountryCode: widget.initialCountryIso2 ?? 'NG',
               onChanged: (phone) {
-                _phoneE164 = phone.completeNumber;
-                if (_phoneError != null) setState(() => _phoneError = null);
+                setState(() {
+                  _phoneE164 = phone.completeNumber;
+                  if (_phoneError != null) _phoneError = null;
+                });
               },
             ),
-            InlineFieldError(error: _phoneError),
+            InlineFieldError(error: _phoneError ?? ref.watch(authProvider).errorMessage),
             const SizedBox(height: 16),
             const Text(
               'By continuing you agree to receive an SMS verification code. Standard message and data rates may apply.',
@@ -446,18 +488,33 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            TextFormField(
+            Pinput(
               controller: _otpController,
-              keyboardType: TextInputType.number,
-              maxLength: 6,
-              decoration: const InputDecoration(
-                labelText: '6-digit Code',
-                prefixIcon: Icon(Icons.security),
+              length: 6,
+              defaultPinTheme: PinTheme(
+                width: 48,
+                height: 56,
+                textStyle: const TextStyle(fontSize: 22, color: DesignTokens.textPrimary, fontWeight: FontWeight.w600),
+                decoration: BoxDecoration(
+                  border: Border.all(color: DesignTokens.border),
+                  borderRadius: BorderRadius.circular(12),
+                  color: DesignTokens.surface,
+                ),
               ),
-              validator: (v) => v == null || v.length < 6 ? 'Enter full code' : null,
+              focusedPinTheme: PinTheme(
+                width: 48,
+                height: 56,
+                textStyle: const TextStyle(fontSize: 22, color: DesignTokens.textPrimary, fontWeight: FontWeight.w600),
+                decoration: BoxDecoration(
+                  border: Border.all(color: DesignTokens.primary, width: 2),
+                  borderRadius: BorderRadius.circular(12),
+                  color: DesignTokens.surface,
+                ),
+              ),
               onChanged: (_) {
                 if (_otpError != null) setState(() => _otpError = null);
               },
+              onCompleted: (_) => _handleVerifyOtp(),
             ),
             InlineFieldError(error: _otpError ?? ref.read(authProvider).errorMessage),
             const SizedBox(height: 16),
@@ -592,8 +649,53 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 prefixIcon: Icon(Icons.lock_outline),
               ),
               onChanged: (_) {
-                if (_passwordError != null) setState(() => _passwordError = null);
+                setState(() {
+                  if (_passwordError != null) _passwordError = null;
+                });
               },
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
+                border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'PASSWORD REQUIREMENTS',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  _RequirementItem(
+                    label: 'At least 8 characters',
+                    isMet: _passwordController.text.length >= 8,
+                  ),
+                  const SizedBox(height: 4),
+                  _RequirementItem(
+                    label: 'One uppercase letter',
+                    isMet: RegExp(r'[A-Z]').hasMatch(_passwordController.text),
+                  ),
+                  const SizedBox(height: 4),
+                  _RequirementItem(
+                    label: 'One lowercase letter',
+                    isMet: RegExp(r'[a-z]').hasMatch(_passwordController.text),
+                  ),
+                  const SizedBox(height: 4),
+                  _RequirementItem(
+                    label: 'One number',
+                    isMet: RegExp(r'[0-9]').hasMatch(_passwordController.text),
+                  ),
+                ],
+              ),
             ),
             InlineFieldError(error: _passwordError),
             const SizedBox(height: 16),
@@ -704,6 +806,34 @@ class _RoleChip extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _RequirementItem extends StatelessWidget {
+  final String label;
+  final bool isMet;
+
+  const _RequirementItem({required this.label, required this.isMet});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(
+          isMet ? Icons.check_circle : Icons.cancel,
+          size: 14,
+          color: isMet ? Colors.green : Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.5),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            color: isMet ? Theme.of(context).colorScheme.onSurface : Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
     );
   }
 }

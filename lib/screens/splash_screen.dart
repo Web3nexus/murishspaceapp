@@ -70,23 +70,16 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              BrandIcon(size: 96, role: auth.user?.role),
+              Image.asset(
+                'assets/images/brand/app_splash.png',
+                width: 200,
+                fit: BoxFit.contain,
+              ),
               const SizedBox(height: 24),
               SlideTransition(
                 position: _slide,
                 child: Column(
                   children: [
-                    Text(
-                      'MurihSpace',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        color: isDark
-                            ? const Color(0xFFEAF2F9)
-                            : DesignTokens.navy,
-                        fontSize: 30,
-                        letterSpacing: -0.5,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
                     Text(
                       'Connect. Create. Sell. Belong.',
                       style: TextStyle(

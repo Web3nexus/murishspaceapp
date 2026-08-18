@@ -46,17 +46,19 @@ class AppTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: DesignTokens.surface,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        isDense: true,
+        floatingLabelBehavior: FloatingLabelBehavior.auto,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(DesignTokens.radiusSm),
+          borderRadius: BorderRadius.circular(16),
           borderSide: const BorderSide(color: DesignTokens.border),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(DesignTokens.radiusSm),
+          borderRadius: BorderRadius.circular(16),
           borderSide: const BorderSide(color: DesignTokens.border),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(DesignTokens.radiusSm),
+          borderRadius: BorderRadius.circular(16),
           borderSide: const BorderSide(color: DesignTokens.primary, width: 1.5),
         ),
       ),
@@ -99,24 +101,99 @@ class AppTheme {
   }
 
   static ThemeData get darkTheme {
-    // Dark mode ships in a later phase; provide a token-consistent dark variant now.
     final scheme = ColorScheme.fromSeed(
       seedColor: DesignTokens.primary,
       brightness: Brightness.dark,
-      primary: const Color(0xFF5BB8E2),
-      onPrimary: DesignTokens.navy,
-      surface: const Color(0xFF0E1E30),
-      onSurface: const Color(0xFFEAF2F9),
-      error: DesignTokens.danger,
+      primary: const Color(0xFF007AFF),
+      onPrimary: Colors.white,
+      primaryContainer: const Color(0xFF1C1C1E),
+      onPrimaryContainer: const Color(0xFF0A84FF),
+      secondary: const Color(0xFF8E8E93),
+      onSecondary: Colors.white,
+      surface: const Color(0xFF1C1C1E),
+      onSurface: Colors.white,
+      error: const Color(0xFFFF453A),
+      outline: const Color(0xFF2C2C2E),
     );
+
     return ThemeData(
       useMaterial3: true,
       colorScheme: scheme,
-      scaffoldBackgroundColor: const Color(0xFF081826),
+      scaffoldBackgroundColor: Colors.black,
       appBarTheme: const AppBarTheme(
-        backgroundColor: Color(0xFF0E1E30),
-        foregroundColor: Color(0xFFEAF2F9),
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
         elevation: 0,
+        surfaceTintColor: Colors.transparent,
+        centerTitle: false,
+        titleTextStyle: TextStyle(
+          color: Colors.white,
+          fontSize: 20,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+      cardTheme: CardThemeData(
+        color: const Color(0xFF1C1C1E),
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: const Color(0xFF1C1C1E),
+        isDense: true,
+        floatingLabelBehavior: FloatingLabelBehavior.auto,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: Color(0xFF2C2C2E)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: Color(0xFF2C2C2E)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: Color(0xFF007AFF), width: 1.5),
+        ),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          backgroundColor: const Color(0xFF007AFF),
+          foregroundColor: Colors.white,
+          minimumSize: const Size(0, 48),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+        ),
+      ),
+      navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: const Color(0xFF1C1C1E),
+        indicatorColor: const Color(0xFF007AFF).withOpacity(0.2),
+        height: DesignTokens.navBarHeight,
+        labelTextStyle: WidgetStateProperty.resolveWith((states) {
+          final selected = states.contains(WidgetState.selected);
+          return TextStyle(
+            fontSize: 12,
+            fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+            color: selected ? const Color(0xFF007AFF) : const Color(0xFF8E8E93),
+          );
+        }),
+      ),
+      dividerTheme: const DividerThemeData(color: Color(0xFF2C2C2E), thickness: 1),
+      textTheme: const TextTheme(
+        titleLarge: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 24),
+        titleMedium: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 17),
+        bodyMedium: TextStyle(color: Colors.white, fontSize: 14),
+        bodySmall: TextStyle(color: Color(0xFF8E8E93), fontSize: 13),
+      ),
+      snackBarTheme: SnackBarThemeData(
+        backgroundColor: const Color(0xFF2C2C2E),
+        contentTextStyle: const TextStyle(color: Colors.white),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
   }

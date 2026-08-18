@@ -15,23 +15,38 @@ class NotificationsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(notificationsProvider);
     final notifier = ref.read(notificationsProvider.notifier);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = isDark ? Colors.black : const Color(0xFFF2F2F7);
 
     return Scaffold(
+      backgroundColor: bg,
       appBar: AppBar(
-        title: const Text('Notifications', style: TextStyle(fontWeight: FontWeight.w700)),
+        backgroundColor: bg,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        title: Text(
+          'Notifications',
+          style: TextStyle(
+            color: isDark ? Colors.white : Colors.black,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
         actions: [
           if (state.unread > 0)
             TextButton(
               onPressed: () => notifier.markAllRead(),
-              child: const Text('Mark all read'),
+              child: const Text(
+                'Mark all read',
+                style: TextStyle(color: Color(0xFF007AFF), fontWeight: FontWeight.bold),
+              ),
             ),
         ],
       ),
-      body: _body(context, ref, state, notifier),
+      body: _body(context, ref, state, notifier, isDark),
     );
   }
 
-  Widget _body(BuildContext context, WidgetRef ref, NotificationsState state, NotificationsNotifier notifier) {
+  Widget _body(BuildContext context, WidgetRef ref, NotificationsState state, NotificationsNotifier notifier, bool isDark) {
     if (state.loading && state.notifications.isEmpty) {
       return const LoadingStateWidget(message: 'Loading notifications…');
     }
@@ -40,30 +55,45 @@ class NotificationsScreen extends ConsumerWidget {
     }
     if (state.notifications.isEmpty) {
       return const EmptyStateWidget(
-        icon: Icons.notifications_none,
+        icon: Icons.notifications_none_rounded,
         title: 'No notifications yet',
         description: 'Message alerts and activity will show up here.',
       );
     }
+    final cardBg = isDark ? const Color(0xFF1C1C1E) : Colors.white;
+
     return RefreshIndicator(
       onRefresh: () => notifier.refresh(),
-      child: ListView.separated(
-        physics: const AlwaysScrollableScrollPhysics(),
-        itemCount: state.notifications.length,
-        separatorBuilder: (_, _) => const Divider(height: 1, indent: 72),
-        itemBuilder: (_, i) {
-          final notification = state.notifications[i];
-          return _NotificationTile(
-            notification: notification,
-            onTap: () {
-              notifier.markRead(notification.id);
-              final conversationId = notification.conversationId;
-              if (conversationId != null) {
-                context.push('/app/conversation/$conversationId');
-              }
-            },
-          );
-        },
+      child: ListView(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              color: cardBg,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: state.notifications.length,
+              separatorBuilder: (_, _) => const Divider(height: 1, indent: 64),
+              itemBuilder: (_, i) {
+                final notification = state.notifications[i];
+                return _NotificationTile(
+                  notification: notification,
+                  isDark: isDark,
+                  onTap: () {
+                    notifier.markRead(notification.id);
+                    final conversationId = notification.conversationId;
+                    if (conversationId != null) {
+                      context.push('/app/conversation/$conversationId');
+                    }
+                  },
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -71,9 +101,10 @@ class NotificationsScreen extends ConsumerWidget {
 
 class _NotificationTile extends StatelessWidget {
   final AppNotification notification;
+  final bool isDark;
   final VoidCallback onTap;
 
-  const _NotificationTile({required this.notification, required this.onTap});
+  const _NotificationTile({required this.notification, required this.isDark, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -84,28 +115,44 @@ class _NotificationTile extends StatelessWidget {
 
     return ListTile(
       onTap: onTap,
-      leading: CircleAvatar(
-        backgroundColor: unread ? DesignTokens.primary : DesignTokens.primarySoft,
+      leading: Container(
+        width: 42,
+        height: 42,
+        decoration: BoxDecoration(
+          color: unread ? const Color(0xFF007AFF) : (isDark ? const Color(0xFF2C2C2E) : const Color(0xFFEFF3F6)),
+          shape: BoxShape.circle,
+        ),
         child: Icon(
-          Icons.mark_chat_unread_outlined,
-          color: unread ? Colors.white : DesignTokens.primaryDark,
+          Icons.mark_chat_unread_rounded,
+          color: unread ? Colors.white : (isDark ? Colors.grey[400] : const Color(0xFF61758A)),
           size: 20,
         ),
       ),
       title: Text(
         title,
-        style: TextStyle(fontWeight: unread ? FontWeight.w700 : FontWeight.w500),
+        style: TextStyle(
+          fontWeight: unread ? FontWeight.w800 : FontWeight.w600,
+          fontSize: 15,
+          color: isDark ? Colors.white : Colors.black,
+        ),
       ),
       subtitle: Text(
         preview,
-        maxLines: 2,
+        maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: const TextStyle(color: DesignTokens.textSecondary),
+        style: TextStyle(
+          fontSize: 13,
+          color: isDark ? Colors.grey[400] : Colors.grey[600],
+        ),
       ),
       trailing: unread
-          ? const Padding(
-              padding: EdgeInsets.only(left: 8),
-              child: Icon(Icons.circle, size: 10, color: DesignTokens.primary),
+          ? Container(
+              width: 10,
+              height: 10,
+              decoration: const BoxDecoration(
+                color: Color(0xFF007AFF),
+                shape: BoxShape.circle,
+              ),
             )
           : null,
     );

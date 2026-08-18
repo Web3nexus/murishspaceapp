@@ -91,9 +91,9 @@ class VerificationBadgeNotifier extends Notifier<VerificationBadgeState> {
   Future<void> refresh() => _load(showLoading: true);
 
   /// POST /verification-badge/apply — apply for the paid badge.
-  Future<bool> apply() async {
+  Future<bool> apply({String billingCycle = 'annual'}) async {
     try {
-      await _dio.post('/verification-badge/apply');
+      await _dio.post('/verification-badge/apply', data: {'billing_cycle': billingCycle});
       await _load();
       return true;
     } on DioException catch (e) {
