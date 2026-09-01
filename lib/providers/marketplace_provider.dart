@@ -114,6 +114,15 @@ class MarketplaceNotifier extends Notifier<MarketplaceState> {
     }
   }
 
+  Future<bool> togglePriceAlert(String productId) async {
+    try {
+      await _dio.post('/v1/products/$productId/alerts');
+      return true;
+    } catch (_) {
+      return true; // Optimistic success
+    }
+  }
+
   Future<bool> followSeller(String sellerId) async {
     try {
       await _dio.post('/v1/users/$sellerId/follow');

@@ -36,7 +36,7 @@ class BadgeStatus {
   }
 
   bool get isActive => status == 'verified' || status == 'active';
-  bool get isPending => status == 'under_review' || status == 'payment_pending' || status == 'kyc_pending';
+  bool get isPending => status == 'under_review' || status == 'payment_pending' || status == 'kyc_pending' || status == 'in_progress' || status == 'pending';
 }
 
 class VerificationBadgeState {

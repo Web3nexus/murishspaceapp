@@ -3,8 +3,12 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../components/app_bottom_sheet.dart';
 import '../core/contacts_service.dart';
+import '../providers/auth_provider.dart';
 import '../providers/chat_provider.dart';
+import '../providers/community_provider.dart';
+import '../providers/friends_provider.dart';
 import 'user_profile_screen.dart';
 
 /// Modern Redesigned Friends, Connections & Phone Contacts Matching Hub.
@@ -24,115 +28,6 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
   bool _hasContactPermission = false;
   bool _isSyncingContacts = false;
   List<MatchedContact> _matchedContacts = [];
-
-  final List<_FriendUser> _requests = [
-    _FriendUser(
-      id: 101,
-      name: 'David Miller',
-      username: 'david_m',
-      title: 'Software Architect',
-      mutualCount: 12,
-      avatarColor: const Color(0xFF007AFF),
-    ),
-    _FriendUser(
-      id: 102,
-      name: 'Sophia Chen',
-      username: 'sophia_c',
-      title: 'UI/UX Designer',
-      mutualCount: 8,
-      avatarColor: const Color(0xFF5856D6),
-    ),
-  ];
-
-  final List<_FriendUser> _suggestions = [
-    _FriendUser(
-      id: 103,
-      name: 'Kemi Adebayo',
-      username: 'kemi_brand',
-      title: 'Fashion Creator & Merchant',
-      mutualCount: 34,
-      avatarColor: const Color(0xFFFF9500),
-    ),
-    _FriendUser(
-      id: 104,
-      name: 'Tunde Bakare',
-      username: 'tunde_dev',
-      title: 'Flutter Developer',
-      mutualCount: 19,
-      avatarColor: const Color(0xFF34C759),
-    ),
-    _FriendUser(
-      id: 105,
-      name: 'Amara Williams',
-      username: 'amara_w',
-      title: 'Digital Marketing Strategist',
-      mutualCount: 42,
-      avatarColor: const Color(0xFFFF2D55),
-    ),
-  ];
-
-  final List<_FriendUser> _friends = [
-    _FriendUser(
-      id: 201,
-      name: 'Alex Johnson',
-      username: 'alex_j',
-      title: 'Full-stack Developer',
-      mutualCount: 24,
-      isOnline: true,
-      avatarColor: const Color(0xFF007AFF),
-    ),
-    _FriendUser(
-      id: 202,
-      name: 'Elena Rostova',
-      username: 'elena_r',
-      title: 'Product Manager',
-      mutualCount: 45,
-      isOnline: true,
-      avatarColor: const Color(0xFF5856D6),
-    ),
-    _FriendUser(
-      id: 203,
-      name: 'Marcus Wright',
-      username: 'marcus_w',
-      title: 'Creator & Streamer',
-      mutualCount: 110,
-      isOnline: false,
-      avatarColor: const Color(0xFFFF9500),
-    ),
-    _FriendUser(
-      id: 204,
-      name: 'Zoe Martinez',
-      username: 'zoe_m',
-      title: 'Web3 & Escrow Trader',
-      mutualCount: 18,
-      isOnline: true,
-      avatarColor: const Color(0xFF5AC8FA),
-    ),
-  ];
-
-  final List<Map<String, dynamic>> _communities = [
-    {
-      'name': 'Lagos Tech Creators',
-      'members': '2.4k members',
-      'icon': Icons.groups_rounded,
-      'color': const Color(0xFF007AFF),
-      'isMember': true,
-    },
-    {
-      'name': 'Flutter & Mobile Developers',
-      'members': '5.8k members',
-      'icon': Icons.code_rounded,
-      'color': const Color(0xFF34C759),
-      'isMember': true,
-    },
-    {
-      'name': 'MurihSpace Escrow Merchants',
-      'members': '1.1k members',
-      'icon': Icons.shield_rounded,
-      'color': const Color(0xFFFF9500),
-      'isMember': false,
-    },
-  ];
 
   @override
   void initState() {
@@ -160,78 +55,38 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
     }
   }
 
-  void _showContactPermissionDialog() {
-    showDialog<void>(
+  void _showContactPermissionDialog() async {
+    final confirm = await AppBottomSheet.showConfirmation(
       context: context,
-      builder: (ctx) {
-        final isDark = Theme.of(ctx).brightness == Brightness.dark;
-        return AlertDialog(
-          backgroundColor: isDark ? const Color(0xFF1C1C1E) : Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF007AFF).withValues(alpha: 0.15),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.contacts_rounded, color: Color(0xFF007AFF), size: 24),
-              ),
-              const SizedBox(width: 12),
-              const Expanded(
-                child: Text('Contacts Access', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-              ),
-            ],
-          ),
-          content: Text(
-            'MurihSpace will securely match your phone contacts to help you find friends, vendors, and creators you already know.\n\nYour contacts are encrypted and never shared.',
-            style: TextStyle(fontSize: 14, color: isDark ? Colors.grey[300] : Colors.grey[700], height: 1.4),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: Text('Not Now', style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600])),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF007AFF),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              onPressed: () async {
-                Navigator.pop(ctx);
-                setState(() => _isSyncingContacts = true);
-                await ContactsService.instance.requestPermission();
-                final contacts = await ContactsService.instance.syncContacts();
-                if (mounted) {
-                  setState(() {
-                    _hasContactPermission = true;
-                    _isSyncingContacts = false;
-                    _matchedContacts = contacts;
-                  });
-                  _tab.animateTo(4); // Switch to Contacts tab
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Contacts synced! Found ${contacts.length} friends on MurihSpace.'),
-                      backgroundColor: const Color(0xFF34C759),
-                    ),
-                  );
-                }
-              },
-              child: const Text('Allow Access', style: TextStyle(fontWeight: FontWeight.bold)),
-            ),
-          ],
-        );
-      },
+      title: 'Sync Contacts',
+      message: 'MurihSpace will securely match your phone contacts to help you find friends, vendors, and creators you already know.\n\nYour contacts are encrypted and never shared.',
+      confirmText: 'Sync Contacts',
+      cancelText: 'Not Now',
+      icon: Icons.contacts_rounded,
     );
+
+    if (confirm == true && mounted) {
+      setState(() => _isSyncingContacts = true);
+      final contacts = await ContactsService.instance.syncContacts();
+      if (mounted) {
+        setState(() {
+          _isSyncingContacts = false;
+          _hasContactPermission = true;
+          _matchedContacts = contacts;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Found ${contacts.length} registered contacts!')),
+        );
+      }
+    }
   }
 
-  Future<void> _openChatWithUser(_FriendUser user) async {
+  Future<void> _openChatWithUser(FriendUserItem user) async {
     final conversation = await ref.read(conversationsProvider.notifier).openDirectChat(
           user.id,
           name: user.name,
           username: user.username,
+          avatarUrl: user.avatarUrl,
         );
 
     if (conversation != null && mounted) {
@@ -246,12 +101,110 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
   }
 
   void _shareProfileLink() {
-    Clipboard.setData(const ClipboardData(text: 'https://murihspace.com/user/samuel'));
+    final user = ref.read(authProvider).user;
+    final username = user?.username ?? 'user';
+    final profileUrl = 'https://murihspace.com/u/$username';
+    Clipboard.setData(ClipboardData(text: profileUrl));
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Profile invite link copied to clipboard!'),
-        backgroundColor: Color(0xFF007AFF),
+      SnackBar(
+        content: Text('Profile invite link ($profileUrl) copied!'),
+        backgroundColor: const Color(0xFF007AFF),
       ),
+    );
+  }
+
+  void _showMyQrCodeModal() {
+    final user = ref.read(authProvider).user;
+    final username = user?.username ?? 'user';
+    final name = user?.name ?? 'MurihSpace User';
+    final profileUrl = 'https://murihspace.com/u/$username';
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).brightness == Brightness.dark
+          ? const Color(0xFF1C1C1E)
+          : Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        final textPrimary = isDark ? Colors.white : Colors.black;
+        final textSecondary = isDark ? Colors.grey[400] : Colors.grey[600];
+
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 38,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.grey[700] : Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'My Profile QR Code',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: textPrimary),
+              ),
+              Text(
+                'Scan to connect with @$username on MurihSpace',
+                style: TextStyle(fontSize: 12, color: textSecondary),
+              ),
+              const SizedBox(height: 20),
+
+              // QR Code Graphic Card
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: [
+                    BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 16, offset: const Offset(0, 4)),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    const Icon(Icons.qr_code_2_rounded, size: 180, color: Color(0xFF007AFF)),
+                    const SizedBox(height: 12),
+                    Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.black)),
+                    Text('@$username', style: const TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.w600)),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF007AFF),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      onPressed: () {
+                        Clipboard.setData(ClipboardData(text: profileUrl));
+                        Navigator.pop(ctx);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Profile link copied: $profileUrl')),
+                        );
+                      },
+                      icon: const Icon(Icons.copy_rounded, size: 18),
+                      label: const Text('Copy Link', style: TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -263,15 +216,23 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
     final textPrimary = isDark ? Colors.white : Colors.black;
     final textSecondary = isDark ? Colors.grey[400] : Colors.grey[600];
 
-    final filteredRequests = _requests
+    final friendsState = ref.watch(friendsProvider);
+    final communitiesState = ref.watch(myCommunitiesProvider);
+
+    final requests = friendsState.requests;
+    final suggestions = friendsState.suggestions;
+    final friends = friendsState.friends;
+    final communities = communitiesState.communities;
+
+    final filteredRequests = requests
         .where((u) => u.name.toLowerCase().contains(_searchQuery.toLowerCase()) || u.username.toLowerCase().contains(_searchQuery.toLowerCase()))
         .toList();
 
-    final filteredSuggestions = _suggestions
+    final filteredSuggestions = suggestions
         .where((u) => u.name.toLowerCase().contains(_searchQuery.toLowerCase()) || u.username.toLowerCase().contains(_searchQuery.toLowerCase()))
         .toList();
 
-    final filteredFriends = _friends
+    final filteredFriends = friends
         .where((u) => u.name.toLowerCase().contains(_searchQuery.toLowerCase()) || u.username.toLowerCase().contains(_searchQuery.toLowerCase()))
         .toList();
 
@@ -301,11 +262,8 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
           ),
           IconButton(
             icon: const Icon(Icons.qr_code_scanner_rounded, color: Color(0xFF007AFF)),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('QR Code scanner ready')),
-              );
-            },
+            tooltip: 'My QR Code',
+            onPressed: _showMyQrCodeModal,
           ),
           IconButton(
             icon: const Icon(Icons.person_add_alt_1_rounded, color: Color(0xFF007AFF)),
@@ -360,10 +318,10 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
                 labelStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
                 unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
                 tabs: [
-                  Tab(text: 'Requests (${_requests.length})'),
-                  Tab(text: 'Suggestions (${_suggestions.length})'),
-                  Tab(text: 'My Friends (${_friends.length})'),
-                  Tab(text: 'Communities (${_communities.length})'),
+                  Tab(text: 'Requests (${requests.length})'),
+                  Tab(text: 'Suggestions (${suggestions.length})'),
+                  Tab(text: 'My Friends (${friends.length})'),
+                  Tab(text: 'Communities (${communities.length})'),
                   Tab(text: 'Contacts (${_matchedContacts.length})'),
                 ],
               ),
@@ -438,35 +396,27 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
                 filteredRequests.isEmpty
                     ? _buildEmptyState('No pending requests', Icons.mark_email_read_rounded, textSecondary)
                     : ListView.separated(
-                        padding: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.symmetric(vertical: 8),
                         itemCount: filteredRequests.length,
-                        separatorBuilder: (_, _) => const SizedBox(height: 12),
+                        separatorBuilder: (_, _) => const Divider(height: 1, indent: 68),
                         itemBuilder: (ctx, i) {
                           final user = filteredRequests[i];
-                          return Container(
-                            padding: const EdgeInsets.all(14),
-                            decoration: BoxDecoration(
-                              color: cardBg,
-                              borderRadius: BorderRadius.circular(16),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.04),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                            ),
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                             child: Column(
                               children: [
                                 Row(
                                   children: [
                                     CircleAvatar(
-                                      radius: 26,
-                                      backgroundColor: user.avatarColor,
-                                      child: Text(
-                                        user.name[0],
-                                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 20),
-                                      ),
+                                      radius: 24,
+                                      backgroundColor: const Color(0xFF007AFF),
+                                      backgroundImage: user.avatarUrl != null && user.avatarUrl!.isNotEmpty ? NetworkImage(user.avatarUrl!) : null,
+                                      child: user.avatarUrl == null || user.avatarUrl!.isEmpty
+                                          ? Text(
+                                              user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
+                                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+                                            )
+                                          : null,
                                     ),
                                     const SizedBox(width: 12),
                                     Expanded(
@@ -477,12 +427,12 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
                                             user.name,
                                             style: TextStyle(
                                               fontWeight: FontWeight.w800,
-                                              fontSize: 16,
+                                              fontSize: 15,
                                               color: textPrimary,
                                             ),
                                           ),
                                           Text(
-                                            '${user.title} · ${user.mutualCount} mutual friends',
+                                            '${user.title ?? 'Member'} · ${user.mutualCount} mutual friends',
                                             style: TextStyle(fontSize: 12, color: textSecondary),
                                           ),
                                         ],
@@ -490,22 +440,20 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height: 12),
+                                const SizedBox(height: 10),
                                 Row(
                                   children: [
+                                    const SizedBox(width: 60),
                                     Expanded(
                                       child: ElevatedButton.icon(
                                         style: ElevatedButton.styleFrom(
                                           backgroundColor: const Color(0xFF007AFF),
                                           foregroundColor: Colors.white,
                                           elevation: 0,
-                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                         ),
                                         onPressed: () {
-                                          setState(() {
-                                            _friends.add(user);
-                                            _requests.removeWhere((u) => u.id == user.id);
-                                          });
+                                          ref.read(friendsProvider.notifier).acceptRequest(user);
                                           ScaffoldMessenger.of(context).showSnackBar(
                                             SnackBar(
                                               content: Text('Accepted ${user.name}\'s friend request!'),
@@ -513,26 +461,27 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
                                             ),
                                           );
                                         },
-                                        icon: const Icon(Icons.check_rounded, size: 18),
-                                        label: const Text('Confirm', style: TextStyle(fontWeight: FontWeight.bold)),
+                                        icon: const Icon(Icons.check_rounded, size: 16),
+                                        label: const Text('Confirm', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                                       ),
                                     ),
-                                    const SizedBox(width: 10),
+                                    const SizedBox(width: 8),
                                     Expanded(
                                       child: ElevatedButton.icon(
                                         style: ElevatedButton.styleFrom(
-                                          backgroundColor: isDark ? const Color(0xFF3A3B3C) : const Color(0xFFE4E6EB),
+                                          backgroundColor: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFEFF3F6),
                                           foregroundColor: isDark ? Colors.white : Colors.black,
                                           elevation: 0,
-                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                         ),
                                         onPressed: () {
-                                          setState(() {
-                                            _requests.removeWhere((u) => u.id == user.id);
-                                          });
+                                          ref.read(friendsProvider.notifier).declineRequest(user);
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(content: Text('Declined request from ${user.name}')),
+                                          );
                                         },
-                                        icon: const Icon(Icons.close_rounded, size: 18),
-                                        label: const Text('Delete', style: TextStyle(fontWeight: FontWeight.bold)),
+                                        icon: const Icon(Icons.close_rounded, size: 16),
+                                        label: const Text('Delete', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                                       ),
                                     ),
                                   ],
@@ -547,26 +496,25 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
                 filteredSuggestions.isEmpty
                     ? _buildEmptyState('No suggestions available', Icons.person_search_rounded, textSecondary)
                     : ListView.separated(
-                        padding: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.symmetric(vertical: 4),
                         itemCount: filteredSuggestions.length,
-                        separatorBuilder: (_, _) => const SizedBox(height: 12),
+                        separatorBuilder: (_, _) => const Divider(height: 1, indent: 68),
                         itemBuilder: (ctx, i) {
                           final user = filteredSuggestions[i];
-                          return Container(
-                            padding: const EdgeInsets.all(14),
-                            decoration: BoxDecoration(
-                              color: cardBg,
-                              borderRadius: BorderRadius.circular(16),
-                            ),
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                             child: Row(
                               children: [
                                 CircleAvatar(
-                                  radius: 26,
-                                  backgroundColor: user.avatarColor,
-                                  child: Text(
-                                    user.name[0],
-                                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 20),
-                                  ),
+                                  radius: 22,
+                                  backgroundColor: const Color(0xFF5856D6),
+                                  backgroundImage: user.avatarUrl != null && user.avatarUrl!.isNotEmpty ? NetworkImage(user.avatarUrl!) : null,
+                                  child: user.avatarUrl == null || user.avatarUrl!.isEmpty
+                                      ? Text(
+                                          user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
+                                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                                        )
+                                      : null,
                                 ),
                                 const SizedBox(width: 12),
                                 Expanded(
@@ -582,7 +530,7 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
                                         ),
                                       ),
                                       Text(
-                                        '${user.title} · ${user.mutualCount} mutuals',
+                                        '${user.title ?? 'Creator'} · ${user.mutualCount} mutuals',
                                         style: TextStyle(fontSize: 12, color: textSecondary),
                                       ),
                                     ],
@@ -593,15 +541,19 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
                                     backgroundColor: const Color(0xFF007AFF).withValues(alpha: 0.15),
                                     foregroundColor: const Color(0xFF007AFF),
                                     elevation: 0,
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                   ),
                                   onPressed: () {
+                                    ref.read(friendsProvider.notifier).sendRequest(user);
                                     ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(content: Text('Friend request sent to ${user.name}')),
+                                      SnackBar(
+                                        content: Text('Friend request sent to ${user.name}'),
+                                        backgroundColor: const Color(0xFF34C759),
+                                      ),
                                     );
                                   },
                                   icon: const Icon(Icons.person_add_rounded, size: 16),
-                                  label: const Text('Add', style: TextStyle(fontWeight: FontWeight.bold)),
+                                  label: const Text('Add', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                                 ),
                               ],
                             ),
@@ -613,36 +565,35 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
                 filteredFriends.isEmpty
                     ? _buildEmptyState('No friends found', Icons.people_outline_rounded, textSecondary)
                     : ListView.separated(
-                        padding: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.symmetric(vertical: 4),
                         itemCount: filteredFriends.length,
-                        separatorBuilder: (_, _) => const SizedBox(height: 12),
+                        separatorBuilder: (_, _) => const Divider(height: 1, indent: 68),
                         itemBuilder: (ctx, i) {
                           final user = filteredFriends[i];
-                          return Container(
-                            padding: const EdgeInsets.all(14),
-                            decoration: BoxDecoration(
-                              color: cardBg,
-                              borderRadius: BorderRadius.circular(16),
-                            ),
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                             child: Row(
                               children: [
                                 Stack(
                                   children: [
                                     CircleAvatar(
-                                      radius: 24,
-                                      backgroundColor: user.avatarColor,
-                                      child: Text(
-                                        user.name[0],
-                                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
-                                      ),
+                                      radius: 22,
+                                      backgroundColor: const Color(0xFF007AFF),
+                                      backgroundImage: user.avatarUrl != null && user.avatarUrl!.isNotEmpty ? NetworkImage(user.avatarUrl!) : null,
+                                      child: user.avatarUrl == null || user.avatarUrl!.isEmpty
+                                          ? Text(
+                                              user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
+                                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                                            )
+                                          : null,
                                     ),
                                     if (user.isOnline)
                                       Positioned(
                                         bottom: 0,
                                         right: 0,
                                         child: Container(
-                                          width: 13,
-                                          height: 13,
+                                          width: 12,
+                                          height: 12,
                                           decoration: BoxDecoration(
                                             color: const Color(0xFF34C759),
                                             shape: BoxShape.circle,
@@ -666,7 +617,7 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
                                         ),
                                       ),
                                       Text(
-                                        '@${user.username} · ${user.title}',
+                                        '@${user.username} · ${user.title ?? 'Friend'}',
                                         style: TextStyle(fontSize: 12, color: textSecondary),
                                       ),
                                     ],
@@ -679,7 +630,7 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
                                       color: const Color(0xFF007AFF).withValues(alpha: 0.12),
                                       shape: BoxShape.circle,
                                     ),
-                                    child: const Icon(Icons.chat_bubble_rounded, color: Color(0xFF007AFF), size: 18),
+                                    child: const Icon(Icons.chat_bubble_rounded, color: Color(0xFF007AFF), size: 16),
                                   ),
                                   onPressed: () => _openChatWithUser(user),
                                 ),
@@ -690,77 +641,76 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
                       ),
 
                 // ── Tab 4: Communities ─────────────────────────────────────────────
-                ListView.separated(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: _communities.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 12),
-                  itemBuilder: (ctx, i) {
-                    final comm = _communities[i];
-                    final isMember = comm['isMember'] as bool;
-                    final color = comm['color'] as Color;
-                    return Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: cardBg,
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: color.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                            child: Icon(comm['icon'] as IconData, color: color, size: 24),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                communities.isEmpty
+                    ? _buildEmptyState('No communities joined yet', Icons.groups_rounded, textSecondary)
+                    : ListView.separated(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        itemCount: communities.length,
+                        separatorBuilder: (_, _) => const Divider(height: 1, indent: 68),
+                        itemBuilder: (ctx, i) {
+                          final comm = communities[i];
+                          final isMember = comm.isJoined;
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            child: Row(
                               children: [
-                                Text(
-                                  comm['name'] as String,
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: 15,
-                                    color: textPrimary,
+                                CircleAvatar(
+                                  radius: 20,
+                                  backgroundColor: const Color(0xFF007AFF).withValues(alpha: 0.15),
+                                  backgroundImage: comm.logoUrl != null && comm.logoUrl!.isNotEmpty ? NetworkImage(comm.logoUrl!) : null,
+                                  child: comm.logoUrl == null || comm.logoUrl!.isEmpty
+                                      ? Text(comm.initials, style: const TextStyle(color: Color(0xFF007AFF), fontWeight: FontWeight.bold, fontSize: 13))
+                                      : null,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        comm.name,
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w800,
+                                          fontSize: 15,
+                                          color: textPrimary,
+                                        ),
+                                      ),
+                                      Text(
+                                        '${comm.memberCount} members · ${comm.category}',
+                                        style: TextStyle(fontSize: 12, color: textSecondary),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                                Text(
-                                  comm['members'] as String,
-                                  style: TextStyle(fontSize: 12, color: textSecondary),
+                                ElevatedButton(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: isMember
+                                        ? (isDark ? const Color(0xFF2C2C2E) : const Color(0xFFEFF3F6))
+                                        : const Color(0xFF007AFF),
+                                    foregroundColor: isMember ? (isDark ? Colors.white : Colors.black) : Colors.white,
+                                    elevation: 0,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                  ),
+                                  onPressed: () {
+                                    if (isMember) {
+                                      ref.read(myCommunitiesProvider.notifier).leaveCommunity(comm.id);
+                                    } else {
+                                      ref.read(myCommunitiesProvider.notifier).joinCommunity(comm.id);
+                                    }
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text(isMember ? 'Left ${comm.name}' : 'Joined ${comm.name}!')),
+                                    );
+                                  },
+                                  child: Text(
+                                    isMember ? 'Joined' : 'Join',
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                  ),
                                 ),
                               ],
                             ),
-                          ),
-                          ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: isMember
-                                  ? (isDark ? const Color(0xFF3A3B3C) : const Color(0xFFE4E6EB))
-                                  : const Color(0xFF007AFF),
-                              foregroundColor: isMember ? (isDark ? Colors.white : Colors.black) : Colors.white,
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            ),
-                            onPressed: () {
-                              setState(() {
-                                _communities[i]['isMember'] = !isMember;
-                              });
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text(isMember ? 'Left community' : 'Joined community!')),
-                              );
-                            },
-                            child: Text(
-                              isMember ? 'Joined' : 'Join',
-                              style: const TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                        ],
+                          );
+                        },
                       ),
-                    );
-                  },
-                ),
 
                 // ── Tab 5: Contacts Matched on MurihSpace ────────────────────────
                 filteredContacts.isEmpty
@@ -770,26 +720,22 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
                         textSecondary,
                       )
                     : ListView.separated(
-                        padding: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.symmetric(vertical: 4),
                         itemCount: filteredContacts.length,
-                        separatorBuilder: (_, _) => const SizedBox(height: 12),
+                        separatorBuilder: (_, _) => const Divider(height: 1, indent: 68),
                         itemBuilder: (ctx, i) {
                           final contact = filteredContacts[i];
                           final color = Color(int.parse(contact.avatarColorHex));
-                          return Container(
-                            padding: const EdgeInsets.all(14),
-                            decoration: BoxDecoration(
-                              color: cardBg,
-                              borderRadius: BorderRadius.circular(16),
-                            ),
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                             child: Row(
                               children: [
                                 CircleAvatar(
-                                  radius: 24,
+                                  radius: 22,
                                   backgroundColor: color,
                                   child: Text(
                                     contact.name[0],
-                                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+                                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
                                   ),
                                 ),
                                 const SizedBox(width: 12),
@@ -821,9 +767,17 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
                                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                                   ),
                                   onPressed: () {
+                                    ref.read(friendsProvider.notifier).sendRequest(
+                                          FriendUserItem(
+                                            id: contact.id,
+                                            name: contact.name,
+                                            username: contact.username,
+                                            title: 'Phone Contact',
+                                          ),
+                                        );
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
-                                        content: Text('Friend request sent to ${contact.name} (${contact.phone})'),
+                                        content: Text('Friend request sent to ${contact.name} (@${contact.username})'),
                                         backgroundColor: const Color(0xFF34C759),
                                       ),
                                     );
@@ -858,22 +812,3 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
   }
 }
 
-class _FriendUser {
-  final int id;
-  final String name;
-  final String username;
-  final String title;
-  final int mutualCount;
-  final bool isOnline;
-  final Color avatarColor;
-
-  _FriendUser({
-    required this.id,
-    required this.name,
-    required this.username,
-    required this.title,
-    required this.mutualCount,
-    this.isOnline = false,
-    required this.avatarColor,
-  });
-}

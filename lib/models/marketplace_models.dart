@@ -73,48 +73,48 @@ class MarketplaceProduct {
       escrowProtected: json['escrow_protected'] as bool? ?? true,
       images: (json['images'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [json['thumbnail'] as String? ?? ''],
       attributes: (json['attributes'] as Map<String, dynamic>?)?.map((k, v) => MapEntry(k, v.toString())) ?? {},
-      createdAt: json['created_at'] != null ? DateTime.parse(json['created_at'] as String) : DateTime.now(),
+      createdAt: json['created_at'] != null ? (DateTime.tryParse(json['created_at'].toString()) ?? DateTime.now()) : DateTime.now(),
     );
   }
 
   Map<String, dynamic> toJson() => {
         'id': id,
-        'name': title,
+        'title': title,
         'description': description,
         'price': price,
-        'currency': currency,
-        'seller': {'id': sellerId, 'name': sellerName, 'avatar_url': sellerAvatar},
-        'product_type': productType,
+        'currencySymbol': symbol,
+        'sellerName': sellerName,
+        'sellerAvatar': sellerAvatar,
+        'sellerJoinedDate': sellerJoinedDate,
+        'rating': sellerRating,
+        'productType': productType,
         'category': category,
         'condition': condition,
         'brand': brand,
         'location': location,
-        'escrow_protected': escrowProtected,
+        'isFree': isFree,
+        'escrowProtected': escrowProtected,
         'images': images,
         'attributes': attributes,
         'created_at': createdAt.toIso8601String(),
       };
 }
 
-class EscrowOrder {
-  final String id;
-  final String productId;
+class MarketplaceEscrow {
+  final String orderId;
   final String productTitle;
   final double amount;
-  final String currency;
   final String symbol;
   final String buyerId;
   final String sellerId;
-  final String status; // 'locked', 'released', 'disputed', 'cancelled'
+  final String status;
   final DateTime lockedAt;
   final DateTime? releasedAt;
 
-  EscrowOrder({
-    required this.id,
-    required this.productId,
+  MarketplaceEscrow({
+    required this.orderId,
     required this.productTitle,
     required this.amount,
-    required this.currency,
     required this.symbol,
     required this.buyerId,
     required this.sellerId,
@@ -123,21 +123,19 @@ class EscrowOrder {
     this.releasedAt,
   });
 
-  factory EscrowOrder.fromJson(Map<String, dynamic> json) {
+  factory MarketplaceEscrow.fromJson(Map<String, dynamic> json) {
     final curr = json['currency'] as String? ?? 'USD';
-    final sym = curr == 'NGN' ? '₦' : (curr == 'EUR' ? '€' : (curr == 'GBP' ? '£' : '\$'));
-    return EscrowOrder(
-      id: json['id']?.toString() ?? '',
-      productId: json['product_id']?.toString() ?? '',
+    final sym = curr == 'NGN' ? '₦' : '\$';
+    return MarketplaceEscrow(
+      orderId: json['order_id']?.toString() ?? json['id']?.toString() ?? 'ORD-101',
       productTitle: json['product_title'] as String? ?? 'Order Item',
       amount: (json['amount'] as num?)?.toDouble() ?? 0.0,
-      currency: curr,
       symbol: sym,
       buyerId: json['buyer_id']?.toString() ?? '',
       sellerId: json['seller_id']?.toString() ?? '',
       status: json['status'] as String? ?? 'locked',
-      lockedAt: json['locked_at'] != null ? DateTime.parse(json['locked_at'] as String) : DateTime.now(),
-      releasedAt: json['released_at'] != null ? DateTime.parse(json['released_at'] as String) : null,
+      lockedAt: json['locked_at'] != null ? (DateTime.tryParse(json['locked_at'].toString()) ?? DateTime.now()) : DateTime.now(),
+      releasedAt: json['released_at'] != null ? DateTime.tryParse(json['released_at'].toString()) : null,
     );
   }
 }

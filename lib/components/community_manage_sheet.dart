@@ -206,7 +206,6 @@ class _CommunityManageSheetState extends ConsumerState<CommunityManageSheet> wit
                         title: Text('Paid Membership Subscription', style: TextStyle(fontWeight: FontWeight.bold, color: textPrimary)),
                         subtitle: Text('Require users to pay a monthly fee to join', style: TextStyle(fontSize: 12, color: textSecondary)),
                         value: _isPaid,
-                        activeColor: const Color(0xFF007AFF),
                         onChanged: (val) => setState(() => _isPaid = val),
                       ),
                       if (_isPaid) ...[

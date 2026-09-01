@@ -25,6 +25,94 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
+  void _showQuickCreateMenu(BuildContext context, bool isDark) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF3A3A3C) : const Color(0xFFD1D1D6),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Quick Create',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: isDark ? Colors.white : Colors.black,
+                ),
+              ),
+              const SizedBox(height: 16),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF007AFF).withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.edit_note_rounded, color: Color(0xFF007AFF)),
+                ),
+                title: const Text('Create Post', style: TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: const Text('Share text, photos, or videos with your feed'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  showPostComposer(context);
+                },
+              ),
+              const SizedBox(height: 4),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFF9500).withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.add_a_photo_rounded, color: Color(0xFFFF9500)),
+                ),
+                title: const Text('Add Story', style: TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: const Text('Share a 24-hour visual status update'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  showStoryComposerSheet(context);
+                },
+              ),
+              const SizedBox(height: 4),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFF3B30).withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.live_tv_rounded, color: Color(0xFFFF3B30)),
+                ),
+                title: const Text('Go Live', style: TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: const Text('Broadcast live video to your community'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  context.push('/app/live');
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -43,6 +131,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           isDark: isDark,
         ),
         actions: [
+          IconButton(
+            onPressed: () => _showQuickCreateMenu(context, isDark),
+            icon: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: const Color(0xFF007AFF).withOpacity(0.15),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.add_rounded,
+                color: isDark ? Colors.white : const Color(0xFF007AFF),
+                size: 22,
+              ),
+            ),
+            tooltip: 'Quick Create (Post, Story, Live)',
+          ),
           IconButton(
             onPressed: () => context.push('/friends'),
             icon: Icon(
@@ -338,16 +442,31 @@ class _HomeFeedPosts extends ConsumerWidget {
     final notifier = ref.read(postsProvider(source).notifier);
 
     if (state.loading && state.posts.isEmpty) {
-      return const LoadingStateWidget(message: 'Loading feed…');
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 48),
+        child: LoadingStateWidget(message: 'Loading feed…'),
+      );
     }
     if (state.error != null && state.posts.isEmpty) {
-      return ErrorStateWidget(title: 'Could not load feed', description: state.error!, onRetry: () => notifier.refresh());
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 48),
+        child: ErrorStateWidget(
+          title: 'Could not load feed',
+          description: state.error!,
+          onRetry: () => notifier.refresh(),
+        ),
+      );
     }
     if (state.posts.isEmpty) {
-      return const EmptyStateWidget(
-        icon: Icons.explore_outlined,
-        title: 'Nothing in feed yet',
-        description: 'Follow people and join communities to build your feed.',
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 48, horizontal: 16),
+        child: Center(
+          child: EmptyStateWidget(
+            icon: Icons.explore_outlined,
+            title: 'Nothing in feed yet',
+            description: 'Follow people and join communities to build your feed.',
+          ),
+        ),
       );
     }
 

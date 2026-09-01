@@ -6,6 +6,7 @@ import 'config/router.dart';
 import 'config/theme.dart';
 import 'providers/security_provider.dart';
 import 'components/app_lock_overlay.dart';
+import 'components/in_app_notification_overlay.dart';
 
 void main() {
   runApp(
@@ -57,7 +58,9 @@ class _MurihSpaceAppState extends ConsumerState<MurihSpaceApp> with WidgetsBindi
       debugShowCheckedModeBanner: false,
       builder: (context, child) {
         if (child == null) return const SizedBox.shrink();
-        return AppLockOverlay(child: child);
+        return AppLockOverlay(
+          child: InAppNotificationOverlay(child: child),
+        );
       },
     );
   }

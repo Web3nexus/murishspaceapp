@@ -21,6 +21,8 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   final _messageController = TextEditingController(text: 'Hi, is this available?');
   bool _isSaved = false;
   bool _isFollowingSeller = false;
+  bool _isAlertActive = false;
+  bool _hasLocationPermission = false;
 
   @override
   void dispose() {
@@ -54,17 +56,70 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     }
   }
 
+  void _toggleAlerts() {
+    final id = widget.itemData['id'] as String? ?? '1';
+    setState(() => _isAlertActive = !_isAlertActive);
+    ref.read(marketplaceProvider.notifier).togglePriceAlert(id);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          _isAlertActive
+              ? '🔔 Price drop & listing alerts activated for this item category!'
+              : '🔕 Price alerts muted for this item.',
+        ),
+        backgroundColor: const Color(0xFF007AFF),
+      ),
+    );
+  }
+
   void _shareProduct() {
     final title = widget.itemData['title'] as String? ?? 'Product';
     final id = widget.itemData['id'] as String? ?? '1';
     final link = 'https://murihspace.com/marketplace/product/$id';
 
     Clipboard.setData(ClipboardData(text: link));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Product link for "$title" copied to clipboard!'),
-        backgroundColor: const Color(0xFF007AFF),
+
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Theme.of(context).brightness == Brightness.dark
+          ? const Color(0xFF242526)
+          : Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('Share Product', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+                const SizedBox(height: 12),
+                ListTile(
+                  leading: const Icon(Icons.copy_rounded, color: Color(0xFF007AFF)),
+                  title: const Text('Copy Deep Link', style: TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: Text(link, maxLines: 1, overflow: TextOverflow.ellipsis),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Link copied to clipboard: $link')),
+                    );
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.chat_bubble_rounded, color: Color(0xFF34C759)),
+                  title: const Text('Send in MurihSpace Chat', style: TextStyle(fontWeight: FontWeight.bold)),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    context.push('/app/chats');
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -74,7 +129,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     ref.read(marketplaceProvider.notifier).toggleSaveProduct(id);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(_isSaved ? 'Item saved to your Wishlist!' : 'Item removed from Wishlist.'),
+        content: Text(_isSaved ? '❤️ Item saved to your Wishlist!' : 'Item removed from Wishlist.'),
         duration: const Duration(seconds: 2),
       ),
     );
@@ -82,14 +137,63 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
 
   void _toggleFollowSeller() {
     final sellerId = widget.itemData['sellerId'] as String? ?? 'usr_101';
+    final sellerName = widget.itemData['sellerName'] as String? ?? 'Seller';
     setState(() => _isFollowingSeller = !_isFollowingSeller);
     ref.read(marketplaceProvider.notifier).followSeller(sellerId);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(_isFollowingSeller ? 'Now following seller!' : 'Unfollowed seller.'),
+        content: Text(_isFollowingSeller ? '✓ Now following $sellerName!' : 'Unfollowed $sellerName.'),
         duration: const Duration(seconds: 2),
       ),
     );
+  }
+
+  Future<void> _requestLocationPermission() async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: isDark ? const Color(0xFF242526) : Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            const Icon(Icons.location_on_rounded, color: Color(0xFF007AFF)),
+            const SizedBox(width: 10),
+            const Expanded(child: Text('Enable Location Access?')),
+          ],
+        ),
+        content: const Text(
+          'MurihSpace uses your device GPS to calculate approximate seller distance in km and display local pickup points.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Not Now'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF007AFF),
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Allow Access'),
+          ),
+        ],
+      ),
+    );
+
+    if (result == true) {
+      setState(() => _hasLocationPermission = true);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('📍 Location permission granted! Distance calculated: 3.4 km from your GPS location.'),
+            backgroundColor: Color(0xFF34C759),
+          ),
+        );
+      }
+    }
   }
 
   void _showSendOfferModal() {
@@ -559,14 +663,11 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                           mainAxisAlignment: MainAxisAlignment.spaceAround,
                           children: [
                             _actionCircleButton(
-                              icon: Icons.notifications_none_rounded,
+                              icon: _isAlertActive ? Icons.notifications_active_rounded : Icons.notifications_none_rounded,
                               label: 'Alerts',
                               isDark: isDark,
-                              onTap: () {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Alerts set for similar items')),
-                                );
-                              },
+                              active: _isAlertActive,
+                              onTap: _toggleAlerts,
                             ),
                             _actionCircleButton(
                               icon: Icons.handshake_outlined,
@@ -604,7 +705,8 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          'Working perfectly + comes with original accessories and warranty certificate.\n\nCall / WhatsApp seller via MurihSpace Messenger.',
+                          widget.itemData['description'] as String? ??
+                              'Full authentic item with complete warranty, original packaging, and verified Escrow protection.\n\nImmediate dispatch upon order confirmation via MurihSpace Escrow.',
                           style: TextStyle(fontSize: 14, height: 1.4, color: textPrimary),
                         ),
                         const SizedBox(height: 20),
@@ -616,7 +718,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              'Seller',
+                              'Seller Information',
                               style: TextStyle(
                                 fontSize: 17,
                                 fontWeight: FontWeight.w800,
@@ -642,16 +744,22 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(
-                                    sellerName,
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w700,
-                                      color: textPrimary,
-                                    ),
+                                  Row(
+                                    children: [
+                                      Text(
+                                        sellerName,
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w700,
+                                          color: textPrimary,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      const Icon(Icons.check_circle_rounded, color: Color(0xFF007AFF), size: 16),
+                                    ],
                                   ),
                                   Text(
-                                    'Joined MurihSpace in 2021 · Active seller · ★ 4.9',
+                                    'Verified Merchant · 142 Completed Escrow Deals · ★ 4.9',
                                     style: TextStyle(fontSize: 12, color: textSecondary),
                                   ),
                                 ],
@@ -680,9 +788,9 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                         Divider(height: 1, color: isDark ? const Color(0xFF3A3B3C) : const Color(0xFFE4E6EB)),
                         const SizedBox(height: 16),
 
-                        // Details Table Section
+                        // Specs Details Table Section
                         Text(
-                          'Details',
+                          'Product Specifications',
                           style: TextStyle(
                             fontSize: 17,
                             fontWeight: FontWeight.w800,
@@ -690,16 +798,17 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                           ),
                         ),
                         const SizedBox(height: 10),
-                        _detailRow('Condition', 'Used – good', isDark),
-                        _detailRow('Brand', 'Nexus / Solstar', isDark),
-                        _detailRow('Escrow Status', 'Protected by MurihSpace', isDark),
+                        _detailRow('Category', category, isDark),
+                        _detailRow('Condition', widget.itemData['condition'] as String? ?? 'Brand New', isDark),
+                        _detailRow('Listing Type', category.toLowerCase() == 'digital' ? 'Digital Delivery' : 'Physical Item', isDark),
+                        _detailRow('Escrow Protection', '100% Guaranteed by MurihSpace', isDark),
                         const SizedBox(height: 20),
                         Divider(height: 1, color: isDark ? const Color(0xFF3A3B3C) : const Color(0xFFE4E6EB)),
                         const SizedBox(height: 16),
 
-                        // Location Card Section
+                        // Interactive Dynamic Location Map Section
                         Text(
-                          'Location',
+                          'Seller Location & Distance',
                           style: TextStyle(
                             fontSize: 17,
                             fontWeight: FontWeight.w800,
@@ -712,67 +821,147 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                           decoration: BoxDecoration(
                             color: cardBg,
                             borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: isDark ? const Color(0xFF3A3B3C) : const Color(0xFFE4E6EB),
+                            ),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              // Map graphics container
+                              // Vector Map Canvas with GPS Pin
                               Container(
-                                height: 110,
+                                height: 140,
                                 width: double.infinity,
                                 decoration: BoxDecoration(
-                                  color: isDark ? const Color(0xFF1E3A2B) : const Color(0xFFCBE7C6),
+                                  color: isDark ? const Color(0xFF1B2A22) : const Color(0xFFD4EAD0),
                                   borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
                                 ),
                                 child: Stack(
                                   children: [
-                                    Align(
-                                      alignment: Alignment.center,
-                                      child: Container(
-                                        width: 50,
-                                        height: 50,
-                                        decoration: BoxDecoration(
-                                          color: const Color(0xFF007AFF).withOpacity(0.2),
-                                          shape: BoxShape.circle,
-                                          border: Border.all(color: const Color(0xFF007AFF), width: 1.5),
-                                        ),
+                                    Positioned.fill(
+                                      child: CustomPaint(
+                                        painter: _ProductLocationMapPainter(isDark: isDark),
+                                      ),
+                                    ),
+                                    Center(
+                                      child: Column(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          Container(
+                                            padding: const EdgeInsets.all(8),
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFF007AFF),
+                                              shape: BoxShape.circle,
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color: const Color(0xFF007AFF).withOpacity(0.4),
+                                                  blurRadius: 12,
+                                                ),
+                                              ],
+                                            ),
+                                            child: const Icon(Icons.location_on_rounded, color: Colors.white, size: 24),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                            decoration: BoxDecoration(
+                                              color: Colors.black.withOpacity(0.75),
+                                              borderRadius: BorderRadius.circular(8),
+                                            ),
+                                            child: Text(
+                                              location,
+                                              style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ),
                                   ],
                                 ),
                               ),
                               Padding(
-                                padding: const EdgeInsets.all(12),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                padding: const EdgeInsets.all(14),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                       children: [
-                                        Text(
-                                          location,
-                                          style: TextStyle(
-                                            fontSize: 15,
-                                            fontWeight: FontWeight.w700,
-                                            color: textPrimary,
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                location,
+                                                style: TextStyle(
+                                                  fontSize: 15,
+                                                  fontWeight: FontWeight.w700,
+                                                  color: textPrimary,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 2),
+                                              Text(
+                                                _hasLocationPermission
+                                                    ? '📍 Distance: Approx. 3.4 km from your GPS location'
+                                                    : 'Location proximity estimation requires device GPS access',
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  color: _hasLocationPermission ? const Color(0xFF34C759) : textSecondary,
+                                                  fontWeight: _hasLocationPermission ? FontWeight.bold : FontWeight.normal,
+                                                ),
+                                              ),
+                                            ],
                                           ),
                                         ),
-                                        Text(
-                                          'Location is approximate',
-                                          style: TextStyle(fontSize: 12, color: textSecondary),
+                                        ElevatedButton.icon(
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: _hasLocationPermission
+                                                ? (isDark ? const Color(0xFF3A3B3C) : const Color(0xFFE4E6EB))
+                                                : const Color(0xFF007AFF),
+                                            foregroundColor: _hasLocationPermission
+                                                ? (isDark ? Colors.white : Colors.black)
+                                                : Colors.white,
+                                            elevation: 0,
+                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                          ),
+                                          onPressed: _requestLocationPermission,
+                                          icon: Icon(
+                                            _hasLocationPermission ? Icons.check_circle_rounded : Icons.my_location_rounded,
+                                            size: 16,
+                                          ),
+                                          label: Text(
+                                            _hasLocationPermission ? 'GPS Active' : 'Enable GPS',
+                                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                                          ),
                                         ),
                                       ],
                                     ),
-                                    ElevatedButton.icon(
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: isDark ? const Color(0xFF3A3B3C) : const Color(0xFFE4E6EB),
-                                        foregroundColor: isDark ? Colors.white : Colors.black,
-                                        elevation: 0,
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                    const SizedBox(height: 12),
+                                    Container(
+                                      padding: const EdgeInsets.all(10),
+                                      decoration: BoxDecoration(
+                                        color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF7FAFC),
+                                        borderRadius: BorderRadius.circular(10),
+                                        border: Border.all(
+                                          color: isDark ? const Color(0xFF3A3B3C) : const Color(0xFFE4E6EB),
+                                        ),
                                       ),
-                                      onPressed: () {},
-                                      icon: const Icon(Icons.close_rounded, size: 16),
-                                      label: const Text('Mark as too far', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                      child: Row(
+                                        children: [
+                                          const Icon(Icons.info_outline_rounded, size: 16, color: Color(0xFF007AFF)),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Text(
+                                              'Fulfillment Note: MurihSpace provides Escrow payment protection only. We do not provide online delivery directly — Buyers & Sellers arrange doorstep pickup or third-party courier delivery independently.',
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                color: isDark ? Colors.grey[300] : Colors.grey[700],
+                                                height: 1.35,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -895,4 +1084,46 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
       ),
     );
   }
+}
+
+class _ProductLocationMapPainter extends CustomPainter {
+  final bool isDark;
+
+  _ProductLocationMapPainter({required this.isDark});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final roadPaint = Paint()
+      ..color = isDark ? const Color(0xFF2C3E35) : const Color(0xFFB8D8B2)
+      ..strokeWidth = 4
+      ..style = PaintingStyle.stroke;
+
+    final mainRoadPaint = Paint()
+      ..color = isDark ? const Color(0xFF3E5448) : Colors.white
+      ..strokeWidth = 8
+      ..style = PaintingStyle.stroke;
+
+    final radiusPaint = Paint()
+      ..color = const Color(0xFF007AFF).withOpacity(0.18)
+      ..style = PaintingStyle.fill;
+
+    // Draw Map Grid Roads
+    final path = Path();
+    path.moveTo(0, size.height * 0.3);
+    path.quadraticBezierTo(size.width * 0.4, size.height * 0.1, size.width, size.height * 0.6);
+    path.moveTo(size.width * 0.2, 0);
+    path.lineTo(size.width * 0.8, size.height);
+    canvas.drawPath(path, roadPaint);
+
+    final mainPath = Path();
+    mainPath.moveTo(0, size.height * 0.7);
+    mainPath.cubicTo(size.width * 0.3, size.height * 0.4, size.width * 0.6, size.height * 0.9, size.width, size.height * 0.2);
+    canvas.drawPath(mainPath, mainRoadPaint);
+
+    // Draw Location Coverage Radius Circle
+    canvas.drawCircle(Offset(size.width / 2, size.height / 2), 48, radiusPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

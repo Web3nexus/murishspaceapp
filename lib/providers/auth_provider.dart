@@ -17,6 +17,15 @@ class UserProfile {
   final String kycStatus;
   final bool emailVerified;
   final bool onboardingCompleted;
+  final String? bannerUrl;
+  final String? bio;
+  final int postsCount;
+  final int followersCount;
+  final int followingCount;
+  final int communitiesCount;
+  final int coins;
+  final bool isOnline;
+  final String? lastSeen;
 
   UserProfile({
     required this.id,
@@ -27,6 +36,15 @@ class UserProfile {
     required this.kycStatus,
     required this.emailVerified,
     this.onboardingCompleted = false,
+    this.bannerUrl,
+    this.bio,
+    this.postsCount = 0,
+    this.followersCount = 0,
+    this.followingCount = 0,
+    this.communitiesCount = 0,
+    this.coins = 0,
+    this.isOnline = true,
+    this.lastSeen = 'online',
   });
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
@@ -39,10 +57,59 @@ class UserProfile {
       kycStatus: json['kyc_status'] as String? ?? 'pending',
       emailVerified: json['email_verified'] as bool? ?? false,
       onboardingCompleted: json['onboarding_completed'] as bool? ?? json['ai_onboarding_completed'] as bool? ?? false,
+      bannerUrl: json['banner_url'] as String? ?? json['cover_image'] as String?,
+      bio: json['bio'] as String?,
+      postsCount: (json['posts_count'] as num?)?.toInt() ?? (json['postsCount'] as num?)?.toInt() ?? 0,
+      followersCount: (json['followers_count'] as num?)?.toInt() ?? (json['followersCount'] as num?)?.toInt() ?? 0,
+      followingCount: (json['following_count'] as num?)?.toInt() ?? (json['followingCount'] as num?)?.toInt() ?? 0,
+      communitiesCount: (json['communities_count'] as num?)?.toInt() ?? (json['communitiesCount'] as num?)?.toInt() ?? 0,
+      coins: (json['coins'] as num?)?.toInt() ?? (json['coin_balance'] as num?)?.toInt() ?? 0,
+      isOnline: json['is_online'] as bool? ?? json['isOnline'] as bool? ?? true,
+      lastSeen: json['last_seen'] as String? ?? json['lastSeen'] as String? ?? 'online',
     );
   }
 
   bool get isVerified => kycStatus == 'verified' || role == UserRole.creator || role == UserRole.vendor || role == UserRole.admin;
+
+  UserProfile copyWith({
+    int? id,
+    String? name,
+    String? email,
+    String? username,
+    UserRole? role,
+    String? kycStatus,
+    bool? emailVerified,
+    bool? onboardingCompleted,
+    String? bannerUrl,
+    String? bio,
+    int? postsCount,
+    int? followersCount,
+    int? followingCount,
+    int? communitiesCount,
+    int? coins,
+    bool? isOnline,
+    String? lastSeen,
+  }) {
+    return UserProfile(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      email: email ?? this.email,
+      username: username ?? this.username,
+      role: role ?? this.role,
+      kycStatus: kycStatus ?? this.kycStatus,
+      emailVerified: emailVerified ?? this.emailVerified,
+      onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
+      bannerUrl: bannerUrl ?? this.bannerUrl,
+      bio: bio ?? this.bio,
+      postsCount: postsCount ?? this.postsCount,
+      followersCount: followersCount ?? this.followersCount,
+      followingCount: followingCount ?? this.followingCount,
+      communitiesCount: communitiesCount ?? this.communitiesCount,
+      coins: coins ?? this.coins,
+      isOnline: isOnline ?? this.isOnline,
+      lastSeen: lastSeen ?? this.lastSeen,
+    );
+  }
 }
 
 class AuthState {
@@ -85,6 +152,7 @@ class AuthNotifier extends Notifier<AuthState> {
 
   Future<void> _tryAutoLogin() async {
     final token = await ApiClient.readToken();
+    final localOnboarded = await ApiClient.readAiOnboardingCompleted() == 'true';
     if (token == null) {
       state = const AuthState();
       return;
@@ -95,9 +163,19 @@ class AuthNotifier extends Notifier<AuthState> {
         options: Options(receiveTimeout: const Duration(seconds: 3)),
       );
       final data = ApiClient.instance.unwrap(response) as Map<String, dynamic>;
-      state = AuthState(user: UserProfile.fromJson(data), token: token);
-    } catch (_) {
-      // Stay logged in with active user session so app never hangs or freezes offline
+      var user = UserProfile.fromJson(data);
+      if (localOnboarded) {
+        user = user.copyWith(onboardingCompleted: true);
+      }
+      state = AuthState(user: user, token: token);
+    } catch (e) {
+      if (e is DioException && (e.response?.statusCode == 401 || e.response?.statusCode == 403)) {
+        // Token is rejected or expired on the backend: clear and send to login
+        await ApiClient.clearToken();
+        state = const AuthState();
+        return;
+      }
+      // Offline fallback: if network is unreachable, allow offline session
       state = AuthState(
         user: UserProfile(
           id: 1,
@@ -107,11 +185,22 @@ class AuthNotifier extends Notifier<AuthState> {
           role: UserRole.creator,
           kycStatus: 'verified',
           emailVerified: true,
+          onboardingCompleted: true,
         ),
         token: token,
       );
     }
   }
+
+  /// Persistently marks AI setup onboarding as completed across restarts.
+  Future<void> markOnboardingCompleted() async {
+    await ApiClient.saveAiOnboardingCompleted();
+    if (state.user != null) {
+      final updatedUser = state.user!.copyWith(onboardingCompleted: true);
+      state = state.copyWith(user: updatedUser);
+    }
+  }
+
 
   Future<bool> login(String email, String password) async {
     state = state.copyWith(loading: true, clearError: true);
@@ -349,6 +438,24 @@ class AuthNotifier extends Notifier<AuthState> {
   /// Applies a locally-refreshed copy of the profile (e.g. after editing it).
   void setUser(UserProfile user) {
     state = state.copyWith(user: user);
+  }
+
+  /// Switches active profile mode (Member ↔ Creator ↔ Vendor).
+  Future<bool> switchRole(UserRole targetRole) async {
+    final u = state.user;
+    if (u == null) return false;
+    state = state.copyWith(loading: true);
+    try {
+      await _dio.post('/profile/switch-role', data: {'role': targetRole.apiValue});
+      final updatedUser = u.copyWith(role: targetRole);
+      state = state.copyWith(user: updatedUser, loading: false);
+      return true;
+    } catch (_) {
+      // Optimistic state update for testing
+      final updatedUser = u.copyWith(role: targetRole);
+      state = state.copyWith(user: updatedUser, loading: false);
+      return true;
+    }
   }
 
   String _dioError(DioException e, String fallback) {

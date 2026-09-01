@@ -238,8 +238,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     }
   }
 
-  // --- Step 5: Password Logic ---
-  void _handleNextPassword() {
+  // --- Step 5: Password & Registration Logic ---
+  Future<void> _handleNextPassword() async {
     setState(() {
       _passwordError = null;
       _confirmPasswordError = null;
@@ -260,27 +260,23 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       setState(() => _confirmPasswordError = 'Passwords do not match');
       return;
     }
-    _nextStep();
+
+    await _submitRegister();
   }
 
-  // --- Step 6: Registration Logic ---
   Future<void> _submitRegister() async {
     final success = await ref.read(authProvider.notifier).register(
           name: _nameController.text.trim(),
-          email: '', // Not collecting email in new flow, or maybe backend makes it optional/generates?
+          email: '',
           username: _usernameController.text.trim(),
-          role: _role.apiValue,
+          role: UserRole.member.apiValue,
           password: _passwordController.text,
           passwordConfirmation: _confirmPasswordController.text,
           registrationSessionId: _registrationSessionId,
         );
 
     if (success && mounted) {
-      if (_role == UserRole.creator || _role == UserRole.vendor) {
-        context.go('/social-accounts');
-      } else {
-        context.go('/app');
-      }
+      context.go('/app');
     }
   }
 
@@ -306,7 +302,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       3 => 'Claim your space',
       4 => 'What is your name?',
       5 => 'Secure your account',
-      6 => 'I want to join as',
       _ => 'Create Account',
     };
 
@@ -316,7 +311,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       3 => 'Choose your unique username to get started.',
       4 => 'This will be displayed on your profile.',
       5 => 'Choose a strong password.',
-      6 => 'Select the account type that fits your needs.',
       _ => '',
     };
 
@@ -333,7 +327,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               ),
         title: Row(
           mainAxisSize: MainAxisSize.min,
-          children: List.generate(6, (index) {
+          children: List.generate(5, (index) {
             final active = index + 1 <= _step;
             return AnimatedContainer(
               duration: const Duration(milliseconds: 300),
@@ -419,7 +413,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   _buildStep3Username(authState.loading),
                   _buildStep4Name(authState.loading),
                   _buildStep5Password(authState.loading),
-                  _buildStep6Role(authState.loading),
                 ],
               ),
             ),
@@ -713,41 +706,13 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             InlineFieldError(error: _confirmPasswordError),
             const SizedBox(height: 32),
             FilledButton(
-              onPressed: _handleNextPassword,
-              child: const Text('Continue'),
+              onPressed: loading ? null : _handleNextPassword,
+              child: loading
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Text('Create Account'),
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildStep6Role(bool loading) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              for (final role in const [UserRole.member, UserRole.creator, UserRole.vendor])
-                Expanded(
-                  child: _RoleChip(
-                    role: role,
-                    selected: _role == role,
-                    onTap: () => setState(() => _role = role),
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 32),
-          FilledButton(
-            onPressed: loading ? null : _submitRegister,
-            child: loading
-                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                : const Text('Create Account'),
-          ),
-        ],
       ),
     );
   }

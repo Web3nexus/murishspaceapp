@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../components/app_bottom_sheet.dart';
 import '../core/content_moderation_service.dart';
+import '../core/design_tokens.dart';
 import '../providers/admin_moderation_provider.dart';
 
 /// Admin & Staff CMS Financial Monitoring, Content Moderation & Policy Enforcement Center.
@@ -26,48 +28,89 @@ class _AdminModerationScreenState extends ConsumerState<AdminModerationScreen>
   }
 
   void _addWordModal() {
-    showDialog<void>(
+    showModalBottomSheet<void>(
       context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (ctx) {
         final isDark = Theme.of(ctx).brightness == Brightness.dark;
-        return AlertDialog(
-          backgroundColor: isDark ? const Color(0xFF1C1C1E) : Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Text('Add Banned Keyword', style: TextStyle(fontWeight: FontWeight.bold)),
-          content: TextField(
-            controller: _wordController,
-            autofocus: true,
-            style: TextStyle(color: isDark ? Colors.white : Colors.black),
-            decoration: InputDecoration(
-              hintText: 'Enter keyword or phrase...',
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-            ),
+        final bg = isDark ? DesignTokens.darkSurface : DesignTokens.lightSurface;
+        final textPrimary = isDark ? DesignTokens.darkTextPrimary : DesignTokens.lightTextPrimary;
+
+        return Container(
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFFF3B30),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          padding: EdgeInsets.only(
+            left: 20,
+            right: 20,
+            top: 12,
+            bottom: MediaQuery.of(ctx).viewInsets.bottom + MediaQuery.of(ctx).padding.bottom + 20,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white30 : Colors.black26,
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
-              onPressed: () {
-                final word = _wordController.text.trim();
-                if (word.isNotEmpty) {
-                  ref.read(adminModerationProvider.notifier).addBannedWord(word);
-                  _wordController.clear();
-                  Navigator.pop(ctx);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Added "$word" to prohibited keyword list')),
-                  );
-                }
-              },
-              child: const Text('Add Word', style: TextStyle(fontWeight: FontWeight.bold)),
-            ),
-          ],
+              const SizedBox(height: 16),
+              Text(
+                'Add Banned Keyword',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: textPrimary,
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _wordController,
+                autofocus: true,
+                style: TextStyle(color: textPrimary),
+                decoration: InputDecoration(
+                  hintText: 'Enter keyword or phrase...',
+                  filled: true,
+                  fillColor: isDark ? DesignTokens.darkSurfaceSecondary : DesignTokens.lightSurfaceSecondary,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: DesignTokens.danger,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onPressed: () {
+                    final word = _wordController.text.trim();
+                    if (word.isNotEmpty) {
+                      ref.read(adminModerationProvider.notifier).addBannedWord(word);
+                      _wordController.clear();
+                      Navigator.pop(ctx);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Added "$word" to banned words list.')),
+                      );
+                    }
+                  },
+                  child: const Text('Add Banned Keyword', style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              ),
+            ],
+          ),
         );
       },
     );

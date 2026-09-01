@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../components/online_status_badge.dart';
 import '../components/ui_states.dart';
 import '../core/api_client.dart';
 import '../core/design_tokens.dart';
@@ -442,26 +443,49 @@ class _ConversationList extends ConsumerWidget {
       );
     }
 
-    // Sort: Pinned chats at the top (sorted by date), followed by unpinned chats (sorted by date)
-    final pinned = filtered.where((c) => c.isPinned).toList()
-      ..sort((a, b) => (b.updatedAt ?? DateTime(0)).compareTo(a.updatedAt ?? DateTime(0)));
-    final unpinned = filtered.where((c) => !c.isPinned).toList()
-      ..sort((a, b) => (b.updatedAt ?? DateTime(0)).compareTo(a.updatedAt ?? DateTime(0)));
-    final sorted = [...pinned, ...unpinned];
+    // Sort: Pinned items at the top (sorted by date), followed by unpinned items (sorted by date)
+    final bState = ref.watch(broadcastProvider);
+    final systemDate = bState.messages.isNotEmpty ? bState.messages.first.timestamp : DateTime.fromMillisecondsSinceEpoch(0);
 
-    return ListView.builder(
+    final pinnedConvs = filtered.where((c) => c.isPinned).toList()
+      ..sort((a, b) => (b.updatedAt ?? DateTime(0)).compareTo(a.updatedAt ?? DateTime(0)));
+    final unpinnedConvs = filtered.where((c) => !c.isPinned).toList()
+      ..sort((a, b) => (b.updatedAt ?? DateTime(0)).compareTo(a.updatedAt ?? DateTime(0)));
+
+    final List<Widget> listWidgets = [];
+
+    // 1. Pinned System Broadcast Tile if pinned
+    if (bState.isPinned && filter == 'All') {
+      listWidgets.add(const _SystemBroadcastTile());
+    }
+
+    // 2. Pinned Conversations
+    for (final conv in pinnedConvs) {
+      listWidgets.add(_ConversationTile(conversation: conv));
+    }
+
+    // 3. Unpinned Conversations & Unpinned System Broadcast Tile sorted chronologically
+    bool systemAdded = bState.isPinned || filter != 'All';
+
+    for (final conv in unpinnedConvs) {
+      final convDate = conv.updatedAt ?? DateTime(0);
+      if (!systemAdded && systemDate.isAfter(convDate)) {
+        listWidgets.add(const _SystemBroadcastTile());
+        systemAdded = true;
+      }
+      listWidgets.add(_ConversationTile(conversation: conv));
+    }
+
+    // If System Broadcast tile hasn't been added yet (older timestamp or empty convs), place it at end
+    if (!systemAdded && filter == 'All') {
+      listWidgets.add(const _SystemBroadcastTile());
+    }
+
+    return ListView.separated(
       physics: const AlwaysScrollableScrollPhysics(),
-      itemCount: sorted.length + 1,
-      itemBuilder: (_, i) {
-        if (i == 0) return const _SystemBroadcastTile();
-        final conversation = sorted[i - 1];
-        return Column(
-          children: [
-            _ConversationTile(conversation: conversation),
-            if (i < sorted.length) const Divider(height: 1, indent: 76),
-          ],
-        );
-      },
+      itemCount: listWidgets.length,
+      separatorBuilder: (_, index) => const Divider(height: 1, indent: 76),
+      itemBuilder: (_, index) => listWidgets[index],
     );
   }
 }
@@ -785,33 +809,39 @@ class _Avatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final avatarUrl = conversation.avatarUrl;
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        CircleAvatar(
-          radius: 26,
-          backgroundColor: unread ? DesignTokens.primary : DesignTokens.primarySoft,
-          backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
-              ? CachedNetworkImageProvider(avatarUrl)
-              : null,
-          child: avatarUrl == null || avatarUrl.isEmpty
-              ? Text(
-                  conversation.initials,
-                  style: TextStyle(
-                    color: unread ? Colors.white : DesignTokens.primaryDark,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 18,
-                  ),
-                )
-              : null,
-        ),
-        if (unread)
-          const Positioned(
-            right: 0,
-            bottom: 0,
-            child: CircleAvatar(radius: 5, backgroundColor: DesignTokens.primary),
+    final isDirectChat = conversation.type != 'community';
+
+    return OnlineAvatarBadge(
+      isOnline: isDirectChat,
+      badgeSize: 12,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          CircleAvatar(
+            radius: 26,
+            backgroundColor: unread ? DesignTokens.primary : DesignTokens.primarySoft,
+            backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
+                ? CachedNetworkImageProvider(avatarUrl)
+                : null,
+            child: avatarUrl == null || avatarUrl.isEmpty
+                ? Text(
+                    conversation.initials,
+                    style: TextStyle(
+                      color: unread ? Colors.white : DesignTokens.primaryDark,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 18,
+                    ),
+                  )
+                : null,
           ),
-      ],
+          if (unread)
+            const Positioned(
+              right: 0,
+              bottom: 0,
+              child: CircleAvatar(radius: 5, backgroundColor: DesignTokens.primary),
+            ),
+        ],
+      ),
     );
   }
 }
@@ -853,58 +883,7 @@ class _PreviewLine extends StatelessWidget {
 class _ActiveFriendsRow extends ConsumerWidget {
   const _ActiveFriendsRow();
 
-  static const List<Map<String, dynamic>> _fallbackActiveFriends = [
-    {
-      'id': 101,
-      'name': 'Houns S.',
-      'username': 'houns_s',
-      'avatarUrl': 'https://picsum.photos/seed/houns/150/150',
-      'color': 0xFF007AFF,
-      'isOnline': true,
-    },
-    {
-      'id': 102,
-      'name': 'Alex Vance',
-      'username': 'alex_v',
-      'avatarUrl': 'https://picsum.photos/seed/alex/150/150',
-      'color': 0xFF34C759,
-      'isOnline': true,
-    },
-    {
-      'id': 103,
-      'name': 'Sarah C.',
-      'username': 'sarah_c',
-      'avatarUrl': 'https://picsum.photos/seed/sarah/150/150',
-      'color': 0xFFAF52DE,
-      'isOnline': true,
-    },
-    {
-      'id': 104,
-      'name': 'DevPulse Hub',
-      'username': 'devpulse',
-      'avatarUrl': 'https://picsum.photos/seed/devpulse/150/150',
-      'color': 0xFFFF9500,
-      'isOnline': true,
-      'isCommunity': true,
-      'communityId': 10,
-    },
-    {
-      'id': 105,
-      'name': 'Elena R.',
-      'username': 'elena_r',
-      'avatarUrl': 'https://picsum.photos/seed/elena/150/150',
-      'color': 0xFFFF2D55,
-      'isOnline': true,
-    },
-    {
-      'id': 106,
-      'name': 'Marcus',
-      'username': 'marcus_t',
-      'avatarUrl': 'https://picsum.photos/seed/marcus/150/150',
-      'color': 0xFF5856D6,
-      'isOnline': false,
-    },
-  ];
+  static const List<Map<String, dynamic>> _fallbackActiveFriends = [];
 
   Future<void> _openChatForFriend(
     BuildContext context,
@@ -978,13 +957,7 @@ class _ActiveFriendsRow extends ConsumerWidget {
       }
     }
 
-    // Append fallback list items if active list is small
-    for (final fallback in _fallbackActiveFriends) {
-      final fId = fallback['id'] as int;
-      if (!activeList.any((item) => item['id'] == fId)) {
-        activeList.add(fallback);
-      }
-    }
+    if (activeList.isEmpty) return const SizedBox.shrink();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1010,15 +983,15 @@ class _ActiveFriendsRow extends ConsumerWidget {
             separatorBuilder: (_, _) => const SizedBox(width: 14),
             itemBuilder: (context, index) {
               final friend = activeList[index];
-              final friendId = friend['id'] as int;
-              final name = friend['name'] as String;
-              final username = friend['username'] as String? ?? 'user_$friendId';
-              final avatarUrl = friend['avatarUrl'] as String?;
-              final isOnline = friend['isOnline'] as bool? ?? true;
-              final isCommunity = friend['isCommunity'] as bool? ?? false;
-              final communityId = friend['communityId'] as int?;
-              final conversationId = friend['conversationId'] as int?;
-              final colorInt = friend['color'] as int? ?? 0xFF007AFF;
+              final friendId = (friend['id'] as num?)?.toInt() ?? 0;
+              final name = friend['name']?.toString() ?? 'Friend';
+              final username = friend['username']?.toString() ?? 'user_$friendId';
+              final avatarUrl = friend['avatarUrl']?.toString();
+              final isOnline = (friend['isOnline'] as bool?) ?? true;
+              final isCommunity = (friend['isCommunity'] as bool?) ?? false;
+              final communityId = (friend['communityId'] as num?)?.toInt();
+              final conversationId = (friend['conversationId'] as num?)?.toInt();
+              final colorInt = (friend['color'] as num?)?.toInt() ?? 0xFF007AFF;
               final color = Color(colorInt);
 
               return GestureDetector(
@@ -1274,6 +1247,58 @@ class _SystemBroadcastTile extends ConsumerWidget {
     );
   }
 
+  void _showSystemTileOptions(BuildContext context, WidgetRef ref) {
+    final bState = ref.read(broadcastProvider);
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Theme.of(context).brightness == Brightness.dark
+          ? const Color(0xFF1C1C1E)
+          : Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: Text(
+                '📢 MurihSpace System Broadcasts',
+                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+              ),
+            ),
+            const Divider(height: 1),
+            ListTile(
+              leading: Icon(
+                bState.isPinned ? Icons.push_pin_outlined : Icons.push_pin_rounded,
+                color: const Color(0xFF007AFF),
+              ),
+              title: Text(
+                bState.isPinned ? 'Unpin System Alert thread' : 'Pin System Alert thread to top',
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+              onTap: () {
+                Navigator.pop(ctx);
+                ref.read(broadcastProvider.notifier).togglePin();
+              },
+            ),
+            if (bState.unreadCount > 0)
+              ListTile(
+                leading: const Icon(Icons.done_all_rounded, color: Color(0xFF34C759)),
+                title: const Text('Mark all system broadcasts read'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  ref.read(broadcastProvider.notifier).markAllAsRead();
+                },
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -1283,6 +1308,7 @@ class _SystemBroadcastTile extends ConsumerWidget {
 
     return InkWell(
       onTap: () => _showBroadcastSheet(context, ref),
+      onLongPress: () => _showSystemTileOptions(context, ref),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
@@ -1293,8 +1319,8 @@ class _SystemBroadcastTile extends ConsumerWidget {
             Container(
               width: 50,
               height: 50,
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
                   colors: [Color(0xFF007AFF), Color(0xFF5856D6)],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
@@ -1316,6 +1342,10 @@ class _SystemBroadcastTile extends ConsumerWidget {
                       ),
                       const SizedBox(width: 4),
                       const Icon(Icons.verified_rounded, color: Color(0xFF007AFF), size: 15),
+                      if (bState.isPinned) ...[
+                        const SizedBox(width: 4),
+                        const Icon(Icons.push_pin_rounded, color: Color(0xFF007AFF), size: 13),
+                      ],
                       const Spacer(),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),

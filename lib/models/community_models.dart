@@ -17,7 +17,10 @@ class Community {
   final String? logoUrl;
   final String? coverUrl;
   final int membersCount;
+  final bool isJoined;
   final ChatUser? creator;
+
+  int get memberCount => membersCount;
 
   const Community({
     required this.id,
@@ -31,6 +34,7 @@ class Community {
     this.logoUrl,
     this.coverUrl,
     this.membersCount = 0,
+    this.isJoined = true,
     this.creator,
   });
 
@@ -47,17 +51,18 @@ class Community {
     }
     return Community(
       id: (json['id'] as num?)?.toInt() ?? 0,
-      name: json['name'] as String? ?? '',
-      slug: json['slug'] as String? ?? '',
-      description: json['description'] as String?,
-      category: json['category'] as String?,
-      visibility: json['visibility'] as String? ?? 'public',
-      pricingType: json['pricing_type'] as String? ?? 'free',
+      name: json['name']?.toString() ?? '',
+      slug: json['slug']?.toString() ?? '',
+      description: json['description']?.toString(),
+      category: json['category']?.toString(),
+      visibility: json['visibility']?.toString() ?? 'public',
+      pricingType: json['pricing_type']?.toString() ?? 'free',
       priceAmount: (json['price_amount'] as num?)?.toDouble(),
-      logoUrl: json['logo_url'] as String?,
-      coverUrl: json['cover_url'] as String?,
+      logoUrl: json['logo_url']?.toString(),
+      coverUrl: json['cover_url']?.toString(),
       membersCount:
           (json['members_count'] as num?)?.toInt() ?? (json['active_members_count'] as num?)?.toInt() ?? 0,
+      isJoined: (json['is_joined'] as bool?) ?? (json['joined'] as bool?) ?? true,
       creator: ChatUser.fromJson(json['creator']),
     );
   }
@@ -82,8 +87,8 @@ class MembershipStatus {
     return MembershipStatus(
       isMember: json['is_member'] as bool? ?? false,
       isPending: json['is_pending'] as bool? ?? false,
-      role: json['role'] as String?,
-      status: json['status'] as String? ?? 'none',
+      role: json['role']?.toString(),
+      status: json['status']?.toString() ?? 'none',
     );
   }
 }

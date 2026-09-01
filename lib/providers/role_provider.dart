@@ -123,7 +123,7 @@ class RoleUpgradeNotifier extends Notifier<RoleUpgradeState> {
         'requested_role': requestedRole,
       });
       await _load();
-      return response.statusCode == 201;
+      return response.statusCode == 200 || response.statusCode == 201;
     } on DioException catch (e) {
       state = state.copyWith(error: _errorMessage(e));
       return false;

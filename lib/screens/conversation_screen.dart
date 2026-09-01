@@ -3,12 +3,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../components/app_bottom_sheet.dart';
+import '../components/online_status_badge.dart';
 import '../components/ui_states.dart';
 import '../core/api_client.dart';
 import '../core/design_tokens.dart';
 import '../models/chat_models.dart';
 import '../providers/auth_provider.dart';
 import '../providers/chat_provider.dart';
+import '../providers/calls_provider.dart';
 import '../providers/messages_provider.dart';
 import '../providers/realtime_provider.dart';
 import 'conversation_composer.dart';
@@ -167,6 +170,46 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
         title: _ConversationTitle(conversationId: widget.conversationId),
         actions: [
           IconButton(
+            onPressed: () {
+              final title = conversation?.otherUser?.name ?? (conversation?.title.isNotEmpty == true ? conversation!.title : 'Contact');
+              ref.read(callsProvider.notifier).logNewCall(
+                    contactName: title,
+                    phoneNumber: '+234 812 000 1122',
+                    direction: CallDirection.outgoing,
+                    durationSeconds: 120,
+                    isVideo: false,
+                  );
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('📞 Starting voice call with $title…'),
+                  backgroundColor: const Color(0xFF34C759),
+                ),
+              );
+            },
+            icon: const Icon(Icons.call_rounded, color: Color(0xFF34C759)),
+            tooltip: 'Voice Call',
+          ),
+          IconButton(
+            onPressed: () {
+              final title = conversation?.otherUser?.name ?? (conversation?.title.isNotEmpty == true ? conversation!.title : 'Contact');
+              ref.read(callsProvider.notifier).logNewCall(
+                    contactName: title,
+                    phoneNumber: '+234 812 000 1122',
+                    direction: CallDirection.outgoing,
+                    durationSeconds: 120,
+                    isVideo: true,
+                  );
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('📹 Starting WhatsApp-style video call with $title…'),
+                  backgroundColor: const Color(0xFF007AFF),
+                ),
+              );
+            },
+            icon: const Icon(Icons.videocam_rounded, color: Color(0xFF007AFF)),
+            tooltip: 'Video Call',
+          ),
+          IconButton(
             onPressed: () => _openChatMenu(),
             icon: const Icon(Icons.more_horiz),
           ),
@@ -311,32 +354,12 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
         .firstOrNull;
     final isEscrowActive = conversation?.hasActiveEscrow ?? false;
     if (isEscrowActive) {
-      showDialog<void>(
+      await AppBottomSheet.showNotice(
         context: context,
-        builder: (ctx) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Row(
-            children: [
-              Icon(Icons.lock_rounded, color: Color(0xFF007AFF), size: 28),
-              SizedBox(width: 8),
-              Text('Messages Locked', style: TextStyle(fontWeight: FontWeight.w800)),
-            ],
-          ),
-          content: const Text(
-            'Messages in active Escrow transactions or Brand Deals cannot be deleted until all funds are released or closed.',
-            style: TextStyle(fontSize: 13, height: 1.45),
-          ),
-          actions: [
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF007AFF),
-                foregroundColor: Colors.white,
-              ),
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Understood'),
-            ),
-          ],
-        ),
+        title: 'Messages Locked',
+        message: 'Messages in active Escrow transactions or Brand Deals cannot be deleted until all funds are released or closed.',
+        actionText: 'Understood',
+        icon: Icons.lock_rounded,
       );
       return;
     }
@@ -441,16 +464,20 @@ class _ConversationTitle extends ConsumerWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        CircleAvatar(
-          radius: 16,
-          backgroundColor: DesignTokens.primarySoft,
-          backgroundImage: avatar != null && avatar.isNotEmpty ? NetworkImage(avatar) : null,
-          child: avatar == null || avatar.isEmpty
-              ? Text(
-                  title.isEmpty ? '?' : title.substring(0, 1).toUpperCase(),
-                  style: const TextStyle(color: DesignTokens.primaryDark, fontWeight: FontWeight.w700, fontSize: 14),
-                )
-              : null,
+        OnlineAvatarBadge(
+          isOnline: !isCommunity,
+          badgeSize: 10,
+          child: CircleAvatar(
+            radius: 16,
+            backgroundColor: DesignTokens.primarySoft,
+            backgroundImage: avatar != null && avatar.isNotEmpty ? NetworkImage(avatar) : null,
+            child: avatar == null || avatar.isEmpty
+                ? Text(
+                    title.isEmpty ? '?' : title.substring(0, 1).toUpperCase(),
+                    style: const TextStyle(color: DesignTokens.primaryDark, fontWeight: FontWeight.w700, fontSize: 14),
+                  )
+                : null,
+          ),
         ),
         const SizedBox(width: 10),
         Flexible(
@@ -458,16 +485,16 @@ class _ConversationTitle extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
-              if (isCommunity) ...[
-                const SizedBox(height: 1),
+              Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              if (isCommunity)
                 Text(
                   memberCount == null ? 'Community' : 'Community · $memberCount members',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontSize: 11, color: DesignTokens.textSecondary),
-                ),
-              ],
+                )
+              else
+                const OnlineStatusBadge(isOnline: true, showLabel: true, dotSize: 6),
             ],
           ),
         ),

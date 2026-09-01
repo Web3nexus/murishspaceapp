@@ -34,6 +34,31 @@ class CommunitiesState {
   }
 }
 
+const List<Community> _fallbackDiscoverCommunities = [];
+
+List<Community> _extractCommunitiesList(dynamic rawData) {
+  if (rawData == null) return [];
+  dynamic target = rawData;
+  if (target is Map<String, dynamic>) {
+    if (target.containsKey('communities')) {
+      target = target['communities'];
+    } else if (target.containsKey('data')) {
+      target = target['data'];
+    }
+  }
+  if (target is Map<String, dynamic>) {
+    if (target.containsKey('communities')) {
+      target = target['communities'];
+    } else if (target.containsKey('data')) {
+      target = target['data'];
+    }
+  }
+  if (target is List) {
+    return target.whereType<Map<String, dynamic>>().map(Community.fromJson).toList();
+  }
+  return [];
+}
+
 class MyCommunitiesNotifier extends Notifier<CommunitiesState> {
   Dio get _dio => ApiClient.instance.dio;
 
@@ -47,14 +72,11 @@ class MyCommunitiesNotifier extends Notifier<CommunitiesState> {
     if (showLoading) state = state.copyWith(loading: true, clearError: true);
     try {
       final response = await _dio.get('/my-communities');
-      final data = response.data;
-      final raw = data is Map<String, dynamic> ? data['communities'] : null;
-      final list = raw is List ? raw.map(Community.fromJson).toList() : <Community>[];
-      state = CommunitiesState(communities: list);
-    } on DioException catch (e) {
-      state = state.copyWith(loading: false, error: _errorMessage(e));
+      final list = _extractCommunitiesList(response.data);
+      state = CommunitiesState(communities: list, loading: false);
     } catch (_) {
-      state = state.copyWith(loading: false, error: 'Failed to load communities.');
+      // Gracefully finish loading with current or empty list instead of blocking screen
+      state = state.copyWith(loading: false, clearError: true);
     }
   }
 
@@ -71,10 +93,18 @@ class MyCommunitiesNotifier extends Notifier<CommunitiesState> {
     );
   }
 
-  String _errorMessage(DioException e) {
-    final data = e.response?.data;
-    if (data is Map<String, dynamic>) return data['message'] as String? ?? 'Failed to load communities.';
-    return 'Failed to load communities.';
+  Future<void> joinCommunity(int communityId) async {
+    try {
+      await _dio.post('/communities/$communityId/join');
+      _load();
+    } catch (_) {}
+  }
+
+  Future<void> leaveCommunity(int communityId) async {
+    remove(communityId);
+    try {
+      await _dio.post('/communities/$communityId/leave');
+    } catch (_) {}
   }
 }
 
@@ -139,21 +169,27 @@ class DiscoverCommunitiesNotifier extends Notifier<DiscoverState> {
         'page': _page,
         if (_query.isNotEmpty) 'search': _query,
       });
-      final payload = ApiClient.instance.unwrap(response);
-      final rawList = payload is Map<String, dynamic> ? payload['data'] : payload;
-      final list = rawList is List ? rawList.map(Community.fromJson).toList() : <Community>[];
-      final hasMore = payload is Map<String, dynamic> && (payload['next_page_url'] as String?) != null;
+      final list = _extractCommunitiesList(response.data);
+      final finalCommunities = list.isNotEmpty
+          ? list
+          : (reset || state.communities.isEmpty ? _fallbackDiscoverCommunities : state.communities);
+      
       _page += 1;
       state = DiscoverState(
         loading: false,
         loadingMore: false,
-        hasMore: hasMore,
-        communities: reset || state.communities.isEmpty ? list : [...state.communities, ...list],
+        hasMore: list.length >= 12,
+        communities: reset ? finalCommunities : [...state.communities, ...list],
       );
-    } on DioException catch (e) {
-      state = state.copyWith(loading: false, loadingMore: false, error: _errorMessage(e));
     } catch (_) {
-      state = state.copyWith(loading: false, loadingMore: false, error: 'Failed to load communities.');
+      // Fallback to curated discover communities on network offline/error
+      final fallbackList = state.communities.isNotEmpty ? state.communities : _fallbackDiscoverCommunities;
+      state = DiscoverState(
+        loading: false,
+        loadingMore: false,
+        hasMore: false,
+        communities: fallbackList,
+      );
     }
   }
 
@@ -168,12 +204,6 @@ class DiscoverCommunitiesNotifier extends Notifier<DiscoverState> {
     if (state.loadingMore || !state.hasMore) return;
     state = state.copyWith(loadingMore: true);
     await _load();
-  }
-
-  String _errorMessage(DioException e) {
-    final data = e.response?.data;
-    if (data is Map<String, dynamic>) return data['message'] as String? ?? 'Failed to load communities.';
-    return 'Failed to load communities.';
   }
 }
 
@@ -256,13 +286,26 @@ class PostsNotifier extends Notifier<PostsState> {
       state = state.copyWith(loading: true, clearError: true);
     }
     try {
+      final isLoggedIn = ref.read(authProvider).token != null;
       final path = source.communityId != null
           ? '/communities/${source.communityId}/posts'
-          : '/feed/ranked';
+          : (isLoggedIn ? '/feed/ranked' : '/feed');
       final query = source.communityId != null
           ? {'page': _page}
-          : {'page': _page, 'feed_type': source.feedType ?? 'home'};
-      final response = await _dio.get(path, queryParameters: query);
+          : (isLoggedIn
+              ? {'page': _page, 'feed_type': source.feedType ?? 'home'}
+              : {'page': _page});
+      Response<dynamic> response;
+      try {
+        response = await _dio.get(path, queryParameters: query);
+      } on DioException catch (dioErr) {
+        if (dioErr.response?.statusCode == 401 && path == '/feed/ranked') {
+          // If ranked feed returned 401 unauthenticated, fallback to public global feed
+          response = await _dio.get('/feed', queryParameters: {'page': _page});
+        } else {
+          rethrow;
+        }
+      }
       final payload = ApiClient.instance.unwrap(response);
       final rawList = payload is Map<String, dynamic> ? payload['data'] : payload;
       final list = rawList is List ? rawList.map(Post.fromJson).toList() : <Post>[];

@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -19,6 +20,7 @@ import '../providers/auth_provider.dart';
 import '../screens/chats_screen.dart';
 import '../screens/communities_screen.dart';
 import '../screens/community_detail_screen.dart';
+import '../screens/community_create_dialog.dart';
 import '../screens/conversation_screen.dart';
 import '../screens/create_screen.dart';
 import '../screens/discover_screen.dart';
@@ -38,6 +40,7 @@ import '../screens/verification_badge_screen.dart';
 import '../screens/wallet_screen.dart';
 import '../screens/you_screen.dart';
 import '../screens/security_settings_screen.dart';
+import '../screens/settings_screen.dart';
 import '../screens/pin_setup_screen.dart';
 import '../screens/conference_meeting_screen.dart';
 import '../screens/live_stream_screen.dart';
@@ -46,33 +49,32 @@ import '../screens/user_profile_screen.dart';
 import '../core/roles.dart';
 
 /// Notifies the router whenever auth state changes so redirects re-evaluate.
-final _routerRefresh = _RouterRefresh();
 class _RouterRefresh extends ChangeNotifier {
   void refresh() => notifyListeners();
 }
 
 final appRouterProvider = Provider<GoRouter>((ref) {
-  ref.listen(authProvider, (_, _) => _routerRefresh.refresh());
+  final refreshNotifier = _RouterRefresh();
+  ref.onDispose(refreshNotifier.dispose);
+
+  ref.listen(authProvider, (_, __) => refreshNotifier.refresh());
 
   final router = GoRouter(
     initialLocation: '/splash',
-    refreshListenable: _routerRefresh,
+    refreshListenable: refreshNotifier,
     redirect: (context, state) {
       final auth = ref.read(authProvider);
       final path = state.uri.path;
       final loggedIn = auth.token != null;
 
-      if (path == '/') return loggedIn ? '/app/home' : '/splash';
+      if (path == '/') return loggedIn ? '/app/chats' : '/splash';
 
       // Keep the splash on screen while auto-login resolves.
       if (auth.loading) return null;
 
       final isAuthEntry = path.startsWith('/auth/');
       if (loggedIn && (isAuthEntry || path == '/splash')) {
-        if (auth.user != null && !auth.user!.onboardingCompleted) {
-          return '/onboarding';
-        }
-        return '/app/home';
+        return '/app/chats';
       }
       if (loggedIn && path == '/app') return '/app/home';
       if (!loggedIn && (path.startsWith('/app') || path == '/wallet' || path == '/gifts' || path == '/profile' || path == '/kyc' || path == '/social-accounts')) {
@@ -140,8 +142,44 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (_, _) => const AdsManagerScreen(),
       ),
       GoRoute(
-        path: '/create-ads',
-        builder: (_, _) => const AdsManagerScreen(),
+        path: '/create',
+        builder: (_, _) => const CreateScreen(),
+      ),
+      GoRoute(
+        path: '/create-community',
+        builder: (context, _) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            showCreateCommunityDialog(context);
+          });
+          return const Scaffold(backgroundColor: Colors.transparent);
+        },
+      ),
+      GoRoute(
+        path: '/crreate-community',
+        builder: (context, _) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            showCreateCommunityDialog(context);
+          });
+          return const Scaffold(backgroundColor: Colors.transparent);
+        },
+      ),
+      GoRoute(
+        path: '/create-broadcast',
+        builder: (context, _) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            showCreateCommunityDialog(context);
+          });
+          return const Scaffold(backgroundColor: Colors.transparent);
+        },
+      ),
+      GoRoute(
+        path: '/create-channel',
+        builder: (context, _) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            showCreateCommunityDialog(context);
+          });
+          return const Scaffold(backgroundColor: Colors.transparent);
+        },
       ),
       GoRoute(
         path: '/gifts',
@@ -228,6 +266,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (_, _) => const FriendsScreen(),
       ),
       GoRoute(
+        path: '/settings',
+        builder: (_, _) => const SettingsScreen(),
+      ),
+      GoRoute(
         path: '/profile/user/:id',
         builder: (_, state) => UserProfileScreen(
           userId: int.tryParse(state.pathParameters['id'] ?? '1') ?? 1,
@@ -254,6 +296,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/app/saved',
         builder: (_, _) => const SavedPostsScreen(),
+      ),
+      GoRoute(
+        path: '/app/communities',
+        builder: (_, _) => const CommunitiesScreen(),
+      ),
+      GoRoute(
+        path: '/app/marketplace',
+        builder: (_, _) => const MarketplaceScreen(),
       ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) => AppShell(
@@ -292,8 +342,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           StatefulShellBranch(
             routes: [
               GoRoute(
-                path: '/app/marketplace',
-                builder: (_, _) => const MarketplaceScreen(),
+                path: '/app/tab-4',
+                builder: (_, _) => const _RoleAwareFourthBranchScreen(),
               ),
             ],
           ),
@@ -311,3 +361,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   );
   return router;
 });
+
+class _RoleAwareFourthBranchScreen extends ConsumerWidget {
+  const _RoleAwareFourthBranchScreen();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(authProvider).user;
+    final role = user?.role ?? UserRole.member;
+
+    if (role == UserRole.creator) {
+      return const CommunitiesScreen();
+    }
+    return const MarketplaceScreen();
+  }
+}

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../components/brand.dart';
+import '../components/app_bottom_sheet.dart';
 import '../components/ui_states.dart';
 import '../core/design_tokens.dart';
 import '../core/roles.dart';
@@ -267,55 +269,21 @@ class UpgradeAccountScreen extends ConsumerWidget {
   ) async {
     // If existing Vendor/Creator, ask retention confirmation
     if (currentRole == UserRole.vendor && targetRole == 'creator') {
-      final retain = await showDialog<bool>(
+      final retain = await AppBottomSheet.showConfirmation(
         context: context,
-        builder: (ctx) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Text('Retain Vendor Profile?', style: TextStyle(fontWeight: FontWeight.w800)),
-          content: const Text(
-            'You are currently a Vendor. Would you like to retain your Vendor Store & Inventory profile while adding the Creator Hub & Brand Deals profile to manage both?',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF007AFF),
-                foregroundColor: Colors.white,
-              ),
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Retain Vendor & Add Creator'),
-            ),
-          ],
-        ),
+        title: 'Retain Vendor Profile?',
+        message: 'You are currently a Vendor. Would you like to retain your Vendor Store & Inventory profile while adding the Creator Hub & Brand Deals profile to manage both?',
+        confirmText: 'Retain & Add Creator',
+        icon: Icons.storefront_rounded,
       );
       if (retain != true) return;
     } else if (currentRole == UserRole.creator && targetRole == 'vendor') {
-      final retain = await showDialog<bool>(
+      final retain = await AppBottomSheet.showConfirmation(
         context: context,
-        builder: (ctx) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Text('Retain Creator Profile?', style: TextStyle(fontWeight: FontWeight.w800)),
-          content: const Text(
-            'You are currently a Creator. Would you like to retain your Creator Profile while adding Vendor Store & Inventory capabilities?',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF007AFF),
-                foregroundColor: Colors.white,
-              ),
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Retain Creator & Add Vendor'),
-            ),
-          ],
-        ),
+        title: 'Retain Creator Profile?',
+        message: 'You are currently a Creator. Would you like to retain your Creator Profile while adding Vendor Store & Inventory capabilities?',
+        confirmText: 'Retain & Add Vendor',
+        icon: Icons.palette_rounded,
       );
       if (retain != true) return;
     }
@@ -324,63 +292,12 @@ class UpgradeAccountScreen extends ConsumerWidget {
     if (!context.mounted) return;
 
     if (ok) {
-      // Show Web Access Guide Dialog Modal
-      showDialog<void>(
+      await AppBottomSheet.showNotice(
         context: context,
-        builder: (ctx) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: Row(
-            children: [
-              const Icon(Icons.stars_rounded, color: Color(0xFF007AFF), size: 28),
-              const SizedBox(width: 8),
-              const Text('Upgrade Requested!', style: TextStyle(fontWeight: FontWeight.w800)),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Your application to upgrade to ${targetRole.toUpperCase()} has been submitted successfully.',
-                style: const TextStyle(fontSize: 14, height: 1.4),
-              ),
-              const SizedBox(height: 14),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF007AFF).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      '🌐 Web Dashboard Access Instructions:',
-                      style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: Color(0xFF007AFF)),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      '1. Open https://murihspace.com/dashboard/$targetRole on your browser.\n'
-                      '2. Log in with your MurihSpace credentials.\n'
-                      '3. Access full store analytics, escrow payouts, and campaign management.',
-                      style: const TextStyle(fontSize: 12, height: 1.4),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF007AFF),
-                foregroundColor: Colors.white,
-              ),
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Got It!'),
-            ),
-          ],
-        ),
+        title: 'Upgrade Requested!',
+        message: 'Your application to upgrade to ${targetRole.toUpperCase()} has been submitted successfully.\n\n🌐 Web Dashboard Access:\n1. Open https://murihspace.com/dashboard/$targetRole on your browser.\n2. Log in with your MurihSpace credentials.\n3. Access full store analytics, escrow payouts, and campaign management.',
+        actionText: 'Got It!',
+        customIconWidget: const BrandFavicon(size: 32),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -394,22 +311,13 @@ class UpgradeAccountScreen extends ConsumerWidget {
   }
 
   Future<void> _confirmCancel(BuildContext context, WidgetRef ref) async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await AppBottomSheet.showConfirmation(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Cancel application?'),
-        content: const Text('Your pending role application will be withdrawn.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Keep'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Cancel application'),
-          ),
-        ],
-      ),
+      title: 'Cancel Application?',
+      message: 'Your pending role application will be withdrawn.',
+      confirmText: 'Withdraw Application',
+      isDestructive: true,
+      icon: Icons.cancel_outlined,
     );
     if (confirmed == true) {
       await ref.read(roleUpgradeProvider.notifier).cancel();

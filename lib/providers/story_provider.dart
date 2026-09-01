@@ -132,96 +132,13 @@ class StoryNotifier extends Notifier<StoryState> {
     _dio.post('/v1/stories/$storyId/view').catchError((_) => Response(requestOptions: RequestOptions()));
   }
 
-  /// Curated default initial stories for friends, followed creators, and joined communities.
+  /// Default initial stories for the authenticated user.
   static final List<UserStoryGroup> _defaultStoryGroups = [
-    UserStoryGroup(
+    const UserStoryGroup(
       userId: 'me',
       userName: 'Your Story',
       isMyStory: true,
       stories: [],
-    ),
-    UserStoryGroup(
-      userId: 'friend_101',
-      userName: 'Alex Rivera',
-      userAvatar: 'https://picsum.photos/seed/alex/150/150',
-      isMyStory: false,
-      isCommunity: false,
-      stories: [
-        StoryItem(
-          id: 'story_alex_1',
-          mediaUrl: 'https://picsum.photos/seed/sunset_beach/600/1000',
-          caption: 'Sunset vibes at the beach today 🌅✨',
-          createdAt: DateTime.now().subtract(const Duration(hours: 3)),
-          expiresAt: DateTime.now().add(const Duration(hours: 21)),
-          viewsCount: 48,
-          isSeen: false,
-        ),
-        StoryItem(
-          id: 'story_alex_2',
-          mediaUrl: 'https://picsum.photos/seed/coffee_laptop/600/1000',
-          caption: 'Late night coding & espresso ☕️💻',
-          createdAt: DateTime.now().subtract(const Duration(hours: 1)),
-          expiresAt: DateTime.now().add(const Duration(hours: 23)),
-          viewsCount: 22,
-          isSeen: false,
-        ),
-      ],
-    ),
-    UserStoryGroup(
-      userId: 'creator_202',
-      userName: 'Design Systems Hub',
-      userAvatar: 'https://picsum.photos/seed/designhub/150/150',
-      isMyStory: false,
-      isCommunity: true,
-      communityName: 'UI/UX Designers',
-      stories: [
-        StoryItem(
-          id: 'story_design_1',
-          mediaUrl: 'https://picsum.photos/seed/figma_mockup/600/1000',
-          caption: 'New Glassmorphism UI Kit dropping tomorrow! 🎨🚀',
-          createdAt: DateTime.now().subtract(const Duration(hours: 5)),
-          expiresAt: DateTime.now().add(const Duration(hours: 19)),
-          viewsCount: 310,
-          isSeen: false,
-        ),
-      ],
-    ),
-    UserStoryGroup(
-      userId: 'friend_303',
-      userName: 'Sophia Chen',
-      userAvatar: 'https://picsum.photos/seed/sophia/150/150',
-      isMyStory: false,
-      isCommunity: false,
-      stories: [
-        StoryItem(
-          id: 'story_sophia_1',
-          mediaUrl: 'https://picsum.photos/seed/tokyo_street/600/1000',
-          caption: 'Exploring neon streets in Tokyo! 🇯🇵✨',
-          createdAt: DateTime.now().subtract(const Duration(hours: 8)),
-          expiresAt: DateTime.now().add(const Duration(hours: 16)),
-          viewsCount: 95,
-          isSeen: false,
-        ),
-      ],
-    ),
-    UserStoryGroup(
-      userId: 'community_404',
-      userName: 'Flutter Devs Community',
-      userAvatar: 'https://picsum.photos/seed/flutterdev/150/150',
-      isMyStory: false,
-      isCommunity: true,
-      communityName: 'Flutter Global',
-      stories: [
-        StoryItem(
-          id: 'story_flutter_1',
-          mediaUrl: 'https://picsum.photos/seed/code_dart/600/1000',
-          caption: 'Flutter 3.29 release highlights & performance benchmarks 💙⚡️',
-          createdAt: DateTime.now().subtract(const Duration(hours: 12)),
-          expiresAt: DateTime.now().add(const Duration(hours: 12)),
-          viewsCount: 520,
-          isSeen: false,
-        ),
-      ],
     ),
   ];
 }

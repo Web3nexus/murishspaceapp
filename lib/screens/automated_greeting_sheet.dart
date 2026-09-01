@@ -172,26 +172,28 @@ class __AutomatedGreetingContentState
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Enable Auto-Greeting',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 15,
-                            color: textPrimary,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Enable Auto-Greeting',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 15,
+                              color: textPrimary,
+                            ),
                           ),
-                        ),
-                        Text(
-                          'Sends automatically when a customer messages you',
-                          style: TextStyle(fontSize: 12, color: textSecondary),
-                        ),
-                      ],
+                          Text(
+                            'Sends automatically when a customer messages you',
+                            style: TextStyle(fontSize: 12, color: textSecondary),
+                          ),
+                        ],
+                      ),
                     ),
+                    const SizedBox(width: 8),
                     Switch.adaptive(
                       value: _isEnabled,
-                      activeColor: const Color(0xFF007AFF),
                       onChanged: (val) => setState(() => _isEnabled = val),
                     ),
                   ],

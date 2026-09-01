@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../core/design_tokens.dart';
 import '../models/chat_models.dart';
+import 'community_create_dialog.dart';
 
 /// Telegram-style capsule message composer with roll-up attachment sheet.
 class Composer extends StatelessWidget {
@@ -189,7 +190,7 @@ class _TelegramAttachmentSheet extends StatelessWidget {
       }),
       _AttachmentAction('Community', Icons.group_add_rounded, const Color(0xFF34C759), () {
         navigator.pop();
-        router.push('/create-community');
+        showCreateCommunityDialog(context);
       }),
       _AttachmentAction('Gift', Icons.card_giftcard_rounded, const Color(0xFFFF2D55), () {
         navigator.pop();

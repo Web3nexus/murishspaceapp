@@ -9,21 +9,27 @@ class ChatUser {
   final String name;
   final String username;
   final String? avatarUrl;
+  final bool isOnline;
+  final String? lastSeen;
 
   const ChatUser({
     required this.id,
     required this.name,
     required this.username,
     this.avatarUrl,
+    this.isOnline = true,
+    this.lastSeen = 'online',
   });
 
   factory ChatUser.fromJson(dynamic json) {
     if (json is! Map<String, dynamic>) return const ChatUser(id: 0, name: '', username: '');
     return ChatUser(
       id: (json['id'] as num?)?.toInt() ?? 0,
-      name: json['name'] as String? ?? '',
-      username: json['username'] as String? ?? '',
-      avatarUrl: (json['avatar_url'] ?? json['avatar']) as String?,
+      name: json['name']?.toString() ?? '',
+      username: json['username']?.toString() ?? '',
+      avatarUrl: (json['avatar_url'] ?? json['avatar'])?.toString(),
+      isOnline: (json['is_online'] as bool?) ?? (json['isOnline'] as bool?) ?? true,
+      lastSeen: json['last_seen']?.toString() ?? json['lastSeen']?.toString() ?? 'online',
     );
   }
 }
@@ -40,9 +46,9 @@ class CommunityRef {
     if (json is! Map<String, dynamic>) return const CommunityRef();
     return CommunityRef(
       id: (json['id'] as num?)?.toInt(),
-      name: json['name'] as String?,
-      slug: json['slug'] as String?,
-      logoUrl: json['logo_url'] as String?,
+      name: json['name']?.toString(),
+      slug: json['slug']?.toString(),
+      logoUrl: json['logo_url']?.toString(),
     );
   }
 }
@@ -156,28 +162,28 @@ class Message {
   /// broadcast payload from `App\Events\MessageSent` (same shape, flat).
   factory Message.fromJson(dynamic json) {
     if (json is! Map<String, dynamic>) {
-      return Message(id: 0, conversationId: 0, userId: 0, content: '', type: 'text', status: 'sent');
+      return const Message(id: 0, conversationId: 0, userId: 0, content: '', type: 'text', status: 'sent');
     }
     final replyToRaw = json['reply_to'];
     return Message(
       id: (json['id'] as num?)?.toInt() ?? 0,
       conversationId: (json['conversation_id'] as num?)?.toInt() ?? 0,
       userId: (json['user_id'] as num?)?.toInt() ?? 0,
-      content: json['content'] as String? ?? '',
-      type: json['type'] as String? ?? 'text',
-      status: json['status'] as String? ?? 'sent',
-      clientUuid: json['client_uuid'] as String?,
+      content: json['content']?.toString() ?? '',
+      type: json['type']?.toString() ?? 'text',
+      status: json['status']?.toString() ?? 'sent',
+      clientUuid: json['client_uuid']?.toString(),
       replyToId: (json['reply_to_id'] as num?)?.toInt(),
       replyTo: replyToRaw is Map<String, dynamic> ? Message.fromReplyTo(replyToRaw) : null,
       forwardedFromMessageId: (json['forwarded_from_message_id'] as num?)?.toInt(),
-      attachmentUrl: json['attachment_url'] as String?,
-      attachmentType: json['attachment_type'] as String?,
-      mediaStatus: json['media_status'] as String?,
-      createdAt: DateTime.tryParse(json['created_at'] as String? ?? ''),
+      attachmentUrl: json['attachment_url']?.toString(),
+      attachmentType: json['attachment_type']?.toString(),
+      mediaStatus: json['media_status']?.toString(),
+      createdAt: json['created_at'] != null ? DateTime.tryParse(json['created_at'].toString()) : null,
       user: ChatUser.fromJson(json['user']),
       reactions: _reactionsFrom(json['reactions']),
-      deleted: json['deleted'] as bool? ?? false,
-      read: json['read'] as bool? ?? false,
+      deleted: (json['deleted'] as bool?) ?? false,
+      read: (json['read'] as bool?) ?? false,
     );
   }
 
@@ -186,8 +192,8 @@ class Message {
       id: (json['id'] as num?)?.toInt() ?? 0,
       conversationId: 0,
       userId: (json['user_id'] as num?)?.toInt() ?? 0,
-      content: json['content'] as String? ?? '',
-      type: json['attachment_type'] as String? ?? 'text',
+      content: json['content']?.toString() ?? '',
+      type: json['attachment_type']?.toString() ?? 'text',
       status: 'sent',
       user: ChatUser.fromJson(json['user']),
     );
@@ -236,7 +242,9 @@ class Conversation {
 
   String? get avatarUrl => otherUser?.avatarUrl ?? community?.logoUrl;
   String get initials {
-    final parts = title.trim().split(RegExp(r'\s+')).where((e) => e.isNotEmpty).toList();
+    final t = title.trim();
+    if (t.isEmpty) return '?';
+    final parts = t.split(RegExp(r'\s+')).where((e) => e.isNotEmpty).toList();
     if (parts.isEmpty) return '?';
     if (parts.length == 1) return parts.first.substring(0, 1).toUpperCase();
     return (parts.first.substring(0, 1) + parts.last.substring(0, 1)).toUpperCase();
@@ -274,24 +282,30 @@ class Conversation {
 
   factory Conversation.fromJson(dynamic json) {
     if (json is! Map<String, dynamic>) {
-      return Conversation(id: 0, type: 'direct', title: '');
+      return const Conversation(id: 0, type: 'direct', title: 'Direct Message');
     }
+    final other = ChatUser.fromJson(json['other_user']);
+    final rawTitle = json['title']?.toString();
+    final effectiveTitle = (rawTitle != null && rawTitle.isNotEmpty)
+        ? rawTitle
+        : (other.name.isNotEmpty ? other.name : 'Direct Message');
+
     return Conversation(
       id: (json['id'] as num?)?.toInt() ?? 0,
-      type: json['type'] as String? ?? 'direct',
-      title: json['title'] as String? ?? 'Direct Message',
+      type: json['type']?.toString() ?? 'direct',
+      title: effectiveTitle,
       community: CommunityRef.fromJson(json['community']),
-      otherUser: ChatUser.fromJson(json['other_user']),
-      latestMessage: Message.fromJson(json['latest_message']),
+      otherUser: other,
+      latestMessage: json['latest_message'] != null ? Message.fromJson(json['latest_message']) : null,
       unreadCount: (json['unread_count'] as num?)?.toInt() ?? 0,
-      updatedAt: DateTime.tryParse(json['updated_at'] as String? ?? ''),
-      isArchived: json['is_archived'] as bool? ?? false,
-      isMuted: json['is_muted'] as bool? ?? false,
-      isPinned: json['is_pinned'] as bool? ?? false,
+      updatedAt: json['updated_at'] != null ? DateTime.tryParse(json['updated_at'].toString()) : null,
+      isArchived: (json['is_archived'] as bool?) ?? false,
+      isMuted: (json['is_muted'] as bool?) ?? false,
+      isPinned: (json['is_pinned'] as bool?) ?? false,
       memberCount: (json['member_count'] as num?)?.toInt(),
-      hasActiveEscrow: json['has_active_escrow'] as bool? ?? (json['escrow_amount'] != null),
+      hasActiveEscrow: (json['has_active_escrow'] as bool?) ?? (json['escrow_amount'] != null),
       escrowAmount: (json['escrow_amount'] as num?)?.toDouble(),
-      escrowCurrency: json['escrow_currency'] as String? ?? 'USD',
+      escrowCurrency: json['escrow_currency']?.toString() ?? 'USD',
     );
   }
 }

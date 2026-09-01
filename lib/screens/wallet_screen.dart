@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../components/ui_states.dart';
 import '../core/currency_formatter.dart';
+import '../providers/auth_provider.dart';
 import '../providers/gifts_provider.dart';
 import '../providers/security_provider.dart';
 import '../providers/wallet_provider.dart';
@@ -23,42 +24,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
   int _activeCardIndex = 0;
   CoinPack? _buying;
 
-  // Active Escrow Contracts Mock Data
-  final List<Map<String, dynamic>> _escrowContracts = [
-    {
-      'id': 'ESC-8921',
-      'title': 'Solstar Inverter & Solar Battery',
-      'party': 'Lagos Solar Tech (@solartech_ng)',
-      'amount': '₦120,000.00',
-      'status': 'In Transit (Fulfillment)',
-      'statusColor': const Color(0xFFFF9500),
-      'progress': 0.7,
-      'buyerRole': true,
-      'details': 'Product shipped via GIG Logistics. Track ID: GIG-981240.',
-    },
-    {
-      'id': 'ESC-8922',
-      'title': 'Nike Air Campaign Video Sponsorship',
-      'party': 'Nike Africa Brand Team (@nike_ng)',
-      'amount': '\$450.00',
-      'status': 'Draft Review',
-      'statusColor': const Color(0xFF007AFF),
-      'progress': 0.4,
-      'buyerRole': false,
-      'details': 'Draft video submitted by creator. Pending brand approval.',
-    },
-    {
-      'id': 'ESC-8923',
-      'title': 'Custom Mobile App UI Design',
-      'party': 'Alex Johnson (@alex_j)',
-      'amount': '\$850.00',
-      'status': 'Funds Locked',
-      'statusColor': const Color(0xFF34C759),
-      'progress': 0.9,
-      'buyerRole': true,
-      'details': 'Final deliverables verified. Awaiting release confirmation.',
-    },
-  ];
+  final List<Map<String, dynamic>> _escrowContracts = [];
 
   @override
   void initState() {
@@ -369,7 +335,73 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
     );
   }
 
+  void _showKycRequiredWithdrawalModal() {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF1C1C1E) : Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        final textPrimary = isDark ? Colors.white : Colors.black;
+        final textSecondary = isDark ? Colors.grey[400] : Colors.grey[600];
+
+        return Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFF9500).withOpacity(0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.shield_outlined, size: 48, color: Color(0xFFFF9500)),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'KYC Verification Required to Withdraw',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textPrimary),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'Creators and Vendors can manage space and sell digital goods, but before you can withdraw a single penny or coin to your bank account, your identity must be KYC verified.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 13, color: textSecondary, height: 1.4),
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF007AFF),
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(double.infinity, 48),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  context.push('/kyc');
+                },
+                icon: const Icon(Icons.verified_user_rounded),
+                label: const Text('Complete KYC Verification Now', style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   void _openWithdrawModal() {
+    final auth = ref.read(authProvider);
+    final kycStatus = auth.user?.kycStatus ?? 'unsubmitted';
+
+    if (kycStatus != 'approved' && kycStatus != 'verified') {
+      _showKycRequiredWithdrawalModal();
+      return;
+    }
+
     final amountController = TextEditingController(text: '10000');
     final pinController = TextEditingController();
     final security = ref.read(securityProvider);
@@ -451,6 +483,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
     final gifts = ref.watch(giftsProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bg = isDark ? Colors.black : const Color(0xFFEFF1F5);
+    final cardBg = isDark ? const Color(0xFF161F2E) : Colors.white;
     final textPrimary = isDark ? Colors.white : Colors.black;
     final textSecondary = isDark ? Colors.grey[400] : Colors.grey[600];
 
@@ -555,7 +588,23 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
               const SizedBox(height: 6),
               Text('Funds are locked safely in escrow until order delivery or contract milestone is confirmed.', style: TextStyle(fontSize: 13, color: textSecondary)),
               const SizedBox(height: 16),
-              ..._escrowContracts.map((c) => _buildEscrowContractCard(c, isDark)),
+              if (_escrowContracts.isEmpty)
+                Container(
+                  padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 16),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(color: cardBg, borderRadius: BorderRadius.circular(20)),
+                  child: Column(
+                    children: [
+                      Icon(Icons.gavel_outlined, size: 36, color: textSecondary),
+                      const SizedBox(height: 10),
+                      Text('No active escrow deals', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: textPrimary)),
+                      const SizedBox(height: 4),
+                      Text('Tap "New Deal" to lock funds safely for milestone contracts or purchases.', style: TextStyle(fontSize: 12, color: textSecondary), textAlign: TextAlign.center),
+                    ],
+                  ),
+                )
+              else
+                ..._escrowContracts.map((c) => _buildEscrowContractCard(c, isDark)),
             ],
           ),
 
@@ -592,10 +641,20 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
             children: [
               Text('Financial Ledger & Receipts', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: textPrimary)),
               const SizedBox(height: 16),
-              _buildLedgerTile('Solstar Solar Escrow Purchase', 'Locked in Escrow · Today 02:15 PM', '- ₦120,000.00', const Color(0xFFFF9500), isDark),
-              _buildLedgerTile('Wallet Bank Deposit', 'Completed via Card · Today 11:30 AM', '+ ₦50,000.00', const Color(0xFF34C759), isDark),
-              _buildLedgerTile('Sent Diamond Gift to @samuel', 'Creator Tip · Yesterday', '- 1,000 MSH', const Color(0xFF5856D6), isDark),
-              _buildLedgerTile('Brand Sponsorship Payout Released', 'Escrow Released · 2 days ago', '+ ₦185,000.00', const Color(0xFF34C759), isDark),
+              Container(
+                padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 16),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(color: cardBg, borderRadius: BorderRadius.circular(20)),
+                child: Column(
+                  children: [
+                    Icon(Icons.receipt_long_outlined, size: 36, color: textSecondary),
+                    const SizedBox(height: 10),
+                    Text('No ledger transactions yet', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: textPrimary)),
+                    const SizedBox(height: 4),
+                    Text('Completed deposits, withdrawals, tips, and payouts will be logged here.', style: TextStyle(fontSize: 12, color: textSecondary), textAlign: TextAlign.center),
+                  ],
+                ),
+              ),
             ],
           ),
         ],
@@ -605,7 +664,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
 
   Widget _buildFancyVirtualCard(WalletState state, bool isDark) {
     final system = state.wallets.where((w) => w.type == WalletType.system).firstOrNull;
-    final cashMinorUnits = system?.available ?? 1450000;
+    final cashMinorUnits = system?.available ?? 0;
     final coinBalance = cashMinorUnits ~/ 100;
     final currency = system?.currency ?? 'NGN';
 

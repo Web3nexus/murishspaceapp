@@ -70,11 +70,11 @@ class ApiClient {
     final isSuccess = data['success'] as bool? ?? (data.containsKey('data'));
     if (isSuccess) return data['data'];
     throw ApiException(
-      message: data['message'] as String? ?? 'Request failed.',
-      code: data['code'] as String?,
+      message: data['message']?.toString() ?? 'Request failed.',
+      code: data['code']?.toString(),
       errors: (data['errors'] as Map<String, dynamic>?)?.cast<String, dynamic>(),
       status: response.statusCode,
-      requestId: data['request_id'] as String?,
+      requestId: data['request_id']?.toString(),
     );
   }
 
@@ -99,10 +99,16 @@ class ApiClient {
     return [];
   }
 
-  // ── Token storage ─────────────────────────────────────────────
+  // ── Token & Onboarding storage ────────────────────────────────
+  static const aiOnboardingCompletedKey = 'murihspace_ai_onboarding_completed';
   static Future<String?> readToken() => _secureStorage.read(key: tokenKey);
   static Future<void> saveToken(String token) => _secureStorage.write(key: tokenKey, value: token);
   static Future<void> clearToken() => _secureStorage.delete(key: tokenKey);
+
+  static Future<String?> readAiOnboardingCompleted() => _secureStorage.read(key: aiOnboardingCompletedKey);
+  static Future<void> saveAiOnboardingCompleted() => _secureStorage.write(key: aiOnboardingCompletedKey, value: 'true');
+  static Future<void> clearAiOnboardingCompleted() => _secureStorage.delete(key: aiOnboardingCompletedKey);
+
 
   // ── Helpers ───────────────────────────────────────────────────
 

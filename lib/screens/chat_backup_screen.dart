@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../components/app_bottom_sheet.dart';
+import '../core/design_tokens.dart';
 
 /// WhatsApp & Telegram style Email Chat Backup & Export screen.
 class ChatBackupScreen extends StatefulWidget {
@@ -32,32 +34,13 @@ class _ChatBackupScreenState extends State<ChatBackupScreen> {
       _lastBackupSize = _includeMedia ? '48.2 MB' : '4.1 MB';
     });
 
-    showDialog<void>(
+    await AppBottomSheet.showNotice(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Row(
-          children: [
-            Icon(Icons.mark_email_read_rounded, color: Color(0xFF34C759), size: 28),
-            SizedBox(width: 8),
-            Text('Backup Sent!', style: TextStyle(fontWeight: FontWeight.w800)),
-          ],
-        ),
-        content: Text(
-          'An encrypted archive of your chat history has been sent to ${_emailController.text}.\n\nYou can restore your messages on any new device using this backup.',
-          style: const TextStyle(fontSize: 13, height: 1.45),
-        ),
-        actions: [
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF007AFF),
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Awesome!'),
-          ),
-        ],
-      ),
+      title: 'Backup Sent!',
+      message: 'An encrypted archive of your chat history has been sent to ${_emailController.text}.\n\nYou can restore your messages on any new device using this backup.',
+      actionText: 'Got It',
+      icon: Icons.mark_email_read_rounded,
+      iconColor: DesignTokens.success,
     );
   }
 
@@ -208,21 +191,83 @@ class _ChatBackupScreenState extends State<ChatBackupScreen> {
                   ),
                   trailing: const Icon(Icons.chevron_right, size: 20),
                   onTap: () {
-                    showDialog<void>(
+                    showModalBottomSheet<void>(
                       context: context,
-                      builder: (ctx) => AlertDialog(
-                        title: const Text('Backup Email Address'),
-                        content: TextField(
-                          controller: _emailController,
-                          decoration: const InputDecoration(hintText: 'Enter your email'),
-                        ),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(ctx),
-                            child: const Text('Save'),
+                      isScrollControlled: true,
+                      backgroundColor: Colors.transparent,
+                      builder: (ctx) {
+                        final bg = isDark ? DesignTokens.darkSurface : DesignTokens.lightSurface;
+                        final textPrimary = isDark ? DesignTokens.darkTextPrimary : DesignTokens.lightTextPrimary;
+
+                        return Container(
+                          decoration: BoxDecoration(
+                            color: bg,
+                            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
                           ),
-                        ],
-                      ),
+                          padding: EdgeInsets.only(
+                            left: 20,
+                            right: 20,
+                            top: 12,
+                            bottom: MediaQuery.of(ctx).viewInsets.bottom + MediaQuery.of(ctx).padding.bottom + 20,
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: 36,
+                                height: 4,
+                                decoration: BoxDecoration(
+                                  color: isDark ? Colors.white30 : Colors.black26,
+                                  borderRadius: BorderRadius.circular(2),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'Backup Email Address',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: textPrimary,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              TextField(
+                                controller: _emailController,
+                                autofocus: true,
+                                style: TextStyle(color: textPrimary),
+                                decoration: InputDecoration(
+                                  hintText: 'Enter your email',
+                                  filled: true,
+                                  fillColor: isDark ? DesignTokens.darkSurfaceSecondary : DesignTokens.lightSurfaceSecondary,
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: BorderSide.none,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 20),
+                              SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: DesignTokens.primary,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(vertical: 14),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                  onPressed: () {
+                                    setState(() {});
+                                    Navigator.pop(ctx);
+                                  },
+                                  child: const Text('Save Email', style: TextStyle(fontWeight: FontWeight.bold)),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
                     );
                   },
                 ),
@@ -278,7 +323,6 @@ class _ChatBackupScreenState extends State<ChatBackupScreen> {
                     style: TextStyle(fontSize: 12, color: isDark ? Colors.grey[400] : Colors.grey[600]),
                   ),
                   value: _includeMedia,
-                  activeColor: const Color(0xFF007AFF),
                   onChanged: (val) => setState(() => _includeMedia = val),
                 ),
                 Divider(height: 1, color: dividerColor, indent: 60),

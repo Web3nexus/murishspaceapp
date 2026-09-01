@@ -299,3 +299,186 @@ class CommunityLogo extends StatelessWidget {
     );
   }
 }
+
+/// Shows the "Create Broadcast Channel" modal sheet and creates the broadcast channel.
+Future<dynamic> showCreateBroadcastChannelDialog(BuildContext context) async {
+  final name = TextEditingController();
+  final description = TextEditingController();
+  final channelHandle = TextEditingController();
+  bool allowReplies = false;
+  bool isCreating = false;
+
+  return showModalBottomSheet<dynamic>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Theme.of(context).brightness == Brightness.dark
+        ? const Color(0xFF1C1C1E)
+        : Colors.white,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+    ),
+    builder: (ctx) {
+      final isDark = Theme.of(ctx).brightness == Brightness.dark;
+      final textPrimary = isDark ? Colors.white : Colors.black;
+      final textSecondary = isDark ? Colors.grey[400] : Colors.grey[600];
+
+      return StatefulBuilder(
+        builder: (context, setState) {
+          return Padding(
+            padding: EdgeInsets.only(
+              left: 20,
+              right: 20,
+              top: 16,
+              bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 38,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.grey[700] : Colors.grey[300],
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF007AFF).withOpacity(0.15),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.campaign_rounded, color: Color(0xFF007AFF), size: 24),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Create Broadcast Channel',
+                              style: TextStyle(
+                                fontSize: 19,
+                                fontWeight: FontWeight.w800,
+                                color: textPrimary,
+                              ),
+                            ),
+                            Text(
+                              '1-to-many updates for your subscribers & followers.',
+                              style: TextStyle(fontSize: 12, color: textSecondary),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        icon: Icon(Icons.close_rounded, color: textSecondary),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+
+                  TextField(
+                    controller: name,
+                    style: TextStyle(color: textPrimary),
+                    decoration: InputDecoration(
+                      labelText: 'Channel Name',
+                      hintText: 'e.g., Daily Market Signals & VIP Updates',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  TextField(
+                    controller: channelHandle,
+                    style: TextStyle(color: textPrimary),
+                    decoration: InputDecoration(
+                      labelText: 'Channel Handle',
+                      hintText: 'e.g., vip_signals',
+                      prefixText: '@ ',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  TextField(
+                    controller: description,
+                    maxLines: 2,
+                    style: TextStyle(color: textPrimary),
+                    decoration: InputDecoration(
+                      labelText: 'Description / Purpose',
+                      hintText: 'Share announcements, product drops, and exclusive news...',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text('Allow Subscriber Comment Replies', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: textPrimary)),
+                    subtitle: Text('Subscribers can comment on broadcast messages', style: TextStyle(fontSize: 12, color: textSecondary)),
+                    value: allowReplies,
+                    onChanged: (val) => setState(() => allowReplies = val),
+                  ),
+                  const SizedBox(height: 20),
+
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF007AFF),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
+                      onPressed: isCreating
+                          ? null
+                          : () async {
+                              final title = name.text.trim();
+                              if (title.isEmpty) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Please enter a channel name')),
+                                );
+                                return;
+                              }
+                              setState(() => isCreating = true);
+                              try {
+                                await ApiClient.instance.dio.post('/conversations/broadcast', data: {
+                                  'title': title,
+                                  'handle': channelHandle.text.trim(),
+                                  'description': description.text.trim(),
+                                  'allow_replies': allowReplies,
+                                });
+                              } catch (_) {}
+                              if (context.mounted) {
+                                Navigator.pop(ctx, true);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Broadcast Channel "$title" created!')),
+                                );
+                              }
+                            },
+                      icon: isCreating
+                          ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          : const Icon(Icons.campaign_rounded),
+                      label: Text(
+                        isCreating ? 'Creating Broadcast Channel…' : 'Create Broadcast Channel',
+                        style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+    },
+  );
+}

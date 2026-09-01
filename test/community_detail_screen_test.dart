@@ -107,7 +107,7 @@ void main() {
     await tester.pump();
 
     expect(find.text('Murih Society'), findsWidgets);
-    expect(find.text('42 members'), findsOneWidget);
+    expect(find.textContaining('42 members'), findsOneWidget);
     expect(find.text('A community post'), findsOneWidget);
     // Member state shows the Leave button instead of Join.
     expect(find.text('Leave'), findsOneWidget);

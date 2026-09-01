@@ -102,7 +102,7 @@ void main() {
     expect(find.text('Hi Ann'), findsOneWidget);
     expect(find.text('Message…'), findsOneWidget);
     expect(find.text('Ann'), findsWidgets); // app bar title + sender name
-    expect(find.byIcon(Icons.send_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.mic_rounded), findsOneWidget);
   });
 
   testWidgets('sending text clears the composer', (tester) async {

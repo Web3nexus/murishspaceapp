@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -5,6 +6,7 @@ import '../core/api_client.dart';
 import '../models/chat_models.dart';
 import 'auth_provider.dart';
 import 'chat_provider.dart';
+import 'greeting_provider.dart';
 
 /// State of a single conversation's message history.
 class ConversationMessagesState {
@@ -248,6 +250,32 @@ class ConversationMessagesNotifier extends Notifier<ConversationMessagesState> {
     _appendOrReplace(message);
     final me = ref.read(authProvider).user;
     ref.read(conversationsProvider.notifier).applyMessage(message, currentUserId: me?.id ?? 0);
+    _checkTriggerAutoGreeting(message);
+  }
+
+  bool _hasAutoReplied = false;
+
+  void _checkTriggerAutoGreeting(Message incomingMessage) {
+    if (_hasAutoReplied) return;
+    final me = ref.read(authProvider).user;
+    if (me == null || incomingMessage.userId == me.id) return;
+
+    final greeting = ref.read(greetingProvider);
+    if (!greeting.isEnabled || greeting.message.trim().isEmpty) return;
+
+    _hasAutoReplied = true;
+
+    final hour = DateTime.now().hour;
+    final timeStr = hour < 12 ? 'morning' : (hour < 17 ? 'afternoon' : 'evening');
+    final senderName = incomingMessage.user?.name ?? 'there';
+
+    final formattedMessage = greeting.message
+        .replaceAll('{name}', senderName)
+        .replaceAll('{time}', timeStr);
+
+    Timer(Duration(seconds: greeting.delaySeconds > 0 ? greeting.delaySeconds : 1), () {
+      sendMessage(content: formattedMessage);
+    });
   }
 
   void applyRealtimeDeleted(int messageId) {

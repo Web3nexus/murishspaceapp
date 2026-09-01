@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../components/app_bottom_sheet.dart';
 import '../core/design_tokens.dart';
 import '../core/roles.dart';
 import '../models/marketplace_models.dart';
@@ -30,44 +31,7 @@ class _AdsManagerScreenState extends ConsumerState<AdsManagerScreen>
   MarketplaceProduct? _selectedCatalogItem;
 
   // Mock Active Campaigns List for Status View
-  final List<Map<String, dynamic>> _mockCampaigns = [
-    {
-      'id': 'AD-9821',
-      'title': 'Wireless Noise Canceling Headphones Promo',
-      'objective': 'Conversions for Ads',
-      'status': 'ACTIVE',
-      'impressions': 18450,
-      'clicks': 2140,
-      'conversions': 342,
-      'spent': 142.50,
-      'budget': 200.0,
-      'image': 'https://picsum.photos/seed/tech/200/200',
-    },
-    {
-      'id': 'AD-8104',
-      'title': 'UI/UX Mobile App Design System Course',
-      'objective': 'Catalog View Sales',
-      'status': 'ACTIVE',
-      'impressions': 9200,
-      'clicks': 1180,
-      'conversions': 195,
-      'spent': 87.20,
-      'budget': 150.0,
-      'image': 'https://picsum.photos/seed/design/200/200',
-    },
-    {
-      'id': 'AD-6340',
-      'title': 'Creator VIP Community Membership Access',
-      'objective': 'Profile & Reach',
-      'status': 'COMPLETED',
-      'impressions': 34100,
-      'clicks': 4200,
-      'conversions': 580,
-      'spent': 300.0,
-      'budget': 300.0,
-      'image': 'https://picsum.photos/seed/community/200/200',
-    },
-  ];
+  final List<Map<String, dynamic>> _mockCampaigns = [];
 
   @override
   void initState() {
@@ -174,43 +138,15 @@ class _AdsManagerScreenState extends ConsumerState<AdsManagerScreen>
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    final confirm = await showDialog<bool>(
+    final activeW = wallet.wallets.isNotEmpty ? wallet.wallets.first : null;
+    final bal = (activeW?.available ?? 0) / 100.0;
+
+    final confirm = await AppBottomSheet.showConfirmation(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: isDark ? const Color(0xFF2C2C2E) : Colors.white,
-        title: const Text('Confirm Campaign Launch', style: TextStyle(fontWeight: FontWeight.bold)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Campaign: ${_campaignTitleController.text}'),
-            const SizedBox(height: 4),
-            Text('Objective: $_selectedObjective'),
-            const SizedBox(height: 4),
-            Text('Duration: $_durationDays Days'),
-            const SizedBox(height: 4),
-            Text('Total Budget: \$${totalBudget.toStringAsFixed(2)}',
-                style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF34C759))),
-            const SizedBox(height: 12),
-            Builder(
-              builder: (_) {
-                final activeW = wallet.wallets.isNotEmpty ? wallet.wallets.first : null;
-                final bal = (activeW?.available ?? 0) / 100.0;
-                return Text('Available Wallet Balance: \$${bal.toStringAsFixed(2)}',
-                    style: const TextStyle(fontSize: 12));
-              },
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF007AFF), foregroundColor: Colors.white),
-            child: const Text('Launch Now'),
-          ),
-        ],
-      ),
+      title: 'Confirm Campaign Launch',
+      message: 'Campaign: ${_campaignTitleController.text}\nObjective: $_selectedObjective\nDuration: $_durationDays Days\nTotal Budget: \$${totalBudget.toStringAsFixed(2)}\nWallet Balance: \$${bal.toStringAsFixed(2)}',
+      confirmText: 'Launch Now',
+      icon: Icons.campaign_rounded,
     );
 
     if (confirm == true) {
@@ -682,11 +618,26 @@ class _AdsManagerScreenState extends ConsumerState<AdsManagerScreen>
           ],
         ),
         const SizedBox(height: 14),
-
-        ListView.separated(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: _mockCampaigns.length,
+        if (_mockCampaigns.isEmpty)
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 16),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(color: cardBg, borderRadius: BorderRadius.circular(20)),
+            child: Column(
+              children: [
+                Icon(Icons.campaign_outlined, size: 40, color: textSecondary),
+                const SizedBox(height: 10),
+                Text('No campaigns created yet', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: textPrimary)),
+                const SizedBox(height: 4),
+                Text('Create an ad campaign above to promote products or channels.', style: TextStyle(fontSize: 12, color: textSecondary), textAlign: TextAlign.center),
+              ],
+            ),
+          )
+        else
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: _mockCampaigns.length,
           separatorBuilder: (_, __) => const SizedBox(height: 14),
           itemBuilder: (ctx, i) {
             final ad = _mockCampaigns[i];

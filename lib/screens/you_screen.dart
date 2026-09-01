@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:flutter/services.dart';
 
+import '../components/online_status_badge.dart';
 import '../core/roles.dart';
 import '../providers/auth_provider.dart';
 import '../providers/follow_provider.dart';
@@ -11,20 +12,30 @@ import '../providers/language_provider.dart';
 import '../providers/social_account_provider.dart';
 import '../providers/wallet_provider.dart';
 
-/// Telegram iOS Inset Grouped Settings & Profile screen.
+import '../models/community_models.dart';
+import '../providers/community_provider.dart';
+import 'post_card.dart';
+import 'post_composer_sheet.dart';
+
+/// Facebook/Instagram style Profile screen with banner, dynamic stats, friends grid & posts feed.
 class YouScreen extends ConsumerWidget {
   const YouScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final auth = ref.watch(authProvider);
-    final langState = ref.watch(languageProvider);
+    final followState = ref.watch(followProvider);
     final user = auth.user;
     final role = user?.role ?? UserRole.member;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final cardBg = isDark ? const Color(0xFF1C1C1E) : Colors.white;
     final dividerColor = isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE5E5EA);
+
+    final followersCount = (user?.followersCount ?? 0) > 0 ? user!.followersCount : followState.getFollowersCount(user?.id ?? 1);
+    final followingCount = (user?.followingCount ?? 0) > 0 ? user!.followingCount : followState.getFollowingCount(user?.id ?? 1);
+    final postsCount = user?.postsCount ?? 0;
+    final coinsCount = user?.coins ?? 0;
 
     return Scaffold(
       backgroundColor: isDark ? Colors.black : const Color(0xFFF2F2F7),
@@ -42,12 +53,13 @@ class YouScreen extends ConsumerWidget {
         ),
         actions: [
           IconButton(
-            onPressed: () => context.push('/friends'),
+            onPressed: () => context.push('/settings'),
             icon: Icon(
-              Icons.people_outline_rounded,
+              Icons.settings_outlined,
               color: isDark ? Colors.white : Colors.black,
+              size: 24,
             ),
-            tooltip: 'Friends & Connections',
+            tooltip: 'Settings',
           ),
           TextButton(
             onPressed: () => context.push('/profile'),
@@ -61,15 +73,15 @@ class YouScreen extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         children: [
-          // ── Group 0: Header Profile Card ─────────────────────────────────
+          // ── Group 0: Header Profile Card with Banner ─────────────────────
           InkWell(
             onTap: () => context.push('/profile'),
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(20),
             child: Container(
-              padding: const EdgeInsets.all(16),
+              clipBehavior: Clip.antiAlias,
               decoration: BoxDecoration(
                 color: cardBg,
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(20),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withOpacity(isDark ? 0.3 : 0.05),
@@ -80,375 +92,392 @@ class YouScreen extends ConsumerWidget {
               ),
               child: Column(
                 children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 58,
-                        height: 58,
-                        decoration: const BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: LinearGradient(
-                            colors: [Color(0xFF007AFF), Color(0xFF5856D6)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                        ),
-                        child: Center(
-                          child: Text(
-                            _initials(user?.name ?? '?'),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 22,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                        ),
+                  // Cover Banner Header
+                  Container(
+                    height: 110,
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF007AFF), Color(0xFF5856D6), Color(0xFFFF9500)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
                       ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
+                      image: user?.bannerUrl != null && user!.bannerUrl!.isNotEmpty
+                          ? DecorationImage(
+                              image: NetworkImage(user.bannerUrl!),
+                              fit: BoxFit.cover,
+                            )
+                          : null,
+                    ),
+                    child: Stack(
+                      children: [
+                        Positioned(
+                          top: 10,
+                          right: 10,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.black45,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
                               children: [
-                                Text(
-                                  user?.name ?? 'MurihSpace User',
-                                  style: TextStyle(
-                                    color: isDark ? Colors.white : Colors.black,
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                                const SizedBox(width: 4),
-                                const Icon(
-                                  Icons.verified_rounded,
-                                  color: Color(0xFF007AFF),
-                                  size: 18,
-                                ),
+                                Icon(Icons.edit_rounded, color: Colors.white, size: 12),
+                                SizedBox(width: 4),
+                                Text('Edit Profile', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
                               ],
                             ),
-                            const SizedBox(height: 2),
-                            Text(
-                              '@${(user?.username != null && user!.username.isNotEmpty) ? user.username : (user?.name ?? 'user').toLowerCase().replaceAll(' ', '_')}',
-                              style: TextStyle(
-                                color: isDark ? Colors.grey[400] : Colors.grey[600],
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            GestureDetector(
-                              onTap: () => _showAccountSwitcherSheet(context, isDark, role),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF007AFF).withOpacity(0.15),
-                                  borderRadius: BorderRadius.circular(999),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      '${role.label} Mode',
-                                      style: const TextStyle(
-                                        color: Color(0xFF007AFF),
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Overlapping Avatar & Info Row
+                  Transform.translate(
+                    offset: const Offset(0, -28),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              OnlineAvatarBadge(
+                                isOnline: true,
+                                child: Container(
+                                  padding: const EdgeInsets.all(3),
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: cardBg,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.15),
+                                        blurRadius: 8,
+                                      ),
+                                    ],
+                                  ),
+                                  child: Container(
+                                    width: 64,
+                                    height: 64,
+                                    decoration: const BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      gradient: LinearGradient(
+                                        colors: [Color(0xFF007AFF), Color(0xFF5856D6)],
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
                                       ),
                                     ),
-                                    const SizedBox(width: 4),
-                                    const Icon(Icons.swap_vert_rounded, size: 14, color: Color(0xFF007AFF)),
-                                  ],
+                                    child: Center(
+                                      child: Text(
+                                        _initials(user?.name ?? '?'),
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 24,
+                                          fontWeight: FontWeight.w900,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
                                 ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Text(
+                                user?.name ?? 'MurihSpace User',
+                                style: TextStyle(
+                                  color: isDark ? Colors.white : Colors.black,
+                                  fontSize: 19,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              const Icon(
+                                Icons.verified_rounded,
+                                color: Color(0xFF007AFF),
+                                size: 18,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 2),
+                          Row(
+                            children: [
+                              Text(
+                                '@${(user?.username != null && user!.username.isNotEmpty) ? user.username : (user?.name ?? 'user').toLowerCase().replaceAll(' ', '_')}',
+                                style: TextStyle(
+                                  color: isDark ? Colors.grey[400] : Colors.grey[600],
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              const OnlineStatusBadge(isOnline: true, showLabel: true),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          GestureDetector(
+                            onTap: () => _showAccountSwitcherSheet(context, ref, isDark, role),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF007AFF).withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    '${role.label} Mode',
+                                    style: const TextStyle(
+                                      color: Color(0xFF007AFF),
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  const Icon(Icons.swap_vert_rounded, size: 14, color: Color(0xFF007AFF)),
+                                ],
+                              ),
+                            ),
+                          ),
+                          if (user?.bio != null && user!.bio!.isNotEmpty) ...[
+                            const SizedBox(height: 10),
+                            Text(
+                              user.bio!,
+                              maxLines: 3,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: isDark ? Colors.grey[300] : Colors.grey[800],
+                                height: 1.3,
                               ),
                             ),
                           ],
-                        ),
+                        ],
                       ),
-                      Icon(
-                        Icons.chevron_right,
-                        color: isDark ? Colors.grey[600] : Colors.grey[400],
-                      ),
-                    ],
+                    ),
                   ),
-                  const SizedBox(height: 14),
                   Divider(height: 1, color: dividerColor),
                   const SizedBox(height: 12),
-                  // Quick stats row
+                  // Dynamic quick stats row
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
-                      _profileStat('Posts', '12', isDark),
-                      _profileStat('Followers', '348', isDark),
-                      _profileStat('Following', '120', isDark),
+                      _profileStat('Posts', '$postsCount', isDark),
+                      _profileStat('Followers', '$followersCount', isDark),
+                      _profileStat('Following', '$followingCount', isDark),
+                      _profileStat('Coins', '\$$coinsCount', isDark),
                     ],
                   ),
+                  const SizedBox(height: 12),
                 ],
               ),
             ),
           ),
           const SizedBox(height: 16),
 
-          // ── Group 1: Profile, Creator & Wallet ────────────────────────────
-          _TelegramCardGroup(
-            cardBg: cardBg,
-            dividerColor: dividerColor,
-            children: [
-              _TelegramTile(
-                iconBg: const Color(0xFFFF3B30),
-                icon: Icons.person_rounded,
-                title: 'My Profile',
-                isDark: isDark,
-                onTap: () => context.push('/profile'),
-              ),
-              _TelegramTile(
-                iconBg: const Color(0xFF34C759),
-                icon: Icons.people_rounded,
-                title: 'Friends & Connections',
-                badgeText: '2 NEW',
-                badgeColor: const Color(0xFF34C759),
-                isDark: isDark,
-                onTap: () => context.push('/friends'),
-              ),
-              _TelegramTile(
-                iconBg: const Color(0xFF007AFF),
-                icon: Icons.account_balance_wallet_rounded,
-                title: 'Wallet & Escrow',
-                badgeText: 'ESCROW',
-                badgeColor: const Color(0xFF34C759),
-                isDark: isDark,
-                onTap: () => context.push('/wallet'),
-              ),
-              _TelegramTile(
-                iconBg: const Color(0xFFFF9500),
-                icon: Icons.campaign_rounded,
-                title: 'Creator Hub & Brand Deals',
-                badgeText: (role == UserRole.creator || role == UserRole.admin) ? 'HOT' : '🔒 LOCKED',
-                badgeColor: (role == UserRole.creator || role == UserRole.admin) ? const Color(0xFFFF9500) : Colors.grey,
-                isDark: isDark,
-                onTap: () {
-                  if (role == UserRole.creator || role == UserRole.admin) {
-                    context.push('/brand-deals');
-                  } else {
-                    _showRoleLockedDialog(
-                      context,
-                      'Creator Hub & Brand Deals',
-                      'This feature is exclusively for Verified Creators. Apply for a Creator account to accept brand deals, receive MSH gifts, and earn locked escrow payouts.',
-                      'Creator',
-                    );
-                  }
-                },
-              ),
-              _TelegramTile(
-                iconBg: const Color(0xFF5856D6),
-                icon: Icons.storefront_rounded,
-                title: 'Vendor Store & Inventory',
-                badgeText: (role == UserRole.vendor || role == UserRole.admin) ? 'ACTIVE' : '🔒 LOCKED',
-                badgeColor: (role == UserRole.vendor || role == UserRole.admin) ? const Color(0xFF5856D6) : Colors.grey,
-                isDark: isDark,
-                onTap: () {
-                  if (role == UserRole.vendor || role == UserRole.admin) {
-                    context.push('/marketplace');
-                  } else {
-                    _showRoleLockedDialog(
-                      context,
-                      'Vendor Store',
-                      'This feature is exclusively for Verified Vendors. Apply for a Vendor account to open your storefront, manage inventory, and receive escrow orders.',
-                      'Vendor',
-                    );
-                  }
-                },
-              ),
-              _TelegramTile(
-                iconBg: const Color(0xFFAF52DE),
-                icon: Icons.link_rounded,
-                title: 'Link in Bio Builder',
-                badgeText: 'HUB 🔗',
-                badgeColor: const Color(0xFFAF52DE),
-                isDark: isDark,
-                onTap: () => context.push('/link-in-bio'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-
-          // ── Creator & Vendor Analytics Widgets ──────────────────────────────
-          if (role == UserRole.creator || role == UserRole.admin) ...[
-            _CreatorMediaKitCard(cardBg: cardBg, isDark: isDark),
-            const SizedBox(height: 16),
-          ],
-          if (role == UserRole.vendor || role == UserRole.admin) ...[
-            _VendorStoreSummaryCard(cardBg: cardBg, isDark: isDark),
-            const SizedBox(height: 16),
-          ],
-
-          // ── Group 2: Messages & Devices ──────────────────────────────────
-          _TelegramCardGroup(
-            cardBg: cardBg,
-            dividerColor: dividerColor,
-            children: [
-              _TelegramTile(
-                iconBg: const Color(0xFF34C759),
-                icon: Icons.bookmark_rounded,
-                title: 'Saved Messages',
-                isDark: isDark,
-                onTap: () => context.push('/app/saved'),
-              ),
-              _TelegramTile(
-                iconBg: const Color(0xFF30B0C7),
-                icon: Icons.phone_in_talk_rounded,
-                title: 'Recent Calls',
-                isDark: isDark,
-                onTap: () => context.push('/app/calls'),
-              ),
-              _TelegramTile(
-                iconBg: const Color(0xFFFF9500),
-                icon: Icons.devices_rounded,
-                title: 'Devices',
-                trailingText: '3 >',
-                isDark: isDark,
-                onTap: () => context.push('/profile/devices'),
-              ),
-              _TelegramTile(
-                iconBg: const Color(0xFF5856D6),
-                icon: Icons.folder_rounded,
-                title: 'Chat Folders',
-                isDark: isDark,
-                onTap: () => context.push('/profile/chat-folders'),
-              ),
-              _TelegramTile(
-                iconBg: const Color(0xFF007AFF),
-                icon: Icons.mark_email_read_rounded,
-                title: 'Chat & Email Backup',
-                badgeText: 'EMAIL',
-                badgeColor: const Color(0xFF007AFF),
-                isDark: isDark,
-                onTap: () => context.push('/profile/chat-backup'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-
-          // ── Group 3: Preferences & Security ──────────────────────────────
-          _TelegramCardGroup(
-            cardBg: cardBg,
-            dividerColor: dividerColor,
-            children: [
-              _TelegramTile(
-                iconBg: const Color(0xFFFF2D55),
-                icon: Icons.notifications_active_rounded,
-                title: 'Notifications and Sounds',
-                isDark: isDark,
-                onTap: () => context.push('/profile/notifications'),
-              ),
-              _TelegramTile(
-                iconBg: const Color(0xFF8E8E93),
-                icon: Icons.lock_rounded,
-                title: 'Privacy and Security',
-                isDark: isDark,
-                onTap: () => context.push('/profile/security'),
-              ),
-              if (role == UserRole.admin) ...[
-                _TelegramTile(
-                  iconBg: const Color(0xFFFF3B30),
-                  icon: Icons.admin_panel_settings_rounded,
-                  title: 'Staff & Admin Moderation CMS',
-                  trailingText: 'Monitor >',
-                  isDark: isDark,
-                  onTap: () => context.push('/admin/moderation'),
+          // ── Group 1: Friends Section (FB Style) ──────────────────────────
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: cardBg,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(isDark ? 0.3 : 0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
                 ),
               ],
-              _TelegramTile(
-                iconBg: const Color(0xFF5AC8FA),
-                icon: Icons.brightness_6_rounded,
-                title: 'Appearance',
-                trailingText: 'Auto >',
-                isDark: isDark,
-                onTap: () => context.push('/profile/appearance'),
-              ),
-              _TelegramTile(
-                iconBg: const Color(0xFFAF52DE),
-                icon: Icons.language_rounded,
-                title: 'Language & Translation',
-                trailingText: '${langState.currentLanguage.flag} ${langState.currentLanguage.name} >',
-                isDark: isDark,
-                onTap: () => context.push('/profile/language'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-
-          // ── Group 4: Account Tier & Platform Extensions ──────────────────
-          _TelegramCardGroup(
-            cardBg: cardBg,
-            dividerColor: dividerColor,
-            children: [
-              _TelegramTile(
-                iconBg: const Color(0xFFFFCC00),
-                icon: Icons.verified_rounded,
-                title: 'KYC & Verification',
-                isDark: isDark,
-                onTap: () => context.push('/kyc'),
-              ),
-              _TelegramTile(
-                iconBg: const Color(0xFFFF9500),
-                icon: Icons.workspace_premium_rounded,
-                title: 'Verification Badge',
-                isDark: isDark,
-                onTap: () => context.push('/verification-badge'),
-              ),
-              if (Permissions.roleHas(role, 'role.upgrade.apply'))
-                _TelegramTile(
-                  iconBg: const Color(0xFF007AFF),
-                  icon: Icons.card_giftcard_rounded,
-                  title: 'Gifts Catalogue',
-                  isDark: isDark,
-                  onTap: () => context.push('/gifts'),
-                ),
-              if (Permissions.roleHas(role, 'role.upgrade.apply'))
-                _TelegramTile(
-                  iconBg: const Color(0xFF34C759),
-                  icon: Icons.upgrade_rounded,
-                  title: 'Upgrade Account',
-                  isDark: isDark,
-                  onTap: () => context.push('/upgrade-account'),
-                ),
-              if (Permissions.roleHas(role, 'ai_onboarding.access'))
-                _TelegramTile(
-                  iconBg: const Color(0xFF5856D6),
-                  icon: Icons.hub_rounded,
-                  title: 'Social Accounts',
-                  isDark: isDark,
-                  onTap: () => context.push('/social-accounts'),
-                ),
-            ],
-          ),
-          const SizedBox(height: 16),
-
-          // ── Group 5: Session / Log Out ────────────────────────────────────
-          _TelegramCardGroup(
-            cardBg: cardBg,
-            dividerColor: dividerColor,
-            children: [
-              ListTile(
-                onTap: () async {
-                  await ref.read(authProvider.notifier).logout();
-                },
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
-                title: const Center(
-                  child: Text(
-                    'Log Out',
-                    style: TextStyle(
-                      color: Color(0xFFFF3B30),
-                      fontWeight: FontWeight.w700,
-                      fontSize: 16,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Friends',
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w800,
+                            color: isDark ? Colors.white : Colors.black,
+                          ),
+                        ),
+                        Text(
+                          '$followersCount connections',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: isDark ? Colors.grey[400] : Colors.grey[600],
+                          ),
+                        ),
+                      ],
                     ),
+                    TextButton(
+                      onPressed: () => context.push('/friends'),
+                      child: const Text('See All', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  height: 105,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: 5,
+                    separatorBuilder: (_, __) => const SizedBox(width: 12),
+                    itemBuilder: (ctx, i) {
+                      final friendNames = ['Alex Morgan', 'Sarah Jenkins', 'David Chen', 'Elena Rostova', 'Marcus Vance'];
+                      final friendUsernames = ['alex_m', 'sarah_j', 'dchen_tech', 'elena_r', 'marcus_v'];
+                      final name = friendNames[i % friendNames.length];
+                      final uname = friendUsernames[i % friendUsernames.length];
+
+                      return GestureDetector(
+                        onTap: () => context.push('/profile/user/${i + 1}?name=$name&username=$uname'),
+                        child: Container(
+                          width: 84,
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF2F2F7),
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              CircleAvatar(
+                                radius: 22,
+                                backgroundColor: const Color(0xFF007AFF),
+                                child: Text(
+                                  _initials(name),
+                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: isDark ? Colors.white : Colors.black,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 16),
+
+          // ── Group 2: Your Posts Feed Section ─────────────────────────────
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: cardBg,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(isDark ? 0.3 : 0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Your Posts',
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w800,
+                        color: isDark ? Colors.white : Colors.black,
+                      ),
+                    ),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF007AFF),
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      ),
+                      onPressed: () => showPostComposer(context),
+                      icon: const Icon(Icons.add_rounded, size: 16),
+                      label: const Text('Post', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                Consumer(
+                  builder: (context, ref, _) {
+                    final postsState = ref.watch(postsProvider(const PostsSource.feed('home')));
+                    final myPosts = postsState.posts.where((p) => p.userId == user?.id || user == null).toList();
+
+                    if (postsState.loading && myPosts.isEmpty) {
+                      return const Padding(
+                        padding: EdgeInsets.all(24),
+                        child: Center(child: CircularProgressIndicator()),
+                      );
+                    }
+
+                    if (myPosts.isEmpty) {
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 24),
+                        child: Center(
+                          child: Column(
+                            children: [
+                              Icon(Icons.feed_outlined, size: 40, color: isDark ? Colors.grey[600] : Colors.grey[400]),
+                              const SizedBox(height: 8),
+                              Text(
+                                'No posts created yet',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: isDark ? Colors.grey[300] : Colors.grey[700],
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Share your thoughts, photos, or updates with your community.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(fontSize: 12, color: isDark ? Colors.grey[500] : Colors.grey[600]),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }
+
+                    return Column(
+                      children: myPosts.take(5).map((post) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: PostCard(post: post, myId: user?.id ?? 0),
+                        );
+                      }).toList(),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
         ],
       ),
     );
@@ -507,8 +536,9 @@ class YouScreen extends ConsumerWidget {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                   ),
                   onPressed: () {
+                    final router = GoRouter.of(context);
                     Navigator.pop(ctx);
-                    context.push('/upgrade-account');
+                    router.push('/upgrade-account');
                   },
                   icon: const Icon(Icons.workspace_premium_rounded, size: 20),
                   label: Text('Apply to Become a $targetRole', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
@@ -534,7 +564,7 @@ class YouScreen extends ConsumerWidget {
     return (first + last).toUpperCase();
   }
 
-  void _showAccountSwitcherSheet(BuildContext context, bool isDark, UserRole role) {
+  void _showAccountSwitcherSheet(BuildContext context, WidgetRef ref, bool isDark, UserRole role) {
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: isDark ? const Color(0xFF1C1C1E) : Colors.white,
@@ -575,38 +605,38 @@ class YouScreen extends ConsumerWidget {
               const SizedBox(height: 20),
               _accountModeTile(
                 ctx,
+                ref,
                 'Member Profile',
                 'Personal chatting & social feed',
                 Icons.person_rounded,
                 const Color(0xFF007AFF),
-                true,
+                role == UserRole.member,
                 isDark,
+                targetRole: 'member',
               ),
               const SizedBox(height: 10),
               _accountModeTile(
                 ctx,
+                ref,
                 'Vendor Store Mode',
                 'Products, store inventory & escrow orders',
                 Icons.storefront_rounded,
                 const Color(0xFF5856D6),
                 role == UserRole.vendor,
                 isDark,
-                isLocked: role != UserRole.vendor && role != UserRole.admin,
-                targetRole: 'Vendor',
-                lockDescription: 'Vendor Store Mode is for Verified Vendors. Apply to open your store and receive escrow orders.',
+                targetRole: 'vendor',
               ),
               const SizedBox(height: 10),
               _accountModeTile(
                 ctx,
+                ref,
                 'Creator Hub Mode',
                 'Brand deals, monetization & escrow payouts',
                 Icons.campaign_rounded,
                 const Color(0xFFFF9500),
                 role == UserRole.creator,
                 isDark,
-                isLocked: role != UserRole.creator && role != UserRole.admin,
-                targetRole: 'Creator',
-                lockDescription: 'Creator Hub Mode is for Verified Creators. Apply to accept brand deals and receive locked escrow payouts.',
+                targetRole: 'creator',
               ),
             ],
           ),
@@ -617,6 +647,7 @@ class YouScreen extends ConsumerWidget {
 
   Widget _accountModeTile(
     BuildContext context,
+    WidgetRef ref,
     String title,
     String subtitle,
     IconData icon,
@@ -634,14 +665,22 @@ class YouScreen extends ConsumerWidget {
         border: isSelected ? Border.all(color: const Color(0xFF007AFF), width: 1.5) : null,
       ),
       child: ListTile(
-        onTap: () {
+        onTap: () async {
           Navigator.pop(context);
           if (isLocked) {
             _showRoleLockedDialog(context, title, lockDescription, targetRole);
           } else {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Switched to $title')),
-            );
+            final targetEnum = switch (targetRole.toLowerCase()) {
+              'creator' => UserRole.creator,
+              'vendor' => UserRole.vendor,
+              _ => UserRole.member,
+            };
+            await ref.read(authProvider.notifier).switchRole(targetEnum);
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Switched active mode to $title')),
+              );
+            }
           }
         },
         trailing: isLocked
@@ -687,36 +726,43 @@ class YouScreen extends ConsumerWidget {
   }
 
   Widget _profileStat(String label, String value, bool isDark) {
-    return Column(
-      children: [
-        Text(
-          value,
-          style: TextStyle(
-            color: isDark ? Colors.white : Colors.black,
-            fontSize: 16,
-            fontWeight: FontWeight.w800,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF2F4F7),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        children: [
+          Text(
+            value,
+            style: TextStyle(
+              color: isDark ? Colors.white : Colors.black,
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+            ),
           ),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          label,
-          style: TextStyle(
-            color: isDark ? Colors.grey[400] : Colors.grey[600],
-            fontSize: 11,
-            fontWeight: FontWeight.w500,
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: TextStyle(
+              color: isDark ? Colors.grey[400] : Colors.grey[600],
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
 
-class _TelegramCardGroup extends StatelessWidget {
+class _ProfileCardGroup extends StatelessWidget {
   final Color cardBg;
   final Color dividerColor;
   final List<Widget> children;
 
-  const _TelegramCardGroup({
+  const _ProfileCardGroup({
     required this.cardBg,
     required this.dividerColor,
     required this.children,
@@ -749,7 +795,7 @@ class _TelegramCardGroup extends StatelessWidget {
   }
 }
 
-class _TelegramTile extends StatelessWidget {
+class _ProfileTile extends StatelessWidget {
   final Color iconBg;
   final IconData icon;
   final String title;
@@ -759,7 +805,7 @@ class _TelegramTile extends StatelessWidget {
   final bool isDark;
   final VoidCallback onTap;
 
-  const _TelegramTile({
+  const _ProfileTile({
     required this.iconBg,
     required this.icon,
     required this.title,

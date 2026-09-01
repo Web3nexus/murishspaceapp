@@ -47,21 +47,21 @@ class StoryItem {
 
   factory StoryItem.fromJson(Map<String, dynamic> json) {
     final created = json['created_at'] != null
-        ? DateTime.parse(json['created_at'] as String)
+        ? DateTime.tryParse(json['created_at'].toString()) ?? DateTime.now()
         : DateTime.now();
     final expires = json['expires_at'] != null
-        ? DateTime.parse(json['expires_at'] as String)
+        ? DateTime.tryParse(json['expires_at'].toString()) ?? created.add(const Duration(hours: 24))
         : created.add(const Duration(hours: 24));
 
     return StoryItem(
       id: json['id']?.toString() ?? DateTime.now().millisecondsSinceEpoch.toString(),
-      mediaUrl: json['media_url'] as String? ?? 'https://picsum.photos/seed/story/600/1000',
-      caption: json['caption'] as String?,
+      mediaUrl: json['media_url']?.toString() ?? 'https://picsum.photos/seed/story/600/1000',
+      caption: json['caption']?.toString(),
       createdAt: created,
       expiresAt: expires,
       viewsCount: (json['views_count'] as num?)?.toInt() ?? 0,
-      isSeen: json['is_seen'] as bool? ?? false,
-      mediaType: json['media_type'] as String? ?? 'image',
+      isSeen: (json['is_seen'] as bool?) ?? false,
+      mediaType: json['media_type']?.toString() ?? 'image',
     );
   }
 
@@ -96,6 +96,7 @@ class UserStoryGroup {
     required this.stories,
   });
 
+  bool get hasUnseenStories => stories.any((s) => !s.isSeen);
   bool get hasUnseen => stories.any((s) => !s.isSeen && !s.isExpired);
 
   UserStoryGroup copyWith({
@@ -122,12 +123,15 @@ class UserStoryGroup {
     final rawStories = json['stories'] as List<dynamic>? ?? [];
     return UserStoryGroup(
       userId: json['user_id']?.toString() ?? '0',
-      userName: json['user_name'] as String? ?? 'Friend',
-      userAvatar: json['user_avatar'] as String?,
-      isMyStory: json['is_my_story'] as bool? ?? false,
-      isCommunity: json['is_community'] as bool? ?? false,
-      communityName: json['community_name'] as String?,
-      stories: rawStories.map((s) => StoryItem.fromJson(s as Map<String, dynamic>)).toList(),
+      userName: json['user_name']?.toString() ?? 'Friend',
+      userAvatar: json['user_avatar']?.toString(),
+      isMyStory: (json['is_my_story'] as bool?) ?? false,
+      isCommunity: (json['is_community'] as bool?) ?? false,
+      communityName: json['community_name']?.toString(),
+      stories: rawStories
+          .whereType<Map<String, dynamic>>()
+          .map(StoryItem.fromJson)
+          .toList(),
     );
   }
 }

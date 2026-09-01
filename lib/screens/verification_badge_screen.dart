@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:go_router/go_router.dart';
+
+import '../components/brand.dart';
 import '../components/ui_states.dart';
 import '../core/design_tokens.dart';
+import '../providers/auth_provider.dart';
 import '../providers/verification_badge_provider.dart';
 
 class VerificationBadgeScreen extends ConsumerStatefulWidget {
@@ -116,11 +120,7 @@ class _VerificationBadgeScreenState extends ConsumerState<VerificationBadgeScree
                       ),
                     ],
                   ),
-                  child: const Icon(
-                    Icons.stars_rounded,
-                    size: 52,
-                    color: Colors.white,
-                  ),
+                  child: const BrandIcon(size: 52),
                 ),
               ),
               const SizedBox(height: 16),
@@ -291,7 +291,7 @@ class _VerificationBadgeScreenState extends ConsumerState<VerificationBadgeScree
             child: ElevatedButton(
               onPressed: state.loading
                   ? null
-                  : () => _run(context, ref, () => notifier.apply(billingCycle: _billingCycle), 'Applied for the badge!'),
+                  : () => _handleApplyPressed(context, ref, notifier),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF007AFF),
                 foregroundColor: Colors.white,
@@ -332,15 +332,161 @@ class _VerificationBadgeScreenState extends ConsumerState<VerificationBadgeScree
           ),
         ],
         if (pending) ...[
-          const SizedBox(height: 8),
-          const Center(
-            child: Text(
-              'Your badge application is being reviewed.',
-              style: TextStyle(fontSize: 13, color: DesignTokens.warning),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFF9500).withOpacity(0.15),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFFFF9500), width: 1),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.hourglass_top_rounded, color: Color(0xFFFF9500), size: 28),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Application In Progress ⏳',
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFFFF9500)),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Your Blue Badge application & fee payment are being processed by the verification team (24 hours to 3 business days).',
+                        style: TextStyle(fontSize: 12, color: isDark ? Colors.grey[300] : Colors.grey[800]),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
         ],
       ],
+    );
+  }
+
+  void _handleApplyPressed(BuildContext context, WidgetRef ref, VerificationBadgeNotifier notifier) {
+    final user = ref.read(authProvider).user;
+    final kycStatus = user?.kycStatus ?? 'unsubmitted';
+
+    // Rule 1: Check KYC Verification Status
+    if (kycStatus != 'approved' && kycStatus != 'verified') {
+      _showKycPromptSheet(context);
+      return;
+    }
+
+    // Rule 2: Fee Payment Sheet ($14.99 Admin Fee)
+    _showPaymentFeeSheet(context, ref, notifier);
+  }
+
+  void _showKycPromptSheet(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        return Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF007AFF).withOpacity(0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.shield_outlined, size: 48, color: Color(0xFF007AFF)),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'KYC Verification Required',
+                style: TextStyle(fontSize: 19, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'Before applying for the official Blue Checkmark Verification Badge, your identity must be verified via Government ID (KYC).',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 13, color: isDark ? Colors.grey[400] : Colors.grey[600], height: 1.4),
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF007AFF),
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(double.infinity, 48),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  context.push('/kyc');
+                },
+                icon: const Icon(Icons.verified_user_rounded),
+                label: const Text('Complete KYC Verification Now', style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showPaymentFeeSheet(BuildContext context, WidgetRef ref, VerificationBadgeNotifier notifier) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        final feeText = _billingCycle == 'annual' ? '\$39.99 / year' : '\$4.99 / month';
+
+        return Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF34C759).withOpacity(0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.verified_rounded, size: 48, color: Color(0xFF007AFF)),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Verification Badge Fee Payment',
+                style: TextStyle(fontSize: 19, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Admin verification review fee: $feeText.\n\nOnce paid, your application enters processing state (24 hours to 3 business days).',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 13, color: isDark ? Colors.grey[400] : Colors.grey[600], height: 1.4),
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF34C759),
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(double.infinity, 48),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                onPressed: () async {
+                  Navigator.pop(ctx);
+                  await _run(context, ref, () => notifier.apply(billingCycle: _billingCycle), 'Application submitted & fee paid!');
+                },
+                icon: const Icon(Icons.payment_rounded),
+                label: Text('Pay $feeText & Submit Application', style: const TextStyle(fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 

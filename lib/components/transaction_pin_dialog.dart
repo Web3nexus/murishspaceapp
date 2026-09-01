@@ -14,11 +14,12 @@ class TransactionPinDialog extends ConsumerStatefulWidget {
     this.description = 'Enter your PIN to confirm this action.',
   });
 
-  /// Displays the dialog and returns true if the PIN was successfully verified.
+  /// Displays the dialog as a Telegram-style Bottom Sheet and returns true if PIN was verified.
   static Future<bool> show(BuildContext context, {String? title, String? description}) async {
-    final result = await showDialog<bool>(
+    final result = await showModalBottomSheet<bool>(
       context: context,
-      barrierDismissible: false,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (ctx) => TransactionPinDialog(
         title: title ?? 'Confirm Transaction',
         description: description ?? 'Enter your PIN to confirm this action.',
@@ -52,8 +53,10 @@ class _TransactionPinDialogState extends ConsumerState<TransactionPinDialog> {
 
   Future<void> _tryBiometrics() async {
     final security = ref.read(securityProvider);
-    if (security.useBiometrics) {
-      final success = await ref.read(securityProvider.notifier).authenticateWithBiometrics();
+    if (security.useBiometrics && !security.isLockedOut) {
+      final success = await ref
+          .read(securityProvider.notifier)
+          .authenticateWithBiometrics(reason: 'Authorize transaction');
       if (success && mounted) {
         Navigator.pop(context, true);
       }
@@ -61,20 +64,41 @@ class _TransactionPinDialogState extends ConsumerState<TransactionPinDialog> {
   }
 
   void _onPinCompleted(String pin) async {
+    final security = ref.read(securityProvider);
+    if (security.isLockedOut) {
+      setState(() {
+        _error = 'Too many failed attempts. Please wait ${security.remainingLockoutSeconds}s';
+        _pinController.clear();
+      });
+      return;
+    }
+
     setState(() {
       _error = '';
       _isLoading = true;
     });
 
-    final success = await ref.read(securityProvider.notifier).verifyPin(pin);
-    
+    final notifier = ref.read(securityProvider.notifier);
+    bool success = false;
+
+    if (security.isTransactionPinSet) {
+      success = await notifier.verifyTransactionPin(pin);
+    } else {
+      success = await notifier.verifyPin(pin);
+    }
+
     if (mounted) {
       setState(() => _isLoading = false);
       if (success) {
         Navigator.pop(context, true);
       } else {
+        final updatedSecurity = ref.read(securityProvider);
         setState(() {
-          _error = 'Incorrect PIN';
+          if (updatedSecurity.isLockedOut) {
+            _error = 'Too many failed attempts. Locked for ${updatedSecurity.remainingLockoutSeconds}s';
+          } else {
+            _error = 'Incorrect PIN';
+          }
           _pinController.clear();
         });
       }
@@ -83,16 +107,65 @@ class _TransactionPinDialogState extends ConsumerState<TransactionPinDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      title: Text(widget.title, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.bold)),
-      content: Column(
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = isDark ? DesignTokens.darkSurface : DesignTokens.lightSurface;
+    final textPrimary = isDark ? DesignTokens.darkTextPrimary : DesignTokens.lightTextPrimary;
+    final textSecondary = isDark ? DesignTokens.darkTextSecondary : DesignTokens.lightTextSecondary;
+    final pinBg = isDark ? DesignTokens.darkSurfaceSecondary : DesignTokens.lightSurfaceSecondary;
+    final border = isDark ? DesignTokens.darkBorder : DesignTokens.lightBorder;
+    final security = ref.watch(securityProvider);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: EdgeInsets.only(
+        left: 24,
+        right: 24,
+        top: 12,
+        bottom: MediaQuery.of(context).viewInsets.bottom + MediaQuery.of(context).padding.bottom + 20,
+      ),
+      child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(widget.description, textAlign: TextAlign.center, style: const TextStyle(color: DesignTokens.textSecondary)),
+          // Drag Handle
+          Container(
+            width: 36,
+            height: 4,
+            decoration: BoxDecoration(
+              color: isDark ? Colors.white30 : Colors.black26,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          Text(
+            widget.title,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: textPrimary,
+            ),
+          ),
+          const SizedBox(height: 8),
+
+          Text(
+            widget.description,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 14,
+              color: textSecondary,
+            ),
+          ),
           const SizedBox(height: 24),
+
           if (_isLoading)
-            const CircularProgressIndicator()
+            const Padding(
+              padding: EdgeInsets.all(16.0),
+              child: CircularProgressIndicator(),
+            )
           else
             Pinput(
               controller: _pinController,
@@ -100,33 +173,71 @@ class _TransactionPinDialogState extends ConsumerState<TransactionPinDialog> {
               obscureText: true,
               obscuringCharacter: '●',
               autofocus: true,
+              enabled: !security.isLockedOut,
               onCompleted: _onPinCompleted,
               defaultPinTheme: PinTheme(
                 width: 44,
                 height: 48,
-                textStyle: const TextStyle(fontSize: 20, color: DesignTokens.textPrimary, fontWeight: FontWeight.w600),
+                textStyle: TextStyle(
+                  fontSize: 20,
+                  color: textPrimary,
+                  fontWeight: FontWeight.w600,
+                ),
                 decoration: BoxDecoration(
-                  border: Border.all(color: DesignTokens.border),
-                  borderRadius: BorderRadius.circular(8),
-                  color: DesignTokens.surface,
+                  border: Border.all(color: border),
+                  borderRadius: BorderRadius.circular(10),
+                  color: pinBg,
                 ),
               ),
             ),
+
           if (_error.isNotEmpty) ...[
             const SizedBox(height: 12),
             Text(
               _error,
-              style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 13),
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: DesignTokens.danger,
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+              ),
             ),
           ],
+
+          const SizedBox(height: 20),
+
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (security.useBiometrics && !security.isLockedOut) ...[
+                IconButton(
+                  tooltip: 'Use ${security.biometricLabel}',
+                  icon: Icon(
+                    security.biometricLabel == 'Face ID'
+                        ? Icons.face_rounded
+                        : Icons.fingerprint_rounded,
+                    color: const Color(0xFFF09A3E),
+                    size: 32,
+                  ),
+                  onPressed: _tryBiometrics,
+                ),
+                const SizedBox(width: 16),
+              ],
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: Text(
+                  'Cancel',
+                  style: TextStyle(
+                    color: textSecondary,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ],
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context, false),
-          child: const Text('Cancel', style: TextStyle(color: DesignTokens.textSecondary)),
-        ),
-      ],
     );
   }
 }

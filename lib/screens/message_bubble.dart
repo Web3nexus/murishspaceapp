@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../components/app_bottom_sheet.dart';
 import '../core/design_tokens.dart';
 import '../models/chat_models.dart';
 import '../utils/format.dart';
@@ -160,24 +161,92 @@ class MessageBubble extends StatelessWidget {
 
   Future<void> _confirmDelete(BuildContext context) async {
     final mine = message.userId == myId;
-    final choice = await showDialog<String>(
+    final choice = await showModalBottomSheet<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete message'),
-        content: Text(mine ? 'Delete this message for everyone, or only for you?' : 'Delete this message for you?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, 'me'),
-            child: Text(mine ? 'Delete for me' : 'Delete'),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        final bg = isDark ? DesignTokens.darkSurface : DesignTokens.lightSurface;
+        final textPrimary = isDark ? DesignTokens.darkTextPrimary : DesignTokens.lightTextPrimary;
+        final textSecondary = isDark ? DesignTokens.darkTextSecondary : DesignTokens.lightTextSecondary;
+
+        return Container(
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           ),
-          if (mine)
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, 'everyone'),
-              child: const Text('Delete for everyone'),
-            ),
-          TextButton(onPressed: () => Navigator.pop(ctx, null), child: const Text('Cancel')),
-        ],
-      ),
+          padding: EdgeInsets.only(
+            left: 20,
+            right: 20,
+            top: 12,
+            bottom: MediaQuery.of(ctx).padding.bottom + 20,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white30 : Colors.black26,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Delete Message',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: textPrimary,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                mine ? 'Delete this message for everyone, or only for you?' : 'Delete this message for you?',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 14, color: textSecondary),
+              ),
+              const SizedBox(height: 20),
+              if (mine) ...[
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: DesignTokens.danger,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    onPressed: () => Navigator.pop(ctx, 'everyone'),
+                    child: const Text('Delete for Everyone', style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                ),
+                const SizedBox(height: 10),
+              ],
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    side: BorderSide(color: isDark ? DesignTokens.darkBorder : DesignTokens.lightBorder),
+                  ),
+                  onPressed: () => Navigator.pop(ctx, 'me'),
+                  child: Text(mine ? 'Delete for Me' : 'Delete', style: TextStyle(color: textPrimary, fontWeight: FontWeight.bold)),
+                ),
+              ),
+              const SizedBox(height: 10),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, null),
+                child: Text('Cancel', style: TextStyle(color: textSecondary, fontWeight: FontWeight.w500)),
+              ),
+            ],
+          ),
+        );
+      },
     );
     if (choice == null) return;
     if (choice == 'me') onDelete(false);

@@ -6,7 +6,10 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 
+import '../components/brand.dart';
+import '../components/app_bottom_sheet.dart';
 import '../components/followers_list_dialog.dart';
+import '../components/online_status_badge.dart';
 import '../core/api_client.dart';
 import '../core/roles.dart';
 import '../providers/auth_provider.dart';
@@ -32,14 +35,37 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   DateTime? _selectedBirthday;
   Color _selectedAccentColor = const Color(0xFF007AFF);
-  String _accentColorName = 'Telegram Blue';
+  String _accentColorName = 'Murih Electric Blue';
   bool _isSaving = false;
   String? _error;
   String? _selectedPhotoPath;
+  String? _selectedBannerPath;
+
+  Future<void> _pickBannerPhoto() async {
+    try {
+      final picker = ImagePicker();
+      final file = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
+      if (file != null && mounted) {
+        setState(() => _selectedBannerPath = file.path);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Profile cover banner updated!'),
+            backgroundColor: _selectedAccentColor,
+          ),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not access image gallery for banner.')),
+        );
+      }
+    }
+  }
 
   final List<Map<String, dynamic>> _accentColors = [
-    {'name': 'Telegram Blue', 'color': const Color(0xFF007AFF)},
-    {'name': 'Royal Purple', 'color': const Color(0xFF5856D6)},
+    {'name': 'Murih Electric Blue', 'color': const Color(0xFF007AFF)},
+    {'name': 'Royal Indigo', 'color': const Color(0xFF5856D6)},
     {'name': 'Emerald Green', 'color': const Color(0xFF34C759)},
     {'name': 'Sunset Orange', 'color': const Color(0xFFFF9500)},
     {'name': 'Cyber Pink', 'color': const Color(0xFFFF2D55)},
@@ -651,25 +677,81 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           key: _formKey,
           child: Column(
             children: [
-              // Dynamic Gradient Ring Avatar Stack
-              Center(
-                child: Column(
-                  children: [
-                    Stack(
+              // Cover Banner & Overlapping Avatar Stack
+              Stack(
+                clipBehavior: Clip.none,
+                alignment: Alignment.bottomCenter,
+                children: [
+                  // Banner Header Container
+                  GestureDetector(
+                    onTap: _pickBannerPhoto,
+                    child: Container(
+                      height: 140,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(20),
+                        gradient: _selectedBannerPath == null
+                            ? LinearGradient(
+                                colors: [_selectedAccentColor, const Color(0xFF5856D6)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              )
+                            : null,
+                        image: _selectedBannerPath != null
+                            ? DecorationImage(
+                                image: FileImage(File(_selectedBannerPath!)),
+                                fit: BoxFit.cover,
+                              )
+                            : null,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.15),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Stack(
+                        children: [
+                          Positioned(
+                            top: 10,
+                            right: 10,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: Colors.black54,
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.camera_alt_rounded, color: Colors.white, size: 14),
+                                  SizedBox(width: 4),
+                                  Text('Edit Banner', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  // Overlapping Avatar Knob
+                  Positioned(
+                    bottom: -36,
+                    child: Stack(
                       children: [
                         Container(
-                          padding: const EdgeInsets.all(4),
+                          padding: const EdgeInsets.all(3.5),
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             gradient: LinearGradient(
                               colors: [_selectedAccentColor, const Color(0xFF5856D6)],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
                             ),
                           ),
                           child: Container(
-                            width: 92,
-                            height: 92,
+                            width: 84,
+                            height: 84,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
                               color: cardBg,
@@ -686,7 +768,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                       _initials('${_firstNameController.text} ${_lastNameController.text}'),
                                       style: TextStyle(
                                         color: _selectedAccentColor,
-                                        fontSize: 34,
+                                        fontSize: 30,
                                         fontWeight: FontWeight.w900,
                                       ),
                                     ),
@@ -700,28 +782,29 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           child: GestureDetector(
                             onTap: _pickProfilePhoto,
                             child: Container(
-                              padding: const EdgeInsets.all(8),
+                              padding: const EdgeInsets.all(6),
                               decoration: BoxDecoration(
                                 color: _selectedAccentColor,
                                 shape: BoxShape.circle,
-                                border: Border.all(color: cardBg, width: 2.5),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.2),
-                                    blurRadius: 6,
-                                  ),
-                                ],
+                                border: Border.all(color: cardBg, width: 2),
                               ),
                               child: const Icon(
                                 Icons.camera_alt_rounded,
                                 color: Colors.white,
-                                size: 16,
+                                size: 14,
                               ),
                             ),
                           ),
                         ),
                       ],
                     ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 48),
+              Center(
+                child: Column(
+                  children: [
                     const SizedBox(height: 12),
                     Text(
                       '${_firstNameController.text} ${_lastNameController.text}',
@@ -750,6 +833,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         ],
                       ),
                     ),
+                    const SizedBox(height: 6),
+                    const OnlineStatusBadge(isOnline: true, showLabel: true),
                     const SizedBox(height: 8),
                     GestureDetector(
                       onTap: _pickProfilePhoto,
@@ -773,15 +858,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(
-                            role == UserRole.creator
-                                ? Icons.auto_awesome_rounded
-                                : role == UserRole.vendor
-                                    ? Icons.storefront_rounded
-                                    : Icons.verified_user_rounded,
-                            color: _selectedAccentColor,
-                            size: 14,
-                          ),
+                          if (role == UserRole.creator)
+                            const BrandFavicon(size: 14)
+                          else
+                            Icon(
+                              role == UserRole.vendor
+                                  ? Icons.storefront_rounded
+                                  : Icons.verified_user_rounded,
+                              color: _selectedAccentColor,
+                              size: 14,
+                            ),
                           const SizedBox(width: 6),
                           Text(
                             role.label,
@@ -1103,23 +1189,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       ),
                     ),
                     onTap: () async {
-                      final confirm = await showDialog<bool>(
+                      final confirm = await AppBottomSheet.showConfirmation(
                         context: context,
-                        builder: (ctx) => AlertDialog(
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-                          title: const Text('Log Out'),
-                          content: const Text('Are you sure you want to log out of MurihSpace?'),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(ctx, false),
-                              child: const Text('Cancel'),
-                            ),
-                            TextButton(
-                              onPressed: () => Navigator.pop(ctx, true),
-                              child: const Text('Log Out', style: TextStyle(color: Color(0xFFFF3B30), fontWeight: FontWeight.bold)),
-                            ),
-                          ],
-                        ),
+                        title: 'Log Out',
+                        message: 'Are you sure you want to log out of MurihSpace?',
+                        confirmText: 'Log Out',
+                        isDestructive: true,
+                        icon: Icons.logout_rounded,
                       );
                       if (confirm == true && mounted) {
                         await ref.read(authProvider.notifier).logout();

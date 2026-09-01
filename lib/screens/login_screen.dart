@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl_phone_field/intl_phone_field.dart';
 import 'package:pinput/pinput.dart';
 
+import '../components/app_bottom_sheet.dart';
 import '../components/brand.dart';
 import '../components/inline_field_error.dart';
 import '../core/design_tokens.dart';
@@ -151,32 +152,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         if (role == UserRole.admin) {
           await ref.read(authProvider.notifier).logout();
           if (!mounted) return;
-          showDialog<void>(
+          await AppBottomSheet.showNotice(
             context: context,
-            builder: (ctx) => AlertDialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-              title: const Row(
-                children: [
-                  Icon(Icons.admin_panel_settings_rounded, color: Color(0xFF007AFF), size: 28),
-                  SizedBox(width: 8),
-                  Text('Admin Web Portal Only', style: TextStyle(fontWeight: FontWeight.w800)),
-                ],
-              ),
-              content: const Text(
-                'Admin accounts manage ecosystem growth, KYC approvals, fee configurations, and dispute releases exclusively on the Web Admin Dashboard.\n\nPlease log in at https://murihspace.com/admin on a browser.',
-                style: TextStyle(fontSize: 13, height: 1.45),
-              ),
-              actions: [
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF007AFF),
-                    foregroundColor: Colors.white,
-                  ),
-                  onPressed: () => Navigator.pop(ctx),
-                  child: const Text('Understood'),
-                ),
-              ],
-            ),
+            title: 'Admin Web Portal Only',
+            message: 'Admin accounts manage ecosystem growth, KYC approvals, fee configurations, and dispute releases exclusively on the Web Admin Dashboard.\n\nPlease log in at https://murihspace.com/admin on a browser.',
+            actionText: 'Understood',
+            icon: Icons.admin_panel_settings_rounded,
           );
           return;
         }

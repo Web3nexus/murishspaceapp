@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../components/brand.dart';
 import '../core/api_client.dart';
 import '../core/roles.dart';
 import '../models/marketplace_models.dart';
@@ -307,7 +308,6 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
                       value: escrowProtected,
                       title: const Text('Protect with MurihSpace Escrow', style: TextStyle(fontWeight: FontWeight.bold)),
                       subtitle: const Text('Funds held safely until buyer confirms delivery'),
-                      activeColor: const Color(0xFF007AFF),
                       onChanged: (val) => setModalState(() => escrowProtected = val),
                     ),
                     const SizedBox(height: 16),
@@ -751,6 +751,14 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
     final textPrimary = isDark ? Colors.white : Colors.black;
     final textSecondary = isDark ? Colors.grey[400] : Colors.grey[600];
 
+    // Standard Member / User gating check
+    if (role == UserRole.member) {
+      return _memberGatedView(context, isDark);
+    }
+
+    final isVendor = role == UserRole.vendor;
+    final isCreator = role == UserRole.creator;
+
     return Scaffold(
       backgroundColor: bg,
       appBar: AppBar(
@@ -758,7 +766,7 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
         elevation: 0,
         scrolledUnderElevation: 0,
         title: Text(
-          'Publish & Create',
+          isVendor ? 'Vendor Business Tools' : 'Creator Publishing & Tools',
           style: TextStyle(
             color: textPrimary,
             fontWeight: FontWeight.w900,
@@ -915,7 +923,7 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
             ),
             const SizedBox(height: 12),
 
-            // Creation Options Grid
+            // Creation Options Grid (Role-Tailored)
             GridView.count(
               crossAxisCount: 2,
               shrinkWrap: true,
@@ -943,28 +951,30 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
                 _createGridCard(
                   icon: Icons.storefront_rounded,
                   iconColor: const Color(0xFFFF3B30),
-                  title: 'Add Product',
-                  subtitle: 'Escrow protected',
+                  title: isVendor ? 'List Products' : 'Add Digital Product',
+                  subtitle: isVendor ? 'Physical & escrow catalog' : 'Digital download & courses',
                   isDark: isDark,
-                  onTap: () => _showAddProductModal(false),
+                  onTap: () => _showAddProductModal(!isVendor),
                 ),
-                _createGridCard(
-                  icon: Icons.handshake_rounded,
-                  iconColor: const Color(0xFFFF9500),
-                  title: 'Post Brand Deal',
-                  subtitle: 'Creator sponsorship',
-                  isDark: isDark,
-                  onTap: _showAddBrandDealModal,
-                ),
-                _createGridCard(
-                  icon: Icons.photo_camera_rounded,
-                  iconColor: const Color(0xFF8B5CF6),
-                  title: 'Disappearing Story',
-                  subtitle: 'Disappears in 24h',
-                  isDark: isDark,
-                  onTap: () => showStoryComposerSheet(context),
-                ),
-                if (Permissions.roleHas(role, 'community.create'))
+                if (isCreator)
+                  _createGridCard(
+                    icon: Icons.handshake_rounded,
+                    iconColor: const Color(0xFFFF9500),
+                    title: 'Post Brand Deal',
+                    subtitle: 'Creator sponsorship',
+                    isDark: isDark,
+                    onTap: _showAddBrandDealModal,
+                  ),
+                if (isCreator)
+                  _createGridCard(
+                    icon: Icons.photo_camera_rounded,
+                    iconColor: const Color(0xFF8B5CF6),
+                    title: 'Disappearing Story',
+                    subtitle: 'Disappears in 24h',
+                    isDark: isDark,
+                    onTap: () => showStoryComposerSheet(context),
+                  ),
+                if (isCreator && Permissions.roleHas(role, 'community.create'))
                   _createGridCard(
                     icon: Icons.group_add_rounded,
                     iconColor: const Color(0xFF5856D6),
@@ -979,7 +989,7 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
 
             // Inset Grouped Section for Secondary Creations
             Text(
-              'More Creation & Business Tools',
+              'More Business & Publishing Tools',
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w800,
@@ -997,39 +1007,131 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
                   ListTile(
                     leading: const Icon(Icons.mark_chat_unread_rounded, color: Color(0xFF007AFF)),
                     title: Text('Automated Greeting Message', style: TextStyle(fontWeight: FontWeight.w700, color: textPrimary)),
-                    subtitle: Text('Auto-reply to incoming client chats', style: TextStyle(fontSize: 12, color: textSecondary)),
+                    subtitle: Text('Auto-reply to incoming customer chats', style: TextStyle(fontSize: 12, color: textSecondary)),
                     trailing: const Icon(Icons.chevron_right_rounded),
                     onTap: () => showAutomatedGreetingSheet(context),
                   ),
                   Divider(height: 1, color: isDark ? const Color(0xFF3A3B3C) : const Color(0xFFE4E6EB)),
                   ListTile(
-                    leading: const Icon(Icons.file_present_rounded, color: Color(0xFF8B5CF6)),
-                    title: Text('List Digital Asset / Starter Kit', style: TextStyle(fontWeight: FontWeight.w700, color: textPrimary)),
-                    subtitle: Text('Templates, code, e-books', style: TextStyle(fontSize: 12, color: textSecondary)),
+                    leading: Icon(isVendor ? Icons.inventory_2_rounded : Icons.file_present_rounded, color: const Color(0xFF8B5CF6)),
+                    title: Text(isVendor ? 'List Products' : 'List Digital Asset / Starter Kit', style: TextStyle(fontWeight: FontWeight.w700, color: textPrimary)),
+                    subtitle: Text(isVendor ? 'Add physical store products to marketplace' : 'Templates, code, e-books', style: TextStyle(fontSize: 12, color: textSecondary)),
                     trailing: const Icon(Icons.chevron_right_rounded),
-                    onTap: () => _showAddProductModal(true),
+                    onTap: () => _showAddProductModal(!isVendor),
                   ),
-                  Divider(height: 1, color: isDark ? const Color(0xFF3A3B3C) : const Color(0xFFE4E6EB)),
-                  ListTile(
-                    leading: const Icon(Icons.campaign_rounded, color: Color(0xFFFF9500)),
-                    title: Text('Create Broadcast Channel', style: TextStyle(fontWeight: FontWeight.w700, color: textPrimary)),
-                    subtitle: Text('1-to-many updates for followers', style: TextStyle(fontSize: 12, color: textSecondary)),
-                    trailing: const Icon(Icons.chevron_right_rounded),
-                    onTap: _showCreateBroadcastChannelModal,
-                  ),
-                  Divider(height: 1, color: isDark ? const Color(0xFF3A3B3C) : const Color(0xFFE4E6EB)),
-                  ListTile(
-                    leading: const Icon(Icons.event_rounded, color: Color(0xFF34C759)),
-                    title: Text('Schedule Event or Meetup', style: TextStyle(fontWeight: FontWeight.w700, color: textPrimary)),
-                    subtitle: Text('Virtual or in-person event', style: TextStyle(fontSize: 12, color: textSecondary)),
-                    trailing: const Icon(Icons.chevron_right_rounded),
-                    onTap: _showScheduleEventModal,
-                  ),
+                  if (isCreator) ...[
+                    Divider(height: 1, color: isDark ? const Color(0xFF3A3B3C) : const Color(0xFFE4E6EB)),
+                    ListTile(
+                      leading: const Icon(Icons.campaign_rounded, color: Color(0xFFFF9500)),
+                      title: Text('Create Broadcast Channel', style: TextStyle(fontWeight: FontWeight.w700, color: textPrimary)),
+                      subtitle: Text('1-to-many updates for followers', style: TextStyle(fontSize: 12, color: textSecondary)),
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                      onTap: _showCreateBroadcastChannelModal,
+                    ),
+                    Divider(height: 1, color: isDark ? const Color(0xFF3A3B3C) : const Color(0xFFE4E6EB)),
+                    ListTile(
+                      leading: const Icon(Icons.event_rounded, color: Color(0xFF34C759)),
+                      title: Text('Schedule Event or Meetup', style: TextStyle(fontWeight: FontWeight.w700, color: textPrimary)),
+                      subtitle: Text('Virtual conference or in-person meetup for creators', style: TextStyle(fontSize: 12, color: textSecondary)),
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                      onTap: _showScheduleEventModal,
+                    ),
+                  ],
                 ],
               ),
             ),
             const SizedBox(height: 24),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _memberGatedView(BuildContext context, bool isDark) {
+    return Scaffold(
+      backgroundColor: isDark ? const Color(0xFF18191A) : const Color(0xFFF2F2F7),
+      appBar: AppBar(
+        backgroundColor: isDark ? const Color(0xFF18191A) : const Color(0xFFF2F2F7),
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        title: Text(
+          'Business Tools',
+          style: TextStyle(
+            color: isDark ? Colors.white : Colors.black,
+            fontWeight: FontWeight.w900,
+            fontSize: 22,
+          ),
+        ),
+      ),
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF242526) : Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(isDark ? 0.3 : 0.06),
+                  blurRadius: 16,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 64,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF007AFF).withOpacity(0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.lock_rounded, color: Color(0xFF007AFF), size: 32),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Business Tools Gated',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    color: isDark ? Colors.white : Colors.black,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'Business tools, ad campaigns, storefront management, and creator publishing are reserved for Creator & Vendor accounts.\n\nUpgrade your free member account to start selling, posting brand deals, and creating communities.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 13,
+                    height: 1.5,
+                    color: isDark ? Colors.grey[400] : Colors.grey[600],
+                  ),
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF007AFF),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    ),
+                    onPressed: () => context.push('/upgrade-account'),
+                    icon: const BrandFavicon(size: 18),
+                    label: const Text(
+                      'Upgrade to Creator or Vendor',
+                      style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );

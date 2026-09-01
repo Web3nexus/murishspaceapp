@@ -16,12 +16,10 @@ class AppLockOverlay extends ConsumerStatefulWidget {
 class _AppLockOverlayState extends ConsumerState<AppLockOverlay> {
   final _pinController = TextEditingController();
   String _error = '';
-  bool _biometricsFailed = false;
 
   @override
   void initState() {
     super.initState();
-    // Try biometrics on init if locked
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _tryBiometrics();
     });
@@ -35,24 +33,34 @@ class _AppLockOverlayState extends ConsumerState<AppLockOverlay> {
 
   Future<void> _tryBiometrics() async {
     final security = ref.read(securityProvider);
-    if (security.isLocked && security.useBiometrics) {
-      final success = await ref.read(securityProvider.notifier).authenticateWithBiometrics();
-      if (!success && mounted) {
-        setState(() => _biometricsFailed = true);
-      }
+    if (security.isLocked && security.useBiometrics && !security.isLockedOut) {
+      await ref.read(securityProvider.notifier).authenticateWithBiometrics();
     }
   }
 
   void _onPinCompleted(String pin) async {
+    final security = ref.read(securityProvider);
+    if (security.isLockedOut) {
+      setState(() {
+        _error = 'Too many attempts. Locked for ${security.remainingLockoutSeconds}s';
+        _pinController.clear();
+      });
+      return;
+    }
+
     setState(() => _error = '');
     final success = await ref.read(securityProvider.notifier).verifyPin(pin);
     if (success) {
       _pinController.clear();
-      _error = '';
-      _biometricsFailed = false;
+      setState(() => _error = '');
     } else {
+      final updated = ref.read(securityProvider);
       setState(() {
-        _error = 'Incorrect PIN';
+        if (updated.isLockedOut) {
+          _error = 'Too many attempts. Locked for ${updated.remainingLockoutSeconds}s';
+        } else {
+          _error = 'Incorrect PIN';
+        }
         _pinController.clear();
       });
     }
@@ -61,6 +69,8 @@ class _AppLockOverlayState extends ConsumerState<AppLockOverlay> {
   @override
   Widget build(BuildContext context) {
     final security = ref.watch(securityProvider);
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
     if (!security.isInitialized) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
@@ -68,12 +78,11 @@ class _AppLockOverlayState extends ConsumerState<AppLockOverlay> {
 
     return Stack(
       children: [
-        widget.child, // The actual app behind the lock
+        widget.child,
 
         if (security.isLocked) ...[
-          // Semi-transparent or fully opaque background
           Container(
-            color: Theme.of(context).scaffoldBackgroundColor, // Fully opaque for privacy
+            color: isDark ? const Color(0xFF0F172A) : Colors.white,
             width: double.infinity,
             height: double.infinity,
           ),
@@ -81,25 +90,44 @@ class _AppLockOverlayState extends ConsumerState<AppLockOverlay> {
             backgroundColor: Colors.transparent,
             body: SafeArea(
               child: Padding(
-                padding: const EdgeInsets.all(24.0),
+                padding: const EdgeInsets.symmetric(horizontal: 28.0),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Icon(Icons.lock, size: 64, color: DesignTokens.primary),
+                    Container(
+                      width: 80,
+                      height: 80,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF09A3E).withOpacity(0.12),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.lock_rounded,
+                        size: 40,
+                        color: Color(0xFFF09A3E),
+                      ),
+                    ),
                     const SizedBox(height: 24),
-                    const Text(
+                    Text(
                       'App Locked',
                       textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : const Color(0xFF0F172A),
+                      ),
                     ),
                     const SizedBox(height: 8),
-                    const Text(
+                    Text(
                       'Enter your PIN to unlock MurihSpace',
                       textAlign: TextAlign.center,
-                      style: TextStyle(color: DesignTokens.textSecondary, fontSize: 16),
+                      style: TextStyle(
+                        color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                        fontSize: 15,
+                      ),
                     ),
-                    const SizedBox(height: 48),
+                    const SizedBox(height: 40),
                     Center(
                       child: Pinput(
                         controller: _pinController,
@@ -108,14 +136,21 @@ class _AppLockOverlayState extends ConsumerState<AppLockOverlay> {
                         obscuringCharacter: '●',
                         onCompleted: _onPinCompleted,
                         autofocus: true,
+                        enabled: !security.isLockedOut,
                         defaultPinTheme: PinTheme(
-                          width: 56,
-                          height: 56,
-                          textStyle: const TextStyle(fontSize: 22, color: DesignTokens.textPrimary, fontWeight: FontWeight.w600),
+                          width: 48,
+                          height: 52,
+                          textStyle: TextStyle(
+                            fontSize: 22,
+                            color: isDark ? Colors.white : const Color(0xFF0F172A),
+                            fontWeight: FontWeight.w600,
+                          ),
                           decoration: BoxDecoration(
-                            border: Border.all(color: DesignTokens.border),
+                            border: Border.all(
+                              color: isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1),
+                            ),
                             borderRadius: BorderRadius.circular(12),
-                            color: DesignTokens.surface,
+                            color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
                           ),
                         ),
                       ),
@@ -125,16 +160,33 @@ class _AppLockOverlayState extends ConsumerState<AppLockOverlay> {
                       Text(
                         _error,
                         textAlign: TextAlign.center,
-                        style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                        style: const TextStyle(
+                          color: DesignTokens.danger,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
                       ),
                     ],
-                    if (security.useBiometrics) ...[
-                      const SizedBox(height: 32),
+                    if (security.useBiometrics && !security.isLockedOut) ...[
+                      const SizedBox(height: 36),
                       Center(
                         child: TextButton.icon(
                           onPressed: _tryBiometrics,
-                          icon: const Icon(Icons.fingerprint, size: 28),
-                          label: const Text('Use Biometrics'),
+                          icon: Icon(
+                            security.biometricLabel == 'Face ID'
+                                ? Icons.face_rounded
+                                : Icons.fingerprint_rounded,
+                            size: 28,
+                            color: const Color(0xFFF09A3E),
+                          ),
+                          label: Text(
+                            'Unlock with ${security.biometricLabel}',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFFF09A3E),
+                            ),
+                          ),
                         ),
                       ),
                     ],

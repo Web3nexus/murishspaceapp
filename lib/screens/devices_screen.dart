@@ -1,43 +1,31 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../components/app_bottom_sheet.dart';
 import '../providers/devices_provider.dart';
 
 /// Telegram iOS style Devices & Active Sessions screen connected to devicesProvider.
 class DevicesScreen extends ConsumerWidget {
   const DevicesScreen({super.key});
 
-  void _confirmTerminateAll(BuildContext context, WidgetRef ref) {
-    showDialog<void>(
+  void _confirmTerminateAll(BuildContext context, WidgetRef ref) async {
+    final confirm = await AppBottomSheet.showConfirmation(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Terminate All Other Sessions?', style: TextStyle(fontWeight: FontWeight.bold)),
-        content: const Text(
-          'Are you sure you want to log out all active sessions on other devices? You will remain logged in on this device.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFFF3B30),
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () {
-              ref.read(devicesProvider.notifier).terminateAllOtherSessions();
-              Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('All other sessions terminated successfully!')),
-              );
-            },
-            child: const Text('Terminate All'),
-          ),
-        ],
-      ),
+      title: 'Terminate All Other Sessions?',
+      message: 'Are you sure you want to log out all active sessions on other devices? You will remain logged in on this device.',
+      confirmText: 'Terminate All',
+      isDestructive: true,
+      icon: Icons.phonelink_erase_rounded,
     );
+
+    if (confirm == true) {
+      ref.read(devicesProvider.notifier).terminateAllOtherSessions();
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('All other sessions terminated successfully!')),
+        );
+      }
+    }
   }
 
   @override

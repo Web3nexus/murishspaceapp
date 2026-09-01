@@ -1,34 +1,28 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../core/roles.dart';
+import '../providers/auth_provider.dart';
+import '../providers/chat_provider.dart';
 import '../components/brand.dart';
 import 'product_detail_screen.dart';
 
 /// Facebook-Style Escrow Marketplace Screen with 2-column high-density image grid,
 /// horizontal category chips, location picker modal, and Escrow protection flow.
-class MarketplaceScreen extends StatefulWidget {
+class MarketplaceScreen extends ConsumerStatefulWidget {
   const MarketplaceScreen({super.key});
 
   @override
-  State<MarketplaceScreen> createState() => _MarketplaceScreenState();
+  ConsumerState<MarketplaceScreen> createState() => _MarketplaceScreenState();
 }
 
-class _MarketplaceScreenState extends State<MarketplaceScreen> {
-  String _selectedCategory = 'Explore';
+class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
+  String _selectedMainCategory = 'Explore';
+  String _selectedPhysicalSubCategory = 'All Physical';
   String _currentLocation = 'Lagos, Nigeria';
   final _searchController = TextEditingController();
   bool _isSearching = false;
-
-  final List<String> _categories = [
-    'Sell',
-    'Explore',
-    'Local',
-    'Categories',
-    'Electronics',
-    'Vehicles',
-    'Property',
-    'Digital',
-  ];
 
   final List<_MarketItem> _allItems = [
     _MarketItem(
@@ -128,179 +122,361 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (ctx) {
-        final isDark = Theme.of(ctx).brightness == Brightness.dark;
-        final cardColor = isDark ? const Color(0xFF3A3B3C) : Colors.white;
+        Offset pinPos = const Offset(160, 65);
+        String tempLoc = _currentLocation;
+        bool isEditing = false;
+        final searchCtrl = TextEditingController();
 
-        return SafeArea(
-          child: Container(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Top drag indicator handle
-                Center(
-                  child: Container(
-                    width: 38,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: isDark ? Colors.grey[700] : Colors.grey[300],
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 14),
+        final allLocations = [
+          'Lagos, Nigeria',
+          'Ikeja, Lagos State',
+          'Victoria Island, Lagos State',
+          'Lekki, Lagos State',
+          'Abuja, FCT',
+          'Port Harcourt, Rivers State',
+          'Ibadan, Oyo State',
+          'Abeokuta, Ogun State',
+          'London, United Kingdom',
+          'New York, United States',
+          'Toronto, Canada',
+          'All Locations (Worldwide)',
+        ];
 
-                // Header Row with Title & Search Icon
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Choose a location',
-                        textAlign: TextAlign.center,
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final isDark = Theme.of(context).brightness == Brightness.dark;
+            final cardColor = isDark ? const Color(0xFF3A3B3C) : Colors.white;
+
+            final filteredLocations = allLocations.where((loc) {
+              if (searchCtrl.text.trim().isEmpty) return true;
+              return loc.toLowerCase().contains(searchCtrl.text.trim().toLowerCase());
+            }).toList();
+
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom,
+              ),
+              child: SafeArea(
+                child: Container(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Top drag indicator handle
+                      Center(
+                        child: Container(
+                          width: 38,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: isDark ? Colors.grey[700] : Colors.grey[300],
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+
+                      // Header Row with Title & Search Toggle Icon
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              isEditing ? 'Search Location' : 'Choose a Location',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w800,
+                                color: isDark ? Colors.white : Colors.black,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () {
+                              setModalState(() {
+                                isEditing = !isEditing;
+                              });
+                            },
+                            icon: Icon(
+                              isEditing ? Icons.close_rounded : Icons.search_rounded,
+                              color: isDark ? Colors.white : Colors.black,
+                              size: 24,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+
+                      if (isEditing) ...[
+                        // Search / Custom Location Input
+                        TextField(
+                          controller: searchCtrl,
+                          autofocus: true,
+                          style: TextStyle(color: isDark ? Colors.white : Colors.black),
+                          decoration: InputDecoration(
+                            hintText: 'Type city, state, or country…',
+                            hintStyle: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600]),
+                            prefixIcon: const Icon(Icons.search_rounded, color: Color(0xFF007AFF)),
+                            filled: true,
+                            fillColor: cardColor,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide.none,
+                            ),
+                          ),
+                          onChanged: (_) => setModalState(() {}),
+                        ),
+                        const SizedBox(height: 12),
+                      ],
+
+                      // Interactive Map Preview Card
+                      Container(
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          color: cardColor,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Tappable Map Canvas with Pin Placement
+                            GestureDetector(
+                              onTapDown: (details) {
+                                final pos = details.localPosition;
+                                setModalState(() {
+                                  pinPos = pos;
+                                  if (pos.dx < 100) {
+                                    tempLoc = 'Ibadan, Oyo State';
+                                  } else if (pos.dx < 200 && pos.dy < 70) {
+                                    tempLoc = 'Ikeja, Lagos State';
+                                  } else if (pos.dx < 200) {
+                                    tempLoc = 'Lagos, Nigeria';
+                                  } else if (pos.dx < 280) {
+                                    tempLoc = 'Victoria Island, Lagos State';
+                                  } else {
+                                    tempLoc = 'Abuja, FCT';
+                                  }
+                                });
+                              },
+                              child: ClipRRect(
+                                borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                                child: Container(
+                                  height: 140,
+                                  width: double.infinity,
+                                  color: isDark ? const Color(0xFF1E3A2B) : const Color(0xFFCBE7C6),
+                                  child: Stack(
+                                    children: [
+                                      Positioned.fill(
+                                        child: Container(
+                                          color: const Color(0xFF80BFFF).withOpacity(0.35),
+                                          child: CustomPaint(
+                                            painter: _MapPainter(isDark: isDark),
+                                          ),
+                                        ),
+                                      ),
+                                      Positioned(
+                                        top: 8,
+                                        left: 10,
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                          decoration: BoxDecoration(
+                                            color: Colors.black.withOpacity(0.55),
+                                            borderRadius: BorderRadius.circular(6),
+                                          ),
+                                          child: const Text(
+                                            'Tap map to set pin position',
+                                            style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                                          ),
+                                        ),
+                                      ),
+                                      // Tapped Map Pin
+                                      Positioned(
+                                        left: pinPos.dx - 14,
+                                        top: pinPos.dy - 28,
+                                        child: Container(
+                                          padding: const EdgeInsets.all(4),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFF007AFF),
+                                            shape: BoxShape.circle,
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: const Color(0xFF007AFF).withOpacity(0.6),
+                                                blurRadius: 12,
+                                                spreadRadius: 2,
+                                              ),
+                                            ],
+                                          ),
+                                          child: const Icon(
+                                            Icons.location_on_rounded,
+                                            color: Colors.white,
+                                            size: 20,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.all(14),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.location_on_rounded, color: Color(0xFF007AFF), size: 18),
+                                      const SizedBox(width: 6),
+                                      Expanded(
+                                        child: Text(
+                                          tempLoc,
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w700,
+                                            color: isDark ? Colors.white : Colors.black,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: ElevatedButton.icon(
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: const Color(0xFF007AFF),
+                                            foregroundColor: Colors.white,
+                                            elevation: 0,
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(10),
+                                            ),
+                                          ),
+                                          onPressed: () {
+                                            setModalState(() {
+                                              pinPos = const Offset(160, 65);
+                                              tempLoc = 'Lagos, Nigeria';
+                                            });
+                                            setState(() {
+                                              _currentLocation = 'Lagos, Nigeria';
+                                            });
+                                            Navigator.pop(ctx);
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              const SnackBar(content: Text('Location updated to current GPS position (Lagos, Nigeria)')),
+                                            );
+                                          },
+                                          icon: const Icon(Icons.near_me_rounded, size: 18),
+                                          label: const Text('Locate me', style: TextStyle(fontWeight: FontWeight.bold)),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: ElevatedButton(
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: isDark ? const Color(0xFF4E4F50) : const Color(0xFFE4E6EB),
+                                            foregroundColor: isDark ? Colors.white : Colors.black,
+                                            elevation: 0,
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(10),
+                                            ),
+                                          ),
+                                          onPressed: () {
+                                            if (isEditing) {
+                                              final input = searchCtrl.text.trim();
+                                              if (input.isNotEmpty) {
+                                                setState(() {
+                                                  _currentLocation = input;
+                                                });
+                                                Navigator.pop(ctx);
+                                                ScaffoldMessenger.of(context).showSnackBar(
+                                                  SnackBar(content: Text('Marketplace location changed to $input')),
+                                                );
+                                              }
+                                            } else {
+                                              setModalState(() {
+                                                isEditing = true;
+                                              });
+                                            }
+                                          },
+                                          child: Text(isEditing ? 'Apply Custom' : 'Edit', style: const TextStyle(fontWeight: FontWeight.bold)),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      Text(
+                        'Select City / Region',
                         style: TextStyle(
-                          fontSize: 18,
+                          fontSize: 15,
                           fontWeight: FontWeight.w800,
                           color: isDark ? Colors.white : Colors.black,
                         ),
                       ),
-                    ),
-                    Icon(Icons.search_rounded, color: isDark ? Colors.white : Colors.black, size: 24),
-                  ],
-                ),
-                const SizedBox(height: 16),
+                      const SizedBox(height: 8),
 
-                // Interactive Map Preview Card
-                Container(
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: cardColor,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Simulated Map View Graphics
-                      Container(
-                        height: 130,
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          color: isDark ? const Color(0xFF1E3A2B) : const Color(0xFFCBE7C6),
-                          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                        ),
-                        child: Stack(
-                          children: [
-                            Positioned.fill(
-                              child: Container(
-                                color: const Color(0xFF80BFFF).withOpacity(0.4),
-                                child: CustomPaint(
-                                  painter: _MapPainter(isDark: isDark),
-                                ),
-                              ),
-                            ),
-                            // Map Pin Dot
-                            Align(
-                              alignment: Alignment.center,
-                              child: Container(
-                                width: 18,
-                                height: 18,
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(maxHeight: 180),
+                        child: ListView.builder(
+                          shrinkWrap: true,
+                          itemCount: filteredLocations.length,
+                          itemBuilder: (ctx, idx) {
+                            final locName = filteredLocations[idx];
+                            final isSelected = locName == tempLoc || locName == _currentLocation;
+                            return ListTile(
+                              dense: true,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
+                              leading: Container(
+                                padding: const EdgeInsets.all(6),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF007AFF),
+                                  color: isSelected
+                                      ? const Color(0xFF007AFF).withOpacity(0.15)
+                                      : (isDark ? const Color(0xFF3A3B3C) : const Color(0xFFE4E6EB)),
                                   shape: BoxShape.circle,
-                                  border: Border.all(color: Colors.white, width: 3),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: const Color(0xFF007AFF).withOpacity(0.5),
-                                      blurRadius: 10,
-                                    ),
-                                  ],
+                                ),
+                                child: Icon(
+                                  Icons.location_on_rounded,
+                                  color: isSelected ? const Color(0xFF007AFF) : (isDark ? Colors.grey[300] : Colors.grey[700]),
+                                  size: 18,
                                 ),
                               ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.all(14),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              _currentLocation,
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
-                                color: isDark ? Colors.white : Colors.black,
+                              title: Text(
+                                locName,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                  color: isSelected
+                                      ? const Color(0xFF007AFF)
+                                      : (isDark ? Colors.white : Colors.black),
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 12),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: ElevatedButton.icon(
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color(0xFF007AFF),
-                                      foregroundColor: Colors.white,
-                                      elevation: 0,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(10),
-                                      ),
-                                    ),
-                                    onPressed: () {
-                                      Navigator.pop(ctx);
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(content: Text('Location updated to current GPS position')),
-                                      );
-                                    },
-                                    icon: const Icon(Icons.near_me_rounded, size: 18),
-                                    label: const Text('Locate me', style: TextStyle(fontWeight: FontWeight.bold)),
-                                  ),
-                                ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: ElevatedButton(
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: isDark ? const Color(0xFF4E4F50) : const Color(0xFFE4E6EB),
-                                      foregroundColor: isDark ? Colors.white : Colors.black,
-                                      elevation: 0,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(10),
-                                      ),
-                                    ),
-                                    onPressed: () => Navigator.pop(ctx),
-                                    child: const Text('Edit', style: TextStyle(fontWeight: FontWeight.bold)),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
+                              trailing: isSelected
+                                  ? const Icon(Icons.check_circle_rounded, color: Color(0xFF007AFF), size: 18)
+                                  : null,
+                              onTap: () {
+                                setState(() {
+                                  _currentLocation = locName;
+                                });
+                                Navigator.pop(ctx);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Marketplace location set to $locName')),
+                                );
+                              },
+                            );
+                          },
                         ),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 20),
-
-                // Suggested Locations Header
-                Text(
-                  'Suggested for you',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    color: isDark ? Colors.white : Colors.black,
-                  ),
-                ),
-                const SizedBox(height: 10),
-
-                // Location List Items
-                _locationTile(ctx, 'Ibadan, Oyo State', isDark),
-                _locationTile(ctx, 'Abeokuta, Ogun State', isDark),
-                _locationTile(ctx, 'Ijebu Ode, Ogun State', isDark),
-                _locationTile(ctx, 'Port Harcourt, Rivers State', isDark),
-                _locationTile(ctx, 'Abuja, FCT', isDark),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         );
       },
     );
@@ -315,7 +491,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
           color: isDark ? const Color(0xFF3A3B3C) : const Color(0xFFE4E6EB),
           shape: BoxShape.circle,
         ),
-        child: Icon(Icons.search_rounded, color: isDark ? Colors.white : Colors.black, size: 20),
+        child: Icon(Icons.location_on_rounded, color: isDark ? Colors.white : Colors.black, size: 20),
       ),
       title: Text(
         locationName,
@@ -335,16 +511,273 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
     );
   }
 
+  void _showMarketplaceOptionsSheet() {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Theme.of(context).brightness == Brightness.dark
+          ? const Color(0xFF1C1C1E)
+          : Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        final textPrimary = isDark ? Colors.white : Colors.black;
+        final textSecondary = isDark ? Colors.grey[400] : Colors.grey[600];
+
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 38,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.grey[700] : Colors.grey[300],
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Text(
+                    'Marketplace Options',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: textPrimary,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF007AFF).withOpacity(0.12),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.bookmark_rounded, color: Color(0xFF007AFF), size: 20),
+                  ),
+                  title: Text('Saved Items & Wishlist', style: TextStyle(fontWeight: FontWeight.w700, color: textPrimary)),
+                  subtitle: Text('View items you have saved or bookmarked', style: TextStyle(fontSize: 12, color: textSecondary)),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    context.push('/app/saved');
+                  },
+                ),
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF34C759).withOpacity(0.12),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.add_shopping_cart_rounded, color: Color(0xFF34C759), size: 20),
+                  ),
+                  title: Text('Create Listing / Sell Item', style: TextStyle(fontWeight: FontWeight.w700, color: textPrimary)),
+                  subtitle: Text('Post a physical or digital product to the marketplace', style: TextStyle(fontSize: 12, color: textSecondary)),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    final user = ref.read(authProvider).user;
+                    final role = user?.role ?? UserRole.member;
+                    if (role == UserRole.creator || role == UserRole.vendor || role == UserRole.admin) {
+                      context.push('/app/create');
+                    } else {
+                      _showSellerUpgradeSheet();
+                    }
+                  },
+                ),
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF5856D6).withOpacity(0.12),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.account_balance_wallet_rounded, color: Color(0xFF5856D6), size: 20),
+                  ),
+                  title: Text('Escrow Wallet & Payouts', style: TextStyle(fontWeight: FontWeight.w700, color: textPrimary)),
+                  subtitle: Text('Manage earnings, held escrow funds & payout history', style: TextStyle(fontSize: 12, color: textSecondary)),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    context.push('/wallet');
+                  },
+                ),
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFF9500).withOpacity(0.12),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.location_on_rounded, color: Color(0xFFFF9500), size: 20),
+                  ),
+                  title: Text('Filter by Location', style: TextStyle(fontWeight: FontWeight.w700, color: textPrimary)),
+                  subtitle: Text('Currently set to: $_currentLocation', style: TextStyle(fontSize: 12, color: textSecondary)),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _showLocationPickerModal();
+                  },
+                ),
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.withOpacity(0.15),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(Icons.settings_rounded, color: isDark ? Colors.white : Colors.black87, size: 20),
+                  ),
+                  title: Text('Store Settings', style: TextStyle(fontWeight: FontWeight.w700, color: textPrimary)),
+                  subtitle: Text('Configure seller preferences & shipping options', style: TextStyle(fontSize: 12, color: textSecondary)),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    context.push('/settings');
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showSellerUpgradeSheet() {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).brightness == Brightness.dark
+          ? const Color(0xFF1C1C1E)
+          : Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        final textPrimary = isDark ? Colors.white : Colors.black;
+        final textSecondary = isDark ? Colors.grey[400] : Colors.grey[600];
+
+        return Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF007AFF).withOpacity(0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.storefront_outlined, size: 48, color: Color(0xFF007AFF)),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Become a Seller on MurihSpace',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 19, fontWeight: FontWeight.bold, color: textPrimary),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Browsing and purchasing items is open to all users!\n\nTo list products and sell on Marketplace:\n• Upgrade to Creator to sell Digital Products.\n• Upgrade to Vendor to sell Physical Products & inventory.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 13, color: textSecondary, height: 1.4),
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFFF9500),
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(double.infinity, 48),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  context.push('/upgrade-account');
+                },
+                icon: const Icon(Icons.star_rounded),
+                label: const Text('Upgrade to Creator (Digital Goods)', style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
+              const SizedBox(height: 10),
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF5856D6),
+                  minimumSize: const Size(double.infinity, 48),
+                  side: const BorderSide(color: Color(0xFF5856D6), width: 1.5),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  context.push('/upgrade-account');
+                },
+                icon: const Icon(Icons.storefront_rounded),
+                label: const Text('Upgrade to Vendor (Physical Goods)', style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bg = isDark ? const Color(0xFF18191A) : const Color(0xFFF7FAFC);
 
+    final auth = ref.watch(authProvider);
+    final user = auth.user;
+    final role = user?.role ?? UserRole.member;
+
+    final conversationsState = ref.watch(conversationsProvider);
+    final unreadCount = conversationsState.unreadTotal;
+
     final filteredItems = _allItems.where((item) {
-      if (_selectedCategory == 'Explore') return true;
-      if (_selectedCategory == 'Local') return item.location.contains(_currentLocation.split(',').first);
-      if (_selectedCategory == 'Sell') return true;
-      return item.category.toLowerCase() == _selectedCategory.toLowerCase();
+      // Role-specific product isolation:
+      if (role == UserRole.creator && item.category.toLowerCase() != 'digital') {
+        return false;
+      }
+      if (role == UserRole.vendor && item.category.toLowerCase() == 'digital') {
+        return false;
+      }
+
+      // Search filter
+      if (_searchController.text.trim().isNotEmpty) {
+        final q = _searchController.text.trim().toLowerCase();
+        final matchesQuery = item.title.toLowerCase().contains(q) ||
+            item.sellerName.toLowerCase().contains(q) ||
+            item.category.toLowerCase().contains(q) ||
+            item.location.toLowerCase().contains(q);
+        if (!matchesQuery) return false;
+      }
+
+      // Location filter
+      if (_currentLocation != 'All Locations' && _currentLocation != 'Worldwide') {
+        final city = _currentLocation.split(',').first.trim().toLowerCase();
+        final itemLoc = item.location.toLowerCase();
+        if (itemLoc != 'online delivery' && !itemLoc.contains(city)) {
+          return false;
+        }
+      }
+
+      // Category filter hierarchy
+      if (_selectedMainCategory == 'Explore') {
+        return true;
+      } else if (_selectedMainCategory == 'Digital') {
+        return item.category.toLowerCase() == 'digital';
+      } else if (_selectedMainCategory == 'Physical') {
+        if (item.category.toLowerCase() == 'digital') return false;
+        if (_selectedPhysicalSubCategory == 'All Physical') return true;
+        return item.category.toLowerCase() == _selectedPhysicalSubCategory.toLowerCase();
+      }
+
+      return true;
     }).toList();
 
     return Scaffold(
@@ -387,21 +820,25 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
                   size: 24,
                   isDark: isDark,
                 ),
-                Positioned(
-                  right: 0,
-                  top: 0,
-                  child: Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFFF3B30),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Text(
-                      '6',
-                      style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                if (unreadCount > 0)
+                  Positioned(
+                    right: 0,
+                    top: 0,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFFF3B30),
+                        shape: BoxShape.circle,
+                      ),
+                      constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                      child: Center(
+                        child: Text(
+                          unreadCount > 99 ? '99+' : '$unreadCount',
+                          style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w900),
+                        ),
+                      ),
                     ),
                   ),
-                ),
               ],
             ),
             tooltip: 'Messenger',
@@ -416,11 +853,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
             tooltip: 'Search',
           ),
           IconButton(
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Marketplace menu: Saved Items, Listings & Inbox')),
-              );
-            },
+            onPressed: _showMarketplaceOptionsSheet,
             icon: Icon(
               Icons.more_horiz_rounded,
               color: isDark ? Colors.white : Colors.black,
@@ -432,72 +865,123 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
       ),
       body: Column(
         children: [
-          // Sub-Header Categories & Location Horizontal Scroll Bar
+          // Filter Bar with Saved Location FIRST, Divider |, and Main Categories (Explore, Digital, Physical)
           Container(
-            height: 44,
+            height: 46,
             padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: ListView.separated(
+            child: ListView(
               scrollDirection: Axis.horizontal,
-              itemCount: _categories.length + 1,
-              separatorBuilder: (_, __) => const SizedBox(width: 8),
-              itemBuilder: (context, index) {
-                if (index == _categories.length) {
-                  // Location Selector Button Tile
-                  return ActionChip(
-                    avatar: const Icon(Icons.location_on_rounded, size: 16, color: Color(0xFF007AFF)),
-                    label: Text(
-                      _currentLocation,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: isDark ? Colors.white : Colors.black87,
-                      ),
-                    ),
-                    backgroundColor: isDark ? const Color(0xFF3A3B3C) : const Color(0xFFE4E6EB),
-                    side: BorderSide.none,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                    onPressed: _showLocationPickerModal,
-                  );
-                }
-
-                final cat = _categories[index];
-                final isSelected = cat == _selectedCategory;
-
-                return ChoiceChip(
+              children: [
+                // 1. Saved Location Chip (FIRST)
+                ActionChip(
+                  avatar: const Icon(Icons.location_on_rounded, size: 16, color: Color(0xFF007AFF)),
                   label: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      if (cat == 'Sell') ...[
-                        const Icon(Icons.add_rounded, size: 16, color: Colors.white),
-                        const SizedBox(width: 4),
-                      ],
-                      Text(cat),
+                      Text(
+                        _currentLocation,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: isDark ? Colors.white : Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      const Icon(Icons.arrow_drop_down_rounded, size: 18, color: Color(0xFF007AFF)),
                     ],
                   ),
-                  selected: isSelected,
-                  selectedColor: const Color(0xFF007AFF),
                   backgroundColor: isDark ? const Color(0xFF3A3B3C) : const Color(0xFFE4E6EB),
-                  labelStyle: TextStyle(
-                    color: isSelected
-                        ? Colors.white
-                        : (isDark ? Colors.white : Colors.black87),
-                    fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                    fontSize: 13,
-                  ),
                   side: BorderSide.none,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                  onSelected: (val) {
-                    if (val) {
-                      if (cat == 'Local') {
-                        _showLocationPickerModal();
-                      }
-                      setState(() => _selectedCategory = cat);
-                    }
-                  },
-                );
-              },
+                  onPressed: _showLocationPickerModal,
+                ),
+
+                // 2. Vertical Divider |
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                  child: Container(
+                    width: 1.5,
+                    height: 20,
+                    color: isDark ? Colors.grey[700] : Colors.grey[400],
+                  ),
+                ),
+
+                // 3. Main Category Chips (Explore, Digital, Physical)
+                ...['Explore', 'Digital', 'Physical'].map((cat) {
+                  final isSelected = cat == _selectedMainCategory;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: ChoiceChip(
+                      label: Text(cat),
+                      selected: isSelected,
+                      selectedColor: const Color(0xFF007AFF),
+                      backgroundColor: isDark ? const Color(0xFF3A3B3C) : const Color(0xFFE4E6EB),
+                      labelStyle: TextStyle(
+                        color: isSelected
+                            ? Colors.white
+                            : (isDark ? Colors.white : Colors.black87),
+                        fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                        fontSize: 13,
+                      ),
+                      side: BorderSide.none,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                      onSelected: (val) {
+                        if (val) {
+                          setState(() {
+                            _selectedMainCategory = cat;
+                            if (cat != 'Physical') {
+                              _selectedPhysicalSubCategory = 'All Physical';
+                            }
+                          });
+                        }
+                      },
+                    ),
+                  );
+                }),
+              ],
             ),
           ),
+
+          // 4. Secondary Physical Sub-Categories Row (Shown when Physical is active)
+          if (_selectedMainCategory == 'Physical') ...[
+            const SizedBox(height: 4),
+            Container(
+              height: 40,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                children: ['All Physical', 'Property', 'Electronics', 'Vehicles', 'Fashion', 'Home'].map((subCat) {
+                  final isSelected = subCat == _selectedPhysicalSubCategory;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: FilterChip(
+                      label: Text(subCat),
+                      selected: isSelected,
+                      selectedColor: const Color(0xFF5856D6).withOpacity(0.2),
+                      checkmarkColor: const Color(0xFF5856D6),
+                      backgroundColor: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFEFF3F6),
+                      labelStyle: TextStyle(
+                        color: isSelected
+                            ? const Color(0xFF5856D6)
+                            : (isDark ? Colors.grey[300] : Colors.grey[800]),
+                        fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
+                        fontSize: 12,
+                      ),
+                      side: isSelected ? const BorderSide(color: Color(0xFF5856D6), width: 1.5) : BorderSide.none,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      onSelected: (val) {
+                        if (val) {
+                          setState(() {
+                            _selectedPhysicalSubCategory = subCat;
+                          });
+                        }
+                      },
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          ],
           const SizedBox(height: 8),
 
           // High-Density 2-Column Edge-to-Edge Product Grid (Facebook Style)

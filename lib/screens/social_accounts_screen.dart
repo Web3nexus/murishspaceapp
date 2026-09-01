@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../components/app_bottom_sheet.dart';
 import '../components/ui_states.dart';
 import '../providers/social_account_provider.dart';
 
@@ -463,20 +464,13 @@ class _SocialAccountsScreenState extends ConsumerState<SocialAccountsScreen> {
                             IconButton(
                               icon: const Icon(Icons.delete_outline_rounded, color: Color(0xFFFF3B30), size: 20),
                               onPressed: () async {
-                                final ok = await showDialog<bool>(
+                                final ok = await AppBottomSheet.showConfirmation(
                                   context: context,
-                                  builder: (ctx) => AlertDialog(
-                                    title: Text('Disconnect ${plat['label']}?'),
-                                    content: const Text('This handle will be removed from your Creator Media Kit.'),
-                                    actions: [
-                                      TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-                                      ElevatedButton(
-                                        style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFF3B30), foregroundColor: Colors.white),
-                                        onPressed: () => Navigator.pop(ctx, true),
-                                        child: const Text('Disconnect'),
-                                      ),
-                                    ],
-                                  ),
+                                  title: 'Disconnect ${plat['label']}?',
+                                  message: 'This handle will be removed from your Creator Media Kit.',
+                                  confirmText: 'Disconnect',
+                                  isDestructive: true,
+                                  icon: Icons.link_off_rounded,
                                 );
                                 if (ok == true) {
                                   notifier.remove(existingAcc.id);

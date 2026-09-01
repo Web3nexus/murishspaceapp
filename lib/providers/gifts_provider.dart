@@ -21,12 +21,12 @@ class GiftItem {
 
   factory GiftItem.fromJson(Map<String, dynamic> json) {
     return GiftItem(
-      id: (json['id'] as num).toInt(),
-      name: json['name'] as String? ?? '',
-      iconUrl: json['icon_url'] as String?,
+      id: (json['id'] as num?)?.toInt() ?? 0,
+      name: json['name']?.toString() ?? '',
+      iconUrl: json['icon_url']?.toString(),
       coinPrice: (json['coin_price'] as num?)?.toInt() ?? 0,
       creatorEarns: (json['creator_earns'] as num?)?.toInt() ?? 0,
-      category: json['category'] as String? ?? 'standard',
+      category: json['category']?.toString() ?? 'standard',
     );
   }
 }
@@ -54,13 +54,13 @@ class CoinPack {
 
   factory CoinPack.fromJson(Map<String, dynamic> json) {
     return CoinPack(
-      id: (json['id'] as num).toInt(),
-      name: json['name'] as String? ?? '',
+      id: (json['id'] as num?)?.toInt() ?? 0,
+      name: json['name']?.toString() ?? '',
       coins: (json['coins'] as num?)?.toInt() ?? 0,
       bonusCoins: (json['bonus_coins'] as num?)?.toInt() ?? 0,
       price: (json['price'] as num?)?.toInt() ?? 0,
-      currency: json['currency'] as String? ?? 'NGN',
-      badge: json['badge'] as String?,
+      currency: json['currency']?.toString() ?? 'NGN',
+      badge: json['badge']?.toString(),
     );
   }
 }
@@ -74,7 +74,7 @@ class WalletInfo {
   factory WalletInfo.fromJson(Map<String, dynamic> json) {
     return WalletInfo(
       balance: (json['balance'] as num?)?.toInt() ?? 0,
-      currency: json['currency'] as String? ?? 'NGN',
+      currency: json['currency']?.toString() ?? 'NGN',
     );
   }
 }
@@ -98,11 +98,11 @@ class GiftTransaction {
     final gift = json['gift'] as Map<String, dynamic>?;
     final sender = json['sender'] as Map<String, dynamic>?;
     return GiftTransaction(
-      id: (json['id'] as num).toInt(),
-      giftName: gift?['name'] as String? ?? 'Gift',
-      senderName: sender?['name'] as String?,
+      id: (json['id'] as num?)?.toInt() ?? 0,
+      giftName: gift?['name']?.toString() ?? 'Gift',
+      senderName: sender?['name']?.toString(),
       coinPrice: (json['coin_price'] as num?)?.toInt() ?? 0,
-      createdAt: json['created_at'] as String? ?? '',
+      createdAt: json['created_at']?.toString() ?? '',
     );
   }
 }

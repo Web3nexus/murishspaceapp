@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../core/design_tokens.dart';
 
-/// Official Digital Escrow Contract Certificate & Legal Protection Document Dialog.
+/// Official Digital Escrow Contract Certificate & Legal Protection Document Sheet.
 class BrandDealCertificateDialog extends StatelessWidget {
   final String dealTitle;
   final String brandName;
@@ -32,8 +33,10 @@ class BrandDealCertificateDialog extends StatelessWidget {
     required double depositPercentage,
     required String deliverables,
   }) {
-    showDialog<void>(
+    showModalBottomSheet<void>(
       context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (ctx) => BrandDealCertificateDialog(
         dealTitle: dealTitle,
         brandName: brandName,
@@ -49,21 +52,40 @@ class BrandDealCertificateDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final cardBg = isDark ? const Color(0xFF1C1C1E) : Colors.white;
-    final textPrimary = isDark ? Colors.white : Colors.black;
-    final textSecondary = isDark ? Colors.grey[400] : Colors.grey[600];
+    final cardBg = isDark ? DesignTokens.darkSurface : DesignTokens.lightSurface;
+    final textPrimary = isDark ? DesignTokens.darkTextPrimary : DesignTokens.lightTextPrimary;
+    final textSecondary = isDark ? DesignTokens.darkTextSecondary : DesignTokens.lightTextSecondary;
     final certId = 'CERT-BD-${DateTime.now().millisecondsSinceEpoch.toString().substring(5)}';
 
-    return Dialog(
-      backgroundColor: cardBg,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        constraints: const BoxConstraints(maxWidth: 480),
+    return Container(
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: EdgeInsets.only(
+        left: 20,
+        right: 20,
+        top: 12,
+        bottom: MediaQuery.of(context).padding.bottom + 20,
+      ),
+      child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // Drag Handle
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white30 : Colors.black26,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+
             // Gold Certificate Ribbon Header
             Container(
               padding: const EdgeInsets.all(14),
@@ -85,7 +107,7 @@ class BrandDealCertificateDialog extends StatelessWidget {
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.w900,
-                      fontSize: 14,
+                      fontSize: 13,
                       letterSpacing: 1.1,
                     ),
                   ),
@@ -104,7 +126,7 @@ class BrandDealCertificateDialog extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF2F2F7),
+                color: isDark ? DesignTokens.darkSurfaceSecondary : DesignTokens.lightSurfaceSecondary,
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: const Color(0xFFFF9500).withValues(alpha: 0.3)),
               ),
@@ -117,9 +139,9 @@ class BrandDealCertificateDialog extends StatelessWidget {
                   const Divider(height: 16),
                   _certRow('Creator Ambassador', creatorName, textPrimary, textSecondary),
                   const Divider(height: 16),
-                  _certRow('Total Campaign Budget', '\$${totalBudget.toStringAsFixed(2)} USD', const Color(0xFF007AFF), textSecondary, isBold: true),
+                  _certRow('Total Campaign Budget', '\$${totalBudget.toStringAsFixed(2)} USD', DesignTokens.primary, textSecondary, isBold: true),
                   const Divider(height: 16),
-                  _certRow('Commitment Deposit (${depositPercentage.toStringAsFixed(0)}%)', '\$${depositAmount.toStringAsFixed(2)} USD (LOCKED)', const Color(0xFF34C759), textSecondary, isBold: true),
+                  _certRow('Commitment Deposit (${depositPercentage.toStringAsFixed(0)}%)', '\$${depositAmount.toStringAsFixed(2)} USD (LOCKED)', DesignTokens.success, textSecondary, isBold: true),
                   const Divider(height: 16),
                   _certRow('Required Deliverables', deliverables, textPrimary, textSecondary),
                 ],
@@ -147,6 +169,7 @@ class BrandDealCertificateDialog extends StatelessWidget {
                 Expanded(
                   child: OutlinedButton.icon(
                     style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
                     onPressed: () {
@@ -163,13 +186,15 @@ class BrandDealCertificateDialog extends StatelessWidget {
                 Expanded(
                   child: ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF007AFF),
+                      backgroundColor: DesignTokens.primary,
                       foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      elevation: 0,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
                     onPressed: () => Navigator.pop(context),
                     icon: const Icon(Icons.check_circle_rounded, size: 16),
-                    label: const Text('Close Certificate'),
+                    label: const Text('Close Sheet'),
                   ),
                 ),
               ],

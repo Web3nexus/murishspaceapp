@@ -11,16 +11,32 @@ import '../providers/auth_provider.dart';
 ///
 /// Tabs (per product spec):
 ///   Home · Chats (MurihSpace Favicon) · Center Action · Marketplace · You
-class AppShell extends ConsumerWidget {
+class AppShell extends ConsumerStatefulWidget {
   final StatefulNavigationShell navigationShell;
 
   const AppShell({super.key, required this.navigationShell});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AppShell> createState() => _AppShellState();
+}
+
+class _AppShellState extends ConsumerState<AppShell> {
+  bool _wizardAutoShown = false;
+
+  @override
+  Widget build(BuildContext context) {
     final auth = ref.watch(authProvider);
     final role = auth.user?.role ?? UserRole.member;
     final isOnboarded = auth.user?.onboardingCompleted ?? true;
+
+    if (auth.user != null && !isOnboarded && !_wizardAutoShown) {
+      _wizardAutoShown = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          AiOnboardingWizardDialog.show(context);
+        }
+      });
+    }
 
     return Scaffold(
       body: Column(
@@ -37,11 +53,11 @@ class AppShell extends ConsumerWidget {
                 bottom: false,
                 child: Row(
                   children: [
-                    const Icon(Icons.auto_awesome, color: Colors.white, size: 18),
+                    const BrandFavicon(size: 18),
                     const SizedBox(width: 10),
                     const Expanded(
                       child: Text(
-                        'Your profile space is incomplete — Complete the AI Wizard so Mera can build your account.',
+                        'Your profile space is incomplete — Complete verification setup to activate account.',
                         style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
                       ),
                     ),
@@ -61,16 +77,16 @@ class AppShell extends ConsumerWidget {
                 ),
               ),
             ),
-          Expanded(child: navigationShell),
+          Expanded(child: widget.navigationShell),
         ],
       ),
       bottomNavigationBar: _BottomBar(
-        currentIndex: navigationShell.currentIndex,
+        currentIndex: widget.navigationShell.currentIndex,
         role: role,
         onSelect: (index) {
-          navigationShell.goBranch(
+          widget.navigationShell.goBranch(
             index,
-            initialLocation: index == navigationShell.currentIndex,
+            initialLocation: index == widget.navigationShell.currentIndex,
           );
         },
       ),
@@ -112,8 +128,12 @@ class _BottomBar extends StatelessWidget {
         ),
     };
 
+    final fourthItem = role == UserRole.creator
+        ? const _BarItem(Icons.groups_outlined, Icons.groups_rounded, 'Communities')
+        : const _BarItem(Icons.shopping_bag_outlined, Icons.shopping_bag_rounded, 'Marketplace');
+
     final items = <_BarItem>[
-      const _BarItem(Icons.home_outlined, Icons.home_rounded, 'Home'),
+      const _BarItem(Icons.explore_outlined, Icons.explore_rounded, 'Feed'),
       _BarItem(
         null,
         null,
@@ -121,7 +141,7 @@ class _BottomBar extends StatelessWidget {
         customWidget: BrandFavicon(size: 22, isDark: isDark),
       ),
       centerItem,
-      const _BarItem(Icons.shopping_bag_outlined, Icons.shopping_bag_rounded, 'Marketplace'),
+      fourthItem,
       const _BarItem(Icons.person_outline_rounded, Icons.person_rounded, 'You'),
     ];
 

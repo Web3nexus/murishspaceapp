@@ -74,6 +74,21 @@
 		<true/>
 	</dict>
 	<key>NSFaceIDUsageDescription</key>
-	<string>MurihSpace uses Face ID to securely unlock the app.</string>
+	<string>MurihSpace uses Face ID to securely unlock your account and authorize sensitive transactions.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>MurihSpace requires access to your photo library to select photos and videos for your profile, posts, and messages.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>MurihSpace requires access to your camera to take photos and record videos directly within the app.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>MurihSpace requires access to your microphone to record audio messages and join live audio rooms.</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>https</string>
+		<string>http</string>
+		<string>mailto</string>
+		<string>tel</string>
+	</array>
 </dict>
 </plist>
