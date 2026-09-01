@@ -27,11 +27,15 @@ class FriendUserItem {
   });
 
   factory FriendUserItem.fromJson(Map<String, dynamic> json, {String status = 'none', int requestId = 0}) {
-    final userObj = json['sender'] is Map<String, dynamic>
-        ? json['sender'] as Map<String, dynamic>
-        : (json['user'] is Map<String, dynamic>
-            ? json['user'] as Map<String, dynamic>
-            : json);
+    final userObj = json['friend'] is Map<String, dynamic>
+        ? json['friend'] as Map<String, dynamic>
+        : (json['sender'] is Map<String, dynamic>
+            ? json['sender'] as Map<String, dynamic>
+            : (json['receiver'] is Map<String, dynamic>
+                ? json['receiver'] as Map<String, dynamic>
+                : (json['user'] is Map<String, dynamic>
+                    ? json['user'] as Map<String, dynamic>
+                    : json)));
 
     final reqId = requestId > 0
         ? requestId
@@ -44,7 +48,7 @@ class FriendUserItem {
       username: userObj['username']?.toString() ?? 'user',
       title: userObj['bio']?.toString() ?? userObj['title']?.toString() ?? 'Community Member',
       avatarUrl: userObj['avatar_url']?.toString() ?? userObj['avatar']?.toString(),
-      mutualCount: (userObj['mutual_friends'] as num?)?.toInt() ?? 0,
+      mutualCount: (json['mutual_friends'] as num?)?.toInt() ?? (userObj['mutual_friends'] as num?)?.toInt() ?? 0,
       isOnline: (userObj['is_online'] as bool?) ?? false,
       status: status,
     );
@@ -121,7 +125,7 @@ class FriendsNotifier extends Notifier<FriendsState> {
 
   Future<List<FriendUserItem>> _fetchRequests() async {
     try {
-      final res = await _dio.get('/v1/friends/requests');
+      final res = await _dio.get('/friends/requests');
       final list = ApiClient.instance.unwrapList(res, (item) {
         final sender = item['sender'] as Map<String, dynamic>? ?? item;
         return FriendUserItem.fromJson(sender, status: 'pending_received', requestId: (item['id'] as num?)?.toInt() ?? 0);
@@ -134,7 +138,7 @@ class FriendsNotifier extends Notifier<FriendsState> {
 
   Future<List<FriendUserItem>> _fetchSentRequests() async {
     try {
-      final res = await _dio.get('/v1/friends/requests/sent');
+      final res = await _dio.get('/friends/requests/sent');
       final list = ApiClient.instance.unwrapList(res, (item) {
         final receiver = item['receiver'] as Map<String, dynamic>? ?? item;
         return FriendUserItem.fromJson(receiver, status: 'pending_sent', requestId: (item['id'] as num?)?.toInt() ?? 0);
@@ -147,7 +151,7 @@ class FriendsNotifier extends Notifier<FriendsState> {
 
   Future<List<FriendUserItem>> _fetchFriends() async {
     try {
-      final res = await _dio.get('/v1/friends');
+      final res = await _dio.get('/friends');
       final list = ApiClient.instance.unwrapList(res, (item) {
         return FriendUserItem.fromJson(item, status: 'accepted');
       });
@@ -159,7 +163,10 @@ class FriendsNotifier extends Notifier<FriendsState> {
 
   Future<List<FriendUserItem>> _fetchSuggestions({String? query}) async {
     try {
-      final res = await _dio.get('/v1/friends/search', queryParameters: query != null ? {'q': query} : null);
+      final res = (query != null && query.trim().isNotEmpty)
+          ? await _dio.get('/friends/search', queryParameters: {'q': query.trim()})
+          : await _dio.get('/friends/suggestions');
+
       final list = ApiClient.instance.unwrapList(res, (item) {
         return FriendUserItem.fromJson(item, status: 'none');
       });
@@ -169,13 +176,27 @@ class FriendsNotifier extends Notifier<FriendsState> {
     }
   }
 
+  Future<void> searchSuggestions(String query) async {
+    final suggestions = await _fetchSuggestions(query: query);
+    state = state.copyWith(suggestions: suggestions);
+  }
+
+  Future<Map<String, dynamic>?> fetchFriendshipStatus(int userId) async {
+    try {
+      final res = await _dio.get('/friends/$userId/status');
+      return ApiClient.instance.unwrap(res) as Map<String, dynamic>?;
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<void> acceptRequest(FriendUserItem item) async {
     state = state.copyWith(
       requests: state.requests.where((r) => r.id != item.id).toList(),
       friends: [...state.friends, item],
     );
     try {
-      await _dio.post('/v1/friends/requests/${item.requestId}/accept');
+      await _dio.post('/friends/requests/${item.requestId}/accept');
     } catch (_) {}
   }
 
@@ -184,7 +205,7 @@ class FriendsNotifier extends Notifier<FriendsState> {
       requests: state.requests.where((r) => r.id != item.id).toList(),
     );
     try {
-      await _dio.post('/v1/friends/requests/${item.requestId}/decline');
+      await _dio.post('/friends/requests/${item.requestId}/decline');
     } catch (_) {}
   }
 
@@ -194,8 +215,18 @@ class FriendsNotifier extends Notifier<FriendsState> {
       sentRequests: [...state.sentRequests, item],
     );
     try {
-      await _dio.post('/v1/friends/requests', data: {'user_id': item.id});
+      await _dio.post('/friends/requests', data: {'user_id': item.id});
     } catch (_) {}
+  }
+
+  Future<bool> sendRequestToUserId(int userId) async {
+    try {
+      await _dio.post('/friends/requests', data: {'user_id': userId});
+      await loadAll();
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 
   Future<void> cancelSentRequest(FriendUserItem item) async {
@@ -203,7 +234,14 @@ class FriendsNotifier extends Notifier<FriendsState> {
       sentRequests: state.sentRequests.where((s) => s.id != item.id).toList(),
     );
     try {
-      await _dio.post('/v1/friends/requests/${item.requestId}/cancel');
+      await _dio.post('/friends/requests/${item.requestId}/cancel');
+    } catch (_) {}
+  }
+
+  Future<void> cancelRequestById(int requestId) async {
+    try {
+      await _dio.post('/friends/requests/$requestId/cancel');
+      await loadAll();
     } catch (_) {}
   }
 
@@ -212,8 +250,20 @@ class FriendsNotifier extends Notifier<FriendsState> {
       friends: state.friends.where((f) => f.id != item.id).toList(),
     );
     try {
-      await _dio.delete('/v1/friends/${item.id}');
+      await _dio.delete('/friends/${item.id}');
     } catch (_) {}
+  }
+
+  Future<bool> unfriendByUserId(int userId) async {
+    state = state.copyWith(
+      friends: state.friends.where((f) => f.id != userId).toList(),
+    );
+    try {
+      await _dio.delete('/friends/$userId');
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 }
 

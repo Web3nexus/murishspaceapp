@@ -9,6 +9,7 @@ import '../components/online_status_badge.dart';
 import '../core/roles.dart';
 import '../providers/auth_provider.dart';
 import '../providers/follow_provider.dart';
+import '../providers/friends_provider.dart';
 import '../providers/language_provider.dart';
 import '../providers/social_account_provider.dart';
 import '../providers/wallet_provider.dart';
@@ -26,6 +27,7 @@ class YouScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final auth = ref.watch(authProvider);
     final followState = ref.watch(followProvider);
+    final friendsState = ref.watch(friendsProvider);
     final user = auth.user;
     final role = user?.role ?? UserRole.member;
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -74,6 +76,7 @@ class YouScreen extends ConsumerWidget {
       body: RefreshIndicator(
         onRefresh: () async {
           await ref.read(authProvider.notifier).refreshProfile();
+          await ref.read(friendsProvider.notifier).loadAll();
           if (user != null) {
             await ref.read(followProvider.notifier).fetchFollowStatus(user.id);
           }
@@ -335,7 +338,9 @@ class YouScreen extends ConsumerWidget {
                           ),
                         ),
                         Text(
-                          '$followersCount connections',
+                          friendsState.friends.isEmpty
+                              ? 'No connections yet'
+                              : '${friendsState.friends.length} connection${friendsState.friends.length == 1 ? '' : 's'}',
                           style: TextStyle(
                             fontSize: 12,
                             color: isDark ? Colors.grey[400] : Colors.grey[600],
@@ -350,56 +355,102 @@ class YouScreen extends ConsumerWidget {
                   ],
                 ),
                 const SizedBox(height: 12),
-                SizedBox(
-                  height: 105,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: 5,
-                    separatorBuilder: (_, __) => const SizedBox(width: 12),
-                    itemBuilder: (ctx, i) {
-                      final friendNames = ['Alex Morgan', 'Sarah Jenkins', 'David Chen', 'Elena Rostova', 'Marcus Vance'];
-                      final friendUsernames = ['alex_m', 'sarah_j', 'dchen_tech', 'elena_r', 'marcus_v'];
-                      final name = friendNames[i % friendNames.length];
-                      final uname = friendUsernames[i % friendUsernames.length];
-
-                      return GestureDetector(
-                        onTap: () => context.push('/profile/user/${i + 1}?name=$name&username=$uname'),
-                        child: Container(
-                          width: 84,
+                if (friendsState.friends.isEmpty)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF2C2C2E).withOpacity(0.5) : const Color(0xFFF2F2F7),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF2F2F7),
-                            borderRadius: BorderRadius.circular(14),
+                            color: const Color(0xFF007AFF).withOpacity(0.12),
+                            shape: BoxShape.circle,
                           ),
+                          child: const Icon(Icons.people_outline_rounded, color: Color(0xFF007AFF), size: 20),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
                           child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              CircleAvatar(
-                                radius: 22,
-                                backgroundColor: const Color(0xFF007AFF),
-                                child: Text(
-                                  _initials(name),
-                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
-                                ),
-                              ),
-                              const SizedBox(height: 6),
                               Text(
-                                name,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                  color: isDark ? Colors.white : Colors.black,
-                                ),
+                                'Find & add friends',
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? Colors.white : Colors.black),
+                              ),
+                              Text(
+                                'Sync contacts or search creators to connect.',
+                                style: TextStyle(fontSize: 11, color: isDark ? Colors.grey[400] : Colors.grey[600]),
                               ),
                             ],
                           ),
                         ),
-                      );
-                    },
+                        TextButton(
+                          onPressed: () => context.push('/friends'),
+                          child: const Text('Explore', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                        ),
+                      ],
+                    ),
+                  )
+                else
+                  SizedBox(
+                    height: 105,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: friendsState.friends.length,
+                      separatorBuilder: (_, __) => const SizedBox(width: 12),
+                      itemBuilder: (ctx, i) {
+                        final friend = friendsState.friends[i];
+                        final name = friend.name;
+                        final uname = friend.username;
+
+                        return GestureDetector(
+                          onTap: () => context.push('/profile/user/${friend.id}?name=$name&username=$uname'),
+                          child: Container(
+                            width: 84,
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF2F2F7),
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                CircleAvatar(
+                                  radius: 22,
+                                  backgroundImage: friend.avatarUrl != null && friend.avatarUrl!.isNotEmpty
+                                      ? NetworkImage(friend.avatarUrl!)
+                                      : null,
+                                  backgroundColor: const Color(0xFF007AFF),
+                                  child: friend.avatarUrl == null || friend.avatarUrl!.isEmpty
+                                      ? Text(
+                                          _initials(name),
+                                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                                        )
+                                      : null,
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: isDark ? Colors.white : Colors.black,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
                   ),
-                ),
               ],
             ),
           ),

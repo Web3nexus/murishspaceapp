@@ -405,40 +405,43 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                             child: Column(
                               children: [
-                                Row(
-                                  children: [
-                                    CircleAvatar(
-                                      radius: 24,
-                                      backgroundColor: const Color(0xFF007AFF),
-                                      backgroundImage: user.avatarUrl != null && user.avatarUrl!.isNotEmpty ? NetworkImage(user.avatarUrl!) : null,
-                                      child: user.avatarUrl == null || user.avatarUrl!.isEmpty
-                                          ? Text(
-                                              user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
-                                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
-                                            )
-                                          : null,
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            user.name,
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.w800,
-                                              fontSize: 15,
-                                              color: textPrimary,
-                                            ),
-                                          ),
-                                          Text(
-                                            '${user.title ?? 'Member'} · ${user.mutualCount} mutual friends',
-                                            style: TextStyle(fontSize: 12, color: textSecondary),
-                                          ),
-                                        ],
+                                GestureDetector(
+                                  onTap: () => context.push('/profile/user/${user.id}?name=${user.name}&username=${user.username}'),
+                                  child: Row(
+                                    children: [
+                                      CircleAvatar(
+                                        radius: 24,
+                                        backgroundColor: const Color(0xFF007AFF),
+                                        backgroundImage: user.avatarUrl != null && user.avatarUrl!.isNotEmpty ? NetworkImage(user.avatarUrl!) : null,
+                                        child: user.avatarUrl == null || user.avatarUrl!.isEmpty
+                                            ? Text(
+                                                user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
+                                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+                                              )
+                                            : null,
                                       ),
-                                    ),
-                                  ],
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              user.name,
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.w800,
+                                                fontSize: 15,
+                                                color: textPrimary,
+                                              ),
+                                            ),
+                                            Text(
+                                              '${user.title ?? 'Member'} · ${user.mutualCount} mutual friends',
+                                              style: TextStyle(fontSize: 12, color: textSecondary),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                                 const SizedBox(height: 10),
                                 Row(
@@ -505,35 +508,41 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                             child: Row(
                               children: [
-                                CircleAvatar(
-                                  radius: 22,
-                                  backgroundColor: const Color(0xFF5856D6),
-                                  backgroundImage: user.avatarUrl != null && user.avatarUrl!.isNotEmpty ? NetworkImage(user.avatarUrl!) : null,
-                                  child: user.avatarUrl == null || user.avatarUrl!.isEmpty
-                                      ? Text(
-                                          user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
-                                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
-                                        )
-                                      : null,
+                                GestureDetector(
+                                  onTap: () => context.push('/profile/user/${user.id}?name=${user.name}&username=${user.username}'),
+                                  child: CircleAvatar(
+                                    radius: 22,
+                                    backgroundColor: const Color(0xFF5856D6),
+                                    backgroundImage: user.avatarUrl != null && user.avatarUrl!.isNotEmpty ? NetworkImage(user.avatarUrl!) : null,
+                                    child: user.avatarUrl == null || user.avatarUrl!.isEmpty
+                                        ? Text(
+                                            user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
+                                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                                          )
+                                        : null,
+                                  ),
                                 ),
                                 const SizedBox(width: 12),
                                 Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        user.name,
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.w700,
-                                          fontSize: 15,
-                                          color: textPrimary,
+                                  child: GestureDetector(
+                                    onTap: () => context.push('/profile/user/${user.id}?name=${user.name}&username=${user.username}'),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          user.name,
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 15,
+                                            color: textPrimary,
+                                          ),
                                         ),
-                                      ),
-                                      Text(
-                                        '${user.title ?? 'Creator'} · ${user.mutualCount} mutuals',
-                                        style: TextStyle(fontSize: 12, color: textSecondary),
-                                      ),
-                                    ],
+                                        Text(
+                                          '${user.title ?? 'Creator'} · ${user.mutualCount} mutuals',
+                                          style: TextStyle(fontSize: 12, color: textSecondary),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
                                 ElevatedButton.icon(
@@ -574,53 +583,59 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                             child: Row(
                               children: [
-                                Stack(
-                                  children: [
-                                    CircleAvatar(
-                                      radius: 22,
-                                      backgroundColor: const Color(0xFF007AFF),
-                                      backgroundImage: user.avatarUrl != null && user.avatarUrl!.isNotEmpty ? NetworkImage(user.avatarUrl!) : null,
-                                      child: user.avatarUrl == null || user.avatarUrl!.isEmpty
-                                          ? Text(
-                                              user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
-                                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
-                                            )
-                                          : null,
-                                    ),
-                                    if (user.isOnline)
-                                      Positioned(
-                                        bottom: 0,
-                                        right: 0,
-                                        child: Container(
-                                          width: 12,
-                                          height: 12,
-                                          decoration: BoxDecoration(
-                                            color: const Color(0xFF34C759),
-                                            shape: BoxShape.circle,
-                                            border: Border.all(color: cardBg, width: 2),
+                                GestureDetector(
+                                  onTap: () => context.push('/profile/user/${user.id}?name=${user.name}&username=${user.username}'),
+                                  child: Stack(
+                                    children: [
+                                      CircleAvatar(
+                                        radius: 22,
+                                        backgroundColor: const Color(0xFF007AFF),
+                                        backgroundImage: user.avatarUrl != null && user.avatarUrl!.isNotEmpty ? NetworkImage(user.avatarUrl!) : null,
+                                        child: user.avatarUrl == null || user.avatarUrl!.isEmpty
+                                            ? Text(
+                                                user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
+                                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                                              )
+                                            : null,
+                                      ),
+                                      if (user.isOnline)
+                                        Positioned(
+                                          bottom: 0,
+                                          right: 0,
+                                          child: Container(
+                                            width: 12,
+                                            height: 12,
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFF34C759),
+                                              shape: BoxShape.circle,
+                                              border: Border.all(color: cardBg, width: 2),
+                                            ),
                                           ),
                                         ),
-                                      ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
                                 const SizedBox(width: 12),
                                 Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        user.name,
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.w700,
-                                          fontSize: 15,
-                                          color: textPrimary,
+                                  child: GestureDetector(
+                                    onTap: () => context.push('/profile/user/${user.id}?name=${user.name}&username=${user.username}'),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          user.name,
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 15,
+                                            color: textPrimary,
+                                          ),
                                         ),
-                                      ),
-                                      Text(
-                                        '@${user.username} · ${user.title ?? 'Friend'}',
-                                        style: TextStyle(fontSize: 12, color: textSecondary),
-                                      ),
-                                    ],
+                                        Text(
+                                          '@${user.username} · ${user.title ?? 'Friend'}',
+                                          style: TextStyle(fontSize: 12, color: textSecondary),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
                                 IconButton(
