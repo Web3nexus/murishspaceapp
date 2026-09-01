@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../components/brand.dart';
 import '../components/app_bottom_sheet.dart';
 import '../components/ui_states.dart';
-import '../core/design_tokens.dart';
 import '../core/roles.dart';
 import '../providers/auth_provider.dart';
 import '../providers/role_provider.dart';
 
-/// Account upgrade flow (Sprint 1 logic): apply as creator/vendor, view
-/// pending application and history, cancel pending applications.
+/// Account upgrade flow: apply as creator/vendor, view
+/// pending application and history, cancel pending applications, and submit KYC when requested.
 class UpgradeAccountScreen extends ConsumerWidget {
   const UpgradeAccountScreen({super.key});
 
@@ -18,7 +18,9 @@ class UpgradeAccountScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(roleUpgradeProvider);
     final notifier = ref.read(roleUpgradeProvider.notifier);
-    final role = ref.watch(authProvider).user?.role ?? UserRole.member;
+    final authState = ref.watch(authProvider);
+    final user = authState.user;
+    final role = user?.role ?? UserRole.member;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bg = isDark ? Colors.black : const Color(0xFFF2F2F7);
 
@@ -38,7 +40,7 @@ class UpgradeAccountScreen extends ConsumerWidget {
       ),
       body: RefreshIndicator(
         onRefresh: () => notifier.refresh(),
-        child: _body(context, ref, state, notifier, role, isDark),
+        child: _body(context, ref, state, notifier, user, role, isDark),
       ),
     );
   }
@@ -48,6 +50,7 @@ class UpgradeAccountScreen extends ConsumerWidget {
     WidgetRef ref,
     RoleUpgradeState state,
     RoleUpgradeNotifier notifier,
+    dynamic user,
     UserRole role,
     bool isDark,
   ) {
@@ -63,25 +66,20 @@ class UpgradeAccountScreen extends ConsumerWidget {
     }
 
     final application = state.application;
-    final canApply = Permissions.roleHas(role, 'role.upgrade.apply');
     final cardBg = isDark ? const Color(0xFF1C1C1E) : Colors.white;
 
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       children: [
-        // Current Role Banner Card
+        // Header Hero
         Container(
-          padding: const EdgeInsets.all(18),
+          padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
             color: cardBg,
             borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF007AFF).withOpacity(0.1),
-                blurRadius: 16,
-                offset: const Offset(0, 4),
-              ),
-            ],
+            border: Border.all(
+              color: isDark ? Colors.white10 : Colors.black12,
+            ),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -91,31 +89,30 @@ class UpgradeAccountScreen extends ConsumerWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF007AFF).withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(20),
+                      color: const Color(0xFFFF9500).withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
-                      'CURRENT ROLE: ${role.label.toUpperCase()}',
+                      'Current Role: ${role.label}',
                       style: const TextStyle(
-                        color: Color(0xFF007AFF),
-                        fontWeight: FontWeight.w800,
-                        fontSize: 11,
-                        letterSpacing: 0.5,
+                        color: Color(0xFFFF9500),
+                        fontWeight: FontWeight.w700,
+                        fontSize: 12,
                       ),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 10),
-              Text(
-                'MurihSpace Power Accounts',
+              const SizedBox(height: 12),
+              const Text(
+                'Unlock Pro Tools',
                 style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                  color: isDark ? Colors.white : Colors.black,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: -0.5,
                 ),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 6),
               Text(
                 'Upgrade your account to unlock vendor store escrow, brand deal marketplaces, and creator tools.',
                 style: TextStyle(
@@ -133,34 +130,83 @@ class UpgradeAccountScreen extends ConsumerWidget {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: const Color(0xFFFF9500).withOpacity(0.15),
+              color: const Color(0xFFFF9500).withOpacity(0.12),
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: const Color(0xFFFF9500), width: 1.5),
             ),
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.schedule_rounded, color: Color(0xFFFF9500), size: 28),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                Row(
+                  children: [
+                    const Icon(Icons.schedule_rounded, color: Color(0xFFFF9500), size: 28),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Application Pending Review',
+                            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: Color(0xFFFF9500)),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Requested upgrade to ${application.requestedRole}. Our team is reviewing your profile.',
+                            style: TextStyle(fontSize: 12, color: isDark ? Colors.grey[300] : Colors.black87),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded, color: Color(0xFFFF9500)),
+                      tooltip: 'Cancel application',
+                      onPressed: () => _confirmCancel(context, ref),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.black38 : Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.blueAccent.withOpacity(0.4)),
+                  ),
+                  child: Row(
                     children: [
-                      const Text(
-                        'Application Pending Review',
-                        style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: Color(0xFFFF9500)),
+                      const Icon(Icons.verified_user_rounded, color: Colors.blueAccent, size: 24),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Identity Verification (KYC)',
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.blueAccent),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              user?.kycStatus == 'verified'
+                                  ? 'Identity Verified ✓'
+                                  : user?.kycStatus == 'pending'
+                                      ? 'KYC Submitted — Under Review'
+                                      : 'Submit your government ID to complete your Creator verification.',
+                              style: TextStyle(fontSize: 11, color: isDark ? Colors.grey[400] : Colors.grey[700]),
+                            ),
+                          ],
+                        ),
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'Requested upgrade to ${application.requestedRole}. KYC verification may be required.',
-                        style: TextStyle(fontSize: 12, color: isDark ? Colors.grey[300] : Colors.black87),
-                      ),
+                      if (user?.kycStatus != 'verified' && user?.kycStatus != 'pending')
+                        FilledButton.tonal(
+                          style: FilledButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            minimumSize: Size.zero,
+                          ),
+                          onPressed: () => context.push('/kyc'),
+                          child: const Text('Verify →', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                        ),
                     ],
                   ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.close_rounded, color: Color(0xFFFF9500)),
-                  tooltip: 'Cancel application',
-                  onPressed: () => _confirmCancel(context, ref),
                 ),
               ],
             ),
