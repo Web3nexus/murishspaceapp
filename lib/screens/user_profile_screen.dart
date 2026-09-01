@@ -8,7 +8,7 @@ import '../components/send_gift_dialog.dart';
 import '../providers/follow_provider.dart';
 
 /// Public User & Friend Profile Screen with Gifting, Direct Messaging, & Follow CTAs.
-class UserProfileScreen extends ConsumerWidget {
+class UserProfileScreen extends ConsumerStatefulWidget {
   final int userId;
   final String name;
   final String username;
@@ -27,7 +27,20 @@ class UserProfileScreen extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<UserProfileScreen> createState() => _UserProfileScreenState();
+}
+
+class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(followProvider.notifier).fetchFollowStatus(widget.userId);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final followState = ref.watch(followProvider);
     final followNotifier = ref.read(followProvider.notifier);
 
@@ -36,10 +49,10 @@ class UserProfileScreen extends ConsumerWidget {
     final textPrimary = isDark ? Colors.white : Colors.black;
     final textSecondary = isDark ? Colors.grey[400] : Colors.grey[600];
 
-    final isFollowing = followState.isFollowing(userId);
-    final followersCount = followState.getFollowersCount(userId);
-    final followingCount = followState.getFollowingCount(userId);
-    final postsCount = followState.getPostsCount(userId);
+    final isFollowing = followState.isFollowing(widget.userId);
+    final followersCount = followState.getFollowersCount(widget.userId);
+    final followingCount = followState.getFollowingCount(widget.userId);
+    final postsCount = followState.getPostsCount(widget.userId);
 
     return Scaffold(
       backgroundColor: bg,
@@ -48,7 +61,7 @@ class UserProfileScreen extends ConsumerWidget {
         elevation: 0,
         scrolledUnderElevation: 0,
         title: Text(
-          '@$username',
+          '@${widget.username}',
           style: TextStyle(color: textPrimary, fontWeight: FontWeight.w800),
         ),
         actions: [
@@ -57,8 +70,8 @@ class UserProfileScreen extends ConsumerWidget {
             tooltip: 'Send Gift',
             onPressed: () => SendGiftDialog.show(
               context,
-              recipientName: name,
-              recipientAvatar: avatarUrl.isNotEmpty ? avatarUrl : null,
+              recipientName: widget.name,
+              recipientAvatar: widget.avatarUrl.isNotEmpty ? widget.avatarUrl : null,
             ),
           ),
           IconButton(
@@ -102,10 +115,10 @@ class UserProfileScreen extends ConsumerWidget {
                       child: CircleAvatar(
                         radius: 40,
                         backgroundColor: bg,
-                        backgroundImage: avatarUrl.isNotEmpty ? NetworkImage(avatarUrl) : null,
-                        child: avatarUrl.isEmpty
+                        backgroundImage: widget.avatarUrl.isNotEmpty ? NetworkImage(widget.avatarUrl) : null,
+                        child: widget.avatarUrl.isEmpty
                             ? Text(
-                                name.isNotEmpty ? name[0].toUpperCase() : 'U',
+                                widget.name.isNotEmpty ? widget.name[0].toUpperCase() : 'U',
                                 style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: Color(0xFF007AFF)),
                               )
                             : null,
@@ -114,12 +127,12 @@ class UserProfileScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 10),
                   Text(
-                    name,
+                    widget.name,
                     style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: textPrimary),
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    '@$username',
+                    '@${widget.username}',
                     style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Color(0xFF007AFF)),
                   ),
                   const SizedBox(height: 6),
@@ -134,13 +147,13 @@ class UserProfileScreen extends ConsumerWidget {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
-                      roleLabel.toUpperCase(),
+                      widget.roleLabel.toUpperCase(),
                       style: const TextStyle(color: Color(0xFF007AFF), fontWeight: FontWeight.w900, fontSize: 11),
                     ),
                   ),
                   const SizedBox(height: 10),
                   Text(
-                    bio,
+                    widget.bio,
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 13, color: textSecondary, height: 1.3),
                   ),
@@ -156,14 +169,14 @@ class UserProfileScreen extends ConsumerWidget {
                         '$followersCount',
                         textPrimary,
                         textSecondary,
-                        () => FollowersListDialog.show(context, title: '$name\'s Followers', isFollowersList: true),
+                        () => FollowersListDialog.show(context, title: '${widget.name}\'s Followers', isFollowersList: true, userId: widget.userId),
                       ),
                       _statCol(
                         'Following',
                         '$followingCount',
                         textPrimary,
                         textSecondary,
-                        () => FollowersListDialog.show(context, title: '$name\'s Following', isFollowersList: false),
+                        () => FollowersListDialog.show(context, title: '${widget.name}\'s Following', isFollowersList: false, userId: widget.userId),
                       ),
                     ],
                   ),
@@ -179,63 +192,92 @@ class UserProfileScreen extends ConsumerWidget {
                             backgroundColor: isFollowing ? (isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE5E5EA)) : const Color(0xFF007AFF),
                             foregroundColor: isFollowing ? textPrimary : Colors.white,
                             elevation: 0,
+                            padding: const EdgeInsets.symmetric(vertical: 13),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                            padding: const EdgeInsets.symmetric(vertical: 12),
                           ),
-                          onPressed: () => followNotifier.toggleFollow(userId),
-                          icon: Icon(isFollowing ? Icons.check_rounded : Icons.person_add_rounded, size: 18),
+                          onPressed: () => followNotifier.toggleFollow(widget.userId),
+                          icon: Icon(
+                            isFollowing ? Icons.check_rounded : Icons.person_add_rounded,
+                            size: 18,
+                          ),
                           label: Text(
                             isFollowing ? 'Following' : 'Follow',
-                            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14),
+                            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
                           ),
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 10),
                       Expanded(
                         flex: 3,
                         child: OutlinedButton.icon(
                           style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: Color(0xFF007AFF), width: 1.5),
                             foregroundColor: const Color(0xFF007AFF),
-                            side: const BorderSide(color: Color(0xFF007AFF)),
+                            padding: const EdgeInsets.symmetric(vertical: 13),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                            padding: const EdgeInsets.symmetric(vertical: 12),
                           ),
-                          onPressed: () => context.push('/app/chats'),
+                          onPressed: () => context.push('/messages'),
                           icon: const Icon(Icons.chat_bubble_outline_rounded, size: 18),
-                          label: const Text('Message', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14)),
+                          label: const Text('Message', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      IconButton.filledTonal(
-                        style: IconButton.styleFrom(backgroundColor: const Color(0xFFFF9500).withValues(alpha: 0.15)),
-                        icon: const Icon(Icons.card_giftcard_rounded, color: Color(0xFFFF9500)),
-                        onPressed: () => SendGiftDialog.show(
-                          context,
-                          recipientName: name,
-                          recipientAvatar: avatarUrl.isNotEmpty ? avatarUrl : null,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Connected Social Channels Row
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text('CONNECTED CHANNELS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: textSecondary, letterSpacing: 0.8)),
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      _platformBadge('Instagram', '@$username', const Color(0xFFE1306C)),
-                      const SizedBox(width: 8),
-                      _platformBadge('TikTok', '@$username', Colors.black),
-                      const SizedBox(width: 8),
-                      _platformBadge('YouTube', '$name TV', const Color(0xFFFF0000)),
                     ],
                   ),
                 ],
               ),
+            ),
+          ),
+
+          // Activity & Highlights Section
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Community Highlights',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: textPrimary),
+                ),
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: isDark ? Colors.white12 : Colors.black12),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF007AFF).withValues(alpha: 0.12),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.hub_rounded, color: Color(0xFF007AFF), size: 22),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Creator & Verified Member',
+                              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: textPrimary),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Active contributor to Web3, Creator Economy & Vendor communities on MurihSpace.',
+                              style: TextStyle(fontSize: 12, color: textSecondary),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 30),
+              ],
             ),
           ),
         ],
@@ -243,27 +285,26 @@ class UserProfileScreen extends ConsumerWidget {
     );
   }
 
-  Widget _statCol(String label, String val, Color textPrimary, Color? textSecondary, VoidCallback onTap) {
-    return GestureDetector(
+  Widget _statCol(String label, String value, Color textPrimary, Color? textSecondary, VoidCallback onTap) {
+    return InkWell(
       onTap: onTap,
-      child: Column(
-        children: [
-          Text(val, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: textPrimary)),
-          Text(label, style: TextStyle(fontSize: 12, color: textSecondary)),
-        ],
+      borderRadius: BorderRadius.circular(10),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        child: Column(
+          children: [
+            Text(
+              value,
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: textPrimary),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: textSecondary),
+            ),
+          ],
+        ),
       ),
-    );
-  }
-
-  Widget _platformBadge(String label, String handle, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
-      ),
-      child: Text('$label: $handle', style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 12)),
     );
   }
 }

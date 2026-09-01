@@ -886,10 +886,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     Builder(
                       builder: (context) {
                         final followState = ref.watch(followProvider);
-                        final myUserId = user?.id ?? 1;
-                        final postsCount = followState.getPostsCount(myUserId);
-                        final followersCount = followState.getFollowersCount(myUserId);
-                        final followingCount = followState.getFollowingCount(myUserId);
+                        final myUserId = user?.id ?? 0;
+                        final postsCount = user?.postsCount ?? followState.getPostsCount(myUserId);
+                        final followersCount = user?.followersCount ?? followState.getFollowersCount(myUserId);
+                        final followingCount = user?.followingCount ?? followState.getFollowingCount(myUserId);
 
                         return Container(
                           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
@@ -912,7 +912,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               _buildStatItem(
                                 'Followers',
                                 _formatCount(followersCount),
-                                () => FollowersListDialog.show(context, title: 'Followers', isFollowersList: true),
+                                () => FollowersListDialog.show(context, title: 'Followers', isFollowersList: true, userId: myUserId),
                                 textPrimary,
                                 textSecondary,
                               ),
@@ -920,7 +920,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               _buildStatItem(
                                 'Following',
                                 _formatCount(followingCount),
-                                () => FollowersListDialog.show(context, title: 'Following', isFollowersList: false),
+                                () => FollowersListDialog.show(context, title: 'Following', isFollowersList: false, userId: myUserId),
                                 textPrimary,
                                 textSecondary,
                               ),

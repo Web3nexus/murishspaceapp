@@ -192,13 +192,16 @@ class AuthNotifier extends Notifier<AuthState> {
     }
   }
 
-  /// Persistently marks AI setup onboarding as completed across restarts.
-  Future<void> markOnboardingCompleted() async {
-    await ApiClient.saveAiOnboardingCompleted();
-    if (state.user != null) {
-      final updatedUser = state.user!.copyWith(onboardingCompleted: true);
-      state = state.copyWith(user: updatedUser);
-    }
+  /// Fetches latest user profile stats (followers, following, posts, coins, etc.) from backend
+  Future<void> refreshProfile() async {
+    final token = await ApiClient.readToken();
+    if (token == null) return;
+    try {
+      final response = await _dio.get('/user');
+      final data = ApiClient.instance.unwrap(response) as Map<String, dynamic>;
+      final user = UserProfile.fromJson(data);
+      state = state.copyWith(user: user);
+    } catch (_) {}
   }
 
 

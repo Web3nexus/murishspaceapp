@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:flutter/services.dart';
 
+import '../components/followers_list_dialog.dart';
 import '../components/online_status_badge.dart';
 import '../core/roles.dart';
 import '../providers/auth_provider.dart';
@@ -32,9 +33,9 @@ class YouScreen extends ConsumerWidget {
     final cardBg = isDark ? const Color(0xFF1C1C1E) : Colors.white;
     final dividerColor = isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE5E5EA);
 
-    final followersCount = (user?.followersCount ?? 0) > 0 ? user!.followersCount : followState.getFollowersCount(user?.id ?? 1);
-    final followingCount = (user?.followingCount ?? 0) > 0 ? user!.followingCount : followState.getFollowingCount(user?.id ?? 1);
-    final postsCount = user?.postsCount ?? 0;
+    final followersCount = user?.followersCount ?? followState.getFollowersCount(user?.id ?? 0);
+    final followingCount = user?.followingCount ?? followState.getFollowingCount(user?.id ?? 0);
+    final postsCount = user?.postsCount ?? followState.getPostsCount(user?.id ?? 0);
     final coinsCount = user?.coins ?? 0;
 
     return Scaffold(
@@ -70,9 +71,16 @@ class YouScreen extends ConsumerWidget {
           ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        children: [
+      body: RefreshIndicator(
+        onRefresh: () async {
+          await ref.read(authProvider.notifier).refreshProfile();
+          if (user != null) {
+            await ref.read(followProvider.notifier).fetchFollowStatus(user.id);
+          }
+        },
+        child: ListView(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          children: [
           // ── Group 0: Header Profile Card with Banner ─────────────────────
           InkWell(
             onTap: () => context.push('/profile'),
@@ -268,9 +276,24 @@ class YouScreen extends ConsumerWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
                       _profileStat('Posts', '$postsCount', isDark),
-                      _profileStat('Followers', '$followersCount', isDark),
-                      _profileStat('Following', '$followingCount', isDark),
-                      _profileStat('Coins', '\$$coinsCount', isDark),
+                      _profileStat(
+                        'Followers',
+                        '$followersCount',
+                        isDark,
+                        onTap: () => FollowersListDialog.show(context, title: 'Followers', isFollowersList: true, userId: user?.id),
+                      ),
+                      _profileStat(
+                        'Following',
+                        '$followingCount',
+                        isDark,
+                        onTap: () => FollowersListDialog.show(context, title: 'Following', isFollowersList: false, userId: user?.id),
+                      ),
+                      _profileStat(
+                        'Coins',
+                        '$coinsCount',
+                        isDark,
+                        onTap: () => context.push('/wallet'),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 12),
@@ -725,33 +748,37 @@ class YouScreen extends ConsumerWidget {
     );
   }
 
-  Widget _profileStat(String label, String value, bool isDark) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF2F4F7),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Column(
-        children: [
-          Text(
-            value,
-            style: TextStyle(
-              color: isDark ? Colors.white : Colors.black,
-              fontSize: 15,
-              fontWeight: FontWeight.w800,
+  Widget _profileStat(String label, String value, bool isDark, {VoidCallback? onTap}) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF2F4F7),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Column(
+          children: [
+            Text(
+              value,
+              style: TextStyle(
+                color: isDark ? Colors.white : Colors.black,
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+              ),
             ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: TextStyle(
-              color: isDark ? Colors.grey[400] : Colors.grey[600],
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: TextStyle(
+                color: isDark ? Colors.grey[400] : Colors.grey[600],
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

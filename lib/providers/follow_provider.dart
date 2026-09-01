@@ -1,4 +1,7 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../core/api_client.dart';
 
 class UserFollowSummary {
   final int userId;
@@ -6,7 +9,9 @@ class UserFollowSummary {
   final String username;
   final String avatarUrl;
   final String bio;
+  final String role;
   final bool isVerified;
+  final bool isFollowing;
 
   UserFollowSummary({
     required this.userId,
@@ -14,8 +19,23 @@ class UserFollowSummary {
     required this.username,
     this.avatarUrl = '',
     this.bio = '',
+    this.role = 'member',
     this.isVerified = false,
+    this.isFollowing = false,
   });
+
+  factory UserFollowSummary.fromJson(Map<String, dynamic> json) {
+    return UserFollowSummary(
+      userId: (json['id'] as num?)?.toInt() ?? 0,
+      name: json['name'] as String? ?? 'User',
+      username: json['username'] as String? ?? 'user',
+      avatarUrl: json['avatar'] as String? ?? json['avatar_url'] as String? ?? '',
+      bio: json['bio'] as String? ?? '',
+      role: json['role'] as String? ?? 'member',
+      isVerified: json['is_verified'] as bool? ?? false,
+      isFollowing: json['is_following'] as bool? ?? false,
+    );
+  }
 }
 
 class FollowState {
@@ -23,128 +43,200 @@ class FollowState {
   final Map<int, int> followersCounts;
   final Map<int, int> followingCounts;
   final Map<int, int> userPostsCounts;
-  final List<UserFollowSummary> sampleUsers;
+  final Map<int, List<UserFollowSummary>> followersLists;
+  final Map<int, List<UserFollowSummary>> followingLists;
+  final bool loading;
 
   FollowState({
     required this.followingUserIds,
     required this.followersCounts,
     required this.followingCounts,
     required this.userPostsCounts,
-    required this.sampleUsers,
+    this.followersLists = const {},
+    this.followingLists = const {},
+    this.loading = false,
   });
 
   bool isFollowing(int userId) => followingUserIds.contains(userId);
 
-  int getFollowersCount(int userId) => followersCounts[userId] ?? 1250;
-  int getFollowingCount(int userId) => followingCounts[userId] ?? 430;
-  int getPostsCount(int userId) => userPostsCounts[userId] ?? 24;
+  int getFollowersCount(int userId) => followersCounts[userId] ?? 0;
+  int getFollowingCount(int userId) => followingCounts[userId] ?? 0;
+  int getPostsCount(int userId) => userPostsCounts[userId] ?? 0;
 
   FollowState copyWith({
     Set<int>? followingUserIds,
     Map<int, int>? followersCounts,
     Map<int, int>? followingCounts,
     Map<int, int>? userPostsCounts,
-    List<UserFollowSummary>? sampleUsers,
+    Map<int, List<UserFollowSummary>>? followersLists,
+    Map<int, List<UserFollowSummary>>? followingLists,
+    bool? loading,
   }) {
     return FollowState(
       followingUserIds: followingUserIds ?? this.followingUserIds,
       followersCounts: followersCounts ?? this.followersCounts,
       followingCounts: followingCounts ?? this.followingCounts,
       userPostsCounts: userPostsCounts ?? this.userPostsCounts,
-      sampleUsers: sampleUsers ?? this.sampleUsers,
+      followersLists: followersLists ?? this.followersLists,
+      followingLists: followingLists ?? this.followingLists,
+      loading: loading ?? this.loading,
     );
   }
 }
 
 class FollowNotifier extends Notifier<FollowState> {
+  Dio get _dio => ApiClient.instance.dio;
+
   @override
   FollowState build() {
     return FollowState(
-      followingUserIds: {2, 4, 6},
-      followersCounts: {
-        1: 12450, // Current user
-        2: 5400,
-        3: 1200,
-        4: 8900,
-        5: 3200,
-        6: 15400,
-      },
-      followingCounts: {
-        1: 430, // Current user
-        2: 210,
-        3: 150,
-        4: 640,
-        5: 310,
-        6: 980,
-      },
-      userPostsCounts: {
-        1: 42,
-        2: 18,
-        3: 9,
-        4: 65,
-        5: 27,
-        6: 112,
-      },
-      sampleUsers: [
-        UserFollowSummary(userId: 2, name: 'Alice Freeman', username: 'alice_freeman', bio: 'Tech Reviewer & Video Creator 📹', isVerified: true),
-        UserFollowSummary(userId: 3, name: 'Bob Smith', username: 'bob_tech', bio: 'Web3 & FinTech Specialist ⚡'),
-        UserFollowSummary(userId: 4, name: 'Pulse Activewear', username: 'pulse_active', bio: 'Official Vendor Store for Premium Activewear 🏃‍♂️', isVerified: true),
-        UserFollowSummary(userId: 5, name: 'Charlie Brown', username: 'charlie_b', bio: 'Digital Creator & Mobile App Dev 🚀'),
-        UserFollowSummary(userId: 6, name: 'Apex Audio Tech', username: 'apex_audio', bio: 'High-Fidelity Audio Gear Vendor & Sponsor 🎧', isVerified: true),
-        UserFollowSummary(userId: 7, name: 'Kemi Adebayo', username: 'kemi_brand', bio: 'Fashion Ambassador & Lifestyle Creator ✨'),
-        UserFollowSummary(userId: 8, name: 'Chioma Eze', username: 'chioma_e', bio: 'Community Manager & Event Host 🌟'),
-      ],
+      followingUserIds: {},
+      followersCounts: {},
+      followingCounts: {},
+      userPostsCounts: {},
     );
   }
 
-  void toggleFollow(int targetUserId) {
-    final isAlreadyFollowing = state.followingUserIds.contains(targetUserId);
-    final updatedFollowingSet = Set<int>.from(state.followingUserIds);
+  /// Fetches follow status and counts for a user from the backend API.
+  Future<void> fetchFollowStatus(int userId) async {
+    try {
+      final res = await _dio.get('/users/$userId/follow-status');
+      final data = ApiClient.instance.unwrap(res) as Map<String, dynamic>;
 
-    final currentMyFollowers = Map<int, int>.from(state.followersCounts);
-    final currentMyFollowing = Map<int, int>.from(state.followingCounts);
+      final isFollowing = data['is_following'] as bool? ?? false;
+      final followers = (data['followers_count'] as num?)?.toInt() ?? 0;
+      final following = (data['following_count'] as num?)?.toInt() ?? 0;
+      final posts = (data['posts_count'] as num?)?.toInt() ?? 0;
 
-    const myUserId = 1; // Current user ID
+      final updatedFollowing = Set<int>.from(state.followingUserIds);
+      if (isFollowing) {
+        updatedFollowing.add(userId);
+      } else {
+        updatedFollowing.remove(userId);
+      }
 
-    if (isAlreadyFollowing) {
-      updatedFollowingSet.remove(targetUserId);
-      currentMyFollowing[myUserId] = (currentMyFollowing[myUserId] ?? 430) - 1;
-      currentMyFollowers[targetUserId] = (currentMyFollowers[targetUserId] ?? 100) - 1;
+      final fCounts = Map<int, int>.from(state.followersCounts)..[userId] = followers;
+      final fingCounts = Map<int, int>.from(state.followingCounts)..[userId] = following;
+      final pCounts = Map<int, int>.from(state.userPostsCounts)..[userId] = posts;
+
+      state = state.copyWith(
+        followingUserIds: updatedFollowing,
+        followersCounts: fCounts,
+        followingCounts: fingCounts,
+        userPostsCounts: pCounts,
+      );
+    } catch (_) {}
+  }
+
+  /// Toggles follow status with live backend API call.
+  Future<bool> toggleFollow(int targetUserId) async {
+    final currentlyFollowing = state.isFollowing(targetUserId);
+    final nextFollowing = !currentlyFollowing;
+
+    // Optimistic UI update
+    final updatedSet = Set<int>.from(state.followingUserIds);
+    final fCounts = Map<int, int>.from(state.followersCounts);
+    final currentTargetFollowers = fCounts[targetUserId] ?? 0;
+
+    if (nextFollowing) {
+      updatedSet.add(targetUserId);
+      fCounts[targetUserId] = currentTargetFollowers + 1;
     } else {
-      updatedFollowingSet.add(targetUserId);
-      currentMyFollowing[myUserId] = (currentMyFollowing[myUserId] ?? 430) + 1;
-      currentMyFollowers[targetUserId] = (currentMyFollowers[targetUserId] ?? 100) + 1;
+      updatedSet.remove(targetUserId);
+      fCounts[targetUserId] = (currentTargetFollowers > 0) ? currentTargetFollowers - 1 : 0;
     }
 
     state = state.copyWith(
-      followingUserIds: updatedFollowingSet,
-      followingCounts: currentMyFollowing,
-      followersCounts: currentMyFollowers,
+      followingUserIds: updatedSet,
+      followersCounts: fCounts,
     );
-  }
 
-  void incrementPostsCount(int userId) {
-    final currentPosts = Map<int, int>.from(state.userPostsCounts);
-    currentPosts[userId] = (currentPosts[userId] ?? 0) + 1;
-    state = state.copyWith(userPostsCounts: currentPosts);
-  }
+    try {
+      final res = await _dio.post('/users/$targetUserId/follow');
+      final data = ApiClient.instance.unwrap(res) as Map<String, dynamic>;
 
-  void decrementPostsCount(int userId) {
-    final currentPosts = Map<int, int>.from(state.userPostsCounts);
-    final count = currentPosts[userId] ?? 0;
-    if (count > 0) {
-      currentPosts[userId] = count - 1;
-      state = state.copyWith(userPostsCounts: currentPosts);
+      final realIsFollowing = data['is_following'] as bool? ?? nextFollowing;
+      final realFollowersCount = (data['target_followers_count'] as num?)?.toInt();
+
+      if (realFollowersCount != null) {
+        fCounts[targetUserId] = realFollowersCount;
+      }
+      if (realIsFollowing) {
+        updatedSet.add(targetUserId);
+      } else {
+        updatedSet.remove(targetUserId);
+      }
+
+      state = state.copyWith(
+        followingUserIds: updatedSet,
+        followersCounts: fCounts,
+      );
+      return realIsFollowing;
+    } catch (e) {
+      // Rollback on network failure
+      if (currentlyFollowing) {
+        updatedSet.add(targetUserId);
+        fCounts[targetUserId] = currentTargetFollowers;
+      } else {
+        updatedSet.remove(targetUserId);
+        fCounts[targetUserId] = currentTargetFollowers;
+      }
+      state = state.copyWith(
+        followingUserIds: updatedSet,
+        followersCounts: fCounts,
+      );
+      return currentlyFollowing;
     }
   }
 
-  List<UserFollowSummary> getFollowersList(int userId) {
-    return state.sampleUsers;
+  /// Fetches followers list from the backend API.
+  Future<List<UserFollowSummary>> fetchFollowers(int userId) async {
+    try {
+      final res = await _dio.get('/users/$userId/followers');
+      final envelope = ApiClient.instance.unwrap(res);
+      final rawItems = envelope is Map<String, dynamic> && envelope['data'] is List
+          ? envelope['data'] as List
+          : envelope is List
+              ? envelope
+              : [];
+
+      final list = rawItems
+          .map((item) => UserFollowSummary.fromJson(item as Map<String, dynamic>))
+          .toList();
+
+      final updatedLists = Map<int, List<UserFollowSummary>>.from(state.followersLists)..[userId] = list;
+      state = state.copyWith(followersLists: updatedLists);
+      return list;
+    } catch (_) {
+      return state.followersLists[userId] ?? [];
+    }
   }
 
-  List<UserFollowSummary> getFollowingList(int userId) {
-    return state.sampleUsers.where((u) => state.followingUserIds.contains(u.userId)).toList();
+  /// Fetches following list from the backend API.
+  Future<List<UserFollowSummary>> fetchFollowing(int userId) async {
+    try {
+      final res = await _dio.get('/users/$userId/following');
+      final envelope = ApiClient.instance.unwrap(res);
+      final rawItems = envelope is Map<String, dynamic> && envelope['data'] is List
+          ? envelope['data'] as List
+          : envelope is List
+              ? envelope
+              : [];
+
+      final list = rawItems
+          .map((item) => UserFollowSummary.fromJson(item as Map<String, dynamic>))
+          .toList();
+
+      final updatedLists = Map<int, List<UserFollowSummary>>.from(state.followingLists)..[userId] = list;
+      state = state.copyWith(followingLists: updatedLists);
+      return list;
+    } catch (_) {
+      return state.followingLists[userId] ?? [];
+    }
   }
+
+  List<UserFollowSummary> getFollowersList(int userId) => state.followersLists[userId] ?? [];
+  List<UserFollowSummary> getFollowingList(int userId) => state.followingLists[userId] ?? [];
 }
 
 final followProvider = NotifierProvider<FollowNotifier, FollowState>(FollowNotifier.new);
