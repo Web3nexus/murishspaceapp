@@ -155,6 +155,24 @@ class SecuritySettingsScreen extends ConsumerWidget {
               );
             },
           ),
+          ListTile(
+            leading: const Icon(Icons.location_on_outlined, color: Color(0xFFF09A3E)),
+            title: const Text('Location Services'),
+            subtitle: Text(permissions.locationGranted ? 'Allowed' : 'Tap to enable'),
+            trailing: Icon(
+              permissions.locationGranted ? Icons.check_circle_rounded : Icons.chevron_right,
+              color: permissions.locationGranted ? Colors.green : null,
+            ),
+            onTap: () {
+              ref.read(permissionsProvider.notifier).showPermissionRationaleSheet(
+                context: context,
+                title: 'Enable Location Services',
+                description: 'Required to discover nearby marketplace listings, shipping calculations, and local community spaces.',
+                icon: Icons.location_on_rounded,
+                type: AppPermissionType.location,
+              );
+            },
+          ),
 
           const Divider(height: 32),
 

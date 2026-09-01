@@ -7,6 +7,7 @@ enum AppPermissionType {
   camera,
   microphone,
   photos,
+  location,
   biometrics,
 }
 
@@ -15,6 +16,7 @@ class PermissionStatusState {
   final bool cameraGranted;
   final bool microphoneGranted;
   final bool photosGranted;
+  final bool locationGranted;
   final bool biometricsGranted;
 
   const PermissionStatusState({
@@ -22,6 +24,7 @@ class PermissionStatusState {
     this.cameraGranted = false,
     this.microphoneGranted = false,
     this.photosGranted = false,
+    this.locationGranted = false,
     this.biometricsGranted = false,
   });
 
@@ -30,6 +33,7 @@ class PermissionStatusState {
     bool? cameraGranted,
     bool? microphoneGranted,
     bool? photosGranted,
+    bool? locationGranted,
     bool? biometricsGranted,
   }) {
     return PermissionStatusState(
@@ -37,6 +41,7 @@ class PermissionStatusState {
       cameraGranted: cameraGranted ?? this.cameraGranted,
       microphoneGranted: microphoneGranted ?? this.microphoneGranted,
       photosGranted: photosGranted ?? this.photosGranted,
+      locationGranted: locationGranted ?? this.locationGranted,
       biometricsGranted: biometricsGranted ?? this.biometricsGranted,
     );
   }
@@ -47,6 +52,7 @@ class PermissionsNotifier extends Notifier<PermissionStatusState> {
   static const String _cameraKey = 'perm_camera_prompted';
   static const String _micKey = 'perm_mic_prompted';
   static const String _photosKey = 'perm_photos_prompted';
+  static const String _locationKey = 'perm_location_prompted';
 
   @override
   PermissionStatusState build() {
@@ -61,6 +67,7 @@ class PermissionsNotifier extends Notifier<PermissionStatusState> {
       cameraGranted: prefs.getBool(_cameraKey) ?? false,
       microphoneGranted: prefs.getBool(_micKey) ?? false,
       photosGranted: prefs.getBool(_photosKey) ?? false,
+      locationGranted: prefs.getBool(_locationKey) ?? false,
     );
   }
 
@@ -82,6 +89,10 @@ class PermissionsNotifier extends Notifier<PermissionStatusState> {
       case AppPermissionType.photos:
         await prefs.setBool(_photosKey, true);
         state = state.copyWith(photosGranted: true);
+        return true;
+      case AppPermissionType.location:
+        await prefs.setBool(_locationKey, true);
+        state = state.copyWith(locationGranted: true);
         return true;
       case AppPermissionType.biometrics:
         state = state.copyWith(biometricsGranted: true);
@@ -194,6 +205,61 @@ class PermissionsNotifier extends Notifier<PermissionStatusState> {
       return requestPermission(context, type);
     }
     return false;
+  }
+
+  Future<bool> ensureCamera(BuildContext context) async {
+    if (state.cameraGranted) return true;
+    return showPermissionRationaleSheet(
+      context: context,
+      title: 'Camera Access Needed',
+      description: 'MurihSpace requires camera access to take photos, record stories, and join video calls.',
+      icon: Icons.camera_alt_rounded,
+      type: AppPermissionType.camera,
+    );
+  }
+
+  Future<bool> ensurePhotos(BuildContext context) async {
+    if (state.photosGranted) return true;
+    return showPermissionRationaleSheet(
+      context: context,
+      title: 'Photo Library Access',
+      description: 'MurihSpace needs photo library access to upload avatars, banners, post media, and product images.',
+      icon: Icons.photo_library_rounded,
+      type: AppPermissionType.photos,
+    );
+  }
+
+  Future<bool> ensureMicrophone(BuildContext context) async {
+    if (state.microphoneGranted) return true;
+    return showPermissionRationaleSheet(
+      context: context,
+      title: 'Microphone Access',
+      description: 'MurihSpace needs microphone access to record voice notes and participate in live audio spaces.',
+      icon: Icons.mic_rounded,
+      type: AppPermissionType.microphone,
+    );
+  }
+
+  Future<bool> ensureLocation(BuildContext context) async {
+    if (state.locationGranted) return true;
+    return showPermissionRationaleSheet(
+      context: context,
+      title: 'Location Permission',
+      description: 'MurihSpace uses your location to show local marketplace items and nearby community members.',
+      icon: Icons.location_on_rounded,
+      type: AppPermissionType.location,
+    );
+  }
+
+  Future<bool> ensureNotifications(BuildContext context) async {
+    if (state.notificationsGranted) return true;
+    return showPermissionRationaleSheet(
+      context: context,
+      title: 'Enable Notifications',
+      description: 'Get instant alerts for messages, escrow updates, friend requests, and order notifications.',
+      icon: Icons.notifications_active_rounded,
+      type: AppPermissionType.notifications,
+    );
   }
 }
 
