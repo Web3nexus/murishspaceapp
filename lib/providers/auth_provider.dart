@@ -343,6 +343,33 @@ class AuthNotifier extends Notifier<AuthState> {
     state = const AuthState();
   }
 
+  Future<bool> deleteAccount({String? password, String? reason, String confirmation = 'DELETE'}) async {
+    state = state.copyWith(loading: true, clearError: true);
+    try {
+      final response = await _dio.delete(
+        '/account',
+        data: {
+          'confirmation': confirmation,
+          if (password != null && password.isNotEmpty) 'password': password,
+          if (reason != null && reason.isNotEmpty) 'reason': reason,
+        },
+      );
+      ApiClient.instance.unwrap(response);
+      await ApiClient.clearToken();
+      state = const AuthState();
+      return true;
+    } on DioException catch (e) {
+      final msg = e.response?.data is Map<String, dynamic>
+          ? (e.response?.data as Map<String, dynamic>)['message'] as String?
+          : 'Failed to delete account. Please try again.';
+      state = state.copyWith(loading: false, errorMessage: msg);
+      return false;
+    } catch (e) {
+      state = state.copyWith(loading: false, errorMessage: 'Network error. Please try again.');
+      return false;
+    }
+  }
+
   Future<bool> loginWithGoogle() async {
     state = state.copyWith(loading: true, clearError: true);
     try {

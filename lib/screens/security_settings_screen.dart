@@ -4,8 +4,8 @@ import 'package:go_router/go_router.dart';
 import '../components/app_bottom_sheet.dart';
 import '../components/transaction_pin_dialog.dart';
 import '../core/permissions_service.dart';
+import '../providers/auth_provider.dart';
 import '../providers/security_provider.dart';
-import '../core/design_tokens.dart';
 
 class SecuritySettingsScreen extends ConsumerWidget {
   const SecuritySettingsScreen({super.key});
@@ -14,7 +14,6 @@ class SecuritySettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final security = ref.watch(securityProvider);
     final permissions = ref.watch(permissionsProvider);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
       appBar: AppBar(
@@ -156,6 +155,18 @@ class SecuritySettingsScreen extends ConsumerWidget {
               );
             },
           ),
+
+          const Divider(height: 32),
+
+          // ── Account Deletion & Legal Compliance ─────────────────
+          _SectionHeader(title: 'Account & Data Privacy'),
+          ListTile(
+            leading: const Icon(Icons.delete_forever_rounded, color: Colors.redAccent),
+            title: const Text('Delete Account', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.w600)),
+            subtitle: const Text('Deactivate account, revoke sessions, and remove personal profile data'),
+            trailing: const Icon(Icons.chevron_right, color: Colors.redAccent),
+            onTap: () => _showDeleteAccountDialog(context, ref),
+          ),
           const SizedBox(height: 32),
         ],
       ),
@@ -228,6 +239,128 @@ class SecuritySettingsScreen extends ConsumerWidget {
                   },
                 );
               }),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showDeleteAccountDialog(BuildContext context, WidgetRef ref) {
+    final passwordController = TextEditingController();
+    final reasonController = TextEditingController();
+    final confirmController = TextEditingController();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        return Padding(
+          padding: EdgeInsets.only(
+            left: 24,
+            right: 24,
+            top: 20,
+            bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.white30 : Colors.black26,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Row(
+                children: [
+                  Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 28),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Delete Account?',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.redAccent),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'This will permanently deactivate your profile, revoke login sessions, and release your public username. Financial, order, and audit records will be retained securely in accordance with legal and statutory compliance regulations.',
+                style: TextStyle(
+                  fontSize: 13,
+                  height: 1.4,
+                  color: isDark ? Colors.white70 : Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: passwordController,
+                obscureText: true,
+                decoration: const InputDecoration(
+                  labelText: 'Account Password (if set)',
+                  hintText: 'Leave blank if passwordless/phone user',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: reasonController,
+                decoration: const InputDecoration(
+                  labelText: 'Reason for leaving (optional)',
+                  hintText: 'Tell us why you are deleting your account',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: confirmController,
+                decoration: const InputDecoration(
+                  labelText: 'Type DELETE to confirm',
+                  hintText: 'DELETE',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 20),
+              FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: Colors.redAccent,
+                  minimumSize: const Size(double.infinity, 48),
+                ),
+                onPressed: () async {
+                  if (confirmController.text.trim().toUpperCase() != 'DELETE') {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Please type DELETE to confirm.')),
+                    );
+                    return;
+                  }
+                  Navigator.pop(ctx);
+                  final success = await ref.read(authProvider.notifier).deleteAccount(
+                    password: passwordController.text.trim().isNotEmpty ? passwordController.text.trim() : null,
+                    reason: reasonController.text.trim().isNotEmpty ? reasonController.text.trim() : null,
+                    confirmation: 'DELETE',
+                  );
+                  if (success && context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Account deleted successfully.')),
+                    );
+                    context.go('/auth/login');
+                  } else if (context.mounted) {
+                    final err = ref.read(authProvider).errorMessage ?? 'Failed to delete account.';
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(err)),
+                    );
+                  }
+                },
+                child: const Text('Permanently Delete My Account', style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
             ],
           ),
         );
