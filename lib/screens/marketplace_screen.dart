@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../core/roles.dart';
 import '../providers/auth_provider.dart';
 import '../providers/chat_provider.dart';
+import '../providers/marketplace_provider.dart';
 import '../components/brand.dart';
 import 'product_detail_screen.dart';
 
@@ -20,90 +21,9 @@ class MarketplaceScreen extends ConsumerStatefulWidget {
 class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
   String _selectedMainCategory = 'Explore';
   String _selectedPhysicalSubCategory = 'All Physical';
-  String _currentLocation = 'Lagos, Nigeria';
+  String _currentLocation = 'All Locations';
   final _searchController = TextEditingController();
   bool _isSearching = false;
-
-  final List<_MarketItem> _allItems = [
-    _MarketItem(
-      id: '1',
-      title: 'Solstar Double Door Chest Freezer 250L',
-      sellerName: 'Dele Electronics',
-      price: 120000.0,
-      currencySymbol: '₦',
-      imageUrl: 'https://images.unsplash.com/photo-1584992236310-6edddc08acff?w=600&auto=format&fit=crop',
-      category: 'Electronics',
-      location: 'Lagos, Nigeria',
-      rating: 4.9,
-      isFree: false,
-      escrowProtected: true,
-    ),
-    _MarketItem(
-      id: '2',
-      title: 'Smart Inverter Refrigerator & Deep Freezer',
-      sellerName: 'Solar Tech Nigeria',
-      price: 0.0,
-      currencySymbol: '₦',
-      imageUrl: 'https://images.unsplash.com/photo-1571175443880-49e1d25b2bc5?w=600&auto=format&fit=crop',
-      category: 'Electronics',
-      location: 'Lagos, Nigeria',
-      rating: 5.0,
-      isFree: true,
-      escrowProtected: true,
-    ),
-    _MarketItem(
-      id: '3',
-      title: 'Full-Stack Next.js 15 & Flutter Starter Kit',
-      sellerName: 'DevPulse Systems',
-      price: 49.99,
-      currencySymbol: '\$',
-      imageUrl: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=600&auto=format&fit=crop',
-      category: 'Digital',
-      location: 'Online Delivery',
-      rating: 4.9,
-      isFree: false,
-      escrowProtected: true,
-    ),
-    _MarketItem(
-      id: '4',
-      title: 'Wireless Active Noise-Cancelling Headphones',
-      sellerName: 'SoundCraft Store',
-      price: 189.99,
-      currencySymbol: '\$',
-      imageUrl: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=600&auto=format&fit=crop',
-      category: 'Electronics',
-      location: 'Abuja, Nigeria',
-      rating: 4.8,
-      isFree: false,
-      escrowProtected: true,
-    ),
-    _MarketItem(
-      id: '5',
-      title: 'Ergonomic Desk & Mechanical RGB Keyboard',
-      sellerName: 'Workspace Outfitters',
-      price: 129.50,
-      currencySymbol: '\$',
-      imageUrl: 'https://images.unsplash.com/photo-1587829741301-dc798b83add3?w=600&auto=format&fit=crop',
-      category: 'Electronics',
-      location: 'Ibadan, Nigeria',
-      rating: 4.7,
-      isFree: false,
-      escrowProtected: true,
-    ),
-    _MarketItem(
-      id: '6',
-      title: 'UI/UX Pro Design System & Figma Tokens',
-      sellerName: 'Creative Studio',
-      price: 29.00,
-      currencySymbol: '\$',
-      imageUrl: 'https://images.unsplash.com/photo-1507238691740-187a5b1d37b8?w=600&auto=format&fit=crop',
-      category: 'Digital',
-      location: 'Online Delivery',
-      rating: 4.9,
-      isFree: false,
-      escrowProtected: true,
-    ),
-  ];
 
   @override
   void dispose() {
@@ -738,7 +658,28 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
     final conversationsState = ref.watch(conversationsProvider);
     final unreadCount = conversationsState.unreadTotal;
 
-    final filteredItems = _allItems.where((item) {
+    final marketState = ref.watch(marketplaceProvider);
+    final allProducts = marketState.products;
+
+    final allMarketItems = allProducts.map((p) {
+      return _MarketItem(
+        id: p.id,
+        title: p.title,
+        sellerName: p.sellerName,
+        price: p.price,
+        currencySymbol: p.symbol,
+        imageUrl: p.images.isNotEmpty
+            ? p.images.first
+            : 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600&auto=format&fit=crop',
+        category: p.category,
+        location: p.location,
+        rating: p.sellerRating,
+        isFree: p.isFree,
+        escrowProtected: p.escrowProtected,
+      );
+    }).toList();
+
+    final filteredItems = allMarketItems.where((item) {
       // Role-specific product isolation:
       if (role == UserRole.creator && item.category.toLowerCase() != 'digital') {
         return false;
@@ -770,7 +711,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
       if (_selectedMainCategory == 'Explore') {
         return true;
       } else if (_selectedMainCategory == 'Digital') {
-        return item.category.toLowerCase() == 'digital';
+        return item.category.toLowerCase() == 'digital' || item.category.toLowerCase().contains('digital') || item.category.toLowerCase().contains('template') || item.category.toLowerCase().contains('ebook');
       } else if (_selectedMainCategory == 'Physical') {
         if (item.category.toLowerCase() == 'digital') return false;
         if (_selectedPhysicalSubCategory == 'All Physical') return true;
@@ -986,138 +927,202 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
 
           // High-Density 2-Column Edge-to-Edge Product Grid (Facebook Style)
           Expanded(
-            child: GridView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                childAspectRatio: 0.82,
-                crossAxisSpacing: 10,
-                mainAxisSpacing: 12,
-              ),
-              itemCount: filteredItems.length,
-              itemBuilder: (context, index) {
-                final item = filteredItems[index];
-                return GestureDetector(
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => ProductDetailScreen(
-                          itemData: {
-                            'id': item.id,
-                            'title': item.title,
-                            'sellerName': item.sellerName,
-                            'price': item.price,
-                            'currencySymbol': item.currencySymbol,
-                            'imageUrl': item.imageUrl,
-                            'category': item.category,
-                            'location': item.location,
-                            'rating': item.rating,
-                            'isFree': item.isFree,
-                            'escrowProtected': item.escrowProtected,
+            child: RefreshIndicator(
+              onRefresh: () async {
+                await ref.read(marketplaceProvider.notifier).fetchProducts();
+              },
+              child: marketState.isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : filteredItems.isEmpty
+                      ? Center(
+                          child: SingleChildScrollView(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            child: Padding(
+                              padding: const EdgeInsets.all(32.0),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.storefront_outlined,
+                                    size: 64,
+                                    color: isDark ? Colors.grey[600] : Colors.grey[400],
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    'No products found',
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                      color: isDark ? Colors.white : Colors.black,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'Try adjusting your search query, location filter, or category.',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: isDark ? Colors.grey[400] : Colors.grey[600],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 20),
+                                  ElevatedButton.icon(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF007AFF),
+                                      foregroundColor: Colors.white,
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                    ),
+                                    onPressed: () {
+                                      setState(() {
+                                        _selectedMainCategory = 'Explore';
+                                        _selectedPhysicalSubCategory = 'All Physical';
+                                        _currentLocation = 'All Locations';
+                                        _searchController.clear();
+                                      });
+                                      ref.read(marketplaceProvider.notifier).fetchProducts();
+                                    },
+                                    icon: const Icon(Icons.refresh_rounded),
+                                    label: const Text('Reset Filters'),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        )
+                      : GridView.builder(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            childAspectRatio: 0.82,
+                            crossAxisSpacing: 10,
+                            mainAxisSpacing: 12,
+                          ),
+                          itemCount: filteredItems.length,
+                          itemBuilder: (context, index) {
+                            final item = filteredItems[index];
+                            return GestureDetector(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => ProductDetailScreen(
+                                      itemData: {
+                                        'id': item.id,
+                                        'title': item.title,
+                                        'sellerName': item.sellerName,
+                                        'price': item.price,
+                                        'currencySymbol': item.currencySymbol,
+                                        'imageUrl': item.imageUrl,
+                                        'category': item.category,
+                                        'location': item.location,
+                                        'rating': item.rating,
+                                        'isFree': item.isFree,
+                                        'escrowProtected': item.escrowProtected,
+                                      },
+                                    ),
+                                  ),
+                                );
+                              },
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: isDark ? const Color(0xFF242526) : Colors.white,
+                                  borderRadius: BorderRadius.circular(12),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(isDark ? 0.3 : 0.04),
+                                      blurRadius: 6,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                clipBehavior: Clip.antiAlias,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    // Cover Image Container
+                                    Expanded(
+                                      child: Stack(
+                                        children: [
+                                          Positioned.fill(
+                                            child: Image.network(
+                                              item.imageUrl,
+                                              fit: BoxFit.cover,
+                                              errorBuilder: (_, __, ___) => Container(
+                                                color: isDark ? const Color(0xFF3A3B3C) : const Color(0xFFE4E6EB),
+                                                child: const Icon(Icons.inventory_2_outlined, color: Colors.grey),
+                                              ),
+                                            ),
+                                          ),
+                                          // Escrow Shield Badge Overlay
+                                          if (item.escrowProtected)
+                                            Positioned(
+                                              top: 8,
+                                              right: 8,
+                                              child: Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.black.withOpacity(0.65),
+                                                  borderRadius: BorderRadius.circular(8),
+                                                ),
+                                                child: const Row(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    Icon(Icons.shield_rounded, color: Color(0xFF34C759), size: 12),
+                                                    SizedBox(width: 3),
+                                                    Text(
+                                                      'Escrow',
+                                                      style: TextStyle(
+                                                        color: Colors.white,
+                                                        fontSize: 10,
+                                                        fontWeight: FontWeight.bold,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+
+                                    // Title & Price Overlay Info (Facebook Marketplace Style)
+                                    Padding(
+                                      padding: const EdgeInsets.all(8.0),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            item.isFree
+                                                ? 'Free · ${item.title}'
+                                                : '${item.currencySymbol}${item.price >= 1000 ? (item.price / 1000).toStringAsFixed(item.price % 1000 == 0 ? 0 : 1) + 'k' : item.price.toStringAsFixed(0)} · ${item.title}',
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.w700,
+                                              fontSize: 14,
+                                              color: isDark ? Colors.white : Colors.black,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            '${item.location} · ★${item.rating}',
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              color: isDark ? Colors.grey[400] : Colors.grey[600],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
                           },
                         ),
-                      ),
-                    );
-                  },
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF242526) : Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(isDark ? 0.3 : 0.04),
-                          blurRadius: 6,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    clipBehavior: Clip.antiAlias,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Cover Image Container
-                        Expanded(
-                          child: Stack(
-                            children: [
-                              Positioned.fill(
-                                child: Image.network(
-                                  item.imageUrl,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) => Container(
-                                    color: isDark ? const Color(0xFF3A3B3C) : const Color(0xFFE4E6EB),
-                                    child: const Icon(Icons.inventory_2_outlined, color: Colors.grey),
-                                  ),
-                                ),
-                              ),
-                              // Escrow Shield Badge Overlay
-                              if (item.escrowProtected)
-                                Positioned(
-                                  top: 8,
-                                  right: 8,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                                    decoration: BoxDecoration(
-                                      color: Colors.black.withOpacity(0.65),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: const Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(Icons.shield_rounded, color: Color(0xFF34C759), size: 12),
-                                        SizedBox(width: 3),
-                                        Text(
-                                          'Escrow',
-                                          style: TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-
-                        // Title & Price Overlay Info (Facebook Marketplace Style)
-                        Padding(
-                          padding: const EdgeInsets.all(8.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                item.isFree
-                                    ? 'Free · ${item.title}'
-                                    : '${item.currencySymbol}${item.price > 1000 ? (item.price / 1000).toStringAsFixed(0) + 'k' : item.price.toStringAsFixed(0)} · ${item.title}',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 14,
-                                  color: isDark ? Colors.white : Colors.black,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                '${item.location} · ★${item.rating}',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: isDark ? Colors.grey[400] : Colors.grey[600],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
             ),
           ),
         ],

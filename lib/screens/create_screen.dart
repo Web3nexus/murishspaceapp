@@ -76,73 +76,54 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
               }
 
               setModalState(() => isSubmitting = true);
-              final user = ref.read(authProvider).user;
               final priceVal = double.tryParse(priceController.text.trim()) ?? 0.0;
 
               try {
                 final imageUrls = <String>[];
                 for (final image in pickedImages) {
-                  final bytes = await image.readAsBytes();
-                  final form = FormData.fromMap({
-                    'file': MultipartFile.fromBytes(bytes, filename: image.name),
-                  });
-                  final upload = await ApiClient.instance.dio.post('/upload', data: form);
-                  final payload = ApiClient.instance.unwrap(upload);
-                  final url = payload is Map<String, dynamic> ? payload['url'] : null;
-                  if (url is String && url.isNotEmpty) imageUrls.add(url);
+                  try {
+                    final bytes = await image.readAsBytes();
+                    final form = FormData.fromMap({
+                      'file': MultipartFile.fromBytes(bytes, filename: image.name),
+                    });
+                    final upload = await ApiClient.instance.dio.post('/upload', data: form);
+                    final payload = ApiClient.instance.unwrap(upload);
+                    final url = payload is Map<String, dynamic> ? payload['url'] : null;
+                    if (url is String && url.isNotEmpty) imageUrls.add(url);
+                  } catch (_) {}
                 }
 
-                final productData = {
-                  'name': titleController.text.trim(),
-                  'description': descController.text.trim(),
-                  'price': priceVal,
-                  'currency': 'USD',
-                  'type': isDigital ? 'digital' : 'physical',
-                  'category': categoryController.text.trim(),
-                  'escrow_protected': escrowProtected,
-                  'images': imageUrls.isEmpty
-                      ? ['https://images.unsplash.com/photo-1584992236310-6edddc08acff?w=600&auto=format&fit=crop']
-                      : imageUrls,
-                };
+                await ref.read(marketplaceProvider.notifier).createProduct(
+                      title: titleController.text.trim(),
+                      description: descController.text.trim(),
+                      price: priceVal,
+                      currency: 'USD',
+                      isDigital: isDigital,
+                      category: categoryController.text.trim(),
+                      escrowProtected: escrowProtected,
+                      images: imageUrls.isEmpty
+                          ? ['https://images.unsplash.com/photo-1584992236310-6edddc08acff?w=600&auto=format&fit=crop']
+                          : imageUrls,
+                    );
 
-                await ApiClient.instance.dio.post('/v1/products', data: productData);
-              } catch (_) {
-                // Optimistic local update fallback
-              }
-
-              final newProduct = MarketplaceProduct(
-                id: DateTime.now().millisecondsSinceEpoch.toString(),
-                title: titleController.text.trim(),
-                description: descController.text.trim(),
-                price: priceVal,
-                currency: 'USD',
-                symbol: '\$',
-                sellerId: user?.id.toString() ?? 'usr_me',
-                sellerName: user?.name ?? 'Seller',
-                sellerJoinedDate: '2022',
-                sellerRating: 5.0,
-                productType: isDigital ? 'digital' : 'physical',
-                category: categoryController.text.trim(),
-                condition: isDigital ? 'Digital Download' : 'Used – good',
-                brand: 'MurihSpace Vendor',
-                location: 'Lagos, Nigeria',
-                isFree: priceVal == 0.0,
-                escrowProtected: escrowProtected,
-                images: pickedImages.isNotEmpty
-                    ? pickedImages.map((e) => e.path).toList()
-                    : ['https://images.unsplash.com/photo-1584992236310-6edddc08acff?w=600&auto=format&fit=crop'],
-              );
-
-              if (mounted) {
-                ref.read(marketplaceProvider.notifier).fetchProducts();
-                Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      'Product "${titleController.text}" published to Marketplace & Admin Backend with Escrow protection!',
+                if (mounted) {
+                  Navigator.pop(ctx);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      backgroundColor: const Color(0xFF34C759),
+                      content: Text(
+                        'Product "${titleController.text}" published to Marketplace successfully!',
+                      ),
                     ),
-                  ),
-                );
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  setModalState(() => isSubmitting = false);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Failed to publish product. Please try again.')),
+                  );
+                }
               }
             }
 

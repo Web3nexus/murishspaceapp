@@ -49,29 +49,65 @@ class MarketplaceProduct {
 
   factory MarketplaceProduct.fromJson(Map<String, dynamic> json) {
     final currencyStr = json['currency'] as String? ?? 'USD';
-    final symbolStr = currencyStr == 'NGN' ? '₦' : (currencyStr == 'EUR' ? '€' : (currencyStr == 'GBP' ? '£' : '\$'));
+    final symbolStr = json['symbol'] as String? ?? (currencyStr == 'NGN' ? '₦' : (currencyStr == 'EUR' ? '€' : (currencyStr == 'GBP' ? '£' : '\$')));
     final priceVal = (json['price'] as num?)?.toDouble() ?? 0.0;
+
+    List<String> imageList = [];
+    if (json['images'] is List) {
+      imageList = (json['images'] as List<dynamic>).map((e) => e.toString()).toList();
+    } else if (json['cover_url'] is String && (json['cover_url'] as String).isNotEmpty) {
+      imageList = [json['cover_url'] as String];
+    } else if (json['thumbnail'] is String && (json['thumbnail'] as String).isNotEmpty) {
+      imageList = [json['thumbnail'] as String];
+    }
+
+    final creator = json['creator'] is Map<String, dynamic> ? json['creator'] as Map<String, dynamic> : null;
+    final seller = json['seller'] is Map<String, dynamic> ? json['seller'] as Map<String, dynamic> : null;
+
+    final sId = json['sellerId']?.toString() ??
+        seller?['id']?.toString() ??
+        creator?['id']?.toString() ??
+        json['creator_id']?.toString() ??
+        json['user_id']?.toString() ??
+        '1';
+
+    final sName = json['sellerName'] as String? ??
+        seller?['name'] as String? ??
+        creator?['name'] as String? ??
+        json['seller_name'] as String? ??
+        'Creator';
+
+    final sAvatar = json['sellerAvatar'] as String? ??
+        seller?['avatar_url'] as String? ??
+        seller?['avatar'] as String? ??
+        creator?['avatar_url'] as String? ??
+        creator?['avatar'] as String? ??
+        json['seller_avatar'] as String?;
+
+    final sJoined = json['sellerJoinedDate'] as String? ??
+        json['seller_joined'] as String? ??
+        (creator?['created_at'] != null ? creator!['created_at'].toString().substring(0, 4) : '2024');
 
     return MarketplaceProduct(
       id: json['id']?.toString() ?? '',
-      title: json['name'] as String? ?? json['title'] as String? ?? 'Product Item',
+      title: json['title'] as String? ?? json['name'] as String? ?? 'Product Item',
       description: json['description'] as String? ?? '',
       price: priceVal,
       currency: currencyStr,
       symbol: symbolStr,
-      sellerId: json['seller']?['id']?.toString() ?? json['user_id']?.toString() ?? 'usr_1',
-      sellerName: json['seller']?['name'] as String? ?? json['seller_name'] as String? ?? 'Seller',
-      sellerAvatar: json['seller']?['avatar_url'] as String? ?? json['seller_avatar'] as String?,
-      sellerJoinedDate: json['seller_joined'] as String? ?? '2021',
-      sellerRating: (json['seller_rating'] as num?)?.toDouble() ?? 4.9,
+      sellerId: sId,
+      sellerName: sName,
+      sellerAvatar: sAvatar,
+      sellerJoinedDate: sJoined,
+      sellerRating: (json['sellerRating'] as num?)?.toDouble() ?? (json['seller_rating'] as num?)?.toDouble() ?? 4.9,
       productType: json['product_type'] as String? ?? json['type'] as String? ?? 'physical',
       category: json['category'] as String? ?? 'General',
-      condition: json['condition'] as String? ?? 'Used – good',
-      brand: json['brand'] as String? ?? 'Standard',
-      location: json['location'] as String? ?? 'Lagos, Nigeria',
-      isFree: priceVal == 0.0,
+      condition: json['condition'] as String? ?? (json['product_type'] == 'digital' ? 'Digital Asset' : 'Brand new'),
+      brand: json['brand'] as String? ?? 'MurihSpace',
+      location: json['location'] as String? ?? 'Global',
+      isFree: json['is_free'] as bool? ?? (priceVal == 0.0),
       escrowProtected: json['escrow_protected'] as bool? ?? true,
-      images: (json['images'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [json['thumbnail'] as String? ?? ''],
+      images: imageList,
       attributes: (json['attributes'] as Map<String, dynamic>?)?.map((k, v) => MapEntry(k, v.toString())) ?? {},
       createdAt: json['created_at'] != null ? (DateTime.tryParse(json['created_at'].toString()) ?? DateTime.now()) : DateTime.now(),
     );

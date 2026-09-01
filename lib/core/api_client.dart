@@ -101,19 +101,9 @@ class ApiClient {
 
   // ── Token & Onboarding storage ────────────────────────────────
   static const aiOnboardingCompletedKey = 'murihspace_ai_onboarding_completed';
-  static const userProfileKey = 'murihspace_user_profile';
-  static const savedAccountsKey = 'murihspace_saved_accounts';
-
   static Future<String?> readToken() => _secureStorage.read(key: tokenKey);
   static Future<void> saveToken(String token) => _secureStorage.write(key: tokenKey, value: token);
   static Future<void> clearToken() => _secureStorage.delete(key: tokenKey);
-
-  static Future<String?> readUserProfile() => _secureStorage.read(key: userProfileKey);
-  static Future<void> saveUserProfile(String userJson) => _secureStorage.write(key: userProfileKey, value: userJson);
-  static Future<void> clearUserProfile() => _secureStorage.delete(key: userProfileKey);
-
-  static Future<String?> readSavedAccounts() => _secureStorage.read(key: savedAccountsKey);
-  static Future<void> saveSavedAccounts(String accountsJson) => _secureStorage.write(key: savedAccountsKey, value: accountsJson);
 
   static Future<String?> readAiOnboardingCompleted() => _secureStorage.read(key: aiOnboardingCompletedKey);
   static Future<void> saveAiOnboardingCompleted() => _secureStorage.write(key: aiOnboardingCompletedKey, value: 'true');
