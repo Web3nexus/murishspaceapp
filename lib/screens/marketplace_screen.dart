@@ -271,7 +271,9 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
                                               borderRadius: BorderRadius.circular(10),
                                             ),
                                           ),
-                                          onPressed: () {
+                                          onPressed: () async {
+                                            final allowed = await ref.read(permissionsProvider.notifier).ensureLocation(context);
+                                            if (!allowed) return;
                                             setModalState(() {
                                               pinPos = const Offset(160, 65);
                                               tempLoc = 'Lagos, Nigeria';

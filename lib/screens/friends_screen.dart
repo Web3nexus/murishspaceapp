@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../components/app_bottom_sheet.dart';
 import '../core/contacts_service.dart';
+import '../core/permissions_service.dart';
 import '../providers/auth_provider.dart';
 import '../providers/chat_provider.dart';
 import '../providers/community_provider.dart';
@@ -56,16 +57,12 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
   }
 
   void _showContactPermissionDialog() async {
-    final confirm = await AppBottomSheet.showConfirmation(
-      context: context,
-      title: 'Sync Contacts',
-      message: 'MurihSpace will securely match your phone contacts to help you find friends, vendors, and creators you already know.\n\nYour contacts are encrypted and never shared.',
-      confirmText: 'Sync Contacts',
-      cancelText: 'Not Now',
-      icon: Icons.contacts_rounded,
-    );
+    final granted = await ref.read(permissionsProvider.notifier).ensureContacts(context);
+    if (!granted) return;
 
-    if (confirm == true && mounted) {
+    await ContactsService.instance.requestPermission();
+
+    if (mounted) {
       setState(() => _isSyncingContacts = true);
       final contacts = await ContactsService.instance.syncContacts();
       if (mounted) {
@@ -75,7 +72,10 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
           _matchedContacts = contacts;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Found ${contacts.length} registered contacts!')),
+          SnackBar(
+            content: Text('Found ${contacts.length} registered contacts on MurihSpace!'),
+            backgroundColor: const Color(0xFF34C759),
+          ),
         );
       }
     }

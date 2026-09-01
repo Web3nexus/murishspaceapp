@@ -173,6 +173,24 @@ class SecuritySettingsScreen extends ConsumerWidget {
               );
             },
           ),
+          ListTile(
+            leading: const Icon(Icons.contacts_outlined, color: Color(0xFFF09A3E)),
+            title: const Text('Contacts & Address Book'),
+            subtitle: Text(permissions.contactsGranted ? 'Allowed' : 'Tap to enable'),
+            trailing: Icon(
+              permissions.contactsGranted ? Icons.check_circle_rounded : Icons.chevron_right,
+              color: permissions.contactsGranted ? Colors.green : null,
+            ),
+            onTap: () {
+              ref.read(permissionsProvider.notifier).showPermissionRationaleSheet(
+                context: context,
+                title: 'Enable Contacts Access',
+                description: 'Required to discover phone contacts who are already on MurihSpace and connect seamlessly.',
+                icon: Icons.contacts_rounded,
+                type: AppPermissionType.contacts,
+              );
+            },
+          ),
 
           const Divider(height: 32),
 

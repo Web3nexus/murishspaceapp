@@ -7,6 +7,7 @@ enum AppPermissionType {
   camera,
   microphone,
   photos,
+  contacts,
   location,
   biometrics,
 }
@@ -16,6 +17,7 @@ class PermissionStatusState {
   final bool cameraGranted;
   final bool microphoneGranted;
   final bool photosGranted;
+  final bool contactsGranted;
   final bool locationGranted;
   final bool biometricsGranted;
 
@@ -24,6 +26,7 @@ class PermissionStatusState {
     this.cameraGranted = false,
     this.microphoneGranted = false,
     this.photosGranted = false,
+    this.contactsGranted = false,
     this.locationGranted = false,
     this.biometricsGranted = false,
   });
@@ -33,6 +36,7 @@ class PermissionStatusState {
     bool? cameraGranted,
     bool? microphoneGranted,
     bool? photosGranted,
+    bool? contactsGranted,
     bool? locationGranted,
     bool? biometricsGranted,
   }) {
@@ -41,6 +45,7 @@ class PermissionStatusState {
       cameraGranted: cameraGranted ?? this.cameraGranted,
       microphoneGranted: microphoneGranted ?? this.microphoneGranted,
       photosGranted: photosGranted ?? this.photosGranted,
+      contactsGranted: contactsGranted ?? this.contactsGranted,
       locationGranted: locationGranted ?? this.locationGranted,
       biometricsGranted: biometricsGranted ?? this.biometricsGranted,
     );
@@ -52,6 +57,7 @@ class PermissionsNotifier extends Notifier<PermissionStatusState> {
   static const String _cameraKey = 'perm_camera_prompted';
   static const String _micKey = 'perm_mic_prompted';
   static const String _photosKey = 'perm_photos_prompted';
+  static const String _contactsKey = 'perm_contacts_prompted';
   static const String _locationKey = 'perm_location_prompted';
 
   @override
@@ -67,6 +73,7 @@ class PermissionsNotifier extends Notifier<PermissionStatusState> {
       cameraGranted: prefs.getBool(_cameraKey) ?? false,
       microphoneGranted: prefs.getBool(_micKey) ?? false,
       photosGranted: prefs.getBool(_photosKey) ?? false,
+      contactsGranted: prefs.getBool(_contactsKey) ?? false,
       locationGranted: prefs.getBool(_locationKey) ?? false,
     );
   }
@@ -89,6 +96,10 @@ class PermissionsNotifier extends Notifier<PermissionStatusState> {
       case AppPermissionType.photos:
         await prefs.setBool(_photosKey, true);
         state = state.copyWith(photosGranted: true);
+        return true;
+      case AppPermissionType.contacts:
+        await prefs.setBool(_contactsKey, true);
+        state = state.copyWith(contactsGranted: true);
         return true;
       case AppPermissionType.location:
         await prefs.setBool(_locationKey, true);
@@ -237,6 +248,17 @@ class PermissionsNotifier extends Notifier<PermissionStatusState> {
       description: 'MurihSpace needs microphone access to record voice notes and participate in live audio spaces.',
       icon: Icons.mic_rounded,
       type: AppPermissionType.microphone,
+    );
+  }
+
+  Future<bool> ensureContacts(BuildContext context) async {
+    if (state.contactsGranted) return true;
+    return showPermissionRationaleSheet(
+      context: context,
+      title: 'Contacts Sync & Discovery',
+      description: 'MurihSpace securely hashes and matches your address book to connect you with friends, creators, and vendors already on the platform.',
+      icon: Icons.contacts_rounded,
+      type: AppPermissionType.contacts,
     );
   }
 

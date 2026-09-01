@@ -83,6 +83,10 @@
 	<string>MurihSpace requires access to your microphone to record audio messages and join live audio rooms.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>MurihSpace uses your location to discover nearby marketplace listings, communities, and show local deals.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>MurihSpace uses your location to discover nearby marketplace listings, communities, and show local deals.</string>
+	<key>NSContactsUsageDescription</key>
+	<string>MurihSpace uses your contacts to help you find and connect with friends, creators, and vendors you know.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>MurihSpace needs permission to save images, receipts, and media to your photo library.</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
