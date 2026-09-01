@@ -67,6 +67,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   }
 
   Widget _formView() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textPrimary = DesignTokens.textPrimaryOf(isDark);
+    final textSecondary = DesignTokens.textSecondaryOf(isDark);
+
     return Form(
       key: _formKey,
       child: Column(
@@ -74,15 +78,15 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         children: [
           const Icon(Icons.lock_reset, size: 56, color: DesignTokens.primary),
           const SizedBox(height: 20),
-          const Text(
+          Text(
             'Reset your password',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: DesignTokens.textPrimary),
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: textPrimary),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             'Enter your email address and we will send you a secure link to choose a new password.',
-            style: TextStyle(color: DesignTokens.textSecondary, height: 1.4),
+            style: TextStyle(color: textSecondary, height: 1.4),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 28),

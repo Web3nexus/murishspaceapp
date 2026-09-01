@@ -68,8 +68,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = isDark ? const Color(0xFF081826) : Colors.white;
+    final textPrimary = isDark ? Colors.white : const Color(0xFF102840);
+    final textSecondary = isDark ? const Color(0xFF94A3B8) : const Color(0xFF61758A);
+
     return Scaffold(
-      backgroundColor: DesignTokens.background,
+      backgroundColor: bg,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -78,7 +83,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               const Spacer(flex: 2),
 
               // App Icon / Logo
-              const BrandLogo(height: 60),
+              BrandLogo(height: 60, isDark: isDark),
               const SizedBox(height: 24),
 
               // Headline
@@ -87,7 +92,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 style: TextStyle(
                   fontSize: 26,
                   fontWeight: FontWeight.w900,
-                  color: DesignTokens.textPrimary,
+                  color: textPrimary,
                   height: 1.2,
                   letterSpacing: -0.5,
                 ),
@@ -96,9 +101,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               const SizedBox(height: 12),
               Text(
                 'Connect Safely.',
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 17,
-                  fontWeight: FontWeight.w500,
+                  fontWeight: FontWeight.w600,
                   color: DesignTokens.primary,
                 ),
                 textAlign: TextAlign.center,
@@ -112,14 +117,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 text: TextSpan(
                   style: TextStyle(
                     fontSize: 13,
-                    color: DesignTokens.textSecondary,
+                    color: textSecondary,
                     height: 1.6,
                   ),
                   children: [
                     const TextSpan(text: 'Read our '),
                     TextSpan(
                       text: 'Privacy Policy',
-                      style: TextStyle(
+                      style: const TextStyle(
                         color: DesignTokens.primary,
                         fontWeight: FontWeight.w600,
                         decoration: TextDecoration.underline,
@@ -131,7 +136,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     ),
                     TextSpan(
                       text: 'Terms of Service',
-                      style: TextStyle(
+                      style: const TextStyle(
                         color: DesignTokens.primary,
                         fontWeight: FontWeight.w600,
                         decoration: TextDecoration.underline,
@@ -148,6 +153,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               FilledButton(
                 onPressed: () => _agreeAndContinue(context),
                 style: FilledButton.styleFrom(
+                  backgroundColor: DesignTokens.primary,
+                  foregroundColor: Colors.white,
                   minimumSize: const Size(double.infinity, 52),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
@@ -168,8 +175,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   'Already have an account? Sign in',
                   style: TextStyle(
                     fontSize: 14,
-                    color: DesignTokens.textSecondary,
-                    fontWeight: FontWeight.w500,
+                    color: textSecondary,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),

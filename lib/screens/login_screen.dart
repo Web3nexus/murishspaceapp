@@ -196,6 +196,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       });
     }
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textPrimary = DesignTokens.textPrimaryOf(isDark);
+    final textSecondary = DesignTokens.textSecondaryOf(isDark);
+    final surface = DesignTokens.surfaceOf(isDark);
+    final border = DesignTokens.borderOf(isDark);
+
     return Scaffold(
       body: SafeArea(
         child: Center(
@@ -205,21 +211,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const BrandLogo(height: 42),
+                BrandLogo(height: 42, isDark: isDark),
                 const SizedBox(height: 24),
-                const Text(
+                Text(
                   'Connect Safely.',
                   style: TextStyle(
                     fontSize: 32,
                     fontWeight: FontWeight.w900,
-                    color: DesignTokens.textPrimary,
+                    color: textPrimary,
                   ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 8),
                 Text(
                   _tabIndex == 0 ? 'We\'ll text you a code to verify it\'s you.' : 'Enter your credentials to access your account.',
-                  style: const TextStyle(color: DesignTokens.textSecondary, fontSize: 15),
+                  style: TextStyle(color: textSecondary, fontSize: 15),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 32),
@@ -229,9 +235,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   Container(
                     padding: const EdgeInsets.all(4),
                     decoration: BoxDecoration(
-                      color: DesignTokens.surface,
+                      color: surface,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: DesignTokens.border),
+                      border: Border.all(color: border),
                     ),
                     child: Row(
                       children: [
@@ -253,7 +259,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
-                                  color: _tabIndex == 0 ? Colors.white : DesignTokens.textSecondary,
+                                  color: _tabIndex == 0 ? Colors.white : textSecondary,
                                 ),
                               ),
                             ),
@@ -277,7 +283,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
-                                  color: _tabIndex == 1 ? Colors.white : DesignTokens.textSecondary,
+                                  color: _tabIndex == 1 ? Colors.white : textSecondary,
                                 ),
                               ),
                             ),
@@ -409,6 +415,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Widget _buildOtpForm(bool loading) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textPrimary = DesignTokens.textPrimaryOf(isDark);
+    final border = DesignTokens.borderOf(isDark);
+    final surface = DesignTokens.surfaceOf(isDark);
+
     return Form(
       key: _otpFormKey,
       child: Column(
@@ -440,21 +451,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             defaultPinTheme: PinTheme(
               width: 48,
               height: 56,
-              textStyle: const TextStyle(fontSize: 22, color: DesignTokens.textPrimary, fontWeight: FontWeight.w600),
+              textStyle: TextStyle(fontSize: 22, color: textPrimary, fontWeight: FontWeight.w600),
               decoration: BoxDecoration(
-                border: Border.all(color: DesignTokens.border),
+                border: Border.all(color: border),
                 borderRadius: BorderRadius.circular(12),
-                color: DesignTokens.surface,
+                color: surface,
               ),
             ),
             focusedPinTheme: PinTheme(
               width: 48,
               height: 56,
-              textStyle: const TextStyle(fontSize: 22, color: DesignTokens.textPrimary, fontWeight: FontWeight.w600),
+              textStyle: TextStyle(fontSize: 22, color: textPrimary, fontWeight: FontWeight.w600),
               decoration: BoxDecoration(
                 border: Border.all(color: DesignTokens.primary, width: 2),
                 borderRadius: BorderRadius.circular(12),
-                color: DesignTokens.surface,
+                color: surface,
               ),
             ),
             onChanged: (_) {

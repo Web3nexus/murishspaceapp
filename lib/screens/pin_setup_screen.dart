@@ -54,14 +54,15 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final defaultPinTheme = PinTheme(
       width: 56,
       height: 56,
-      textStyle: const TextStyle(fontSize: 22, color: DesignTokens.textPrimary, fontWeight: FontWeight.w600),
+      textStyle: TextStyle(fontSize: 22, color: DesignTokens.textPrimaryOf(isDark), fontWeight: FontWeight.w600),
       decoration: BoxDecoration(
-        border: Border.all(color: DesignTokens.border),
+        border: Border.all(color: DesignTokens.borderOf(isDark)),
         borderRadius: BorderRadius.circular(12),
-        color: DesignTokens.surface,
+        color: DesignTokens.surfaceOf(isDark),
       ),
     );
 

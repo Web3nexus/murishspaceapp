@@ -7,78 +7,80 @@ import '../providers/auth_provider.dart';
 /// MurihSpace brand asset paths organized by role
 abstract final class BrandAssets {
   // Member role logos
-  static const String memberLogoBlue = 'assets/images/brand/member-logo-light.png';
-  static const String memberLogoWhite = 'assets/images/brand/member-logo-dark.png';
-  static const String memberIconBlue = 'assets/images/brand/member-icon-light.png';
-  static const String memberIconWhite = 'assets/images/brand/member-icon-dark.png';
+  // (*-dark.png has dark/navy text for light backgrounds)
+  // (*-light.png has white/light text for dark backgrounds)
+  static const String memberLogoDark = 'assets/images/brand/member-logo-dark.png';
+  static const String memberLogoLight = 'assets/images/brand/member-logo-light.png';
+  static const String memberIconDark = 'assets/images/brand/member-icon-dark.png';
+  static const String memberIconLight = 'assets/images/brand/member-icon-light.png';
 
   // Creator role logos
-  static const String creatorLogoBlue = 'assets/images/brand/creator-logo-light.png';
-  static const String creatorLogoWhite = 'assets/images/brand/creator-logo-dark.png';
-  static const String creatorIconBlue = 'assets/images/brand/creator-icon-light.png';
-  static const String creatorIconWhite = 'assets/images/brand/creator-icon-dark.png';
+  static const String creatorLogoDark = 'assets/images/brand/creator-logo-dark.png';
+  static const String creatorLogoLight = 'assets/images/brand/creator-logo-light.png';
+  static const String creatorIconDark = 'assets/images/brand/creator-icon-dark.png';
+  static const String creatorIconLight = 'assets/images/brand/creator-icon-light.png';
 
   // Vendor/Business role logos
-  static const String vendorLogoBlue = 'assets/images/brand/vendor-logo-light.png';
-  static const String vendorLogoWhite = 'assets/images/brand/vendor-logo-dark.png';
-  static const String vendorIconBlue = 'assets/images/brand/vendor-icon-light.png';
-  static const String vendorIconWhite = 'assets/images/brand/vendor-icon-dark.png';
+  static const String vendorLogoDark = 'assets/images/brand/vendor-logo-dark.png';
+  static const String vendorLogoLight = 'assets/images/brand/vendor-logo-light.png';
+  static const String vendorIconDark = 'assets/images/brand/vendor-icon-dark.png';
+  static const String vendorIconLight = 'assets/images/brand/vendor-icon-light.png';
 
   // Admin role logos
-  static const String adminLogoBlue = 'assets/images/brand/admin-logo-light.png';
-  static const String adminLogoWhite = 'assets/images/brand/admin-logo-dark.png';
-  static const String adminIconBlue = 'assets/images/brand/admin-icon-light.png';
-  static const String adminIconWhite = 'assets/images/brand/admin-icon-dark.png';
+  static const String adminLogoDark = 'assets/images/brand/admin-logo-dark.png';
+  static const String adminLogoLight = 'assets/images/brand/admin-logo-light.png';
+  static const String adminIconDark = 'assets/images/brand/admin-icon-dark.png';
+  static const String adminIconLight = 'assets/images/brand/admin-icon-light.png';
 
-  // Fallback/Legacy assets
-  static const String logoBlue = 'assets/images/brand/logo_blue.png';
-  static const String logoWhite = 'assets/images/brand/logo_white.png';
-  static const String iconBlue = 'assets/images/brand/icon_blue.png';
-  static const String iconWhite = 'assets/images/brand/icon_white.png';
+  // Fallback/Legacy assets (logo_white has dark text, logo_blue has light text)
+  static const String logoDark = 'assets/images/brand/logo_white.png';
+  static const String logoLight = 'assets/images/brand/logo_blue.png';
+  static const String iconDark = 'assets/images/brand/icon_white.png';
+  static const String iconLight = 'assets/images/brand/icon_blue.png';
 
-  /// Get logo path for a specific role (dark variant)
+  /// Get logo path for dark backgrounds (returns light/white logo)
   static String getLogoDark(UserRole role) {
     return switch (role) {
-      UserRole.creator => creatorLogoWhite,
-      UserRole.vendor => vendorLogoWhite,
-      UserRole.admin => adminLogoWhite,
-      UserRole.member => memberLogoWhite,
+      UserRole.creator => creatorLogoLight,
+      UserRole.vendor => vendorLogoLight,
+      UserRole.admin => adminLogoLight,
+      UserRole.member => memberLogoLight,
     };
   }
 
-  /// Get logo path for a specific role (light variant)
+  /// Get logo path for light backgrounds (returns dark/navy logo)
   static String getLogoLight(UserRole role) {
     return switch (role) {
-      UserRole.creator => creatorLogoBlue,
-      UserRole.vendor => vendorLogoBlue,
-      UserRole.admin => adminLogoBlue,
-      UserRole.member => memberLogoBlue,
+      UserRole.creator => creatorLogoDark,
+      UserRole.vendor => vendorLogoDark,
+      UserRole.admin => adminLogoDark,
+      UserRole.member => memberLogoDark,
     };
   }
 
-  /// Get icon path for a specific role (dark variant)
+  /// Get icon path for dark backgrounds (returns light/white icon)
   static String getIconDark(UserRole role) {
     return switch (role) {
-      UserRole.creator => creatorIconWhite,
-      UserRole.vendor => vendorIconWhite,
-      UserRole.admin => adminIconWhite,
-      UserRole.member => memberIconWhite,
+      UserRole.creator => creatorIconLight,
+      UserRole.vendor => vendorIconLight,
+      UserRole.admin => adminIconLight,
+      UserRole.member => memberIconLight,
     };
   }
 
-  /// Get icon path for a specific role (light variant)
+  /// Get icon path for light backgrounds (returns dark/navy icon)
   static String getIconLight(UserRole role) {
     return switch (role) {
-      UserRole.creator => creatorIconBlue,
-      UserRole.vendor => vendorIconBlue,
-      UserRole.admin => adminIconBlue,
-      UserRole.member => memberIconBlue,
+      UserRole.creator => creatorIconDark,
+      UserRole.vendor => vendorIconDark,
+      UserRole.admin => adminIconDark,
+      UserRole.member => memberIconDark,
     };
   }
 }
 
 /// The full horizontal MurihSpace logo wordmark. Picks the variant that matches
-/// the current theme brightness (blue on light, white on dark).
+/// the current theme brightness (dark on light, white on dark).
 /// Automatically auto-detects the logged-in user's role (creator, vendor, member, admin).
 class BrandLogo extends ConsumerWidget {
   final double height;
@@ -108,7 +110,7 @@ class BrandLogo extends ConsumerWidget {
       errorBuilder: (context, error, stackTrace) {
         // Fallback to standard logo if role-specific asset not found
         return Image.asset(
-          dark ? BrandAssets.logoWhite : BrandAssets.logoBlue,
+          dark ? BrandAssets.logoLight : BrandAssets.logoDark,
           height: height,
           fit: BoxFit.contain,
         );
@@ -148,7 +150,7 @@ class BrandIcon extends ConsumerWidget {
       errorBuilder: (context, error, stackTrace) {
         // Fallback to standard icon if role-specific asset not found
         return Image.asset(
-          dark ? BrandAssets.iconWhite : BrandAssets.iconBlue,
+          dark ? BrandAssets.iconLight : BrandAssets.iconDark,
           width: size,
           height: size,
           fit: BoxFit.contain,
@@ -174,17 +176,17 @@ class BrandFavicon extends StatelessWidget {
     final themeDark = Theme.of(context).brightness == Brightness.dark;
     final dark = isDark ?? themeDark;
     return Image.asset(
-      dark ? BrandAssets.iconWhite : BrandAssets.iconBlue,
+      dark ? BrandAssets.iconLight : BrandAssets.iconDark,
       width: size,
       height: size,
       fit: BoxFit.contain,
       errorBuilder: (context, error, stackTrace) {
         return Image.asset(
-          dark ? BrandAssets.memberIconWhite : BrandAssets.memberIconBlue,
+          dark ? BrandAssets.memberIconLight : BrandAssets.memberIconDark,
           width: size,
           height: size,
           fit: BoxFit.contain,
-          errorBuilder: (_, __, ___) => Icon(
+          errorBuilder: (context, error, stackTrace) => Icon(
             Icons.chat_bubble_rounded,
             size: size,
             color: const Color(0xFF007AFF),

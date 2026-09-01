@@ -314,6 +314,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       _ => '',
     };
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
       appBar: AppBar(
         leading: _step > 1
@@ -352,18 +354,18 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.w900,
-                      color: DesignTokens.navy,
+                      color: DesignTokens.textPrimaryOf(isDark),
                     ),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 8),
                   Text(
                     subtitle,
-                    style: const TextStyle(
-                      color: DesignTokens.textSecondary,
+                    style: TextStyle(
+                      color: DesignTokens.textSecondaryOf(isDark),
                       fontSize: 14,
                     ),
                     textAlign: TextAlign.center,
@@ -487,21 +489,21 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               defaultPinTheme: PinTheme(
                 width: 48,
                 height: 56,
-                textStyle: const TextStyle(fontSize: 22, color: DesignTokens.textPrimary, fontWeight: FontWeight.w600),
+                textStyle: TextStyle(fontSize: 22, color: DesignTokens.textPrimaryOf(Theme.of(context).brightness == Brightness.dark), fontWeight: FontWeight.w600),
                 decoration: BoxDecoration(
-                  border: Border.all(color: DesignTokens.border),
+                  border: Border.all(color: DesignTokens.borderOf(Theme.of(context).brightness == Brightness.dark)),
                   borderRadius: BorderRadius.circular(12),
-                  color: DesignTokens.surface,
+                  color: DesignTokens.surfaceOf(Theme.of(context).brightness == Brightness.dark),
                 ),
               ),
               focusedPinTheme: PinTheme(
                 width: 48,
                 height: 56,
-                textStyle: const TextStyle(fontSize: 22, color: DesignTokens.textPrimary, fontWeight: FontWeight.w600),
+                textStyle: TextStyle(fontSize: 22, color: DesignTokens.textPrimaryOf(Theme.of(context).brightness == Brightness.dark), fontWeight: FontWeight.w600),
                 decoration: BoxDecoration(
                   border: Border.all(color: DesignTokens.primary, width: 2),
                   borderRadius: BorderRadius.circular(12),
-                  color: DesignTokens.surface,
+                  color: DesignTokens.surfaceOf(Theme.of(context).brightness == Brightness.dark),
                 ),
               ),
               onChanged: (_) {
@@ -764,7 +766,7 @@ class _RoleChip extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
-                  color: selected ? Colors.white : DesignTokens.textPrimary,
+                  color: selected ? Colors.white : DesignTokens.textPrimaryOf(Theme.of(context).brightness == Brightness.dark),
                 ),
               ),
             ],
