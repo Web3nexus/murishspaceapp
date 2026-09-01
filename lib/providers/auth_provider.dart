@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart' show defaultTargetPlatform, kIsWeb, TargetPlatform;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -18,7 +19,13 @@ class UserProfile {
   final bool emailVerified;
   final bool onboardingCompleted;
   final String? bannerUrl;
+  final String? avatarUrl;
   final String? bio;
+  final String? phone;
+  final DateTime? birthday;
+  final String? country;
+  final String? county;
+  final String? state;
   final int postsCount;
   final int followersCount;
   final int followingCount;
@@ -37,7 +44,13 @@ class UserProfile {
     required this.emailVerified,
     this.onboardingCompleted = false,
     this.bannerUrl,
+    this.avatarUrl,
     this.bio,
+    this.phone,
+    this.birthday,
+    this.country,
+    this.county,
+    this.state,
     this.postsCount = 0,
     this.followersCount = 0,
     this.followingCount = 0,
@@ -48,8 +61,13 @@ class UserProfile {
   });
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
+    DateTime? parsedBirthday;
+    if (json['birthday'] != null) {
+      parsedBirthday = DateTime.tryParse(json['birthday'].toString());
+    }
+
     return UserProfile(
-      id: (json['id'] as num).toInt(),
+      id: (json['id'] as num?)?.toInt() ?? 0,
       name: json['name'] as String? ?? '',
       email: json['email'] as String? ?? '',
       username: json['username'] as String? ?? '',
@@ -58,7 +76,13 @@ class UserProfile {
       emailVerified: json['email_verified'] as bool? ?? false,
       onboardingCompleted: json['onboarding_completed'] as bool? ?? json['ai_onboarding_completed'] as bool? ?? false,
       bannerUrl: json['banner_url'] as String? ?? json['cover_image'] as String?,
+      avatarUrl: json['avatar_url'] as String? ?? json['avatar'] as String?,
       bio: json['bio'] as String?,
+      phone: json['mobile_number'] as String? ?? json['phone'] as String?,
+      birthday: parsedBirthday,
+      country: json['country'] as String?,
+      county: json['county'] as String?,
+      state: json['state'] as String?,
       postsCount: (json['posts_count'] as num?)?.toInt() ?? (json['postsCount'] as num?)?.toInt() ?? 0,
       followersCount: (json['followers_count'] as num?)?.toInt() ?? (json['followersCount'] as num?)?.toInt() ?? 0,
       followingCount: (json['following_count'] as num?)?.toInt() ?? (json['followingCount'] as num?)?.toInt() ?? 0,
@@ -67,6 +91,35 @@ class UserProfile {
       isOnline: json['is_online'] as bool? ?? json['isOnline'] as bool? ?? true,
       lastSeen: json['last_seen'] as String? ?? json['lastSeen'] as String? ?? 'online',
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'email': email,
+      'username': username,
+      'role': role.apiValue,
+      'kyc_status': kycStatus,
+      'email_verified': emailVerified,
+      'onboarding_completed': onboardingCompleted,
+      'banner_url': bannerUrl,
+      'avatar_url': avatarUrl,
+      'bio': bio,
+      'mobile_number': phone,
+      'phone': phone,
+      'birthday': birthday?.toIso8601String().split('T').first,
+      'country': country,
+      'county': county,
+      'state': state,
+      'posts_count': postsCount,
+      'followers_count': followersCount,
+      'following_count': followingCount,
+      'communities_count': communitiesCount,
+      'coins': coins,
+      'is_online': isOnline,
+      'last_seen': lastSeen,
+    };
   }
 
   bool get isVerified => kycStatus == 'verified' || role == UserRole.creator || role == UserRole.vendor || role == UserRole.admin;
@@ -81,7 +134,13 @@ class UserProfile {
     bool? emailVerified,
     bool? onboardingCompleted,
     String? bannerUrl,
+    String? avatarUrl,
     String? bio,
+    String? phone,
+    DateTime? birthday,
+    String? country,
+    String? county,
+    String? state,
     int? postsCount,
     int? followersCount,
     int? followingCount,
@@ -100,7 +159,13 @@ class UserProfile {
       emailVerified: emailVerified ?? this.emailVerified,
       onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
       bannerUrl: bannerUrl ?? this.bannerUrl,
+      avatarUrl: avatarUrl ?? this.avatarUrl,
       bio: bio ?? this.bio,
+      phone: phone ?? this.phone,
+      birthday: birthday ?? this.birthday,
+      country: country ?? this.country,
+      county: county ?? this.county,
+      state: state ?? this.state,
       postsCount: postsCount ?? this.postsCount,
       followersCount: followersCount ?? this.followersCount,
       followingCount: followingCount ?? this.followingCount,
@@ -157,6 +222,15 @@ class AuthNotifier extends Notifier<AuthState> {
       state = const AuthState();
       return;
     }
+
+    UserProfile? cachedUser;
+    try {
+      final cachedStr = await ApiClient.readUserProfile();
+      if (cachedStr != null && cachedStr.isNotEmpty) {
+        cachedUser = UserProfile.fromJson(jsonDecode(cachedStr) as Map<String, dynamic>);
+      }
+    } catch (_) {}
+
     try {
       final response = await _dio.get(
         '/user',
@@ -167,28 +241,29 @@ class AuthNotifier extends Notifier<AuthState> {
       if (localOnboarded) {
         user = user.copyWith(onboardingCompleted: true);
       }
+      await ApiClient.saveUserProfile(jsonEncode(user.toJson()));
+      await _recordSavedAccount(token, user);
       state = AuthState(user: user, token: token);
     } catch (e) {
       if (e is DioException && (e.response?.statusCode == 401 || e.response?.statusCode == 403)) {
         // Token is rejected or expired on the backend: clear and send to login
         await ApiClient.clearToken();
+        await ApiClient.clearUserProfile();
         state = const AuthState();
         return;
       }
-      // Offline fallback: if network is unreachable, allow offline session
-      state = AuthState(
-        user: UserProfile(
-          id: 1,
-          name: 'Houns Samuel',
-          email: 'samuel@murihspace.com',
-          username: 'web3nexus',
-          role: UserRole.creator,
-          kycStatus: 'verified',
-          emailVerified: true,
-          onboardingCompleted: true,
-        ),
-        token: token,
+      // Offline fallback: restore cached user profile if available
+      final user = cachedUser ?? UserProfile(
+        id: 0,
+        name: 'Murih Member',
+        email: '',
+        username: 'member',
+        role: UserRole.member,
+        kycStatus: 'pending',
+        emailVerified: false,
+        onboardingCompleted: true,
       );
+      state = AuthState(user: user, token: token);
     }
   }
 
@@ -200,10 +275,11 @@ class AuthNotifier extends Notifier<AuthState> {
       final response = await _dio.get('/user');
       final data = ApiClient.instance.unwrap(response) as Map<String, dynamic>;
       final user = UserProfile.fromJson(data);
+      await ApiClient.saveUserProfile(jsonEncode(user.toJson()));
+      await _recordSavedAccount(token, user);
       state = state.copyWith(user: user);
     } catch (_) {}
   }
-
 
   Future<bool> login(String email, String password) async {
     state = state.copyWith(loading: true, clearError: true);
@@ -216,6 +292,8 @@ class AuthNotifier extends Notifier<AuthState> {
       final token = payload['token'] as String;
       final user = UserProfile.fromJson(payload['user'] as Map<String, dynamic>);
       await ApiClient.saveToken(token);
+      await ApiClient.saveUserProfile(jsonEncode(user.toJson()));
+      await _recordSavedAccount(token, user);
       state = AuthState(user: user, token: token);
       return true;
     } on ApiException catch (e) {
@@ -227,6 +305,69 @@ class AuthNotifier extends Notifier<AuthState> {
     } catch (_) {
       state = state.copyWith(loading: false, errorMessage: 'An error occurred');
       return false;
+    }
+  }
+
+  /// Switches into another account, logging in and storing it in saved accounts.
+  Future<bool> switchAccount(String emailOrPhone, String password) async {
+    return login(emailOrPhone, password);
+  }
+
+  /// Saves account metadata for quick multi-account switching.
+  Future<void> _recordSavedAccount(String token, UserProfile user) async {
+    try {
+      final raw = await ApiClient.readSavedAccounts();
+      List<Map<String, dynamic>> accounts = [];
+      if (raw != null && raw.isNotEmpty) {
+        final decoded = jsonDecode(raw);
+        if (decoded is List) {
+          accounts = decoded.whereType<Map<String, dynamic>>().toList();
+        }
+      }
+      // Remove any existing entry for this user ID or token
+      accounts.removeWhere((acc) => acc['id'] == user.id || acc['token'] == token);
+      accounts.insert(0, {
+        'id': user.id,
+        'name': user.name,
+        'username': user.username,
+        'email': user.email,
+        'phone': user.phone,
+        'avatar_url': user.avatarUrl,
+        'token': token,
+      });
+      if (accounts.length > 5) accounts = accounts.sublist(0, 5);
+      await ApiClient.saveSavedAccounts(jsonEncode(accounts));
+    } catch (_) {}
+  }
+
+  /// Retrieves list of saved accounts for fast switching.
+  Future<List<Map<String, dynamic>>> getSavedAccounts() async {
+    try {
+      final raw = await ApiClient.readSavedAccounts();
+      if (raw != null && raw.isNotEmpty) {
+        final decoded = jsonDecode(raw);
+        if (decoded is List) {
+          return decoded.whereType<Map<String, dynamic>>().toList();
+        }
+      }
+    } catch (_) {}
+    return [];
+  }
+
+  /// Fast-switches active session to another saved account token.
+  Future<bool> switchSavedAccount(String targetToken) async {
+    state = state.copyWith(loading: true, clearError: true);
+    await ApiClient.saveToken(targetToken);
+    try {
+      final response = await _dio.get('/user');
+      final data = ApiClient.instance.unwrap(response) as Map<String, dynamic>;
+      final user = UserProfile.fromJson(data);
+      await ApiClient.saveUserProfile(jsonEncode(user.toJson()));
+      state = AuthState(user: user, token: targetToken);
+      return true;
+    } catch (e) {
+      await refreshProfile();
+      return state.user != null;
     }
   }
 

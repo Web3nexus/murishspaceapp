@@ -429,33 +429,6 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
                                               user.name,
                                               style: TextStyle(
                                                 fontWeight: FontWeight.w800,
-                                                fontSize: 15,
-                                                color: textPrimary,
-                                              ),
-                                            ),
-                                            Text(
-                                              '${user.title ?? 'Member'} · ${user.mutualCount} mutual friends',
-                                              style: TextStyle(fontSize: 12, color: textSecondary),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(height: 10),
-                                Row(
-                                  children: [
-                                    const SizedBox(width: 60),
-                                    Expanded(
-                                      child: ElevatedButton.icon(
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: const Color(0xFF007AFF),
-                                          foregroundColor: Colors.white,
-                                          elevation: 0,
-                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                        ),
-                                        onPressed: () {
                                           ref.read(friendsProvider.notifier).acceptRequest(user);
                                           ScaffoldMessenger.of(context).showSnackBar(
                                             SnackBar(
@@ -463,17 +436,9 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
                                               backgroundColor: const Color(0xFF34C759),
                                             ),
                                           );
-                                        },
-                                        icon: const Icon(Icons.check_rounded, size: 16),
-                                        label: const Text('Confirm', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
                                     Expanded(
                                       child: ElevatedButton.icon(
                                         style: ElevatedButton.styleFrom(
-                                          backgroundColor: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFEFF3F6),
-                                          foregroundColor: isDark ? Colors.white : Colors.black,
                                           elevation: 0,
                                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                         ),
@@ -550,19 +515,6 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
                                     backgroundColor: const Color(0xFF007AFF).withValues(alpha: 0.15),
                                     foregroundColor: const Color(0xFF007AFF),
                                     elevation: 0,
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                  ),
-                                  onPressed: () {
-                                    ref.read(friendsProvider.notifier).sendRequest(user);
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text('Friend request sent to ${user.name}'),
-                                        backgroundColor: const Color(0xFF34C759),
-                                      ),
-                                    );
-                                  },
-                                  icon: const Icon(Icons.person_add_rounded, size: 16),
-                                  label: const Text('Add', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                                 ),
                               ],
                             ),
@@ -575,18 +527,6 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
                     ? _buildEmptyState('No friends found', Icons.people_outline_rounded, textSecondary)
                     : ListView.separated(
                         padding: const EdgeInsets.symmetric(vertical: 4),
-                        itemCount: filteredFriends.length,
-                        separatorBuilder: (_, _) => const Divider(height: 1, indent: 68),
-                        itemBuilder: (ctx, i) {
-                          final user = filteredFriends[i];
-                          return Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                            child: Row(
-                              children: [
-                                GestureDetector(
-                                  onTap: () => context.push('/profile/user/${user.id}?name=${user.name}&username=${user.username}'),
-                                  child: Stack(
-                                    children: [
                                       CircleAvatar(
                                         radius: 22,
                                         backgroundColor: const Color(0xFF007AFF),
@@ -594,12 +534,6 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
                                         child: user.avatarUrl == null || user.avatarUrl!.isEmpty
                                             ? Text(
                                                 user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
-                                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
-                                              )
-                                            : null,
-                                      ),
-                                      if (user.isOnline)
-                                        Positioned(
                                           bottom: 0,
                                           right: 0,
                                           child: Container(
@@ -664,39 +598,10 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
                         separatorBuilder: (_, _) => const Divider(height: 1, indent: 68),
                         itemBuilder: (ctx, i) {
                           final comm = communities[i];
-                          final isMember = comm.isJoined;
-                          return Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                            child: Row(
-                              children: [
-                                CircleAvatar(
-                                  radius: 20,
-                                  backgroundColor: const Color(0xFF007AFF).withValues(alpha: 0.15),
-                                  backgroundImage: comm.logoUrl != null && comm.logoUrl!.isNotEmpty ? NetworkImage(comm.logoUrl!) : null,
-                                  child: comm.logoUrl == null || comm.logoUrl!.isEmpty
-                                      ? Text(comm.initials, style: const TextStyle(color: Color(0xFF007AFF), fontWeight: FontWeight.bold, fontSize: 13))
-                                      : null,
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        comm.name,
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.w800,
-                                          fontSize: 15,
-                                          color: textPrimary,
-                                        ),
-                                      ),
-                                      Text(
                                         '${comm.memberCount} members · ${comm.category}',
                                         style: TextStyle(fontSize: 12, color: textSecondary),
                                       ),
                                     ],
-                                  ),
-                                ),
                                 ElevatedButton(
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: isMember
@@ -709,18 +614,6 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
                                   onPressed: () {
                                     if (isMember) {
                                       ref.read(myCommunitiesProvider.notifier).leaveCommunity(comm.id);
-                                    } else {
-                                      ref.read(myCommunitiesProvider.notifier).joinCommunity(comm.id);
-                                    }
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(content: Text(isMember ? 'Left ${comm.name}' : 'Joined ${comm.name}!')),
-                                    );
-                                  },
-                                  child: Text(
-                                    isMember ? 'Joined' : 'Join',
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                                  ),
-                                ),
                               ],
                             ),
                           );
@@ -728,12 +621,6 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
                       ),
 
                 // ── Tab 5: Contacts Matched on MurihSpace ────────────────────────
-                filteredContacts.isEmpty
-                    ? _buildEmptyState(
-                        _hasContactPermission ? 'No phone contacts found' : 'Permission needed to view contacts',
-                        Icons.contacts_rounded,
-                        textSecondary,
-                      )
                     : ListView.separated(
                         padding: const EdgeInsets.symmetric(vertical: 4),
                         itemCount: filteredContacts.length,

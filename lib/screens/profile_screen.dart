@@ -77,12 +77,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     super.initState();
     final user = ref.read(authProvider).user;
     final nameParts = (user?.name ?? '').trim().split(RegExp(r'\s+'));
-    _firstNameController = TextEditingController(text: nameParts.isNotEmpty ? nameParts.first : 'Houns');
-    _lastNameController = TextEditingController(text: nameParts.length > 1 ? nameParts.sublist(1).join(' ') : 'Samuel');
-    _usernameController = TextEditingController(text: user?.username ?? 'web3nexus');
-    _bioController = TextEditingController(text: 'Building next-gen digital experiences & escrow solutions on MurihSpace.');
-    _phoneController = TextEditingController(text: '+234 91 5520 0072');
-    _selectedBirthday = DateTime(1998, 3, 14);
+    _firstNameController = TextEditingController(text: nameParts.isNotEmpty ? nameParts.first : '');
+    _lastNameController = TextEditingController(text: nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '');
+    _usernameController = TextEditingController(text: user?.username ?? '');
+    _bioController = TextEditingController(text: user?.bio ?? '');
+    _phoneController = TextEditingController(text: user?.phone ?? '');
+    _selectedBirthday = user?.birthday;
   }
 
   @override
@@ -370,7 +370,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
-  void _showAddAccountModal() {
+  void _showAddAccountModal() async {
+    final savedAccounts = await ref.read(authProvider.notifier).getSavedAccounts();
+    if (!mounted) return;
+
+    final currentUser = ref.read(authProvider).user;
+    final otherAccounts = savedAccounts.where((acc) => acc['id'] != currentUser?.id).toList();
+
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF1C1C1E) : Colors.white,
@@ -389,12 +395,69 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 contentPadding: EdgeInsets.zero,
                 leading: CircleAvatar(
                   backgroundColor: _selectedAccentColor,
-                  child: const Text('HS', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  backgroundImage: currentUser?.avatarUrl != null && currentUser!.avatarUrl!.isNotEmpty
+                      ? NetworkImage(currentUser.avatarUrl!)
+                      : null,
+                  child: currentUser?.avatarUrl == null || currentUser!.avatarUrl!.isEmpty
+                      ? Text(
+                          _initials(currentUser?.name ?? _firstNameController.text),
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                        )
+                      : null,
                 ),
-                title: Text('${_firstNameController.text} ${_lastNameController.text}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: Text(_phoneController.text),
+                title: Text(
+                  currentUser?.name.isNotEmpty == true ? currentUser!.name : '${_firstNameController.text} ${_lastNameController.text}'.trim(),
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                subtitle: Text(currentUser?.phone?.isNotEmpty == true ? currentUser!.phone! : (currentUser?.email ?? 'Active Account')),
                 trailing: const Icon(Icons.check_circle_rounded, color: Color(0xFF34C759)),
               ),
+              if (otherAccounts.isNotEmpty) ...[
+                const Divider(),
+                ...otherAccounts.map((acc) {
+                  final name = acc['name'] as String? ?? 'Account';
+                  final emailOrPhone = acc['phone'] as String? ?? acc['email'] as String? ?? '';
+                  final token = acc['token'] as String?;
+                  return ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: CircleAvatar(
+                      backgroundColor: Colors.grey[700],
+                      child: Text(_initials(name), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    ),
+                    title: Text(name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                    subtitle: Text(emailOrPhone),
+                    trailing: TextButton(
+                      onPressed: token == null
+                          ? null
+                          : () async {
+                              Navigator.pop(ctx);
+                              final ok = await ref.read(authProvider.notifier).switchSavedAccount(token);
+                              if (mounted && ok) {
+                                final switched = ref.read(authProvider).user;
+                                if (switched != null) {
+                                  final parts = switched.name.trim().split(RegExp(r'\s+'));
+                                  setState(() {
+                                    _firstNameController.text = parts.isNotEmpty ? parts.first : '';
+                                    _lastNameController.text = parts.length > 1 ? parts.sublist(1).join(' ') : '';
+                                    _usernameController.text = switched.username;
+                                    _bioController.text = switched.bio ?? '';
+                                    _phoneController.text = switched.phone ?? '';
+                                    _selectedBirthday = switched.birthday;
+                                  });
+                                }
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Switched to $name'),
+                                    backgroundColor: const Color(0xFF34C759),
+                                  ),
+                                );
+                              }
+                            },
+                      child: const Text('Switch', style: TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+                  );
+                }),
+              ],
               const Divider(),
               ListTile(
                 contentPadding: EdgeInsets.zero,
@@ -420,6 +483,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final emailPhoneController = TextEditingController();
     final passwordController = TextEditingController();
     bool isSubmitting = false;
+    String? modalError;
 
     showModalBottomSheet<void>(
       context: context,
@@ -468,6 +532,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       color: isDark ? Colors.grey[400] : Colors.grey[600],
                     ),
                   ),
+                  if (modalError != null) ...[
+                    const SizedBox(height: 10),
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFF3B30).withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(modalError!, style: const TextStyle(color: Color(0xFFFF3B30), fontSize: 13, fontWeight: FontWeight.w600)),
+                    ),
+                  ],
                   const SizedBox(height: 16),
                   TextField(
                     controller: emailPhoneController,
@@ -505,21 +580,41 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               final input = emailPhoneController.text.trim();
                               final pass = passwordController.text.trim();
                               if (input.isEmpty || pass.isEmpty) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Please fill in both email/phone and password.')),
-                                );
+                                setModalState(() => modalError = 'Please fill in both email/phone and password.');
                                 return;
                               }
-                              setModalState(() => isSubmitting = true);
-                              await Future.delayed(const Duration(milliseconds: 600));
+                              setModalState(() {
+                                isSubmitting = true;
+                                modalError = null;
+                              });
+                              final success = await ref.read(authProvider.notifier).login(input, pass);
                               if (mounted) {
-                                Navigator.pop(ctx);
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text('Secondary account ($input) connected successfully!'),
-                                    backgroundColor: const Color(0xFF34C759),
-                                  ),
-                                );
+                                if (success) {
+                                  Navigator.pop(ctx);
+                                  final newUser = ref.read(authProvider).user;
+                                  if (newUser != null) {
+                                    final nameParts = newUser.name.trim().split(RegExp(r'\s+'));
+                                    setState(() {
+                                      _firstNameController.text = nameParts.isNotEmpty ? nameParts.first : '';
+                                      _lastNameController.text = nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '';
+                                      _usernameController.text = newUser.username;
+                                      _bioController.text = newUser.bio ?? '';
+                                      _phoneController.text = newUser.phone ?? '';
+                                      _selectedBirthday = newUser.birthday;
+                                    });
+                                  }
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Switched to account ($input) successfully!'),
+                                      backgroundColor: const Color(0xFF34C759),
+                                    ),
+                                  );
+                                } else {
+                                  setModalState(() {
+                                    isSubmitting = false;
+                                    modalError = ref.read(authProvider).errorMessage ?? 'Invalid login credentials.';
+                                  });
+                                }
                               }
                             },
                       child: isSubmitting
@@ -564,25 +659,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         'name': fullName,
         'username': _usernameController.text.trim(),
         'bio': _bioController.text.trim(),
+        'mobile_number': _phoneController.text.trim(),
         'phone': _phoneController.text.trim(),
-        'birthday': _selectedBirthday?.toIso8601String(),
+        'birthday': _selectedBirthday != null ? DateFormat('yyyy-MM-dd').format(_selectedBirthday!) : null,
       });
-      ApiClient.instance.unwrap(response);
-
-      final current = ref.read(authProvider).user;
-      if (current != null) {
-        ref.read(authProvider.notifier).setUser(
-              UserProfile(
-                id: current.id,
-                name: fullName,
-                email: current.email,
-                username: _usernameController.text.trim(),
-                role: current.role,
-                kycStatus: current.kycStatus,
-                emailVerified: current.emailVerified,
-              ),
-            );
-      }
+      final data = ApiClient.instance.unwrap(response) as Map<String, dynamic>;
+      final updatedUser = UserProfile.fromJson(data);
+      ref.read(authProvider.notifier).setUser(updatedUser);
+      await ref.read(authProvider.notifier).refreshProfile();
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1083,7 +1167,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       color: const Color(0xFF34C759),
                     ),
                     title: Text('Phone Number', style: TextStyle(color: textPrimary, fontSize: 16, fontWeight: FontWeight.w500)),
-                    subtitle: Text(_phoneController.text, style: TextStyle(color: textSecondary, fontSize: 13)),
+                    subtitle: Text(_phoneController.text.isNotEmpty ? _phoneController.text : 'Not set', style: TextStyle(color: textSecondary, fontSize: 13)),
                     trailing: Icon(Icons.edit_rounded, color: _selectedAccentColor, size: 20),
                     onTap: _showEditPhoneModal,
                   ),

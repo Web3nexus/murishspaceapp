@@ -169,27 +169,22 @@ class YouScreen extends ConsumerWidget {
                                       ),
                                     ],
                                   ),
-                                  child: Container(
-                                    width: 64,
-                                    height: 64,
-                                    decoration: const BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      gradient: LinearGradient(
-                                        colors: [Color(0xFF007AFF), Color(0xFF5856D6)],
-                                        begin: Alignment.topLeft,
-                                        end: Alignment.bottomRight,
-                                      ),
-                                    ),
-                                    child: Center(
-                                      child: Text(
-                                        _initials(user?.name ?? '?'),
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 24,
-                                          fontWeight: FontWeight.w900,
-                                        ),
-                                      ),
-                                    ),
+                                  child: CircleAvatar(
+                                    radius: 32,
+                                    backgroundColor: const Color(0xFF007AFF),
+                                    backgroundImage: user?.avatarUrl != null && user!.avatarUrl!.isNotEmpty
+                                        ? NetworkImage(user.avatarUrl!)
+                                        : null,
+                                    child: user?.avatarUrl == null || user!.avatarUrl!.isEmpty
+                                        ? Text(
+                                            _initials(user?.name ?? '?'),
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 24,
+                                              fontWeight: FontWeight.w900,
+                                            ),
+                                          )
+                                        : null,
                                   ),
                                 ),
                               ),
