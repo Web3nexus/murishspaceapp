@@ -371,6 +371,10 @@ class AuthNotifier extends Notifier<AuthState> {
     }
   }
 
+  Future<void> markOnboardingCompleted() async {
+    await ApiClient.saveAiOnboardingCompleted();
+  }
+
   Future<Map<String, dynamic>?> requestOtp({
     required String intent,
     required String phoneE164,
@@ -654,6 +658,4 @@ class AuthNotifier extends Notifier<AuthState> {
   }
 }
 
-final authProvider = NotifierProvider<AuthNotifier, AuthState>(() {
-  return AuthNotifier();
-});
+final authProvider = NotifierProvider<AuthNotifier, AuthState>(AuthNotifier.new);

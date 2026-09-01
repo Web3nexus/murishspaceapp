@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../core/permissions_service.dart';
 import '../core/roles.dart';
 import '../providers/auth_provider.dart';
 import '../providers/chat_provider.dart';

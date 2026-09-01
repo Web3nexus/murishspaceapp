@@ -549,8 +549,9 @@ class YouScreen extends ConsumerWidget {
           const SizedBox(height: 24),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   void _showRoleLockedDialog(BuildContext context, String requiredRoleTitle, String roleDescription, String targetRole) {
     showModalBottomSheet<void>(

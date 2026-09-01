@@ -429,6 +429,33 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
                                               user.name,
                                               style: TextStyle(
                                                 fontWeight: FontWeight.w800,
+                                                fontSize: 15,
+                                                color: textPrimary,
+                                              ),
+                                            ),
+                                            Text(
+                                              '@${user.username} · ${user.mutualCount} mutual friends',
+                                              style: TextStyle(fontSize: 12, color: textSecondary),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+                                Row(
+                                  children: [
+                                    const SizedBox(width: 60),
+                                    Expanded(
+                                      child: ElevatedButton(
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: const Color(0xFF007AFF),
+                                          foregroundColor: Colors.white,
+                                          elevation: 0,
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                        ),
+                                        onPressed: () {
                                           ref.read(friendsProvider.notifier).acceptRequest(user);
                                           ScaffoldMessenger.of(context).showSnackBar(
                                             SnackBar(
@@ -436,9 +463,16 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
                                               backgroundColor: const Color(0xFF34C759),
                                             ),
                                           );
+                                        },
+                                        child: const Text('Confirm', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
                                     Expanded(
-                                      child: ElevatedButton.icon(
+                                      child: ElevatedButton(
                                         style: ElevatedButton.styleFrom(
+                                          backgroundColor: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE5E5EA),
+                                          foregroundColor: isDark ? Colors.white : Colors.black,
                                           elevation: 0,
                                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                         ),
@@ -448,8 +482,7 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
                                             SnackBar(content: Text('Declined request from ${user.name}')),
                                           );
                                         },
-                                        icon: const Icon(Icons.close_rounded, size: 16),
-                                        label: const Text('Delete', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                        child: const Text('Delete', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                                       ),
                                     ),
                                   ],
@@ -473,48 +506,56 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                             child: Row(
                               children: [
-                                GestureDetector(
-                                  onTap: () => context.push('/profile/user/${user.id}?name=${user.name}&username=${user.username}'),
-                                  child: CircleAvatar(
-                                    radius: 22,
-                                    backgroundColor: const Color(0xFF5856D6),
-                                    backgroundImage: user.avatarUrl != null && user.avatarUrl!.isNotEmpty ? NetworkImage(user.avatarUrl!) : null,
-                                    child: user.avatarUrl == null || user.avatarUrl!.isEmpty
-                                        ? Text(
-                                            user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
-                                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
-                                          )
-                                        : null,
-                                  ),
+                                CircleAvatar(
+                                  radius: 22,
+                                  backgroundColor: const Color(0xFF5856D6),
+                                  backgroundImage: user.avatarUrl != null && user.avatarUrl!.isNotEmpty ? NetworkImage(user.avatarUrl!) : null,
+                                  child: user.avatarUrl == null || user.avatarUrl!.isEmpty
+                                      ? Text(
+                                          user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
+                                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                                        )
+                                      : null,
                                 ),
                                 const SizedBox(width: 12),
                                 Expanded(
-                                  child: GestureDetector(
-                                    onTap: () => context.push('/profile/user/${user.id}?name=${user.name}&username=${user.username}'),
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          user.name,
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.w700,
-                                            fontSize: 15,
-                                            color: textPrimary,
-                                          ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        user.name,
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 15,
+                                          color: textPrimary,
                                         ),
-                                        Text(
-                                          '${user.title ?? 'Creator'} · ${user.mutualCount} mutuals',
-                                          style: TextStyle(fontSize: 12, color: textSecondary),
-                                        ),
-                                      ],
-                                    ),
+                                      ),
+                                      Text(
+                                        '${user.title ?? 'Creator'} · ${user.mutualCount} mutuals',
+                                        style: TextStyle(fontSize: 12, color: textSecondary),
+                                      ),
+                                    ],
                                   ),
                                 ),
                                 ElevatedButton.icon(
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF007AFF).withValues(alpha: 0.15),
-                                    foregroundColor: const Color(0xFF007AFF),
+                                    backgroundColor: const Color(0xFF007AFF),
+                                    foregroundColor: Colors.white,
                                     elevation: 0,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                  ),
+                                  onPressed: () {
+                                    ref.read(friendsProvider.notifier).sendRequest(user);
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text('Friend request sent to ${user.name}!'),
+                                        backgroundColor: const Color(0xFF34C759),
+                                      ),
+                                    );
+                                  },
+                                  icon: const Icon(Icons.person_add_rounded, size: 16),
+                                  label: const Text('Add Friend', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                                 ),
                               ],
                             ),
@@ -527,56 +568,50 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
                     ? _buildEmptyState('No friends found', Icons.people_outline_rounded, textSecondary)
                     : ListView.separated(
                         padding: const EdgeInsets.symmetric(vertical: 4),
-                                      CircleAvatar(
-                                        radius: 22,
-                                        backgroundColor: const Color(0xFF007AFF),
-                                        backgroundImage: user.avatarUrl != null && user.avatarUrl!.isNotEmpty ? NetworkImage(user.avatarUrl!) : null,
-                                        child: user.avatarUrl == null || user.avatarUrl!.isEmpty
-                                            ? Text(
-                                                user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
-                                          bottom: 0,
-                                          right: 0,
-                                          child: Container(
-                                            width: 12,
-                                            height: 12,
-                                            decoration: BoxDecoration(
-                                              color: const Color(0xFF34C759),
-                                              shape: BoxShape.circle,
-                                              border: Border.all(color: cardBg, width: 2),
-                                            ),
-                                          ),
-                                        ),
-                                    ],
-                                  ),
+                        itemCount: filteredFriends.length,
+                        separatorBuilder: (_, _) => const Divider(height: 1, indent: 68),
+                        itemBuilder: (ctx, i) {
+                          final user = filteredFriends[i];
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            child: Row(
+                              children: [
+                                CircleAvatar(
+                                  radius: 22,
+                                  backgroundColor: const Color(0xFF007AFF),
+                                  backgroundImage: user.avatarUrl != null && user.avatarUrl!.isNotEmpty ? NetworkImage(user.avatarUrl!) : null,
+                                  child: user.avatarUrl == null || user.avatarUrl!.isEmpty
+                                      ? Text(
+                                          user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
+                                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                                        )
+                                      : null,
                                 ),
                                 const SizedBox(width: 12),
                                 Expanded(
-                                  child: GestureDetector(
-                                    onTap: () => context.push('/profile/user/${user.id}?name=${user.name}&username=${user.username}'),
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          user.name,
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.w700,
-                                            fontSize: 15,
-                                            color: textPrimary,
-                                          ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        user.name,
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 15,
+                                          color: textPrimary,
                                         ),
-                                        Text(
-                                          '@${user.username} · ${user.title ?? 'Friend'}',
-                                          style: TextStyle(fontSize: 12, color: textSecondary),
-                                        ),
-                                      ],
-                                    ),
+                                      ),
+                                      Text(
+                                        '@${user.username} · ${user.title ?? 'Friend'}',
+                                        style: TextStyle(fontSize: 12, color: textSecondary),
+                                      ),
+                                    ],
                                   ),
                                 ),
                                 IconButton(
                                   icon: Container(
                                     padding: const EdgeInsets.all(8),
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFF007AFF).withValues(alpha: 0.12),
+                                      color: const Color(0xFF007AFF).withOpacity(0.12),
                                       shape: BoxShape.circle,
                                     ),
                                     child: const Icon(Icons.chat_bubble_rounded, color: Color(0xFF007AFF), size: 16),
@@ -598,22 +633,52 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
                         separatorBuilder: (_, _) => const Divider(height: 1, indent: 68),
                         itemBuilder: (ctx, i) {
                           final comm = communities[i];
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            child: Row(
+                              children: [
+                                CircleAvatar(
+                                  radius: 22,
+                                  backgroundColor: const Color(0xFFFF9500),
+                                  backgroundImage: comm.coverUrl != null && comm.coverUrl!.isNotEmpty ? NetworkImage(comm.coverUrl!) : null,
+                                  child: comm.coverUrl == null || comm.coverUrl!.isEmpty
+                                      ? Text(
+                                          comm.name.isNotEmpty ? comm.name[0].toUpperCase() : 'C',
+                                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                                        )
+                                      : null,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        comm.name,
+                                        style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: textPrimary),
+                                      ),
+                                      Text(
                                         '${comm.memberCount} members · ${comm.category}',
                                         style: TextStyle(fontSize: 12, color: textSecondary),
                                       ),
                                     ],
+                                  ),
+                                ),
                                 ElevatedButton(
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: isMember
-                                        ? (isDark ? const Color(0xFF2C2C2E) : const Color(0xFFEFF3F6))
-                                        : const Color(0xFF007AFF),
-                                    foregroundColor: isMember ? (isDark ? Colors.white : Colors.black) : Colors.white,
+                                    backgroundColor: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFEFF3F6),
+                                    foregroundColor: isDark ? Colors.white : Colors.black,
                                     elevation: 0,
                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                   ),
                                   onPressed: () {
-                                    if (isMember) {
-                                      ref.read(myCommunitiesProvider.notifier).leaveCommunity(comm.id);
+                                    ref.read(myCommunitiesProvider.notifier).leaveCommunity(comm.id);
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text('Left ${comm.name}')),
+                                    );
+                                  },
+                                  child: const Text('Leave', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                ),
                               ],
                             ),
                           );
@@ -621,13 +686,20 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
                       ),
 
                 // ── Tab 5: Contacts Matched on MurihSpace ────────────────────────
+                filteredContacts.isEmpty
+                    ? _buildEmptyState('No contacts matched yet', Icons.contacts_rounded, textSecondary)
                     : ListView.separated(
                         padding: const EdgeInsets.symmetric(vertical: 4),
                         itemCount: filteredContacts.length,
                         separatorBuilder: (_, _) => const Divider(height: 1, indent: 68),
                         itemBuilder: (ctx, i) {
                           final contact = filteredContacts[i];
-                          final color = Color(int.parse(contact.avatarColorHex));
+                          Color color;
+                          try {
+                            color = Color(int.parse(contact.avatarColorHex));
+                          } catch (_) {
+                            color = const Color(0xFF007AFF);
+                          }
                           return Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                             child: Row(
@@ -636,7 +708,7 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
                                   radius: 22,
                                   backgroundColor: color,
                                   child: Text(
-                                    contact.name[0],
+                                    contact.name.isNotEmpty ? contact.name[0].toUpperCase() : 'C',
                                     style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
                                   ),
                                 ),

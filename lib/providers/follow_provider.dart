@@ -235,6 +235,14 @@ class FollowNotifier extends Notifier<FollowState> {
     }
   }
 
+  void incrementPostsCount([int delta = 1, int? userId]) {
+    if (userId != null) {
+      final pCounts = Map<int, int>.from(state.userPostsCounts);
+      pCounts[userId] = (pCounts[userId] ?? 0) + delta;
+      state = state.copyWith(userPostsCounts: pCounts);
+    }
+  }
+
   List<UserFollowSummary> getFollowersList(int userId) => state.followersLists[userId] ?? [];
   List<UserFollowSummary> getFollowingList(int userId) => state.followingLists[userId] ?? [];
 }

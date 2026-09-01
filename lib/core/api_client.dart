@@ -109,6 +109,17 @@ class ApiClient {
   static Future<void> saveAiOnboardingCompleted() => _secureStorage.write(key: aiOnboardingCompletedKey, value: 'true');
   static Future<void> clearAiOnboardingCompleted() => _secureStorage.delete(key: aiOnboardingCompletedKey);
 
+  static const userProfileKey = 'murihspace_user_profile';
+  static const savedAccountsKey = 'murihspace_saved_accounts';
+
+  static Future<String?> readUserProfile() => _secureStorage.read(key: userProfileKey);
+  static Future<void> saveUserProfile(String profileJson) => _secureStorage.write(key: userProfileKey, value: profileJson);
+  static Future<void> clearUserProfile() => _secureStorage.delete(key: userProfileKey);
+
+  static Future<String?> readSavedAccounts() => _secureStorage.read(key: savedAccountsKey);
+  static Future<void> saveSavedAccounts(String accountsJson) => _secureStorage.write(key: savedAccountsKey, value: accountsJson);
+  static Future<void> clearSavedAccounts() => _secureStorage.delete(key: savedAccountsKey);
+
 
   // ── Helpers ───────────────────────────────────────────────────
 
