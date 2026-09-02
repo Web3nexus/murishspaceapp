@@ -160,8 +160,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             padding: const EdgeInsets.only(right: 8),
             child: IconButton(
               onPressed: widget.onOpenMessages,
-              icon: const BrandFavicon(
-                size: 24,
+              icon: Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFEFF3F6),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.chat_bubble_rounded,
+                  color: isDark ? Colors.white : const Color(0xFF007AFF),
+                  size: 20,
+                ),
               ),
               tooltip: 'Messenger Chats',
             ),

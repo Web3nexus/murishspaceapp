@@ -134,11 +134,10 @@ class _BottomBar extends StatelessWidget {
 
     final items = <_BarItem>[
       const _BarItem(Icons.explore_outlined, Icons.explore_rounded, 'Feed'),
-      _BarItem(
-        null,
-        null,
+      const _BarItem(
+        Icons.chat_bubble_outline_rounded,
+        Icons.chat_bubble_rounded,
         'Chats',
-        customWidget: BrandFavicon(size: 22, isDark: isDark),
       ),
       centerItem,
       fourthItem,

@@ -164,32 +164,42 @@ class BrandIcon extends ConsumerWidget {
 class BrandFavicon extends StatelessWidget {
   final double size;
   final bool? isDark;
+  final Color? color;
 
   const BrandFavicon({
     super.key,
     this.size = 24,
     this.isDark,
+    this.color,
   });
 
   @override
   Widget build(BuildContext context) {
     final themeDark = Theme.of(context).brightness == Brightness.dark;
     final dark = isDark ?? themeDark;
+    final defaultColor = color ?? (dark ? Colors.white : const Color(0xFF007AFF));
+
+    // In Light Mode (dark == false), use blue icon or dark mark so it is visible against light backgrounds.
+    // In Dark Mode (dark == true), use white icon or light mark.
+    final asset = dark ? BrandAssets.iconDark : BrandAssets.iconLight;
+
     return Image.asset(
-      dark ? BrandAssets.iconLight : BrandAssets.iconDark,
+      asset,
       width: size,
       height: size,
       fit: BoxFit.contain,
+      color: color,
       errorBuilder: (context, error, stackTrace) {
         return Image.asset(
           dark ? BrandAssets.memberIconLight : BrandAssets.memberIconDark,
           width: size,
           height: size,
           fit: BoxFit.contain,
+          color: color,
           errorBuilder: (context, error, stackTrace) => Icon(
             Icons.chat_bubble_rounded,
             size: size,
-            color: const Color(0xFF007AFF),
+            color: defaultColor,
           ),
         );
       },
