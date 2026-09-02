@@ -21,12 +21,14 @@ class GiftOption {
 
 /// Universal Virtual Gifting Sheet for Profiles, Calls, Conferences & Live Streams.
 class SendGiftDialog extends ConsumerStatefulWidget {
+  final int? recipientId;
   final String recipientName;
   final String? recipientAvatar;
-  final Function(GiftOption gift)? onGiftSent;
+  final Function(GiftOption gift, int amount)? onGiftSent;
 
   const SendGiftDialog({
     super.key,
+    this.recipientId,
     required this.recipientName,
     this.recipientAvatar,
     this.onGiftSent,
@@ -34,9 +36,10 @@ class SendGiftDialog extends ConsumerStatefulWidget {
 
   static void show(
     BuildContext context, {
+    int? recipientId,
     required String recipientName,
     String? recipientAvatar,
-    Function(GiftOption gift)? onGiftSent,
+    Function(GiftOption gift, int amount)? onGiftSent,
   }) {
     showModalBottomSheet<void>(
       context: context,
@@ -48,6 +51,7 @@ class SendGiftDialog extends ConsumerStatefulWidget {
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (ctx) => SendGiftDialog(
+        recipientId: recipientId,
         recipientName: recipientName,
         recipientAvatar: recipientAvatar,
         onGiftSent: onGiftSent,
@@ -202,7 +206,7 @@ class _SendGiftDialogState extends ConsumerState<SendGiftDialog> {
                   : () async {
                       setState(() => _sending = true);
                       await Future.delayed(const Duration(milliseconds: 500));
-                      widget.onGiftSent?.call(_selectedGift);
+                      widget.onGiftSent?.call(_selectedGift, _selectedGift.coinCost);
                       if (mounted) {
                         Navigator.pop(context);
                         ScaffoldMessenger.of(context).showSnackBar(

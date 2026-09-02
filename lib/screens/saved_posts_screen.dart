@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/api_client.dart';
-import '../models/post_models.dart';
+import '../models/community_models.dart';
 import '../providers/auth_provider.dart';
 import '../providers/saved_messages_provider.dart';
 import 'post_card.dart';
@@ -323,16 +323,16 @@ class _SavedPostsScreenState extends ConsumerState<SavedPostsScreen> with Single
 
         // Notes List
         Expanded(
-          child: state.messages.isEmpty
+          child: state.items.isEmpty
               ? Center(
                   child: Text('No notes in vault yet.', style: TextStyle(color: textSecondary)),
                 )
               : ListView.separated(
                   padding: const EdgeInsets.all(16),
-                  itemCount: state.messages.length,
+                  itemCount: state.items.length,
                   separatorBuilder: (_, __) => const SizedBox(height: 10),
                   itemBuilder: (ctx, idx) {
-                    final item = state.messages[idx];
+                    final item = state.items[idx];
                     return Container(
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
@@ -343,7 +343,7 @@ class _SavedPostsScreenState extends ConsumerState<SavedPostsScreen> with Single
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(item.text, style: TextStyle(fontSize: 14, color: textPrimary)),
+                          Text(item.content, style: TextStyle(fontSize: 14, color: textPrimary)),
                           const SizedBox(height: 8),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -354,7 +354,7 @@ class _SavedPostsScreenState extends ConsumerState<SavedPostsScreen> with Single
                                   color: const Color(0xFF007AFF).withOpacity(0.15),
                                   borderRadius: BorderRadius.circular(6),
                                 ),
-                                child: Text(item.category ?? 'Note', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF007AFF))),
+                                child: Text(item.category, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF007AFF))),
                               ),
                               IconButton(
                                 icon: const Icon(Icons.delete_outline_rounded, size: 16, color: Colors.grey),
