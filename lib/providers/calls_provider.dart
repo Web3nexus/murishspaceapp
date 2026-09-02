@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 enum CallDirection { incoming, outgoing, missed }
 
@@ -23,6 +25,35 @@ class CallRecord {
     this.isVideo = false,
     this.avatarUrl = '',
   });
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'contactName': contactName,
+        'phoneNumber': phoneNumber,
+        'direction': direction.name,
+        'timestamp': timestamp.toIso8601String(),
+        'durationSeconds': durationSeconds,
+        'isVideo': isVideo,
+        'avatarUrl': avatarUrl,
+      };
+
+  factory CallRecord.fromJson(Map<String, dynamic> json) {
+    return CallRecord(
+      id: json['id']?.toString() ?? 'call_${DateTime.now().millisecondsSinceEpoch}',
+      contactName: json['contactName']?.toString() ?? 'Contact',
+      phoneNumber: json['phoneNumber']?.toString() ?? '',
+      direction: CallDirection.values.firstWhere(
+        (d) => d.name == json['direction'],
+        orElse: () => CallDirection.outgoing,
+      ),
+      timestamp: json['timestamp'] != null
+          ? DateTime.tryParse(json['timestamp'].toString()) ?? DateTime.now()
+          : DateTime.now(),
+      durationSeconds: (json['durationSeconds'] as num?)?.toInt() ?? 0,
+      isVideo: json['isVideo'] as bool? ?? false,
+      avatarUrl: json['avatarUrl']?.toString() ?? '',
+    );
+  }
 
   String get formattedType {
     switch (direction) {
@@ -86,45 +117,35 @@ class CallsState {
 }
 
 class CallsNotifier extends Notifier<CallsState> {
+  static const String _storageKey = 'murihspace_call_logs_v1';
+
   @override
   CallsState build() {
-    return CallsState(
-      calls: [
-        CallRecord(
-          id: 'call_1',
-          contactName: 'Alice Freeman',
-          phoneNumber: '+1 555 019 2834',
-          direction: CallDirection.incoming,
-          timestamp: DateTime.now().subtract(const Duration(hours: 1, minutes: 20)),
-          durationSeconds: 145,
-          isVideo: true,
-        ),
-        CallRecord(
-          id: 'call_2',
-          contactName: 'Bob Smith',
-          phoneNumber: '+234 802 123 4567',
-          direction: CallDirection.outgoing,
-          timestamp: DateTime.now().subtract(const Duration(hours: 18)),
-          durationSeconds: 310,
-        ),
-        CallRecord(
-          id: 'call_3',
-          contactName: 'Charlie Brown',
-          phoneNumber: '+44 7700 900077',
-          direction: CallDirection.missed,
-          timestamp: DateTime.now().subtract(const Duration(days: 2)),
-          durationSeconds: 0,
-        ),
-        CallRecord(
-          id: 'call_4',
-          contactName: 'David Miller (Vendor)',
-          phoneNumber: '+1 800 555 0199',
-          direction: CallDirection.incoming,
-          timestamp: DateTime.now().subtract(const Duration(days: 3)),
-          durationSeconds: 420,
-        ),
-      ],
-    );
+    _loadFromStorage();
+    return CallsState(calls: []);
+  }
+
+  Future<void> _loadFromStorage() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_storageKey);
+      if (raw != null && raw.isNotEmpty) {
+        final decoded = jsonDecode(raw) as List;
+        final list = decoded
+            .whereType<Map<String, dynamic>>()
+            .map((j) => CallRecord.fromJson(j))
+            .toList();
+        state = state.copyWith(calls: list);
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _persist() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final encoded = jsonEncode(state.calls.map((c) => c.toJson()).toList());
+      await prefs.setString(_storageKey, encoded);
+    } catch (_) {}
   }
 
   void setFilter(String filter) {
@@ -137,6 +158,7 @@ class CallsNotifier extends Notifier<CallsState> {
     required CallDirection direction,
     required int durationSeconds,
     bool isVideo = false,
+    String avatarUrl = '',
   }) {
     final newCall = CallRecord(
       id: 'call_${DateTime.now().millisecondsSinceEpoch}',
@@ -146,16 +168,20 @@ class CallsNotifier extends Notifier<CallsState> {
       timestamp: DateTime.now(),
       durationSeconds: durationSeconds,
       isVideo: isVideo,
+      avatarUrl: avatarUrl,
     );
     state = state.copyWith(calls: [newCall, ...state.calls]);
+    _persist();
   }
 
   void deleteCall(String id) {
     state = state.copyWith(calls: state.calls.where((c) => c.id != id).toList());
+    _persist();
   }
 
   void clearCallLog() {
     state = state.copyWith(calls: []);
+    _persist();
   }
 }
 

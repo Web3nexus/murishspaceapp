@@ -1,44 +1,40 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import 'package:go_router/go_router.dart';
 
-import '../components/send_gift_dialog.dart';
 import '../providers/calls_provider.dart';
+import '../providers/friends_provider.dart';
+import 'call_screen.dart';
 
-/// Telegram iOS style Recent Calls screen connected to callsProvider.
+/// Interactive Calls Screen with Friend Picker & Modern Call Modal.
 class CallsScreen extends ConsumerWidget {
   const CallsScreen({super.key});
 
-  void _showNewCallDialog(BuildContext context, WidgetRef ref) {
-    final nameCtrl = TextEditingController();
-    final phoneCtrl = TextEditingController();
-    bool isVideo = false;
+  void _showStartCallFriendPicker(BuildContext context, WidgetRef ref) {
+    final friendsState = ref.read(friendsProvider);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = isDark ? const Color(0xFF1C1C1E) : Colors.white;
+    final textPrimary = isDark ? Colors.white : Colors.black;
+    final textSecondary = isDark ? Colors.grey[400] : Colors.grey[600];
 
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Theme.of(context).brightness == Brightness.dark
-          ? const Color(0xFF1C1C1E)
-          : Colors.white,
+      backgroundColor: bg,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (ctx) {
-        final isDark = Theme.of(ctx).brightness == Brightness.dark;
-        final textPrimary = isDark ? Colors.white : Colors.black;
-
         return StatefulBuilder(
           builder: (context, setModalState) {
-            return Padding(
-              padding: EdgeInsets.only(
-                left: 20,
-                right: 20,
-                top: 16,
-                bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
-              ),
+            final friends = friendsState.friends;
+
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.7,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Column(
-                mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Center(
@@ -51,71 +47,267 @@ class CallsScreen extends ConsumerWidget {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  Text('Start New Call', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: textPrimary)),
                   const SizedBox(height: 14),
-                  TextField(
-                    controller: nameCtrl,
-                    style: TextStyle(color: textPrimary),
-                    decoration: InputDecoration(
-                      prefixIcon: const Icon(Icons.person_rounded),
-                      labelText: 'Contact Name',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  TextField(
-                    controller: phoneCtrl,
-                    keyboardType: TextInputType.phone,
-                    style: TextStyle(color: textPrimary),
-                    decoration: InputDecoration(
-                      prefixIcon: const Icon(Icons.phone_rounded),
-                      labelText: 'Phone Number',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  SwitchListTile(
-                    title: Text('Video Call', style: TextStyle(color: textPrimary, fontWeight: FontWeight.bold)),
-                    value: isVideo,
-                    onChanged: (v) => setModalState(() => isVideo = v),
-                  ),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 48,
-                    child: ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF34C759),
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Start a Call',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w900,
+                          color: textPrimary,
+                        ),
                       ),
-                      onPressed: () {
-                        final name = nameCtrl.text.trim();
-                        final phone = phoneCtrl.text.trim();
-                        if (name.isEmpty) return;
-
-                        ref.read(callsProvider.notifier).logNewCall(
-                              contactName: name,
-                              phoneNumber: phone.isEmpty ? '+1 555 0192' : phone,
-                              direction: CallDirection.outgoing,
-                              durationSeconds: 180,
-                              isVideo: isVideo,
-                            );
-
-                        Navigator.pop(ctx);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Call connected with $name! Logged to call history.')),
-                        );
-                      },
-                      icon: Icon(isVideo ? Icons.videocam_rounded : Icons.call_rounded),
-                      label: const Text('Start Call', style: TextStyle(fontWeight: FontWeight.bold)),
-                    ),
+                      IconButton(
+                        icon: Icon(Icons.close_rounded, color: textSecondary),
+                        onPressed: () => Navigator.pop(ctx),
+                      ),
+                    ],
+                  ),
+                  Text(
+                    'Select a friend or contact to call',
+                    style: TextStyle(fontSize: 13, color: textSecondary),
+                  ),
+                  const SizedBox(height: 14),
+                  Expanded(
+                    child: friends.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.people_outline_rounded, size: 48, color: textSecondary),
+                                const SizedBox(height: 12),
+                                Text(
+                                  'No Friends Found',
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: textPrimary),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Add friends on MurihSpace to start voice and HD video calls.',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(color: textSecondary, fontSize: 12),
+                                ),
+                                const SizedBox(height: 14),
+                                ElevatedButton(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF007AFF),
+                                    foregroundColor: Colors.white,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  ),
+                                  onPressed: () {
+                                    Navigator.pop(ctx);
+                                    context.push('/friends');
+                                  },
+                                  child: const Text('Discover Friends'),
+                                ),
+                              ],
+                            ),
+                          )
+                        : ListView.separated(
+                            itemCount: friends.length,
+                            separatorBuilder: (_, __) => const Divider(height: 1, indent: 64),
+                            itemBuilder: (context, idx) {
+                              final friend = friends[idx];
+                              return ListTile(
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                                leading: Stack(
+                                  children: [
+                                    CircleAvatar(
+                                      radius: 24,
+                                      backgroundColor: const Color(0xFF007AFF).withOpacity(0.15),
+                                      backgroundImage: friend.avatarUrl != null && friend.avatarUrl!.isNotEmpty
+                                          ? CachedNetworkImageProvider(friend.avatarUrl!)
+                                          : null,
+                                      child: friend.avatarUrl == null || friend.avatarUrl!.isEmpty
+                                          ? Text(
+                                              friend.name.isNotEmpty ? friend.name[0].toUpperCase() : 'U',
+                                              style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF007AFF)),
+                                            )
+                                          : null,
+                                    ),
+                                    if (friend.isOnline)
+                                      Positioned(
+                                        right: 0,
+                                        bottom: 0,
+                                        child: Container(
+                                          width: 12,
+                                          height: 12,
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFF34C759),
+                                            shape: BoxShape.circle,
+                                            border: Border.all(color: bg, width: 2),
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                                title: Text(
+                                  friend.name,
+                                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: textPrimary),
+                                ),
+                                subtitle: Text(
+                                  '@${friend.username}',
+                                  style: TextStyle(fontSize: 12, color: textSecondary),
+                                ),
+                                trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Color(0xFF8E8E93)),
+                                onTap: () {
+                                  Navigator.pop(ctx);
+                                  _showCallOptionsModal(context, friend);
+                                },
+                              );
+                            },
+                          ),
                   ),
                 ],
               ),
             );
           },
+        );
+      },
+    );
+  }
+
+  void _showCallOptionsModal(BuildContext context, FriendUserItem friend) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = isDark ? const Color(0xFF1C1C1E) : Colors.white;
+    final textPrimary = isDark ? Colors.white : Colors.black;
+    final textSecondary = isDark ? Colors.grey[400] : Colors.grey[600];
+
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: bg,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.grey[700] : Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              CircleAvatar(
+                radius: 32,
+                backgroundColor: const Color(0xFF007AFF).withOpacity(0.15),
+                backgroundImage: friend.avatarUrl != null && friend.avatarUrl!.isNotEmpty
+                    ? CachedNetworkImageProvider(friend.avatarUrl!)
+                    : null,
+                child: friend.avatarUrl == null || friend.avatarUrl!.isEmpty
+                    ? Text(
+                        friend.name.isNotEmpty ? friend.name[0].toUpperCase() : 'U',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 22, color: Color(0xFF007AFF)),
+                      )
+                    : null,
+              ),
+              const SizedBox(height: 10),
+              Text(
+                friend.name,
+                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: textPrimary),
+              ),
+              Text(
+                '@${friend.username}',
+                style: TextStyle(fontSize: 13, color: textSecondary),
+              ),
+              const SizedBox(height: 20),
+
+              // Modern Call Options
+              Row(
+                children: [
+                  // Voice Call Card
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () {
+                        HapticFeedback.mediumImpact();
+                        Navigator.pop(ctx);
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => CallScreen(
+                              contactName: friend.name,
+                              phoneNumber: '@${friend.username}',
+                              avatarUrl: friend.avatarUrl,
+                              isVideo: false,
+                            ),
+                          ),
+                        );
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF34C759).withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: const Color(0xFF34C759).withOpacity(0.4)),
+                        ),
+                        child: const Column(
+                          children: [
+                            CircleAvatar(
+                              radius: 22,
+                              backgroundColor: Color(0xFF34C759),
+                              child: Icon(Icons.call_rounded, color: Colors.white, size: 22),
+                            ),
+                            SizedBox(height: 8),
+                            Text('Voice Call', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: Color(0xFF34C759))),
+                            Text('Clear Audio', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+
+                  // HD Video Call Card
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () {
+                        HapticFeedback.mediumImpact();
+                        Navigator.pop(ctx);
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => CallScreen(
+                              contactName: friend.name,
+                              phoneNumber: '@${friend.username}',
+                              avatarUrl: friend.avatarUrl,
+                              isVideo: true,
+                            ),
+                          ),
+                        );
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF007AFF).withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: const Color(0xFF007AFF).withOpacity(0.4)),
+                        ),
+                        child: const Column(
+                          children: [
+                            CircleAvatar(
+                              radius: 22,
+                              backgroundColor: Color(0xFF007AFF),
+                              child: Icon(Icons.videocam_rounded, color: Colors.white, size: 22),
+                            ),
+                            SizedBox(height: 8),
+                            Text('HD Video', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: Color(0xFF007AFF))),
+                            Text('Face to Face', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         );
       },
     );
@@ -145,57 +337,37 @@ class CallsScreen extends ConsumerWidget {
         ),
         actions: [
           IconButton(
-            onPressed: () => _showNewCallDialog(context, ref),
-            icon: const Icon(Icons.add_call, color: Color(0xFF007AFF)),
+            onPressed: () => _showStartCallFriendPicker(context, ref),
+            icon: Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: const Color(0xFF007AFF).withOpacity(0.15),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.add_call, color: Color(0xFF007AFF), size: 18),
+            ),
             tooltip: 'Start Call',
           ),
-          PopupMenuButton<String>(
-            icon: Icon(Icons.more_vert_rounded, color: textPrimary),
-            onSelected: (val) {
-              if (val == 'clear') {
-                ref.read(callsProvider.notifier).clearCallLog();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Call log cleared')),
-                );
-              }
-            },
-            itemBuilder: (ctx) => [
-              const PopupMenuItem(value: 'clear', child: Text('Clear Call History')),
-            ],
-          ),
+          if (state.calls.isNotEmpty)
+            PopupMenuButton<String>(
+              icon: Icon(Icons.more_vert_rounded, color: textPrimary),
+              onSelected: (val) {
+                if (val == 'clear') {
+                  ref.read(callsProvider.notifier).clearCallLog();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Call log cleared')),
+                  );
+                }
+              },
+              itemBuilder: (ctx) => [
+                const PopupMenuItem(value: 'clear', child: Text('Clear Call History')),
+              ],
+            ),
         ],
       ),
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         children: [
-          // 3 Communication Formats Quick Access
-          Row(
-            children: [
-              Expanded(
-                child: _modeCard(
-                  context,
-                  title: 'Conference',
-                  subtitle: 'Group Room',
-                  icon: Icons.groups_rounded,
-                  color: const Color(0xFF007AFF),
-                  onTap: () => context.push('/app/conference'),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _modeCard(
-                  context,
-                  title: 'Live Stage',
-                  subtitle: 'Broadcast & Gifts',
-                  icon: Icons.live_tv_rounded,
-                  color: const Color(0xFFFF9500),
-                  onTap: () => context.push('/app/live'),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-
           // Filter Chips (All vs Missed)
           Row(
             children: [
@@ -216,15 +388,38 @@ class CallsScreen extends ConsumerWidget {
 
           if (state.filteredCalls.isEmpty)
             Container(
-              padding: const EdgeInsets.all(32),
+              padding: const EdgeInsets.all(36),
               alignment: Alignment.center,
               child: Column(
                 children: [
-                  Icon(Icons.phone_missed_rounded, size: 54, color: textSecondary),
-                  const SizedBox(height: 10),
-                  Text('No Call Records', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: textPrimary)),
-                  const SizedBox(height: 4),
-                  Text('Your recent audio & video calls will appear here.', style: TextStyle(color: textSecondary, fontSize: 13)),
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF007AFF).withOpacity(0.12),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.phone_in_talk_rounded, size: 48, color: Color(0xFF007AFF)),
+                  ),
+                  const SizedBox(height: 16),
+                  Text('No Call Records', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: textPrimary)),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Your recent audio and HD video calls will appear here.\nTap Start Call to reach a friend.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: textSecondary, fontSize: 13),
+                  ),
+                  const SizedBox(height: 18),
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF007AFF),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    ),
+                    onPressed: () => _showStartCallFriendPicker(context, ref),
+                    icon: const Icon(Icons.add_call, size: 18),
+                    label: const Text('Start a Call', style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
                 ],
               ),
             )
@@ -233,12 +428,17 @@ class CallsScreen extends ConsumerWidget {
               decoration: BoxDecoration(
                 color: cardBg,
                 borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE5E5EA)),
               ),
               child: ListView.separated(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: state.filteredCalls.length,
-                separatorBuilder: (_, _) => const Divider(height: 1, indent: 64),
+                separatorBuilder: (_, _) => Divider(
+                  height: 1,
+                  indent: 64,
+                  color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE5E5EA),
+                ),
                 itemBuilder: (ctx, i) {
                   final call = state.filteredCalls[i];
                   return Dismissible(
@@ -254,14 +454,15 @@ class CallsScreen extends ConsumerWidget {
                       ref.read(callsProvider.notifier).deleteCall(call.id);
                     },
                     child: ListTile(
-                      leading: Container(
-                        width: 42,
-                        height: 42,
-                        decoration: BoxDecoration(
-                          color: call.color.withValues(alpha: 0.15),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(call.icon, color: call.color, size: 20),
+                      leading: CircleAvatar(
+                        radius: 20,
+                        backgroundColor: call.color.withOpacity(0.15),
+                        backgroundImage: call.avatarUrl.isNotEmpty
+                            ? CachedNetworkImageProvider(call.avatarUrl)
+                            : null,
+                        child: call.avatarUrl.isEmpty
+                            ? Icon(call.icon, color: call.color, size: 18)
+                            : null,
                       ),
                       title: Row(
                         children: [
@@ -287,17 +488,20 @@ class CallsScreen extends ConsumerWidget {
                         ),
                       ),
                       trailing: IconButton(
-                        icon: const Icon(Icons.call_rounded, color: Color(0xFF34C759)),
+                        icon: Icon(
+                          call.isVideo ? Icons.videocam_rounded : Icons.call_rounded,
+                          color: const Color(0xFF34C759),
+                        ),
                         onPressed: () {
-                          ref.read(callsProvider.notifier).logNewCall(
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => CallScreen(
                                 contactName: call.contactName,
                                 phoneNumber: call.phoneNumber,
-                                direction: CallDirection.outgoing,
-                                durationSeconds: 60,
+                                avatarUrl: call.avatarUrl,
                                 isVideo: call.isVideo,
-                              );
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Calling ${call.contactName}…')),
+                              ),
+                            ),
                           );
                         },
                       ),
@@ -307,60 +511,6 @@ class CallsScreen extends ConsumerWidget {
               ),
             ),
         ],
-      ),
-    );
-  }
-
-  Widget _modeCard(
-    BuildContext context, {
-    required String title,
-    required String subtitle,
-    required IconData icon,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final cardBg = isDark ? const Color(0xFF1C1C1E) : Colors.white;
-    final textPrimary = isDark ? Colors.white : Colors.black;
-
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: cardBg,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: color.withValues(alpha: 0.3)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.15),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icon, color: color, size: 20),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: textPrimary)),
-                  Text(subtitle, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.bold)),
-                ],
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

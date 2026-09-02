@@ -11,6 +11,7 @@ class LiveStreamScreen extends ConsumerStatefulWidget {
   final String streamTitle;
   final String hostName;
   final String? communityName;
+  final bool isHost;
   final bool cameraEnabled;
   final bool micEnabled;
   final String streamMode;
@@ -22,6 +23,7 @@ class LiveStreamScreen extends ConsumerStatefulWidget {
     this.streamTitle = '🔥 Live Tech & Creator Media Launch',
     this.hostName = 'Vincent (Creator)',
     this.communityName,
+    this.isHost = true,
     this.cameraEnabled = true,
     this.micEnabled = true,
     this.streamMode = 'video',
@@ -562,15 +564,30 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
                         ),
                         const SizedBox(width: 8),
 
-                        // Gift Button
-                        GestureDetector(
-                          onTap: _openGiftingModal,
-                          child: CircleAvatar(
-                            backgroundColor: const Color(0xFFFF9500),
+                        // Gift button (Audience/Viewers only) or Host Controls (Host)
+                        if (!widget.isHost)
+                          GestureDetector(
+                            onTap: _openGiftingModal,
+                            child: const CircleAvatar(
+                              backgroundColor: Color(0xFFFF9500),
+                              radius: 20,
+                              child: Icon(Icons.card_giftcard_rounded, color: Colors.white, size: 20),
+                            ),
+                          )
+                        else
+                          CircleAvatar(
+                            backgroundColor: const Color(0xFF34C759),
                             radius: 20,
-                            child: const Icon(Icons.card_giftcard_rounded, color: Colors.white, size: 20),
+                            child: IconButton(
+                              icon: const Icon(Icons.sell_rounded, color: Colors.white, size: 18),
+                              tooltip: 'Live Commerce Products',
+                              onPressed: () {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Live Commerce: Your pinned store products are visible to viewers!')),
+                                );
+                              },
+                            ),
                           ),
-                        ),
                       ],
                     ),
                   ],

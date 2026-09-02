@@ -186,15 +186,21 @@ class _CommunityCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? const Color(0xFF1C1C1E) : Colors.white;
+    final borderCol = isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE5E5EA);
+    final textPrimary = isDark ? Colors.white : Colors.black;
+    final textSecondary = isDark ? Colors.grey[400] : const Color(0xFF61758A);
+
     return InkWell(
       onTap: () => context.push('/app/community/${community.slug}'),
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: DesignTokens.surface,
+          color: cardBg,
           borderRadius: BorderRadius.circular(DesignTokens.radiusMd),
-          border: Border.all(color: DesignTokens.border),
+          border: Border.all(color: borderCol),
         ),
         child: Row(
           children: [
@@ -208,24 +214,24 @@ class _CommunityCard extends StatelessWidget {
                     community.name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: DesignTokens.textPrimary),
+                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: textPrimary),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     '${community.membersCount} members',
-                    style: const TextStyle(fontSize: 12, color: DesignTokens.textSecondary),
+                    style: TextStyle(fontSize: 12, color: textSecondary),
                   ),
                   if (community.description != null && community.description!.isNotEmpty)
                     Text(
                       community.description!,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 12, color: DesignTokens.textSecondary),
+                      style: TextStyle(fontSize: 12, color: textSecondary),
                     ),
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right, color: DesignTokens.textSecondary),
+            Icon(Icons.chevron_right, color: textSecondary),
           ],
         ),
       ),
@@ -256,6 +262,9 @@ class _DiscoverViewState extends ConsumerState<_DiscoverView> {
     final state = ref.watch(discoverCommunitiesProvider);
     final myIds = ref.watch(myCommunitiesProvider).communities.map((c) => c.id).toSet();
     final notifier = ref.read(discoverCommunitiesProvider.notifier);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final searchBg = isDark ? const Color(0xFF1C1C1E) : const Color(0xFFEFF3F6);
+    final borderCol = isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE5E5EA);
 
     return Column(
       children: [
@@ -267,16 +276,22 @@ class _DiscoverViewState extends ConsumerState<_DiscoverView> {
               _debounce?.cancel();
               _debounce = Timer(const Duration(milliseconds: 400), () => notifier.search(value));
             },
+            style: TextStyle(color: isDark ? Colors.white : Colors.black),
             decoration: InputDecoration(
               hintText: 'Search communities…',
-              prefixIcon: const Icon(Icons.search, size: 20),
+              hintStyle: TextStyle(color: isDark ? Colors.grey[400] : const Color(0xFF8E8E93)),
+              prefixIcon: Icon(Icons.search, size: 20, color: isDark ? Colors.grey[400] : const Color(0xFF8E8E93)),
               filled: true,
-              fillColor: DesignTokens.surface,
+              fillColor: searchBg,
               isDense: true,
               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(DesignTokens.radiusMd),
-                borderSide: const BorderSide(color: DesignTokens.border),
+                borderSide: BorderSide(color: borderCol),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(DesignTokens.radiusMd),
+                borderSide: BorderSide(color: borderCol),
               ),
             ),
           ),
@@ -365,15 +380,21 @@ class _DiscoverCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? const Color(0xFF1C1C1E) : Colors.white;
+    final borderCol = isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE5E5EA);
+    final textPrimary = isDark ? Colors.white : Colors.black;
+    final textSecondary = isDark ? Colors.grey[400] : const Color(0xFF61758A);
+
     return InkWell(
       onTap: () => context.push('/app/community/${community.slug}'),
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: DesignTokens.surface,
+          color: cardBg,
           borderRadius: BorderRadius.circular(DesignTokens.radiusMd),
-          border: Border.all(color: DesignTokens.border),
+          border: Border.all(color: borderCol),
         ),
         child: Row(
           children: [
@@ -387,24 +408,31 @@ class _DiscoverCard extends StatelessWidget {
                     community.name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: DesignTokens.textPrimary),
+                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: textPrimary),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     '${community.membersCount} members',
-                    style: const TextStyle(fontSize: 12, color: DesignTokens.textSecondary),
+                    style: TextStyle(fontSize: 12, color: textSecondary),
                   ),
                 ],
               ),
             ),
             const SizedBox(width: 8),
             IconButton(
-              icon: const Icon(Icons.settings_outlined, size: 20),
+              icon: Icon(Icons.settings_outlined, size: 20, color: textSecondary),
               tooltip: 'Manage Community',
               onPressed: () => CommunityManageSheet.show(context, community),
             ),
             joined
-                ? OutlinedButton(onPressed: onJoin, child: const Text('Joined'))
+                ? OutlinedButton(
+                    onPressed: onJoin,
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(color: isDark ? const Color(0xFF3A3A3C) : const Color(0xFFD1D1D6)),
+                      foregroundColor: textPrimary,
+                    ),
+                    child: const Text('Joined'),
+                  )
                 : FilledButton(
                     onPressed: onJoin,
                     style: FilledButton.styleFrom(backgroundColor: DesignTokens.primary),

@@ -181,11 +181,12 @@ class _CommunityDetailScreenState extends ConsumerState<CommunityDetailScreen>
               tooltip: 'Go Live / Host Meeting',
               onPressed: () => GoLiveSetupDialog.show(context, community: community),
             ),
-            IconButton(
-              icon: const Icon(Icons.card_giftcard_rounded, color: Color(0xFFFF9500)),
-              tooltip: 'Gift Community',
-              onPressed: () => _openCommunityGifting(community),
-            ),
+            if (!isCreator)
+              IconButton(
+                icon: const Icon(Icons.card_giftcard_rounded, color: Color(0xFFFF9500)),
+                tooltip: 'Gift Community',
+                onPressed: () => _openCommunityGifting(community),
+              ),
             IconButton(
               icon: const Icon(Icons.share_rounded),
               tooltip: 'Share Community',

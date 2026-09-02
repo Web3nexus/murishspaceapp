@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/api_client.dart';
+import '../core/permissions_service.dart';
 import '../models/community_models.dart';
 import '../screens/live_stream_screen.dart';
 
@@ -150,13 +151,22 @@ class _GoLiveSetupDialogState extends ConsumerState<GoLiveSetupDialog> {
     }
   }
 
-  void _startLive() {
+  Future<void> _startLive() async {
     if (_titleCtrl.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please provide a title for the broadcast.')),
       );
       return;
     }
+
+    if (_cameraEnabled && _streamMode != 'audio') {
+      await ref.read(permissionsProvider.notifier).requestPermission(AppPermissionType.camera);
+    }
+    if (_micEnabled) {
+      await ref.read(permissionsProvider.notifier).requestPermission(AppPermissionType.microphone);
+    }
+
+    if (!mounted) return;
 
     Navigator.pop(context);
     Navigator.of(context).push(
@@ -165,6 +175,7 @@ class _GoLiveSetupDialogState extends ConsumerState<GoLiveSetupDialog> {
           streamTitle: _titleCtrl.text.trim(),
           hostName: widget.community != null ? widget.community!.name : 'Creator Live',
           communityName: widget.community?.name,
+          isHost: true,
           cameraEnabled: _cameraEnabled && _streamMode != 'audio',
           micEnabled: _micEnabled,
           streamMode: _streamMode,
