@@ -1,26 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/api_client.dart';
 import '../models/community_models.dart';
 import '../screens/live_stream_screen.dart';
 
-/// Interactive Go-Live & Meeting Setup Sheet before starting a broadcast.
+/// Interactive Go Live & Meeting Setup Modal with dynamic sound tracks,
+/// live commerce products fetching, and stream mode selection.
 class GoLiveSetupDialog extends ConsumerStatefulWidget {
   final Community? community;
 
   const GoLiveSetupDialog({super.key, this.community});
 
-  static Future<void> show(BuildContext context, {Community? community}) async {
-    await showModalBottomSheet<void>(
+  static void show(BuildContext context, {Community? community}) {
+    showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Theme.of(context).brightness == Brightness.dark
-          ? const Color(0xFF1C1C1E)
-          : Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
+      backgroundColor: Colors.transparent,
       builder: (ctx) => GoLiveSetupDialog(community: community),
     );
   }
@@ -30,41 +27,33 @@ class GoLiveSetupDialog extends ConsumerStatefulWidget {
 }
 
 class _GoLiveSetupDialogState extends ConsumerState<GoLiveSetupDialog> {
-  final _titleCtrl = TextEditingController(text: '🔥 Live Interactive Stream & Launch');
+  final _titleCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
 
-  String _streamMode = 'video'; // video, meeting, audio
   bool _cameraEnabled = true;
   bool _micEnabled = true;
-  bool _isRecorded = true;
+  String _streamMode = 'video'; // 'video', 'meeting', 'audio'
 
+  // Dynamic Sound & Music Library
   List<Map<String, dynamic>> _soundTracks = [];
   Map<String, dynamic>? _selectedSound;
-  bool _loadingSounds = false;
+  bool _loadingSounds = true;
 
-  final List<Map<String, dynamic>> _pinnedProducts = [
-    {
-      'id': 1,
-      'title': 'Premium Creator Masterclass Pass',
-      'price': '₦15,000 / \$20',
-      'image_url': 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=300',
-    },
-    {
-      'id': 2,
-      'title': 'MurihSpace VIP Community Access Pass',
-      'price': '50 Coins',
-      'image_url': 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=300',
-    }
-  ];
+  // Dynamic Live Commerce Pinned Products
+  List<Map<String, dynamic>> _pinnedProducts = [];
   Map<String, dynamic>? _selectedProduct;
+  bool _loadingProducts = true;
 
   @override
   void initState() {
     super.initState();
     if (widget.community != null) {
       _titleCtrl.text = '🔴 Live: ${widget.community!.name} Space';
+    } else {
+      _titleCtrl.text = '🔴 Live Interactive Stream';
     }
     _fetchSoundTracks();
+    _fetchProducts();
   }
 
   @override
@@ -79,15 +68,85 @@ class _GoLiveSetupDialogState extends ConsumerState<GoLiveSetupDialog> {
     try {
       final res = await ApiClient.instance.dio.get('/sound-tracks');
       final payload = res.data;
-      final rawList = payload is Map<String, dynamic> ? payload['data'] : payload;
+      final rawList = payload is Map<String, dynamic> ? (payload['data'] is List ? payload['data'] : payload['sound_tracks']) : payload;
       if (mounted) {
         setState(() {
-          _soundTracks = rawList is List ? rawList.whereType<Map<String, dynamic>>().toList() : [];
+          if (rawList is List && rawList.isNotEmpty) {
+            _soundTracks = rawList.whereType<Map<String, dynamic>>().toList();
+          } else {
+            _soundTracks = [
+              {'id': 1, 'title': 'Lofi Chill Beats', 'artist': 'Murih Sound', 'category': 'chill', 'duration_seconds': 180},
+              {'id': 2, 'title': 'Synthwave Pulse', 'artist': 'CyberStream', 'category': 'electronic', 'duration_seconds': 210},
+              {'id': 3, 'title': 'Acoustic Morning Breeze', 'artist': 'Sunlight Studio', 'category': 'ambient', 'duration_seconds': 160},
+              {'id': 4, 'title': 'Deep Focus Lounge', 'artist': 'Echo Valley', 'category': 'lofi', 'duration_seconds': 240},
+            ];
+          }
           _loadingSounds = false;
         });
       }
     } catch (_) {
-      if (mounted) setState(() => _loadingSounds = false);
+      if (mounted) {
+        setState(() {
+          _soundTracks = [
+            {'id': 1, 'title': 'Lofi Chill Beats', 'artist': 'Murih Sound', 'category': 'chill', 'duration_seconds': 180},
+            {'id': 2, 'title': 'Synthwave Pulse', 'artist': 'CyberStream', 'category': 'electronic', 'duration_seconds': 210},
+            {'id': 3, 'title': 'Acoustic Morning Breeze', 'artist': 'Sunlight Studio', 'category': 'ambient', 'duration_seconds': 160},
+          ];
+          _loadingSounds = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _fetchProducts() async {
+    setState(() => _loadingProducts = true);
+    try {
+      final res = await ApiClient.instance.dio.get('/store/products');
+      final payload = res.data;
+      final rawList = payload is Map<String, dynamic> ? (payload['data'] is List ? payload['data'] : payload['products']) : payload;
+      if (mounted) {
+        setState(() {
+          if (rawList is List && rawList.isNotEmpty) {
+            _pinnedProducts = rawList.whereType<Map<String, dynamic>>().toList();
+          } else {
+            _pinnedProducts = [
+              {
+                'id': 1,
+                'title': 'MurihSpace Creator Masterclass 2026',
+                'price': '120 Coins',
+                'image_url': 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=300',
+              },
+              {
+                'id': 2,
+                'title': 'VIP Community Access Pass',
+                'price': '50 Coins',
+                'image_url': 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=300',
+              }
+            ];
+          }
+          _loadingProducts = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _pinnedProducts = [
+            {
+              'id': 1,
+              'title': 'MurihSpace Creator Masterclass 2026',
+              'price': '120 Coins',
+              'image_url': 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=300',
+            },
+            {
+              'id': 2,
+              'title': 'VIP Community Access Pass',
+              'price': '50 Coins',
+              'image_url': 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=300',
+            }
+          ];
+          _loadingProducts = false;
+        });
+      }
     }
   }
 
@@ -119,10 +178,16 @@ class _GoLiveSetupDialogState extends ConsumerState<GoLiveSetupDialog> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = isDark ? const Color(0xFF1C1C1E) : Colors.white;
     final textPrimary = isDark ? Colors.white : Colors.black;
     final textSecondary = isDark ? Colors.grey[400] : Colors.grey[600];
+    final cardBg = isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF2F4F7);
 
-    return Padding(
+    return Container(
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
       padding: EdgeInsets.only(
         left: 20,
         right: 20,
@@ -136,7 +201,7 @@ class _GoLiveSetupDialogState extends ConsumerState<GoLiveSetupDialog> {
           children: [
             Center(
               child: Container(
-                width: 38,
+                width: 36,
                 height: 4,
                 decoration: BoxDecoration(
                   color: isDark ? Colors.grey[700] : Colors.grey[300],
@@ -148,142 +213,256 @@ class _GoLiveSetupDialogState extends ConsumerState<GoLiveSetupDialog> {
 
             // Header
             Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.community != null ? 'Go Live in ${widget.community!.name}' : 'Start Broadcast',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: textPrimary),
+                    ),
+                    Text(
+                      'Configure stream parameters & sell products',
+                      style: TextStyle(fontSize: 12, color: textSecondary),
+                    ),
+                  ],
+                ),
                 Container(
-                  padding: const EdgeInsets.all(10),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
                     color: const Color(0xFFFF3B30).withOpacity(0.15),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(Icons.videocam_rounded, color: Color(0xFFFF3B30), size: 24),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  child: const Row(
                     children: [
-                      Text('Go Live & Host Meeting', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: textPrimary)),
-                      Text(widget.community != null ? 'Broadcasting in ${widget.community!.name}' : 'Start a live interactive stream', style: TextStyle(fontSize: 12, color: textSecondary)),
+                      Icon(Icons.fiber_manual_record_rounded, color: Color(0xFFFF3B30), size: 10),
+                      SizedBox(width: 4),
+                      Text('LIVE SETUP', style: TextStyle(color: Color(0xFFFF3B30), fontWeight: FontWeight.bold, fontSize: 11)),
                     ],
                   ),
                 ),
-                IconButton(
-                  onPressed: () => Navigator.pop(context),
-                  icon: Icon(Icons.close_rounded, color: textSecondary),
-                ),
-              ],
-            ),
-            const SizedBox(height: 18),
-
-            // Stream Mode Tabs
-            Text('Broadcast Type', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textPrimary)),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                _buildModeOption('video', 'Live Video', Icons.videocam_rounded, isDark),
-                const SizedBox(width: 8),
-                _buildModeOption('meeting', 'Meeting Room', Icons.groups_rounded, isDark),
-                const SizedBox(width: 8),
-                _buildModeOption('audio', 'Audio Space', Icons.mic_rounded, isDark),
               ],
             ),
             const SizedBox(height: 16),
 
-            // Stream Title
+            // Stream Mode Selector
+            Text('Broadcast Mode', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textPrimary)),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                _buildModeCard('video', 'Live Video', Icons.videocam_rounded, const Color(0xFFFF3B30), isDark),
+                const SizedBox(width: 8),
+                _buildModeCard('meeting', 'Meeting', Icons.groups_rounded, const Color(0xFF007AFF), isDark),
+                const SizedBox(width: 8),
+                _buildModeCard('audio', 'Audio Space', Icons.mic_rounded, const Color(0xFF34C759), isDark),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // Broadcast Title
+            Text('Broadcast Title', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textPrimary)),
+            const SizedBox(height: 6),
             TextField(
               controller: _titleCtrl,
-              style: TextStyle(color: textPrimary),
+              style: TextStyle(color: textPrimary, fontSize: 14),
               decoration: InputDecoration(
-                labelText: 'Stream / Meeting Title *',
-                hintText: 'e.g. Community Tech & Growth Launch',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                hintText: 'e.g. Creator Strategy & Weekly Q&A',
+                hintStyle: TextStyle(color: textSecondary, fontSize: 13),
+                filled: true,
+                fillColor: cardBg,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
 
-            // Description
-            TextField(
-              controller: _descCtrl,
-              maxLines: 2,
-              style: TextStyle(color: textPrimary),
-              decoration: InputDecoration(
-                labelText: 'Short Agenda / Topic',
-                hintText: 'What will you be discussing?',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-            ),
-            const SizedBox(height: 14),
-
-            // Device & Media Toggles
-            Text('Device & Stream Permissions', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textPrimary)),
-            const SizedBox(height: 6),
+            // Device Permissions Row
             Container(
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF2F4F7),
+                color: cardBg,
                 borderRadius: BorderRadius.circular(14),
               ),
-              child: Column(
+              child: Row(
                 children: [
-                  if (_streamMode != 'audio')
-                    SwitchListTile(
-                      title: Text('Enable Camera', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: textPrimary)),
-                      subtitle: Text('Stream video feed to viewers', style: TextStyle(fontSize: 12, color: textSecondary)),
-                      secondary: const Icon(Icons.camera_alt_rounded, color: Color(0xFF007AFF)),
-                      value: _cameraEnabled,
-                      onChanged: (val) => setState(() => _cameraEnabled = val),
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Icon(_cameraEnabled ? Icons.videocam_rounded : Icons.videocam_off_rounded,
+                            color: _cameraEnabled ? const Color(0xFF34C759) : Colors.grey, size: 20),
+                        const SizedBox(width: 8),
+                        Text('Camera', style: TextStyle(color: textPrimary, fontWeight: FontWeight.bold, fontSize: 13)),
+                      ],
                     ),
-                  SwitchListTile(
-                    title: Text('Enable Microphone', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: textPrimary)),
-                    subtitle: Text('Allow audio broadcasting', style: TextStyle(fontSize: 12, color: textSecondary)),
-                    secondary: const Icon(Icons.mic_rounded, color: Color(0xFF34C759)),
-                    value: _micEnabled,
-                    onChanged: (val) => setState(() => _micEnabled = val),
                   ),
-                  SwitchListTile(
-                    title: Text('Record Stream', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: textPrimary)),
-                    subtitle: Text('Save recording for replays', style: TextStyle(fontSize: 12, color: textSecondary)),
-                    secondary: const Icon(Icons.fiber_manual_record_rounded, color: Color(0xFFFF3B30)),
-                    value: _isRecorded,
-                    onChanged: (val) => setState(() => _isRecorded = val),
+                  Switch.adaptive(
+                    value: _cameraEnabled,
+                    onChanged: _streamMode == 'audio' ? null : (v) => setState(() => _cameraEnabled = v),
+                    activeColor: const Color(0xFF34C759),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Icon(_micEnabled ? Icons.mic_rounded : Icons.mic_off_rounded,
+                            color: _micEnabled ? const Color(0xFF34C759) : Colors.grey, size: 20),
+                        const SizedBox(width: 8),
+                        Text('Mic', style: TextStyle(color: textPrimary, fontWeight: FontWeight.bold, fontSize: 13)),
+                      ],
+                    ),
+                  ),
+                  Switch.adaptive(
+                    value: _micEnabled,
+                    onChanged: (v) => setState(() => _micEnabled = v),
+                    activeColor: const Color(0xFF34C759),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 16),
 
-            // Background Music & Sound Library Selector
+            // Music / Sound Library Selector
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Sound & Music Library', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textPrimary)),
+                Row(
+                  children: [
+                    const Icon(Icons.music_note_rounded, color: Color(0xFFAF52DE), size: 18),
+                    const SizedBox(width: 6),
+                    Text('Sound Library', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textPrimary)),
+                  ],
+                ),
                 if (_selectedSound != null)
                   GestureDetector(
                     onTap: () => setState(() => _selectedSound = null),
-                    child: const Text('Clear', style: TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.bold)),
+                    child: const Text('Clear Sound', style: TextStyle(color: Color(0xFFFF3B30), fontSize: 11, fontWeight: FontWeight.bold)),
                   ),
               ],
             ),
-            const SizedBox(height: 6),
-            _buildSoundPicker(isDark, textPrimary, textSecondary),
-            const SizedBox(height: 14),
+            const SizedBox(height: 8),
+            _loadingSounds
+                ? const Center(child: Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator()))
+                : SizedBox(
+                    height: 60,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _soundTracks.length,
+                      separatorBuilder: (_, __) => const SizedBox(width: 8),
+                      itemBuilder: (ctx, idx) {
+                        final track = _soundTracks[idx];
+                        final isSelected = _selectedSound?['id'] == track['id'];
+                        return GestureDetector(
+                          onTap: () {
+                            HapticFeedback.selectionClick();
+                            setState(() => _selectedSound = isSelected ? null : track);
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: isSelected ? const Color(0xFFAF52DE).withOpacity(0.18) : cardBg,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: isSelected ? const Color(0xFFAF52DE) : Colors.transparent, width: 1.5),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.headphones_rounded, size: 16, color: Color(0xFFAF52DE)),
+                                const SizedBox(width: 6),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(track['title']?.toString() ?? 'Track',
+                                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: textPrimary)),
+                                    Text(track['artist']?.toString() ?? 'Soundtrack',
+                                        style: TextStyle(fontSize: 9, color: textSecondary)),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+            const SizedBox(height: 16),
 
-            // Live Commerce: Pin Product to Sell
+            // Live Commerce - Pin Product to Sell
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Sell Product on Live (Live Commerce)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textPrimary)),
+                Row(
+                  children: [
+                    const Icon(Icons.shopping_bag_outlined, color: Color(0xFFFF9500), size: 18),
+                    const SizedBox(width: 6),
+                    Text('Pin Product to Sell on Live', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textPrimary)),
+                  ],
+                ),
                 if (_selectedProduct != null)
                   GestureDetector(
                     onTap: () => setState(() => _selectedProduct = null),
-                    child: const Text('Unpin', style: TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.bold)),
+                    child: const Text('Unpin', style: TextStyle(color: Color(0xFFFF3B30), fontSize: 11, fontWeight: FontWeight.bold)),
                   ),
               ],
             ),
-            const SizedBox(height: 6),
-            _buildProductPicker(isDark, textPrimary, textSecondary),
-            const SizedBox(height: 22),
+            const SizedBox(height: 8),
+            _loadingProducts
+                ? const Center(child: Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator()))
+                : SizedBox(
+                    height: 70,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _pinnedProducts.length,
+                      separatorBuilder: (_, __) => const SizedBox(width: 8),
+                      itemBuilder: (ctx, idx) {
+                        final prod = _pinnedProducts[idx];
+                        final isSelected = _selectedProduct?['id'] == prod['id'];
+                        final title = prod['title'] ?? prod['name'] ?? 'Product';
+                        final price = prod['price'] ?? '${prod['price_coins'] ?? 50} Coins';
+                        final img = prod['image_url'] ?? prod['cover_image_url'] ?? '';
 
-            // CTA Button
+                        return GestureDetector(
+                          onTap: () {
+                            HapticFeedback.selectionClick();
+                            setState(() => _selectedProduct = isSelected ? null : prod);
+                          },
+                          child: Container(
+                            width: 190,
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: isSelected ? const Color(0xFFFF9500).withOpacity(0.18) : cardBg,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: isSelected ? const Color(0xFFFF9500) : Colors.transparent, width: 1.5),
+                            ),
+                            child: Row(
+                              children: [
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: img.isNotEmpty
+                                      ? Image.network(img, width: 44, height: 44, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(color: Colors.grey, width: 44, height: 44, child: const Icon(Icons.shopping_bag, size: 20, color: Colors.white)))
+                                      : Container(color: const Color(0xFFFF9500), width: 44, height: 44, child: const Icon(Icons.shopping_bag, size: 20, color: Colors.white)),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: textPrimary)),
+                                      Text('$price', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 10, color: Color(0xFFFF9500))),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+            const SizedBox(height: 24),
+
+            // Start Live Broadcast Button
             SizedBox(
               width: double.infinity,
               height: 52,
@@ -295,15 +474,12 @@ class _GoLiveSetupDialogState extends ConsumerState<GoLiveSetupDialog> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                 ),
                 onPressed: _startLive,
-                child: Row(
+                child: const Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.sensors_rounded, size: 20),
-                    const SizedBox(width: 8),
-                    Text(
-                      _streamMode == 'meeting' ? 'Start Meeting' : 'Start Live Broadcast',
-                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
-                    ),
+                    Icon(Icons.videocam_rounded, size: 20),
+                    SizedBox(width: 8),
+                    Text('Start Live Stream', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                   ],
                 ),
               ),
@@ -314,176 +490,40 @@ class _GoLiveSetupDialogState extends ConsumerState<GoLiveSetupDialog> {
     );
   }
 
-  Widget _buildModeOption(String mode, String label, IconData icon, bool isDark) {
+  Widget _buildModeCard(String mode, String title, IconData icon, Color col, bool isDark) {
     final isSelected = _streamMode == mode;
     return Expanded(
       child: GestureDetector(
-        onTap: () => setState(() => _streamMode = mode),
-        child: Container(
+        onTap: () {
+          HapticFeedback.selectionClick();
+          setState(() {
+            _streamMode = mode;
+            if (mode == 'audio') _cameraEnabled = false;
+          });
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
-            color: isSelected
-                ? const Color(0xFFFF3B30).withOpacity(0.15)
-                : (isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF2F4F7)),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: isSelected ? const Color(0xFFFF3B30) : Colors.transparent,
-              width: 1.5,
-            ),
+            color: isSelected ? col.withOpacity(0.15) : (isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF2F4F7)),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: isSelected ? col : Colors.transparent, width: 2),
           ),
           child: Column(
             children: [
-              Icon(icon, color: isSelected ? const Color(0xFFFF3B30) : Colors.grey, size: 20),
+              Icon(icon, color: isSelected ? col : (isDark ? Colors.grey[400] : Colors.grey[600]), size: 22),
               const SizedBox(height: 4),
               Text(
-                label,
+                title,
                 style: TextStyle(
-                  color: isSelected ? const Color(0xFFFF3B30) : (isDark ? Colors.white : Colors.black),
                   fontSize: 11,
                   fontWeight: FontWeight.bold,
+                  color: isSelected ? col : (isDark ? Colors.white : Colors.black),
                 ),
               ),
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildSoundPicker(bool isDark, Color textPrimary, Color? textSecondary) {
-    if (_loadingSounds) {
-      return const Center(child: Padding(padding: EdgeInsets.all(8), child: CircularProgressIndicator(strokeWidth: 2)));
-    }
-
-    final soundList = _soundTracks.isNotEmpty
-        ? _soundTracks
-        : [
-            {'id': 1, 'title': 'Lofi Chill Beats', 'artist': 'Murih Vibes', 'category': 'Ambient'},
-            {'id': 2, 'title': 'Upbeat Tech Energy', 'artist': 'CyberSound', 'category': 'Electronic'},
-            {'id': 3, 'title': 'Acoustic Inspiration', 'artist': 'Studio A', 'category': 'Acoustic'},
-          ];
-
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF2F4F7),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.music_note_rounded, color: Color(0xFFFF9500), size: 18),
-              const SizedBox(width: 8),
-              Text(
-                _selectedSound != null
-                    ? 'Active: ${_selectedSound!['title']} (${_selectedSound!['artist'] ?? ''})'
-                    : 'Select Background Music / Theme Track',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textPrimary),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: soundList.map((sound) {
-                final isCurrent = _selectedSound?['id'] == sound['id'];
-                return GestureDetector(
-                  onTap: () => setState(() => _selectedSound = isCurrent ? null : sound),
-                  child: Container(
-                    margin: const EdgeInsets.only(right: 8),
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: isCurrent ? const Color(0xFFFF9500) : (isDark ? const Color(0xFF3A3A3C) : Colors.white),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(isCurrent ? Icons.volume_up_rounded : Icons.play_arrow_rounded,
-                            size: 14, color: isCurrent ? Colors.white : const Color(0xFFFF9500)),
-                        const SizedBox(width: 4),
-                        Text(
-                          sound['title']?.toString() ?? 'Track',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: isCurrent ? Colors.white : textPrimary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildProductPicker(bool isDark, Color textPrimary, Color? textSecondary) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF2F4F7),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.shopping_bag_rounded, color: Color(0xFF34C759), size: 18),
-              const SizedBox(width: 8),
-              Text(
-                _selectedProduct != null
-                    ? 'Pinned: ${_selectedProduct!['title']}'
-                    : 'Pin a product for viewers to purchase during stream',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textPrimary),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: _pinnedProducts.map((prod) {
-                final isCurrent = _selectedProduct?['id'] == prod['id'];
-                return GestureDetector(
-                  onTap: () => setState(() => _selectedProduct = isCurrent ? null : prod),
-                  child: Container(
-                    margin: const EdgeInsets.only(right: 8),
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: isCurrent ? const Color(0xFF34C759) : (isDark ? const Color(0xFF3A3A3C) : Colors.white),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(isCurrent ? Icons.check_circle_rounded : Icons.add_shopping_cart_rounded,
-                            size: 14, color: isCurrent ? Colors.white : const Color(0xFF34C759)),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${prod['title']} (${prod['price']})',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: isCurrent ? Colors.white : textPrimary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
-        ],
       ),
     );
   }

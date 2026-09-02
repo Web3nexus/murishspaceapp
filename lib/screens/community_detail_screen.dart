@@ -214,6 +214,9 @@ class _CommunityDetailScreenState extends ConsumerState<CommunityDetailScreen>
     final isMember = membership?.isMember ?? false;
     final tabCount = isCreator ? 5 : 4;
     _syncTabCount(tabCount);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? const Color(0xFF1C1C1E) : Colors.white;
+    final textSecondary = isDark ? Colors.grey[400] : const Color(0xFF8E8E93);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -226,14 +229,14 @@ class _CommunityDetailScreenState extends ConsumerState<CommunityDetailScreen>
             onLeave: () => _leave(community),
           ),
           Container(
-            color: DesignTokens.surface,
+            color: cardBg,
             child: TabBar(
               controller: _tabController,
               isScrollable: true,
               tabAlignment: TabAlignment.start,
-              labelColor: DesignTokens.primaryDark,
-              unselectedLabelColor: DesignTokens.textSecondary,
-              indicatorColor: DesignTokens.primary,
+              labelColor: const Color(0xFF007AFF),
+              unselectedLabelColor: textSecondary,
+              indicatorColor: const Color(0xFF007AFF),
               tabs: [
                 const Tab(text: 'Feed'),
                 const Tab(text: 'Courses & Goods'),
@@ -573,15 +576,10 @@ class _FeedTab extends ConsumerWidget {
     required this.onCompose,
   });
 
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final source = PostsSource.community(community.id);
-    final state = ref.watch(postsProvider(source));
-    final myId = ref.watch(authProvider).user?.id;
-    final notifier = ref.read(postsProvider(source).notifier);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: DesignTokens.background,
+      backgroundColor: isDark ? const Color(0xFF000000) : const Color(0xFFF2F2F7),
       floatingActionButton: isMember
           ? FloatingActionButton(
               backgroundColor: DesignTokens.primary,
@@ -674,6 +672,11 @@ class _ChatsTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? const Color(0xFF1C1C1E) : Colors.white;
+    final textPrimary = isDark ? Colors.white : Colors.black;
+    final textSecondary = isDark ? Colors.grey[400] : Colors.grey[600];
+
     if (!isMember) {
       return const EmptyStateWidget(
         icon: Icons.chat_outlined,
@@ -681,20 +684,30 @@ class _ChatsTab extends StatelessWidget {
         description: 'Join this community to access the group chat.',
       );
     }
-    return ListView(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      children: [
-        ListTile(
-          leading: const CircleAvatar(
-            backgroundColor: DesignTokens.primarySoft,
-            child: Icon(Icons.chat_outlined, color: DesignTokens.primaryDark),
+    return Container(
+      color: isDark ? const Color(0xFF000000) : const Color(0xFFF2F2F7),
+      child: ListView(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              color: cardBg,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE5E5EA)),
+            ),
+            child: ListTile(
+              leading: CircleAvatar(
+                backgroundColor: const Color(0xFF007AFF).withOpacity(0.15),
+                child: const Icon(Icons.chat_outlined, color: Color(0xFF007AFF)),
+              ),
+              title: Text('General chat', style: TextStyle(fontWeight: FontWeight.w700, color: textPrimary)),
+              subtitle: Text('${community.name} Community Discussion', style: TextStyle(color: textSecondary, fontSize: 12)),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: onOpenChat,
+            ),
           ),
-          title: const Text('General chat', style: TextStyle(fontWeight: FontWeight.w600)),
-          subtitle: Text('${community.name} General'),
-          trailing: const Icon(Icons.chevron_right),
-          onTap: onOpenChat,
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -706,6 +719,11 @@ class _MembersTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? const Color(0xFF1C1C1E) : Colors.white;
+    final textPrimary = isDark ? Colors.white : Colors.black;
+    final textSecondary = isDark ? Colors.grey[400] : Colors.grey[600];
+
     final state = ref.watch(communityMembersProvider(communityId));
     if (state.loading && state.members.isEmpty) {
       return const LoadingStateWidget(message: 'Loading members…');
@@ -720,30 +738,41 @@ class _MembersTab extends ConsumerWidget {
     if (state.members.isEmpty) {
       return const EmptyStateWidget(icon: Icons.people_outline, title: 'No members yet');
     }
-    return ListView.separated(
-      itemCount: state.members.length,
-      separatorBuilder: (_, _) => const Divider(height: 1, indent: 72),
-      itemBuilder: (_, i) {
-        final member = state.members[i];
-        final user = member.user;
-        final avatarUrl = user?.avatarUrl;
-        return ListTile(
-          leading: CircleAvatar(
-            backgroundColor: DesignTokens.primarySoft,
-            backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty ? CachedNetworkImageProvider(avatarUrl) : null,
-            child: avatarUrl == null || avatarUrl.isEmpty
-                ? Text(
-                    (user?.name ?? '?').isEmpty ? '?' : (user!.name).substring(0, 1).toUpperCase(),
-                    style: const TextStyle(color: DesignTokens.primaryDark, fontWeight: FontWeight.w700),
-                  )
-                : null,
-          ),
-          title: Text(user?.name ?? 'MurihSpace user'),
-          subtitle: member.role != 'member'
-              ? Text(member.role, style: const TextStyle(color: DesignTokens.primaryDark))
-              : null,
-        );
-      },
+    return Container(
+      color: isDark ? const Color(0xFF000000) : const Color(0xFFF2F2F7),
+      child: ListView.separated(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        itemCount: state.members.length,
+        separatorBuilder: (_, _) => const SizedBox(height: 8),
+        itemBuilder: (_, i) {
+          final member = state.members[i];
+          final user = member.user;
+          final avatarUrl = user?.avatarUrl;
+          return Container(
+            decoration: BoxDecoration(
+              color: cardBg,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE5E5EA)),
+            ),
+            child: ListTile(
+              leading: CircleAvatar(
+                backgroundColor: const Color(0xFF007AFF).withOpacity(0.15),
+                backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty ? CachedNetworkImageProvider(avatarUrl) : null,
+                child: avatarUrl == null || avatarUrl.isEmpty
+                    ? Text(
+                        (user?.name ?? '?').isEmpty ? '?' : (user!.name).substring(0, 1).toUpperCase(),
+                        style: const TextStyle(color: Color(0xFF007AFF), fontWeight: FontWeight.w700),
+                      )
+                    : null,
+              ),
+              title: Text(user?.name ?? 'MurihSpace user', style: TextStyle(fontWeight: FontWeight.bold, color: textPrimary)),
+              subtitle: member.role != 'member'
+                  ? Text(member.role.toUpperCase(), style: const TextStyle(color: Color(0xFF007AFF), fontSize: 11, fontWeight: FontWeight.w800))
+                  : Text('@${user?.username ?? 'user'}', style: TextStyle(color: textSecondary, fontSize: 12)),
+            ),
+          );
+        },
+      ),
     );
   }
 }
@@ -755,6 +784,11 @@ class _RequestsTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? const Color(0xFF1C1C1E) : Colors.white;
+    final textPrimary = isDark ? Colors.white : Colors.black;
+    final textSecondary = isDark ? Colors.grey[400] : Colors.grey[600];
+
     final state = ref.watch(communityRequestsProvider(communityId));
     final notifier = ref.read(communityRequestsProvider(communityId).notifier);
 
@@ -775,46 +809,57 @@ class _RequestsTab extends ConsumerWidget {
         description: 'Join requests from users will appear here for approval.',
       );
     }
-    return RefreshIndicator(
-      onRefresh: () => notifier.refresh(),
-      child: ListView.separated(
-        physics: const AlwaysScrollableScrollPhysics(),
-        itemCount: state.requests.length,
-        separatorBuilder: (_, _) => const Divider(height: 1, indent: 72),
-        itemBuilder: (_, i) {
-          final request = state.requests[i];
-          final user = request.user;
-          final avatarUrl = user?.avatarUrl;
-          return ListTile(
-            leading: CircleAvatar(
-              backgroundColor: DesignTokens.primarySoft,
-              backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty ? CachedNetworkImageProvider(avatarUrl) : null,
-              child: avatarUrl == null || avatarUrl.isEmpty
-                  ? Text(
-                      (user?.name ?? '?').isEmpty ? '?' : (user!.name).substring(0, 1).toUpperCase(),
-                      style: const TextStyle(color: DesignTokens.primaryDark, fontWeight: FontWeight.w700),
-                    )
-                  : null,
-            ),
-            title: Text(user?.name ?? 'MurihSpace user'),
-            subtitle: const Text('Wants to join'),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconButton(
-                  onPressed: () => notifier.approve(request),
-                  icon: const Icon(Icons.check_circle_outline, color: DesignTokens.primary),
-                  tooltip: 'Approve',
+    return Container(
+      color: isDark ? const Color(0xFF000000) : const Color(0xFFF2F2F7),
+      child: RefreshIndicator(
+        onRefresh: () => notifier.refresh(),
+        child: ListView.separated(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          physics: const AlwaysScrollableScrollPhysics(),
+          itemCount: state.requests.length,
+          separatorBuilder: (_, _) => const SizedBox(height: 8),
+          itemBuilder: (_, i) {
+            final request = state.requests[i];
+            final user = request.user;
+            final avatarUrl = user?.avatarUrl;
+            return Container(
+              decoration: BoxDecoration(
+                color: cardBg,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE5E5EA)),
+              ),
+              child: ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: const Color(0xFF007AFF).withOpacity(0.15),
+                  backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty ? CachedNetworkImageProvider(avatarUrl) : null,
+                  child: avatarUrl == null || avatarUrl.isEmpty
+                      ? Text(
+                          (user?.name ?? '?').isEmpty ? '?' : (user!.name).substring(0, 1).toUpperCase(),
+                          style: const TextStyle(color: Color(0xFF007AFF), fontWeight: FontWeight.w700),
+                        )
+                      : null,
                 ),
-                IconButton(
-                  onPressed: () => notifier.reject(request),
-                  icon: const Icon(Icons.cancel_outlined, color: DesignTokens.danger),
-                  tooltip: 'Reject',
+                title: Text(user?.name ?? 'MurihSpace user', style: TextStyle(fontWeight: FontWeight.bold, color: textPrimary)),
+                subtitle: Text('Requested to join', style: TextStyle(color: textSecondary, fontSize: 12)),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      onPressed: () => notifier.approve(request),
+                      icon: const Icon(Icons.check_circle_rounded, color: Color(0xFF34C759)),
+                      tooltip: 'Approve',
+                    ),
+                    IconButton(
+                      onPressed: () => notifier.reject(request),
+                      icon: const Icon(Icons.cancel_rounded, color: Color(0xFFFF3B30)),
+                      tooltip: 'Reject',
+                    ),
+                  ],
                 ),
-              ],
-            ),
-          );
-        },
+              ),
+            );
+          },
+        ),
       ),
     );
   }
@@ -831,11 +876,11 @@ class _CoursesAndGoodsTab extends ConsumerStatefulWidget {
 }
 
 class _CoursesAndGoodsTabState extends ConsumerState<_CoursesAndGoodsTab> {
-  final List<Map<String, dynamic>> _digitalGoods = [
+  List<Map<String, dynamic>> _digitalGoods = [
     {
       'id': 1,
       'type': 'course',
-      'title': 'Complete Creator Mastery & Web3 Monetization',
+      'title': 'Complete Creator Mastery & Monetization',
       'price': '₦25,000 / \$30',
       'is_public': true,
       'is_exclusive': false,
@@ -870,142 +915,144 @@ class _CoursesAndGoodsTabState extends ConsumerState<_CoursesAndGoodsTab> {
     final textPrimary = isDark ? Colors.white : Colors.black;
     final textSecondary = isDark ? Colors.grey[400] : Colors.grey[600];
 
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Community Courses & Digital Goods',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textPrimary),
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: const Color(0xFF007AFF).withOpacity(0.15),
-                borderRadius: BorderRadius.circular(8),
+    return Container(
+      color: isDark ? const Color(0xFF000000) : const Color(0xFFF2F2F7),
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Community Courses & Digital Goods',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textPrimary),
               ),
-              child: Text(
-                '${_digitalGoods.length} Items',
-                style: const TextStyle(color: Color(0xFF007AFF), fontWeight: FontWeight.bold, fontSize: 11),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF007AFF).withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '${_digitalGoods.length} Items',
+                  style: const TextStyle(color: Color(0xFF007AFF), fontWeight: FontWeight.bold, fontSize: 11),
+                ),
               ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        ..._digitalGoods.map((item) {
-          final isCourse = item['type'] == 'course';
-          final isExclusive = item['is_exclusive'] as bool? ?? false;
-          final isPublic = item['is_public'] as bool? ?? true;
+            ],
+          ),
+          const SizedBox(height: 12),
+          ..._digitalGoods.map((item) {
+            final isCourse = item['type'] == 'course';
+            final isExclusive = item['is_exclusive'] as bool? ?? false;
 
-          return Container(
-            margin: const EdgeInsets.only(bottom: 14),
-            decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: isDark ? Colors.grey[800]! : Colors.grey[200]!),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                ClipRRect(
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
-                  child: Image.network(
-                    item['image_url'] as String,
-                    width: double.infinity,
-                    height: 130,
-                    fit: BoxFit.cover,
+            return Container(
+              margin: const EdgeInsets.only(bottom: 14),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE5E5EA)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ClipRRect(
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
+                    child: Image.network(
+                      item['image_url'] as String,
+                      width: double.infinity,
+                      height: 130,
+                      fit: BoxFit.cover,
+                    ),
                   ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(14),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: isCourse
-                                  ? const Color(0xFF007AFF).withOpacity(0.15)
-                                  : const Color(0xFF5856D6).withOpacity(0.15),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              isCourse ? 'COURSE' : 'DIGITAL ASSET',
-                              style: TextStyle(
-                                color: isCourse ? const Color(0xFF007AFF) : const Color(0xFF5856D6),
-                                fontWeight: FontWeight.bold,
-                                fontSize: 10,
+                  Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: isCourse
+                                    ? const Color(0xFF007AFF).withOpacity(0.15)
+                                    : const Color(0xFF5856D6).withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                isCourse ? 'COURSE' : 'DIGITAL ASSET',
+                                style: TextStyle(
+                                  color: isCourse ? const Color(0xFF007AFF) : const Color(0xFF5856D6),
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 10,
+                                ),
                               ),
                             ),
-                          ),
-                          const SizedBox(width: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: isExclusive
-                                  ? const Color(0xFFFF9500).withOpacity(0.15)
-                                  : const Color(0xFF34C759).withOpacity(0.15),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              isExclusive ? 'MEMBERS ONLY' : 'PUBLIC MARKETPLACE',
-                              style: TextStyle(
-                                color: isExclusive ? const Color(0xFFFF9500) : const Color(0xFF34C759),
-                                fontWeight: FontWeight.bold,
-                                fontSize: 10,
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: isExclusive
+                                    ? const Color(0xFFFF9500).withOpacity(0.15)
+                                    : const Color(0xFF34C759).withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                isExclusive ? 'MEMBERS ONLY' : 'PUBLIC MARKETPLACE',
+                                style: TextStyle(
+                                  color: isExclusive ? const Color(0xFFFF9500) : const Color(0xFF34C759),
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 10,
+                                ),
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        item['title'] as String,
-                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: textPrimary),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        isCourse ? '${item['lessons_count']} interactive lessons' : '${item['file_type']}',
-                        style: TextStyle(fontSize: 12, color: textSecondary),
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            item['price'] as String,
-                            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: Color(0xFF34C759)),
-                          ),
-                          ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF007AFF),
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          item['title'] as String,
+                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: textPrimary),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          isCourse ? '${item['lessons_count']} interactive lessons' : '${item['file_type']}',
+                          style: TextStyle(fontSize: 12, color: textSecondary),
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              item['price'] as String,
+                              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: Color(0xFF34C759)),
                             ),
-                            onPressed: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('Accessing ${item['title']}!')),
-                              );
-                            },
-                            child: Text(
-                              isExclusive && !widget.isMember ? 'Join to Access' : (isCourse ? 'Start Learning' : 'Download Asset'),
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                            ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF007AFF),
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              ),
+                              onPressed: () {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Accessing ${item['title']}!')),
+                                );
+                              },
+                              child: Text(
+                                isExclusive && !widget.isMember ? 'Join to Access' : (isCourse ? 'Start Learning' : 'Download Asset'),
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                    ],
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
-            ),
-          );
-        }),
-      ],
+                ],
+              ),
+            );
+          }),
+        ],
+      ),
     );
   }
 }
