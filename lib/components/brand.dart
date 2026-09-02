@@ -4,11 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/roles.dart';
 import '../providers/auth_provider.dart';
 
-/// MurihSpace brand asset paths organized by role
+/// MurihSpace brand asset paths organized by role.
+///
+/// NOTE on asset naming:
+/// - `*-dark.png` / `logo_white.png` / `icon_white.png` contain WHITE text & icons (for Dark Mode backgrounds).
+/// - `*-light.png` / `logo_blue.png` / `icon_blue.png` contain BLUE / NAVY text & icons (for Light Mode backgrounds).
 abstract final class BrandAssets {
   // Member role logos
-  // (*-dark.png has dark/navy text for light backgrounds)
-  // (*-light.png has white/light text for dark backgrounds)
   static const String memberLogoDark = 'assets/images/brand/member-logo-dark.png';
   static const String memberLogoLight = 'assets/images/brand/member-logo-light.png';
   static const String memberIconDark = 'assets/images/brand/member-icon-dark.png';
@@ -32,24 +34,14 @@ abstract final class BrandAssets {
   static const String adminIconDark = 'assets/images/brand/admin-icon-dark.png';
   static const String adminIconLight = 'assets/images/brand/admin-icon-light.png';
 
-  // Fallback/Legacy assets (logo_white has dark text, logo_blue has light text)
+  // Fallback assets (logo_white is white for dark bg, logo_blue is blue for light bg)
   static const String logoDark = 'assets/images/brand/logo_white.png';
   static const String logoLight = 'assets/images/brand/logo_blue.png';
   static const String iconDark = 'assets/images/brand/icon_white.png';
   static const String iconLight = 'assets/images/brand/icon_blue.png';
 
-  /// Get logo path for dark backgrounds (returns light/white logo)
+  /// Get logo path for dark backgrounds (returns white logo)
   static String getLogoDark(UserRole role) {
-    return switch (role) {
-      UserRole.creator => creatorLogoLight,
-      UserRole.vendor => vendorLogoLight,
-      UserRole.admin => adminLogoLight,
-      UserRole.member => memberLogoLight,
-    };
-  }
-
-  /// Get logo path for light backgrounds (returns dark/navy logo)
-  static String getLogoLight(UserRole role) {
     return switch (role) {
       UserRole.creator => creatorLogoDark,
       UserRole.vendor => vendorLogoDark,
@@ -58,23 +50,33 @@ abstract final class BrandAssets {
     };
   }
 
-  /// Get icon path for dark backgrounds (returns light/white icon)
-  static String getIconDark(UserRole role) {
+  /// Get logo path for light backgrounds (returns blue/navy logo)
+  static String getLogoLight(UserRole role) {
     return switch (role) {
-      UserRole.creator => creatorIconLight,
-      UserRole.vendor => vendorIconLight,
-      UserRole.admin => adminIconLight,
-      UserRole.member => memberIconLight,
+      UserRole.creator => creatorLogoLight,
+      UserRole.vendor => vendorLogoLight,
+      UserRole.admin => adminLogoLight,
+      UserRole.member => memberLogoLight,
     };
   }
 
-  /// Get icon path for light backgrounds (returns dark/navy icon)
-  static String getIconLight(UserRole role) {
+  /// Get icon path for dark backgrounds (returns white icon)
+  static String getIconDark(UserRole role) {
     return switch (role) {
       UserRole.creator => creatorIconDark,
       UserRole.vendor => vendorIconDark,
       UserRole.admin => adminIconDark,
       UserRole.member => memberIconDark,
+    };
+  }
+
+  /// Get icon path for light backgrounds (returns blue/navy icon)
+  static String getIconLight(UserRole role) {
+    return switch (role) {
+      UserRole.creator => creatorIconLight,
+      UserRole.vendor => vendorIconLight,
+      UserRole.admin => adminIconLight,
+      UserRole.member => memberIconLight,
     };
   }
 }
@@ -110,7 +112,7 @@ class BrandLogo extends ConsumerWidget {
       errorBuilder: (context, error, stackTrace) {
         // Fallback to standard logo if role-specific asset not found
         return Image.asset(
-          dark ? BrandAssets.logoLight : BrandAssets.logoDark,
+          dark ? BrandAssets.logoDark : BrandAssets.logoLight,
           height: height,
           fit: BoxFit.contain,
         );
@@ -150,7 +152,7 @@ class BrandIcon extends ConsumerWidget {
       errorBuilder: (context, error, stackTrace) {
         // Fallback to standard icon if role-specific asset not found
         return Image.asset(
-          dark ? BrandAssets.iconLight : BrandAssets.iconDark,
+          dark ? BrandAssets.iconDark : BrandAssets.iconLight,
           width: size,
           height: size,
           fit: BoxFit.contain,
@@ -179,8 +181,8 @@ class BrandFavicon extends StatelessWidget {
     final dark = isDark ?? themeDark;
     final defaultColor = color ?? (dark ? Colors.white : const Color(0xFF007AFF));
 
-    // In Light Mode (dark == false), use blue icon or dark mark so it is visible against light backgrounds.
-    // In Dark Mode (dark == true), use white icon or light mark.
+    // In Light Mode (dark == false), use blue icon (BrandAssets.iconLight)
+    // In Dark Mode (dark == true), use white icon (BrandAssets.iconDark)
     final asset = dark ? BrandAssets.iconDark : BrandAssets.iconLight;
 
     return Image.asset(
@@ -191,7 +193,7 @@ class BrandFavicon extends StatelessWidget {
       color: color,
       errorBuilder: (context, error, stackTrace) {
         return Image.asset(
-          dark ? BrandAssets.memberIconLight : BrandAssets.memberIconDark,
+          dark ? BrandAssets.memberIconDark : BrandAssets.memberIconLight,
           width: size,
           height: size,
           fit: BoxFit.contain,
