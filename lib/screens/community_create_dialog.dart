@@ -1,4 +1,6 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../core/api_client.dart';
 import '../core/design_tokens.dart';
@@ -9,12 +11,15 @@ import '../models/community_models.dart';
 Future<Community?> showCreateCommunityDialog(BuildContext context) async {
   final name = TextEditingController();
   final description = TextEditingController();
-  final category = TextEditingController();
-  final price = TextEditingController();
-  final logoUrlController = TextEditingController(text: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=400');
-  final coverUrlController = TextEditingController(text: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1000');
+  final category = TextEditingController(text: 'General');
+  final price = TextEditingController(text: '50');
   var visibility = 'public';
   var pricingType = 'free';
+
+  String? logoUrl;
+  String? coverUrl;
+  bool isUploadingLogo = false;
+  bool isUploadingCover = false;
 
   final ok = await showModalBottomSheet<bool>(
     context: context,
@@ -32,6 +37,62 @@ Future<Community?> showCreateCommunityDialog(BuildContext context) async {
 
       return StatefulBuilder(
         builder: (context, setState) {
+          Future<void> pickAndUploadImage({required bool isLogo}) async {
+            try {
+              final picker = ImagePicker();
+              final picked = await picker.pickImage(
+                source: ImageSource.gallery,
+                imageQuality: 85,
+                maxWidth: isLogo ? 600 : 1600,
+              );
+              if (picked == null) return;
+
+              setState(() {
+                if (isLogo) isUploadingLogo = true;
+                else isUploadingCover = true;
+              });
+
+              final bytes = await picked.readAsBytes();
+              final form = FormData.fromMap({
+                'file': MultipartFile.fromBytes(bytes, filename: picked.name),
+                'folder': isLogo ? 'community_logos' : 'community_banners',
+              });
+
+              final res = await ApiClient.instance.dio.post('/upload', data: form);
+              final payload = res.data;
+              final uploadedUrl = payload is Map<String, dynamic>
+                  ? (payload['data']?['url'] ?? payload['url'])
+                  : null;
+
+              if (context.mounted && uploadedUrl is String && uploadedUrl.isNotEmpty) {
+                setState(() {
+                  if (isLogo) {
+                    logoUrl = uploadedUrl;
+                    isUploadingLogo = false;
+                  } else {
+                    coverUrl = uploadedUrl;
+                    isUploadingCover = false;
+                  }
+                });
+              } else {
+                setState(() {
+                  if (isLogo) isUploadingLogo = false;
+                  else isUploadingCover = false;
+                });
+              }
+            } catch (_) {
+              if (context.mounted) {
+                setState(() {
+                  if (isLogo) isUploadingLogo = false;
+                  else isUploadingCover = false;
+                });
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Could not upload image. Please try again.')),
+                );
+              }
+            }
+          }
+
           return Padding(
             padding: EdgeInsets.only(
               left: 20,
@@ -81,17 +142,106 @@ Future<Community?> showCreateCommunityDialog(BuildContext context) async {
                   ),
                   const SizedBox(height: 18),
 
-                  // Name Field
-                  TextField(
-                    controller: name,
-                    style: TextStyle(color: textPrimary),
-                    decoration: InputDecoration(
-                      labelText: 'Community Name',
-                      hintText: 'e.g., Web3 Creators Hub',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  // Interactive Cover Banner Picker
+                  GestureDetector(
+                    onTap: () => pickAndUploadImage(isLogo: false),
+                    child: Container(
+                      width: double.infinity,
+                      height: 120,
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF2F4F7),
+                        borderRadius: BorderRadius.circular(16),
+                        image: coverUrl != null
+                            ? DecorationImage(image: NetworkImage(coverUrl!), fit: BoxFit.cover)
+                            : null,
+                        border: Border.all(
+                          color: isDark ? Colors.grey[800]! : Colors.grey[300]!,
+                        ),
+                      ),
+                      child: isUploadingCover
+                          ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
+                          : (coverUrl == null
+                              ? Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.add_photo_alternate_rounded, size: 28, color: textSecondary),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      'Upload Cover Banner',
+                                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: textSecondary),
+                                    ),
+                                  ],
+                                )
+                              : Align(
+                                  alignment: Alignment.bottomRight,
+                                  child: Container(
+                                    margin: const EdgeInsets.all(8),
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.black.withOpacity(0.6),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: const Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.edit_rounded, size: 12, color: Colors.white),
+                                        SizedBox(width: 4),
+                                        Text('Change Banner', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                                      ],
+                                    ),
+                                  ),
+                                )),
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
+
+                  // Interactive Logo / Avatar Picker & Community Name Row
+                  Row(
+                    children: [
+                      GestureDetector(
+                        onTap: () => pickAndUploadImage(isLogo: true),
+                        child: Stack(
+                          children: [
+                            CircleAvatar(
+                              radius: 32,
+                              backgroundColor: const Color(0xFF007AFF).withOpacity(0.15),
+                              backgroundImage: logoUrl != null ? NetworkImage(logoUrl!) : null,
+                              child: isUploadingLogo
+                                  ? const CircularProgressIndicator(strokeWidth: 2)
+                                  : (logoUrl == null
+                                      ? const Icon(Icons.add_a_photo_rounded, color: Color(0xFF007AFF), size: 24)
+                                      : null),
+                            ),
+                            Positioned(
+                              bottom: 0,
+                              right: 0,
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFF007AFF),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(Icons.camera_alt_rounded, size: 12, color: Colors.white),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: TextField(
+                          controller: name,
+                          style: TextStyle(color: textPrimary),
+                          decoration: InputDecoration(
+                            labelText: 'Community Name *',
+                            hintText: 'e.g. Web3 Creators Hub',
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
 
                   // Description Field (Short Bio)
                   TextField(
@@ -106,39 +256,13 @@ Future<Community?> showCreateCommunityDialog(BuildContext context) async {
                   ),
                   const SizedBox(height: 12),
 
-                  // Profile Pic Image URL
-                  TextField(
-                    controller: logoUrlController,
-                    style: TextStyle(color: textPrimary),
-                    decoration: InputDecoration(
-                      prefixIcon: const Icon(Icons.image_outlined),
-                      labelText: 'Profile Pic Image URL',
-                      hintText: 'https://...',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Cover Banner Image URL
-                  TextField(
-                    controller: coverUrlController,
-                    style: TextStyle(color: textPrimary),
-                    decoration: InputDecoration(
-                      prefixIcon: const Icon(Icons.landscape_outlined),
-                      labelText: 'Cover Banner Image URL',
-                      hintText: 'https://...',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-
                   // Category Field
                   TextField(
                     controller: category,
                     style: TextStyle(color: textPrimary),
                     decoration: InputDecoration(
                       labelText: 'Category',
-                      hintText: 'e.g. Technology, Design, Business',
+                      hintText: 'e.g. Technology, Design, Business, Crypto',
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                     ),
                   ),
@@ -160,7 +284,7 @@ Future<Community?> showCreateCommunityDialog(BuildContext context) async {
                       ),
                       DropdownMenuItem(
                         value: 'private',
-                        child: Text('Private (Invite & approval required)', style: TextStyle(color: textPrimary)),
+                        child: Text('Private (Join requests required)', style: TextStyle(color: textPrimary)),
                       ),
                     ],
                     onChanged: (v) => setState(() => visibility = v ?? 'public'),
@@ -173,17 +297,17 @@ Future<Community?> showCreateCommunityDialog(BuildContext context) async {
                     dropdownColor: isDark ? const Color(0xFF2C2C2E) : Colors.white,
                     style: TextStyle(color: textPrimary),
                     decoration: InputDecoration(
-                      labelText: 'Access Type',
+                      labelText: 'Access Pricing',
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                     ),
                     items: [
                       DropdownMenuItem(
                         value: 'free',
-                        child: Text('Free Access', style: TextStyle(color: textPrimary)),
+                        child: Text('Free Community', style: TextStyle(color: textPrimary)),
                       ),
                       DropdownMenuItem(
                         value: 'paid',
-                        child: Text('Paid Membership', style: TextStyle(color: textPrimary)),
+                        child: Text('Paid Community (Requires Coins)', style: TextStyle(color: textPrimary)),
                       ),
                     ],
                     onChanged: (v) => setState(() => pricingType = v ?? 'free'),
@@ -193,11 +317,12 @@ Future<Community?> showCreateCommunityDialog(BuildContext context) async {
                     const SizedBox(height: 12),
                     TextField(
                       controller: price,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      keyboardType: const TextInputType.numberWithOptions(decimal: false),
                       style: TextStyle(color: textPrimary),
                       decoration: InputDecoration(
-                        labelText: 'Membership Price (USD / NGN)',
-                        prefixText: '\$ ',
+                        labelText: 'Subscription Price in Coins',
+                        prefixIcon: const Icon(Icons.monetization_on_rounded, color: Color(0xFFFF9500)),
+                        suffixText: 'Coins',
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                       ),
                     ),
@@ -247,9 +372,9 @@ Future<Community?> showCreateCommunityDialog(BuildContext context) async {
       'category': category.text.trim().isEmpty ? 'General' : category.text.trim(),
       'visibility': visibility,
       'pricing_type': pricingType,
-      'logo_url': logoUrlController.text.trim().isEmpty ? null : logoUrlController.text.trim(),
-      'cover_url': coverUrlController.text.trim().isEmpty ? null : coverUrlController.text.trim(),
-      if (pricingType == 'paid') 'price_amount': double.tryParse(price.text) ?? 0,
+      'logo_url': logoUrl,
+      'cover_url': coverUrl,
+      if (pricingType == 'paid') 'price_amount': double.tryParse(price.text) ?? 50,
     });
     final payload = response.data;
     final raw = payload is Map<String, dynamic> ? payload['community'] : null;

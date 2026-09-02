@@ -1,8 +1,10 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../components/community_manage_sheet.dart';
 import '../components/ui_states.dart';
 import '../core/design_tokens.dart';
 import '../models/community_models.dart';
@@ -61,6 +63,83 @@ class _CommunityDetailScreenState extends ConsumerState<CommunityDetailScreen>
     }
   }
 
+  void _shareCommunity(Community community) {
+    final link = 'https://murihspace.com/app/communities/${community.slug}';
+    Clipboard.setData(ClipboardData(text: link));
+    showModalBottomSheet<void>(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        return Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.share_rounded, color: Color(0xFF007AFF)),
+                  const SizedBox(width: 10),
+                  Text('Share ${community.name}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Anyone with this link can view the community and join.',
+                style: TextStyle(fontSize: 13, color: isDark ? Colors.grey[400] : Colors.grey[600]),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF2F4F7),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: isDark ? Colors.grey[800]! : Colors.grey[300]!),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        link,
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF007AFF),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Text('Copied!', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF007AFF),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Done', style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final detail = ref.watch(communityDetailProvider(widget.slug));
@@ -70,7 +149,24 @@ class _CommunityDetailScreenState extends ConsumerState<CommunityDetailScreen>
     final isCreator = community?.creator?.id == myId;
 
     return Scaffold(
-      appBar: AppBar(title: Text(community?.name ?? 'Community')),
+      appBar: AppBar(
+        title: Text(community?.name ?? 'Community'),
+        actions: [
+          if (community != null) ...[
+            IconButton(
+              icon: const Icon(Icons.share_rounded),
+              tooltip: 'Share Community',
+              onPressed: () => _shareCommunity(community),
+            ),
+            if (isCreator)
+              IconButton(
+                icon: const Icon(Icons.settings_rounded),
+                tooltip: 'Manage Community',
+                onPressed: () => CommunityManageSheet.show(context, community),
+              ),
+          ],
+        ],
+      ),
       body: switch (detail) {
         _ when detail.loading && community == null =>
           const LoadingStateWidget(message: 'Loading community…'),
@@ -135,6 +231,47 @@ class _CommunityDetailScreenState extends ConsumerState<CommunityDetailScreen>
   }
 
   Future<void> _join(Community community) async {
+    final isPaid = community.pricingType == 'paid' && (community.priceAmount ?? 0) > 0;
+    if (isPaid) {
+      final coins = (community.priceAmount ?? 50).toInt();
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Subscribe to Community'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Joining ${community.name} requires an access fee of:'),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  const Icon(Icons.monetization_on_rounded, color: Color(0xFFFF9500), size: 24),
+                  const SizedBox(width: 8),
+                  Text('$coins Coins', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Color(0xFFFF9500))),
+                ],
+              ),
+              const SizedBox(height: 10),
+              const Text('The coins will be deducted from your wallet balance.', style: TextStyle(fontSize: 12, color: Colors.grey)),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF007AFF),
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Confirm & Subscribe'),
+            ),
+          ],
+        ),
+      );
+
+      if (confirm != true) return;
+    }
+
     final notifier = ref.read(communityDetailProvider(widget.slug).notifier);
     final ok = await notifier.join();
     if (!mounted) return;
@@ -142,12 +279,20 @@ class _CommunityDetailScreenState extends ConsumerState<CommunityDetailScreen>
       final membership = ref.read(communityDetailProvider(widget.slug)).membership;
       final message = membership?.isPending == true
           ? 'Join request submitted.'
-          : 'Joined ${community.name}.';
+          : (isPaid ? 'Subscribed to ${community.name}!' : 'Joined ${community.name}.');
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
       ref.read(myCommunitiesProvider.notifier).refresh();
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not join this community.')),
+        SnackBar(
+          content: Text(isPaid ? 'Insufficient coin balance or error subscribing.' : 'Could not join this community.'),
+          action: isPaid
+              ? SnackBarAction(
+                  label: 'Get Coins',
+                  onPressed: () => context.push('/wallet'),
+                )
+              : null,
+        ),
       );
     }
   }
@@ -184,110 +329,12 @@ class _CommunityHeader extends ConsumerWidget {
     required this.onLeave,
   });
 
-  void _showEditBrandingModal(BuildContext context, WidgetRef ref) {
-    final nameController = TextEditingController(text: community.name);
-    final descController = TextEditingController(text: community.description ?? '');
-    final logoController = TextEditingController(text: community.logoUrl ?? '');
-    final coverController = TextEditingController(text: community.coverUrl ?? '');
-
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Theme.of(context).brightness == Brightness.dark
-          ? const Color(0xFF1C1C1E)
-          : Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (ctx) {
-        final isDark = Theme.of(ctx).brightness == Brightness.dark;
-        final textPrimary = isDark ? Colors.white : Colors.black;
-        return Padding(
-          padding: EdgeInsets.only(
-            left: 20,
-            right: 20,
-            top: 20,
-            bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Edit Community Branding', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textPrimary)),
-              const SizedBox(height: 6),
-              Text('Update profile image, cover banner, name and description.', style: TextStyle(fontSize: 13, color: Colors.grey[500])),
-              const SizedBox(height: 16),
-              TextField(
-                controller: nameController,
-                style: TextStyle(color: textPrimary),
-                decoration: InputDecoration(
-                  labelText: 'Community Name',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: descController,
-                maxLines: 2,
-                style: TextStyle(color: textPrimary),
-                decoration: InputDecoration(
-                  labelText: 'Short Description / Bio',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: logoController,
-                style: TextStyle(color: textPrimary),
-                decoration: InputDecoration(
-                  prefixIcon: const Icon(Icons.image_rounded),
-                  labelText: 'Profile Pic Image URL',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: coverController,
-                style: TextStyle(color: textPrimary),
-                decoration: InputDecoration(
-                  prefixIcon: const Icon(Icons.landscape_rounded),
-                  labelText: 'Cover Banner Image URL',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-              ),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF007AFF),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  onPressed: () {
-                    Navigator.pop(ctx);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Community profile, banner, and description updated!'),
-                        backgroundColor: Color(0xFF34C759),
-                      ),
-                    );
-                  },
-                  child: const Text('Save Branding Changes', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isMember = membership?.isMember ?? false;
     final isPending = membership?.isPending ?? false;
+    final isPaid = community.pricingType == 'paid' && (community.priceAmount ?? 0) > 0;
+    final coinPrice = (community.priceAmount ?? 50).toInt();
     final coverUrl = community.coverUrl;
     final logoUrl = community.logoUrl;
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -318,24 +365,24 @@ class _CommunityHeader extends ConsumerWidget {
                       : null,
                 ),
               ),
-              // Creator Edit Branding Button
+              // Creator Edit & Manage Button
               if (isCreator)
                 Positioned(
                   top: 12,
                   right: 12,
                   child: GestureDetector(
-                    onTap: () => _showEditBrandingModal(context, ref),
+                    onTap: () => CommunityManageSheet.show(context, community),
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                       decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.6),
+                        color: Colors.black.withOpacity(0.65),
                         borderRadius: BorderRadius.circular(14),
                       ),
                       child: const Row(
                         children: [
-                          Icon(Icons.edit_rounded, color: Colors.white, size: 14),
+                          Icon(Icons.settings_rounded, color: Colors.white, size: 14),
                           SizedBox(width: 4),
-                          Text('Edit Banner & Bio', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                          Text('Manage Community', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
                         ],
                       ),
                     ),
@@ -390,10 +437,35 @@ class _CommunityHeader extends ConsumerWidget {
                               color: isDark ? Colors.white : Colors.black,
                             ),
                           ),
-                          const SizedBox(height: 2),
-                          Text(
-                            '${community.membersCount} members · ${community.visibility.toUpperCase()}',
-                            style: TextStyle(fontSize: 13, color: isDark ? Colors.grey[400] : Colors.grey[600], fontWeight: FontWeight.w600),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              Text(
+                                '${community.membersCount} members · ${community.visibility.toUpperCase()}',
+                                style: TextStyle(fontSize: 12, color: isDark ? Colors.grey[400] : Colors.grey[600], fontWeight: FontWeight.w600),
+                              ),
+                              if (isPaid) ...[
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFFF9500).withOpacity(0.15),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.monetization_on_rounded, size: 11, color: Color(0xFFFF9500)),
+                                      const SizedBox(width: 3),
+                                      Text(
+                                        '$coinPrice Coins',
+                                        style: const TextStyle(color: Color(0xFFFF9500), fontWeight: FontWeight.bold, fontSize: 10),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
                         ],
                       ),
@@ -406,11 +478,23 @@ class _CommunityHeader extends ConsumerWidget {
                     else
                       ElevatedButton(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF007AFF),
+                          backgroundColor: isPaid ? const Color(0xFFFF9500) : const Color(0xFF007AFF),
                           foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                         ),
                         onPressed: isPending ? null : onJoin,
-                        child: Text(isPending ? 'Pending' : 'Join Community'),
+                        child: isPending
+                            ? const Text('Pending')
+                            : (isPaid
+                                ? Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.monetization_on_rounded, size: 16, color: Colors.white),
+                                      const SizedBox(width: 4),
+                                      Text('Subscribe ($coinPrice)', style: const TextStyle(fontWeight: FontWeight.bold)),
+                                    ],
+                                  )
+                                : const Text('Join Community', style: TextStyle(fontWeight: FontWeight.bold))),
                       ),
                   ],
                 ),

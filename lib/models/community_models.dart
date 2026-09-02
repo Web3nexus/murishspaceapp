@@ -7,6 +7,7 @@ import 'chat_models.dart';
 
 class Community {
   final int id;
+  final int? userId;
   final String name;
   final String slug;
   final String? description;
@@ -24,6 +25,7 @@ class Community {
 
   const Community({
     required this.id,
+    this.userId,
     required this.name,
     required this.slug,
     this.description,
@@ -51,6 +53,7 @@ class Community {
     }
     return Community(
       id: (json['id'] as num?)?.toInt() ?? 0,
+      userId: (json['user_id'] as num?)?.toInt(),
       name: json['name']?.toString() ?? '',
       slug: json['slug']?.toString() ?? '',
       description: json['description']?.toString(),
