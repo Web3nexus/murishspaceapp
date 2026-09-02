@@ -14,6 +14,7 @@ import '../providers/chat_provider.dart';
 import '../providers/calls_provider.dart';
 import '../providers/messages_provider.dart';
 import '../providers/realtime_provider.dart';
+import 'call_screen.dart';
 import 'conversation_composer.dart';
 import 'message_bubble.dart';
 
@@ -172,17 +173,15 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
           IconButton(
             onPressed: () {
               final title = conversation?.otherUser?.name ?? (conversation?.title.isNotEmpty == true ? conversation!.title : 'Contact');
-              ref.read(callsProvider.notifier).logNewCall(
+              final avatar = conversation?.otherUser?.avatarUrl ?? '';
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => CallScreen(
                     contactName: title,
                     phoneNumber: '+234 812 000 1122',
-                    direction: CallDirection.outgoing,
-                    durationSeconds: 120,
+                    avatarUrl: avatar,
                     isVideo: false,
-                  );
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('📞 Starting voice call with $title…'),
-                  backgroundColor: const Color(0xFF34C759),
+                  ),
                 ),
               );
             },
@@ -192,17 +191,15 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
           IconButton(
             onPressed: () {
               final title = conversation?.otherUser?.name ?? (conversation?.title.isNotEmpty == true ? conversation!.title : 'Contact');
-              ref.read(callsProvider.notifier).logNewCall(
+              final avatar = conversation?.otherUser?.avatarUrl ?? '';
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => CallScreen(
                     contactName: title,
                     phoneNumber: '+234 812 000 1122',
-                    direction: CallDirection.outgoing,
-                    durationSeconds: 120,
+                    avatarUrl: avatar,
                     isVideo: true,
-                  );
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('📹 Starting WhatsApp-style video call with $title…'),
-                  backgroundColor: const Color(0xFF007AFF),
+                  ),
                 ),
               );
             },

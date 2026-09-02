@@ -298,6 +298,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (_, _) => const SavedPostsScreen(),
       ),
       GoRoute(
+        path: '/saved-posts',
+        builder: (_, _) => const SavedPostsScreen(),
+      ),
+      GoRoute(
         path: '/app/communities',
         builder: (_, _) => const CommunitiesScreen(),
       ),
