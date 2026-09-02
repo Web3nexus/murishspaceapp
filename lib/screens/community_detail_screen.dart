@@ -576,6 +576,12 @@ class _FeedTab extends ConsumerWidget {
     required this.onCompose,
   });
 
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final source = PostsSource.community(community.id);
+    final state = ref.watch(postsProvider(source));
+    final myId = ref.watch(authProvider).user?.id;
+    final notifier = ref.read(postsProvider(source).notifier);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
