@@ -84,8 +84,11 @@ class NotificationsScreen extends ConsumerWidget {
                   isDark: isDark,
                   onTap: () {
                     notifier.markRead(notification.id);
+                    final route = notification.route;
                     final conversationId = notification.conversationId;
-                    if (conversationId != null) {
+                    if (route != null && route.isNotEmpty) {
+                      context.push(route);
+                    } else if (conversationId != null) {
                       context.push('/app/conversation/$conversationId');
                     }
                   },
@@ -108,53 +111,157 @@ class _NotificationTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final senderName = notification.senderName;
-    final title = senderName != null ? '$senderName sent you a message' : 'New notification';
-    final preview = notification.messagePreview ?? notification.notificationType ?? 'Activity update';
+    final isOfficial = notification.isOfficial;
+    final isVerified = notification.isVerified;
     final unread = !notification.read;
+    final type = notification.notificationType ?? notification.type;
 
-    return ListTile(
+    // Resolve icon & accent color
+    IconData icon = Icons.notifications_rounded;
+    Color accentColor = const Color(0xFF007AFF);
+
+    if (type.contains('role_upgrade_approved') || type.contains('creator') || type.contains('vendor')) {
+      icon = Icons.workspace_premium_rounded;
+      accentColor = const Color(0xFFFF9500);
+    } else if (type.contains('kyc_approved') || type.contains('verified')) {
+      icon = Icons.verified_user_rounded;
+      accentColor = const Color(0xFF34C759);
+    } else if (type.contains('kyc_requested') || type.contains('kyc')) {
+      icon = Icons.shield_rounded;
+      accentColor = const Color(0xFF007AFF);
+    } else if (type.contains('gift')) {
+      icon = Icons.card_giftcard_rounded;
+      accentColor = const Color(0xFFFF2D55);
+    } else if (type.contains('money') || type.contains('transfer') || type.contains('donation') || type.contains('wallet')) {
+      icon = Icons.account_balance_wallet_rounded;
+      accentColor = const Color(0xFF10B981);
+    } else if (type.contains('message') || type.contains('chat')) {
+      icon = Icons.chat_bubble_rounded;
+      accentColor = const Color(0xFF007AFF);
+    }
+
+    final channelName = isOfficial ? 'Murih Notifications Official' : (notification.senderName ?? 'Notification');
+    final title = notification.title;
+    final body = notification.body;
+
+    return InkWell(
       onTap: onTap,
-      leading: Container(
-        width: 42,
-        height: 42,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          color: unread ? const Color(0xFF007AFF) : (isDark ? const Color(0xFF2C2C2E) : const Color(0xFFEFF3F6)),
-          shape: BoxShape.circle,
+          color: unread ? (isDark ? const Color(0xFF2C2C2E).withOpacity(0.5) : const Color(0xFF007AFF).withOpacity(0.04)) : Colors.transparent,
         ),
-        child: Icon(
-          Icons.mark_chat_unread_rounded,
-          color: unread ? Colors.white : (isDark ? Colors.grey[400] : const Color(0xFF61758A)),
-          size: 20,
-        ),
-      ),
-      title: Text(
-        title,
-        style: TextStyle(
-          fontWeight: unread ? FontWeight.w800 : FontWeight.w600,
-          fontSize: 15,
-          color: isDark ? Colors.white : Colors.black,
-        ),
-      ),
-      subtitle: Text(
-        preview,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          fontSize: 13,
-          color: isDark ? Colors.grey[400] : Colors.grey[600],
-        ),
-      ),
-      trailing: unread
-          ? Container(
-              width: 10,
-              height: 10,
-              decoration: const BoxDecoration(
-                color: Color(0xFF007AFF),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Leading Badge / Avatar Icon
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: accentColor.withOpacity(0.15),
                 shape: BoxShape.circle,
               ),
-            )
-          : null,
+              child: Icon(
+                icon,
+                color: accentColor,
+                size: 22,
+              ),
+            ),
+            const SizedBox(width: 14),
+
+            // Content
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Sender / Channel Name + Blue Badge
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          channelName,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: isOfficial ? const Color(0xFF007AFF) : (isDark ? Colors.grey[300] : Colors.grey[800]),
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (isVerified) ...[
+                        const SizedBox(width: 4),
+                        const Icon(
+                          Icons.verified_rounded,
+                          size: 15,
+                          color: Color(0xFF007AFF),
+                        ),
+                      ],
+                      if (notification.createdAt != null) ...[
+                        const SizedBox(width: 6),
+                        Text(
+                          '• ${_formatTimeAgo(notification.createdAt!)}',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: isDark ? Colors.grey[500] : Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+
+                  // Title
+                  if (title.isNotEmpty && title != channelName)
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontWeight: unread ? FontWeight.w800 : FontWeight.w700,
+                        fontSize: 15,
+                        color: isDark ? Colors.white : Colors.black,
+                      ),
+                    ),
+
+                  const SizedBox(height: 2),
+
+                  // Body
+                  Text(
+                    body,
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 13,
+                      height: 1.35,
+                      color: isDark ? Colors.grey[400] : Colors.grey[700],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            if (unread)
+              Container(
+                margin: const EdgeInsets.only(left: 8, top: 4),
+                width: 9,
+                height: 9,
+                decoration: const BoxDecoration(
+                  color: Color(0xFF007AFF),
+                  shape: BoxShape.circle,
+                ),
+              ),
+          ],
+        ),
+      ),
     );
+  }
+
+  String _formatTimeAgo(DateTime dt) {
+    final diff = DateTime.now().difference(dt);
+    if (diff.inMinutes < 1) return 'just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    if (diff.inDays < 7) return '${diff.inDays}d ago';
+    return '${dt.day}/${dt.month}';
   }
 }

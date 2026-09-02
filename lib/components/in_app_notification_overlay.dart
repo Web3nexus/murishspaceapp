@@ -9,19 +9,25 @@ class InAppNotificationItem {
   final String id;
   final String title;
   final String body;
+  final String? subtitle;
   final String? avatarUrl;
   final String? route;
   final IconData icon;
   final Color accentColor;
+  final bool isOfficial;
+  final bool isVerified;
 
   const InAppNotificationItem({
     required this.id,
     required this.title,
     required this.body,
+    this.subtitle,
     this.avatarUrl,
     this.route,
     this.icon = Icons.notifications_active_rounded,
-    this.accentColor = const Color(0xFFF09A3E),
+    this.accentColor = const Color(0xFF007AFF),
+    this.isOfficial = false,
+    this.isVerified = false,
   });
 }
 
@@ -36,7 +42,7 @@ class InAppNotificationNotifier extends Notifier<InAppNotificationItem?> {
   void show(InAppNotificationItem item) {
     _dismissTimer?.cancel();
     state = item;
-    _dismissTimer = Timer(const Duration(seconds: 4), () {
+    _dismissTimer = Timer(const Duration(seconds: 5), () {
       dismiss();
     });
   }
@@ -44,23 +50,41 @@ class InAppNotificationNotifier extends Notifier<InAppNotificationItem?> {
   void showFromAppNotification(AppNotification notif) {
     String title = notif.title;
     String body = notif.body;
-    String? route;
+    String? route = notif.route;
     IconData icon = Icons.notifications_rounded;
-    Color color = const Color(0xFFF09A3E);
+    Color color = const Color(0xFF007AFF);
+    final isOfficial = notif.isOfficial;
+    final isVerified = notif.isVerified;
 
     final type = notif.notificationType ?? notif.type;
 
-    if (type.contains('message') || type.contains('Message')) {
+    if (type.contains('role_upgrade_approved') || type.contains('creator') || type.contains('vendor')) {
+      icon = Icons.workspace_premium_rounded;
+      color = const Color(0xFFFF9500);
+      route = route ?? '/upgrade';
+    } else if (type.contains('kyc_approved') || type.contains('verified')) {
+      icon = Icons.verified_user_rounded;
+      color = const Color(0xFF34C759);
+      route = route ?? '/you';
+    } else if (type.contains('kyc_requested') || type.contains('kyc')) {
+      icon = Icons.shield_rounded;
+      color = const Color(0xFF007AFF);
+      route = route ?? '/kyc';
+    } else if (type.contains('gift')) {
+      icon = Icons.card_giftcard_rounded;
+      color = const Color(0xFFFF2D55);
+      route = route ?? '/wallet';
+    } else if (type.contains('money') || type.contains('transfer') || type.contains('donation') || type.contains('wallet')) {
+      icon = Icons.account_balance_wallet_rounded;
+      color = const Color(0xFF10B981);
+      route = route ?? '/wallet';
+    } else if (type.contains('message') || type.contains('Message')) {
       icon = Icons.chat_bubble_rounded;
       color = const Color(0xFF3B82F6);
       final convId = notif.data['conversation_id'];
       if (convId != null) {
         route = '/chats/$convId';
       }
-    } else if (type.contains('gift') || type.contains('Gift')) {
-      icon = Icons.card_giftcard_rounded;
-      color = const Color(0xFFEC4899);
-      route = '/wallet';
     } else if (type.contains('order') || type.contains('Order')) {
       icon = Icons.shopping_bag_rounded;
       color = const Color(0xFF10B981);
@@ -71,11 +95,14 @@ class InAppNotificationNotifier extends Notifier<InAppNotificationItem?> {
 
     show(InAppNotificationItem(
       id: notif.id,
-      title: title.isNotEmpty ? title : 'Notification',
+      title: title.isNotEmpty ? title : 'MurihSpace Notification',
       body: body,
+      subtitle: isOfficial ? 'Murih Notifications Official' : notif.senderName,
       route: route,
       icon: icon,
       accentColor: color,
+      isOfficial: isOfficial,
+      isVerified: isVerified,
     ));
   }
 
@@ -145,8 +172,8 @@ class InAppNotificationOverlay extends ConsumerWidget {
                     child: Row(
                       children: [
                         Container(
-                          width: 40,
-                          height: 40,
+                          width: 42,
+                          height: 42,
                           decoration: BoxDecoration(
                             color: notification.accentColor.withOpacity(0.15),
                             shape: BoxShape.circle,
@@ -154,7 +181,7 @@ class InAppNotificationOverlay extends ConsumerWidget {
                           child: Icon(
                             notification.icon,
                             color: notification.accentColor,
-                            size: 20,
+                            size: 22,
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -163,26 +190,55 @@ class InAppNotificationOverlay extends ConsumerWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             mainAxisSize: MainAxisSize.min,
                             children: [
+                              Row(
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      notification.subtitle ?? notification.title,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 12,
+                                        color: notification.isOfficial
+                                            ? const Color(0xFF007AFF)
+                                            : (isDark ? Colors.grey[400] : Colors.grey[700]),
+                                      ),
+                                    ),
+                                  ),
+                                  if (notification.isVerified) ...[
+                                    const SizedBox(width: 4),
+                                    const Icon(
+                                      Icons.verified_rounded,
+                                      size: 14,
+                                      color: Color(0xFF007AFF),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                              const SizedBox(height: 2),
                               Text(
-                                notification.title,
+                                notification.title != notification.subtitle ? notification.title : notification.body,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
-                                  fontWeight: FontWeight.w700,
+                                  fontWeight: FontWeight.w800,
                                   fontSize: 14,
                                   color: isDark ? Colors.white : const Color(0xFF0F172A),
                                 ),
                               ),
-                              const SizedBox(height: 2),
-                              Text(
-                                notification.body,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                              if (notification.title != notification.subtitle) ...[
+                                const SizedBox(height: 1),
+                                Text(
+                                  notification.body,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                                  ),
                                 ),
-                              ),
+                              ],
                             ],
                           ),
                         ),
