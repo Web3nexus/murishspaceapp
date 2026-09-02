@@ -58,10 +58,16 @@ class _CommunityManageSheetState extends ConsumerState<CommunityManageSheet> wit
   bool _isUploadingCover = false;
   bool _isSavingBranding = false;
 
+  // Community Gifts & Supporters state
+  bool _loadingGifts = true;
+  int _communityGiftsTotal = 0;
+  List<Map<String, dynamic>> _topSupporters = [];
+  List<Map<String, dynamic>> _communityGiftsList = [];
+
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 5, vsync: this);
 
     _isPaid = widget.community.pricingType == 'paid';
     _priceCtrl = TextEditingController(text: (widget.community.priceAmount ?? 50).toInt().toString());
@@ -75,6 +81,7 @@ class _CommunityManageSheetState extends ConsumerState<CommunityManageSheet> wit
 
     _loadRequests();
     _loadMembers();
+    _loadGifts();
   }
 
   @override
@@ -118,6 +125,26 @@ class _CommunityManageSheetState extends ConsumerState<CommunityManageSheet> wit
       }
     } catch (_) {
       if (mounted) setState(() => _loadingMembers = false);
+    }
+  }
+
+  Future<void> _loadGifts() async {
+    setState(() => _loadingGifts = true);
+    try {
+      final res = await ApiClient.instance.dio.get('/communities/${widget.community.id}/gifts');
+      final payload = res.data;
+      if (payload is Map<String, dynamic> && mounted) {
+        final rawSupporters = payload['top_supporters'];
+        final rawGifts = payload['gifts']?['data'] ?? payload['gifts'];
+        setState(() {
+          _communityGiftsTotal = (payload['total_coins'] as num?)?.toInt() ?? 0;
+          _topSupporters = rawSupporters is List ? rawSupporters.whereType<Map<String, dynamic>>().toList() : [];
+          _communityGiftsList = rawGifts is List ? rawGifts.whereType<Map<String, dynamic>>().toList() : [];
+          _loadingGifts = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loadingGifts = false);
     }
   }
 
@@ -400,6 +427,7 @@ class _CommunityManageSheetState extends ConsumerState<CommunityManageSheet> wit
                 Tab(text: 'Members (${_members.length})'),
                 const Tab(text: 'Pricing & Access'),
                 const Tab(text: 'Edit Branding'),
+                Tab(text: 'Gifts ($_communityGiftsTotal 🪙)'),
               ],
             ),
             const SizedBox(height: 14),
@@ -742,8 +770,103 @@ class _CommunityManageSheetState extends ConsumerState<CommunityManageSheet> wit
                       ),
                     ],
                   ),
-                ],
-              ),
+
+                  // Tab 5: Community Gifts & Top Supporters
+                  _loadingGifts
+                      ? const Center(child: CircularProgressIndicator())
+                      : ListView(
+                          children: [
+                            // Total Coins Raised Card
+                            Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [Color(0xFFFF9500), Color(0xFFFF5E3A)],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.2),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(Icons.card_giftcard_rounded, color: Colors.white, size: 28),
+                                  ),
+                                  const SizedBox(width: 14),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        const Text('Total Community Gifts', style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold)),
+                                        const SizedBox(height: 2),
+                                        Text('$_communityGiftsTotal Coins', style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900)),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 18),
+
+                            // Top Supporters Leaderboard
+                            Text('Top Supporters Leaderboard', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: textPrimary)),
+                            const SizedBox(height: 8),
+                            _topSupporters.isEmpty
+                                ? Container(
+                                    padding: const EdgeInsets.all(16),
+                                    decoration: BoxDecoration(
+                                      color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF2F4F7),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Center(
+                                      child: Text('No gifts sent to this community yet.', style: TextStyle(color: textSecondary, fontSize: 13)),
+                                    ),
+                                  )
+                                : ListView.separated(
+                                    shrinkWrap: true,
+                                    physics: const NeverScrollableScrollPhysics(),
+                                    itemCount: _topSupporters.length,
+                                    separatorBuilder: (_, _) => const Divider(height: 1),
+                                    itemBuilder: (ctx, idx) {
+                                      final s = _topSupporters[idx];
+                                      final u = s['sender'] as Map<String, dynamic>? ?? {};
+                                      final name = u['name']?.toString() ?? 'Supporter';
+                                      final username = u['username']?.toString() ?? '';
+                                      final avatar = u['avatar']?.toString();
+                                      final coins = (s['total_sent'] as num?)?.toInt() ?? 0;
+                                      final giftsCount = (s['total_gifts'] as num?)?.toInt() ?? 0;
+
+                                      return ListTile(
+                                        contentPadding: EdgeInsets.zero,
+                                        leading: CircleAvatar(
+                                          backgroundColor: const Color(0xFFFF9500).withOpacity(0.15),
+                                          backgroundImage: avatar != null && avatar.isNotEmpty ? NetworkImage(avatar) : null,
+                                          child: avatar == null || avatar.isEmpty
+                                              ? Text('${idx + 1}', style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFFFF9500)))
+                                              : null,
+                                        ),
+                                        title: Text(name, style: TextStyle(fontWeight: FontWeight.bold, color: textPrimary)),
+                                        subtitle: Text('@$username · $giftsCount gifts sent', style: TextStyle(fontSize: 12, color: textSecondary)),
+                                        trailing: Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFFFF9500).withOpacity(0.15),
+                                            borderRadius: BorderRadius.circular(10),
+                                          ),
+                                          child: Text('🪙 $coins', style: const TextStyle(color: Color(0xFFFF9500), fontWeight: FontWeight.bold, fontSize: 12)),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                          ],
+                        ),
+                    ],
+                  ),
             ),
           ],
         ),

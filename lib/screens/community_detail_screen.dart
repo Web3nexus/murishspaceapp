@@ -16,7 +16,10 @@ import 'post_comments_sheet.dart';
 import 'post_composer_sheet.dart';
 import 'post_report_dialog.dart';
 
-/// Community home: header + join/leave + Feed / Chats / Members tabs.
+import '../components/go_live_setup_dialog.dart';
+import '../components/send_gift_dialog.dart';
+
+/// Community home: header + join/leave + Feed / Courses / Chats / Members tabs.
 class CommunityDetailScreen extends ConsumerStatefulWidget {
   final String slug;
 
@@ -33,7 +36,7 @@ class _CommunityDetailScreenState extends ConsumerState<CommunityDetailScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
   }
 
   @override
@@ -61,6 +64,26 @@ class _CommunityDetailScreenState extends ConsumerState<CommunityDetailScreen>
     if (post != null) {
       ref.read(postsProvider(PostsSource.community(community.id)).notifier).prepend(post);
     }
+  }
+
+  void _openCommunityGifting(Community community) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => SendGiftDialog(
+        recipientId: community.creator?.id ?? community.userId ?? 1,
+        recipientName: community.name,
+        onGiftSent: (gift, amount) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              backgroundColor: const Color(0xFFFF9500),
+              content: Text('Sent ${gift.name} (+$amount Coins) to ${community.name}!'),
+            ),
+          );
+        },
+      ),
+    );
   }
 
   void _shareCommunity(Community community) {
@@ -154,6 +177,16 @@ class _CommunityDetailScreenState extends ConsumerState<CommunityDetailScreen>
         actions: [
           if (community != null) ...[
             IconButton(
+              icon: const Icon(Icons.videocam_rounded, color: Color(0xFFFF3B30)),
+              tooltip: 'Go Live / Host Meeting',
+              onPressed: () => GoLiveSetupDialog.show(context, community: community),
+            ),
+            IconButton(
+              icon: const Icon(Icons.card_giftcard_rounded, color: Color(0xFFFF9500)),
+              tooltip: 'Gift Community',
+              onPressed: () => _openCommunityGifting(community),
+            ),
+            IconButton(
               icon: const Icon(Icons.share_rounded),
               tooltip: 'Share Community',
               onPressed: () => _shareCommunity(community),
@@ -179,7 +212,7 @@ class _CommunityDetailScreenState extends ConsumerState<CommunityDetailScreen>
 
   Widget _buildContent(Community community, MembershipStatus? membership, bool isCreator) {
     final isMember = membership?.isMember ?? false;
-    final tabCount = isCreator ? 4 : 3;
+    final tabCount = isCreator ? 5 : 4;
     _syncTabCount(tabCount);
 
     return Column(
@@ -196,11 +229,14 @@ class _CommunityDetailScreenState extends ConsumerState<CommunityDetailScreen>
             color: DesignTokens.surface,
             child: TabBar(
               controller: _tabController,
+              isScrollable: true,
+              tabAlignment: TabAlignment.start,
               labelColor: DesignTokens.primaryDark,
               unselectedLabelColor: DesignTokens.textSecondary,
               indicatorColor: DesignTokens.primary,
               tabs: [
                 const Tab(text: 'Feed'),
+                const Tab(text: 'Courses & Goods'),
                 const Tab(text: 'Chats'),
                 const Tab(text: 'Members'),
                 if (isCreator) const Tab(text: 'Requests'),
@@ -215,6 +251,10 @@ class _CommunityDetailScreenState extends ConsumerState<CommunityDetailScreen>
                   community: community,
                   isMember: isMember,
                   onCompose: () => _compose(community),
+                ),
+                _CoursesAndGoodsTab(
+                  community: community,
+                  isMember: isMember,
                 ),
                 _ChatsTab(
                   community: community,
@@ -776,6 +816,196 @@ class _RequestsTab extends ConsumerWidget {
           );
         },
       ),
+    );
+  }
+}
+
+class _CoursesAndGoodsTab extends ConsumerStatefulWidget {
+  final Community community;
+  final bool isMember;
+
+  const _CoursesAndGoodsTab({required this.community, required this.isMember});
+
+  @override
+  ConsumerState<_CoursesAndGoodsTab> createState() => _CoursesAndGoodsTabState();
+}
+
+class _CoursesAndGoodsTabState extends ConsumerState<_CoursesAndGoodsTab> {
+  final List<Map<String, dynamic>> _digitalGoods = [
+    {
+      'id': 1,
+      'type': 'course',
+      'title': 'Complete Creator Mastery & Web3 Monetization',
+      'price': '₦25,000 / \$30',
+      'is_public': true,
+      'is_exclusive': false,
+      'lessons_count': 18,
+      'image_url': 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=500',
+    },
+    {
+      'id': 2,
+      'type': 'digital_product',
+      'title': 'VIP Member Templates & Design Kit',
+      'price': 'FREE for Members',
+      'is_public': false,
+      'is_exclusive': true,
+      'file_type': 'ZIP Archive (48MB)',
+      'image_url': 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=500',
+    },
+    {
+      'id': 3,
+      'type': 'course',
+      'title': 'Advanced Community Growth Blueprint',
+      'price': '50 Coins',
+      'is_public': true,
+      'is_exclusive': false,
+      'lessons_count': 12,
+      'image_url': 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=500',
+    },
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textPrimary = isDark ? Colors.white : Colors.black;
+    final textSecondary = isDark ? Colors.grey[400] : Colors.grey[600];
+
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Community Courses & Digital Goods',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textPrimary),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: const Color(0xFF007AFF).withOpacity(0.15),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                '${_digitalGoods.length} Items',
+                style: const TextStyle(color: Color(0xFF007AFF), fontWeight: FontWeight.bold, fontSize: 11),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        ..._digitalGoods.map((item) {
+          final isCourse = item['type'] == 'course';
+          final isExclusive = item['is_exclusive'] as bool? ?? false;
+          final isPublic = item['is_public'] as bool? ?? true;
+
+          return Container(
+            margin: const EdgeInsets.only(bottom: 14),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: isDark ? Colors.grey[800]! : Colors.grey[200]!),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ClipRRect(
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
+                  child: Image.network(
+                    item['image_url'] as String,
+                    width: double.infinity,
+                    height: 130,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: isCourse
+                                  ? const Color(0xFF007AFF).withOpacity(0.15)
+                                  : const Color(0xFF5856D6).withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              isCourse ? 'COURSE' : 'DIGITAL ASSET',
+                              style: TextStyle(
+                                color: isCourse ? const Color(0xFF007AFF) : const Color(0xFF5856D6),
+                                fontWeight: FontWeight.bold,
+                                fontSize: 10,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: isExclusive
+                                  ? const Color(0xFFFF9500).withOpacity(0.15)
+                                  : const Color(0xFF34C759).withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              isExclusive ? 'MEMBERS ONLY' : 'PUBLIC MARKETPLACE',
+                              style: TextStyle(
+                                color: isExclusive ? const Color(0xFFFF9500) : const Color(0xFF34C759),
+                                fontWeight: FontWeight.bold,
+                                fontSize: 10,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        item['title'] as String,
+                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: textPrimary),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        isCourse ? '${item['lessons_count']} interactive lessons' : '${item['file_type']}',
+                        style: TextStyle(fontSize: 12, color: textSecondary),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            item['price'] as String,
+                            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: Color(0xFF34C759)),
+                          ),
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF007AFF),
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                            onPressed: () {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Accessing ${item['title']}!')),
+                              );
+                            },
+                            child: Text(
+                              isExclusive && !widget.isMember ? 'Join to Access' : (isCourse ? 'Start Learning' : 'Download Asset'),
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        }),
+      ],
     );
   }
 }
