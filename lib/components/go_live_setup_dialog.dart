@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/api_client.dart';
+import '../core/permissions_service.dart';
 import '../models/community_models.dart';
 import '../screens/live_stream_screen.dart';
 
@@ -159,10 +160,10 @@ class _GoLiveSetupDialogState extends ConsumerState<GoLiveSetupDialog> {
     }
 
     if (_cameraEnabled && _streamMode != 'audio') {
-      await ref.read(permissionsProvider.notifier).requestPermission(AppPermissionType.camera);
+      await ref.read(permissionsProvider.notifier).ensureCamera(context);
     }
     if (_micEnabled) {
-      await ref.read(permissionsProvider.notifier).requestPermission(AppPermissionType.microphone);
+      await ref.read(permissionsProvider.notifier).ensureMicrophone(context);
     }
 
     if (!mounted) return;
