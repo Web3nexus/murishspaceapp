@@ -50,6 +50,7 @@ dependencies:
   local_auth: ^3.0.1
   shared_preferences: ^2.5.5
   crypto: ^3.0.7
+  camera: ^0.11.0+2
 
 dev_dependencies:
   flutter_test:

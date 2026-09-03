@@ -143,11 +143,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     });
 
     if (_emailFormKey.currentState?.validate() ?? false) {
-      final success = await ref.read(authProvider.notifier).login(
+      final result = await ref.read(authProvider.notifier).loginWithDeviceCheck(
             _emailController.text.trim(),
             _passwordController.text,
           );
-      if (success && mounted) {
+
+      if (!mounted) return;
+
+      if (result['status'] == 'pending_device_approval') {
+        final pendingReq = result['pending_request'] as Map<String, dynamic>?;
+        final reqToken = pendingReq?['request_token'] as String? ?? '';
+        _showPendingDeviceApprovalSheet(reqToken);
+        return;
+      }
+
+      if (result['status'] == 'success') {
         final role = ref.read(authProvider).user?.role;
         if (role == UserRole.admin) {
           await ref.read(authProvider.notifier).logout();
@@ -162,8 +172,73 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           return;
         }
         context.go('/app/home');
+      } else {
+        setState(() {
+          _passwordError = result['message'] as String? ?? 'Login failed';
+        });
       }
     }
+  }
+
+  void _showPendingDeviceApprovalSheet(String requestToken) {
+    Timer? pollTimer;
+
+    showModalBottomSheet<void>(
+      context: context,
+      isDismissible: false,
+      enableDrag: false,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) {
+        // Start polling
+        pollTimer = Timer.periodic(const Duration(seconds: 2), (t) async {
+          final approved = await ref.read(authProvider.notifier).completeApprovedLogin(requestToken);
+          if (approved && mounted) {
+            t.cancel();
+            if (ctx.mounted) Navigator.of(ctx).pop();
+            context.go('/app/home');
+          }
+        });
+
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        return Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFF9500).withOpacity(0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.security_update_good_rounded, color: Color(0xFFFF9500), size: 36),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Approval Request Sent',
+                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'A login authorization prompt was sent to your other active device(s). Please tap "Approve" on that device to sign in.',
+                style: TextStyle(fontSize: 13, color: isDark ? Colors.grey[400] : Colors.grey[600]),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              const CircularProgressIndicator.adaptive(),
+              const SizedBox(height: 20),
+              TextButton(
+                onPressed: () {
+                  pollTimer?.cancel();
+                  Navigator.of(ctx).pop();
+                },
+                child: const Text('Cancel Login Attempt'),
+              ),
+            ],
+          ),
+        );
+      },
+    ).whenComplete(() => pollTimer?.cancel());
   }
 
   @override

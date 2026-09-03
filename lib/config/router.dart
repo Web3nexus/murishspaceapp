@@ -42,6 +42,7 @@ import '../screens/you_screen.dart';
 import '../screens/security_settings_screen.dart';
 import '../screens/settings_screen.dart';
 import '../screens/pin_setup_screen.dart';
+import '../screens/change_phone_screen.dart';
 import '../screens/conference_meeting_screen.dart';
 import '../screens/live_stream_screen.dart';
 import '../screens/link_in_bio_screen.dart';
@@ -204,6 +205,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/profile/security/setup-pin',
         builder: (_, _) => const PinSetupScreen(),
+      ),
+      GoRoute(
+        path: '/profile/security/change-phone',
+        builder: (_, _) => const ChangePhoneScreen(),
       ),
       GoRoute(
         path: '/profile/devices',

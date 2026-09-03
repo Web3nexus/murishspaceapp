@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/api_client.dart';
+
 enum DeviceType { phone, desktop, tablet, web }
 
 class DeviceSession {
@@ -29,6 +31,34 @@ class DeviceSession {
     this.isSuspiciousIp = false,
     this.suspiciousReason,
   });
+
+  factory DeviceSession.fromJson(Map<String, dynamic> json) {
+    final platform = (json['platform'] as String? ?? 'phone').toLowerCase();
+    DeviceType type = DeviceType.phone;
+    if (platform.contains('web') || platform.contains('chrome') || platform.contains('safari')) {
+      type = DeviceType.web;
+    } else if (platform.contains('mac') || platform.contains('windows') || platform.contains('linux')) {
+      type = DeviceType.desktop;
+    } else if (platform.contains('pad') || platform.contains('tablet')) {
+      type = DeviceType.tablet;
+    }
+
+    return DeviceSession(
+      id: json['id']?.toString() ?? '',
+      deviceName: json['device_name'] as String? ?? 'Unknown Device',
+      deviceType: type,
+      osVersion: json['platform'] as String? ?? 'Unknown OS',
+      appVersion: json['client_version'] as String? ?? 'MurihSpace Mobile',
+      location: json['location'] as String? ?? 'Unknown Location',
+      ipAddress: json['ip'] as String? ?? 'Unknown IP',
+      lastActive: json['last_active_at'] != null
+          ? DateTime.tryParse(json['last_active_at'].toString()) ?? DateTime.now()
+          : DateTime.now(),
+      isCurrentDevice: json['is_current'] as bool? ?? false,
+      isSuspiciousIp: json['is_suspicious'] as bool? ?? false,
+      suspiciousReason: json['suspicious_reason'] as String?,
+    );
+  }
 
   IconData get icon {
     switch (deviceType) {
@@ -60,14 +90,16 @@ class DeviceSession {
 }
 
 class DevicesState {
-  final DeviceSession currentDevice;
+  final DeviceSession? currentDevice;
   final List<DeviceSession> otherSessions;
   final bool hasSuspiciousAlert;
+  final bool isLoading;
 
   DevicesState({
-    required this.currentDevice,
+    this.currentDevice,
     required this.otherSessions,
     this.hasSuspiciousAlert = false,
+    this.isLoading = false,
   });
 
   List<DeviceSession> get suspiciousSessions =>
@@ -77,11 +109,13 @@ class DevicesState {
     DeviceSession? currentDevice,
     List<DeviceSession>? otherSessions,
     bool? hasSuspiciousAlert,
+    bool? isLoading,
   }) {
     return DevicesState(
       currentDevice: currentDevice ?? this.currentDevice,
       otherSessions: otherSessions ?? this.otherSessions,
       hasSuspiciousAlert: hasSuspiciousAlert ?? this.hasSuspiciousAlert,
+      isLoading: isLoading ?? this.isLoading,
     );
   }
 }
@@ -89,59 +123,81 @@ class DevicesState {
 class DevicesNotifier extends Notifier<DevicesState> {
   @override
   DevicesState build() {
+    Future.microtask(() => loadSessions());
     return DevicesState(
-      hasSuspiciousAlert: true,
-      currentDevice: DeviceSession(
-        id: 'dev_curr',
-        deviceName: 'iPhone 15 Pro',
-        deviceType: DeviceType.phone,
-        osVersion: 'iOS 17.5',
-        appVersion: 'MurihSpace Mobile v1.4.0',
-        location: 'Lagos, Nigeria',
-        ipAddress: '197.210.64.12',
-        lastActive: DateTime.now(),
-        isCurrentDevice: true,
-      ),
-      otherSessions: [
-        DeviceSession(
-          id: 'dev_unusual_web',
-          deviceName: 'Chrome Web Client (macOS)',
-          deviceType: DeviceType.web,
-          osVersion: 'macOS 14.4',
-          appVersion: 'MurihSpace Web App',
-          location: 'Frankfurt, Germany',
-          ipAddress: '185.220.101.5',
-          lastActive: DateTime.now().subtract(const Duration(minutes: 5)),
-          isSuspiciousIp: true,
-          suspiciousReason: 'New login detected from unrecognized IP (Frankfurt, Germany)',
-        ),
-        DeviceSession(
-          id: 'dev_mac',
-          deviceName: 'MacBook Air (M2)',
-          deviceType: DeviceType.web,
-          osVersion: 'macOS 15.2',
-          appVersion: 'MurihSpace Web Client',
-          location: 'London, United Kingdom',
-          ipAddress: '86.14.92.103',
-          lastActive: DateTime.now().subtract(const Duration(minutes: 45)),
-        ),
-      ],
-    );
-  }
-
-  void terminateSession(String sessionId) {
-    final updated = state.otherSessions.where((s) => s.id != sessionId).toList();
-    state = state.copyWith(
-      otherSessions: updated,
-      hasSuspiciousAlert: updated.any((s) => s.isSuspiciousIp),
-    );
-  }
-
-  void terminateAllOtherSessions() {
-    state = state.copyWith(
       otherSessions: [],
-      hasSuspiciousAlert: false,
+      isLoading: true,
     );
+  }
+
+  Future<void> loadSessions() async {
+    try {
+      final api = ref.read(apiClientProvider);
+      final res = await api.get('/auth/sessions');
+      final list = (res.data['data'] ?? res.data) as List?;
+
+      if (list != null) {
+        DeviceSession? current;
+        final List<DeviceSession> others = [];
+
+        for (final item in list) {
+          if (item is Map<String, dynamic>) {
+            final session = DeviceSession.fromJson(item);
+            if (session.isCurrentDevice && current == null) {
+              current = session;
+            } else {
+              others.add(session);
+            }
+          }
+        }
+
+        current ??= DeviceSession(
+          id: 'dev_curr',
+          deviceName: 'Current Device',
+          deviceType: DeviceType.phone,
+          osVersion: 'Mobile',
+          appVersion: 'MurihSpace',
+          location: 'Current Session',
+          ipAddress: '',
+          lastActive: DateTime.now(),
+          isCurrentDevice: true,
+        );
+
+        state = state.copyWith(
+          currentDevice: current,
+          otherSessions: others,
+          hasSuspiciousAlert: others.any((s) => s.isSuspiciousIp),
+          isLoading: false,
+        );
+      }
+    } catch (_) {
+      state = state.copyWith(isLoading: false);
+    }
+  }
+
+  Future<void> terminateSession(String sessionId) async {
+    try {
+      final api = ref.read(apiClientProvider);
+      await api.delete('/auth/sessions/$sessionId');
+
+      final updated = state.otherSessions.where((s) => s.id != sessionId).toList();
+      state = state.copyWith(
+        otherSessions: updated,
+        hasSuspiciousAlert: updated.any((s) => s.isSuspiciousIp),
+      );
+    } catch (_) {}
+  }
+
+  Future<void> terminateAllOtherSessions() async {
+    try {
+      final api = ref.read(apiClientProvider);
+      await api.post('/auth/sessions/revoke-all-others');
+
+      state = state.copyWith(
+        otherSessions: [],
+        hasSuspiciousAlert: false,
+      );
+    } catch (_) {}
   }
 
   void dismissAlert(String sessionId) {

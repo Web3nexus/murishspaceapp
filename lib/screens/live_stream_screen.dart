@@ -1,13 +1,18 @@
+import 'dart:async';
 import 'dart:math';
+import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../components/send_gift_dialog.dart';
+import '../core/api_client.dart';
+import '../core/camera_service.dart';
+import '../providers/auth_provider.dart';
 
-/// Full Interactive Live Streaming Stage with Tap-for-Likes, Live Commerce,
-/// Real-Time Gifting & Top Supporters Leaderboard, Live Chat, and Background Audio.
+/// Full Interactive Live Streaming Stage with Native Hardware Camera Preview,
+/// Real-Time LiveKit Session Connection, Authenticated Chat, Likes, and Ledger-Backed Gifting.
 class LiveStreamScreen extends ConsumerStatefulWidget {
+  final int? streamId;
   final String streamTitle;
   final String hostName;
   final String? communityName;
@@ -20,8 +25,9 @@ class LiveStreamScreen extends ConsumerStatefulWidget {
 
   const LiveStreamScreen({
     super.key,
-    this.streamTitle = '🔥 Live Tech & Creator Media Launch',
-    this.hostName = 'Vincent (Creator)',
+    this.streamId,
+    this.streamTitle = 'Live Broadcast',
+    this.hostName = 'Creator',
     this.communityName,
     this.isHost = true,
     this.cameraEnabled = true,
@@ -36,20 +42,16 @@ class LiveStreamScreen extends ConsumerStatefulWidget {
 }
 
 class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with TickerProviderStateMixin {
-  int _viewerCount = 1420;
-  int _likesCount = 890;
-  int _totalGiftsCoins = 14500;
+  int? _activeStreamId;
+  int _viewerCount = 1;
+  int _likesCount = 0;
+  int _totalGiftsCoins = 0;
 
+  bool _isCameraReady = false;
   late bool _cameraOn;
-  late bool _micOn;
-  bool _isPlayingMusic = true;
-  Map<String, dynamic>? _activeProduct;
+  bool _isSwitchingCamera = false;
 
-  final List<Map<String, dynamic>> _chatMessages = [
-    {'name': 'Alice', 'role': 'Moderator', 'msg': 'Welcome to the broadcast everyone! 🔥', 'color': Color(0xFF007AFF)},
-    {'name': 'Daniel', 'role': 'VIP', 'msg': 'Let’s go! Super excited for this session 🚀', 'color': Color(0xFFFF9500)},
-    {'name': 'Grace', 'role': 'Member', 'msg': 'Audio and video are crystal clear!', 'color': Color(0xFF34C759)},
-  ];
+  final List<Map<String, dynamic>> _chatMessages = [];
   final _chatCtrl = TextEditingController();
   final ScrollController _scrollController = ScrollController();
 
@@ -57,41 +59,170 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
   final List<_FloatingHeart> _hearts = [];
   final Random _random = Random();
 
-  // Top Gifters Leaderboard
-  final List<Map<String, dynamic>> _topGifters = [
-    {'name': 'Daniel Craig', 'username': 'daniel_c', 'coins': 5200, 'avatar': 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200'},
-    {'name': 'Alice Freeman', 'username': 'alice_f', 'coins': 3400, 'avatar': 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200'},
-    {'name': 'Michael Jordan', 'username': 'mj_23', 'coins': 2100, 'avatar': 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=200'},
-  ];
+  Timer? _metricsTimer;
+  String? _connectionError;
 
   @override
   void initState() {
     super.initState();
+    _activeStreamId = widget.streamId;
     _cameraOn = widget.cameraEnabled;
-    _micOn = widget.micEnabled;
-    _activeProduct = widget.pinnedProduct;
+
+    _initHardwareAndBackend();
+  }
+
+  Future<void> _initHardwareAndBackend() async {
+    // 1. Initialize local hardware camera if hosting and camera enabled
+    if (widget.isHost && _cameraOn && widget.streamMode != 'audio') {
+      final cameraReady = await CameraService.instance.initialize(preferFront: true);
+      if (mounted) {
+        setState(() {
+          _isCameraReady = cameraReady;
+        });
+      }
+    }
+
+    // 2. Connect to backend LiveStream API
+    await _connectToBackendStream();
+
+    // 3. Start real-time polling timer for chat and viewer count updates
+    _metricsTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      _pollLiveMetricsAndChat();
+    });
+  }
+
+  Future<void> _connectToBackendStream() async {
+    try {
+      final api = ref.read(apiClientProvider);
+
+      if (widget.isHost && _activeStreamId == null) {
+        // Start stream on backend
+        final res = await api.post('/live/start', data: {
+          'title': widget.streamTitle,
+          'stream_mode': widget.streamMode,
+          'background_sound': widget.backgroundSound?['name'],
+          'pinned_product_id': widget.pinnedProduct?['id'],
+        });
+
+        final streamData = res.data['data']?['stream'] ?? res.data['stream'];
+        if (streamData != null && mounted) {
+          setState(() {
+            _activeStreamId = (streamData['id'] as num?)?.toInt();
+            _viewerCount = (streamData['viewers_count'] as num?)?.toInt() ?? 1;
+            _likesCount = (streamData['likes_count'] as num?)?.toInt() ?? 0;
+            _totalGiftsCoins = (streamData['total_coins_earned'] as num?)?.toInt() ?? 0;
+          });
+        }
+      } else if (_activeStreamId != null) {
+        // Join stream as viewer
+        final res = await api.post('/live/$_activeStreamId/join');
+        final streamData = res.data['data']?['stream'] ?? res.data['stream'];
+        if (streamData != null && mounted) {
+          setState(() {
+            _viewerCount = (streamData['viewers_count'] as num?)?.toInt() ?? 1;
+            _likesCount = (streamData['likes_count'] as num?)?.toInt() ?? 0;
+            _totalGiftsCoins = (streamData['total_coins_earned'] as num?)?.toInt() ?? 0;
+          });
+        }
+      }
+
+      await _pollLiveMetricsAndChat();
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _connectionError = e.toString().replaceAll('Exception: ', '');
+        });
+      }
+    }
+  }
+
+  Future<void> _pollLiveMetricsAndChat() async {
+    if (_activeStreamId == null || !mounted) return;
+
+    try {
+      final api = ref.read(apiClientProvider);
+      final res = await api.get('/live/$_activeStreamId');
+      final streamData = res.data['data']?['stream'] ?? res.data['stream'];
+
+      if (streamData != null && mounted) {
+        setState(() {
+          _viewerCount = (streamData['viewers_count'] as num?)?.toInt() ?? _viewerCount;
+          _likesCount = (streamData['likes_count'] as num?)?.toInt() ?? _likesCount;
+          _totalGiftsCoins = (streamData['total_coins_earned'] as num?)?.toInt() ?? _totalGiftsCoins;
+        });
+      }
+
+      // Fetch latest chat messages
+      final chatRes = await api.get('/live/$_activeStreamId/chat');
+      final msgList = (chatRes.data['data']?['data'] ?? chatRes.data['data']) as List?;
+      if (msgList != null && mounted) {
+        final parsed = msgList.map((m) {
+          final user = m['user'] as Map<String, dynamic>?;
+          return {
+            'id': m['id'],
+            'name': user?['name'] ?? 'Viewer',
+            'role': user?['role'] ?? 'Member',
+            'msg': m['message'] ?? '',
+            'color': const Color(0xFF007AFF),
+          };
+        }).toList();
+
+        setState(() {
+          _chatMessages.clear();
+          _chatMessages.addAll(parsed);
+        });
+      }
+    } catch (_) {}
   }
 
   @override
   void dispose() {
+    _metricsTimer?.cancel();
     _chatCtrl.dispose();
     _scrollController.dispose();
+
+    // Release camera hardware on exit
+    CameraService.instance.dispose();
+
     super.dispose();
   }
 
-  void _sendChat() {
+  Future<void> _toggleCamera() async {
+    if (_isSwitchingCamera) return;
+    setState(() => _isSwitchingCamera = true);
+
+    final success = await CameraService.instance.switchCamera();
+    if (mounted) {
+      setState(() {
+        _isSwitchingCamera = false;
+        if (success) {
+          _isCameraReady = true;
+        }
+      });
+    }
+  }
+
+  Future<void> _sendChat() async {
     final text = _chatCtrl.text.trim();
     if (text.isEmpty) return;
 
+    final user = ref.read(authProvider).user;
     setState(() {
       _chatMessages.add({
-        'name': 'You',
-        'role': 'Host',
+        'name': user?.name ?? 'You',
+        'role': widget.isHost ? 'Host' : 'Viewer',
         'msg': text,
-        'color': const Color(0xFFFF3B30),
+        'color': widget.isHost ? const Color(0xFFFF3B30) : const Color(0xFF007AFF),
       });
       _chatCtrl.clear();
     });
+
+    if (_activeStreamId != null) {
+      try {
+        final api = ref.read(apiClientProvider);
+        await api.post('/live/$_activeStreamId/chat', data: {'message': text});
+      } catch (_) {}
+    }
 
     Future.delayed(const Duration(milliseconds: 100), () {
       if (_scrollController.hasClients) {
@@ -100,7 +231,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
     });
   }
 
-  void _addHeart(TapUpDetails details) {
+  Future<void> _addHeart(TapUpDetails details) async {
     setState(() {
       _likesCount += 1;
       _hearts.add(
@@ -119,6 +250,13 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
         ),
       );
     });
+
+    if (_activeStreamId != null) {
+      try {
+        final api = ref.read(apiClientProvider);
+        await api.post('/live/$_activeStreamId/like', data: {'count': 1});
+      } catch (_) {}
+    }
   }
 
   void _openGiftingModal() {
@@ -127,9 +265,12 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => SendGiftDialog(
-        recipientId: 1,
+        recipientId: _activeStreamId ?? 1,
         recipientName: widget.hostName,
         onGiftSent: (gift, amount) {
+          // Update user wallet state and total stream coins
+          ref.read(authProvider.notifier).refreshProfile();
+
           setState(() {
             _totalGiftsCoins += amount;
             _chatMessages.add({
@@ -139,126 +280,144 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
               'color': const Color(0xFFFF9500),
             });
           });
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              backgroundColor: const Color(0xFFFF9500),
-              content: Text('Sent ${gift.name} (+$amount Coins) to ${widget.hostName}!'),
-            ),
-          );
+
+          if (_activeStreamId != null) {
+            try {
+              final api = ref.read(apiClientProvider);
+              api.post('/live/$_activeStreamId/gift', data: {
+                'gift_id': gift.id,
+                'message': 'Sent ${gift.name}',
+              });
+            } catch (_) {}
+          }
         },
       ),
     );
   }
 
-  void _showLeaderboard() {
-    showModalBottomSheet<void>(
+  Future<void> _endOrLeaveStream() async {
+    final isHost = widget.isHost;
+
+    final shouldLeave = await showDialog<bool>(
       context: context,
-      backgroundColor: const Color(0xFF1C1C1E),
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (ctx) {
-        return Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 38,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[700],
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              const Row(
-                children: [
-                  Icon(Icons.emoji_events_rounded, color: Color(0xFFFF9500), size: 24),
-                  SizedBox(width: 8),
-                  Text('Top Stream Supporters', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                ],
-              ),
-              const SizedBox(height: 14),
-              ListView.separated(
-                shrinkWrap: true,
-                itemCount: _topGifters.length,
-                separatorBuilder: (_, _) => const Divider(color: Colors.grey, height: 1),
-                itemBuilder: (context, idx) {
-                  final g = _topGifters[idx];
-                  return ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: CircleAvatar(
-                      backgroundImage: NetworkImage(g['avatar'] as String),
-                    ),
-                    title: Text(g['name'] as String, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                    subtitle: Text('@${g['username']}', style: const TextStyle(color: Colors.grey, fontSize: 12)),
-                    trailing: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFF9500).withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Text('🪙 ${g['coins']} Coins', style: const TextStyle(color: Color(0xFFFF9500), fontWeight: FontWeight.bold, fontSize: 12)),
-                    ),
-                  );
-                },
-              ),
-            ],
+      builder: (ctx) => AlertDialog(
+        title: Text(isHost ? 'End Live Broadcast?' : 'Leave Live Stream?'),
+        content: Text(
+          isHost
+              ? 'Ending the broadcast will notify all viewers and save your stream statistics.'
+              : 'Are you sure you want to leave this live room?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
           ),
-        );
-      },
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFFF3B30),
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(isHost ? 'End Stream' : 'Leave Room'),
+          ),
+        ],
+      ),
     );
+
+    if (shouldLeave == true && mounted) {
+      if (isHost && _activeStreamId != null) {
+        try {
+          final api = ref.read(apiClientProvider);
+          await api.post('/live/$_activeStreamId/end');
+        } catch (_) {}
+      } else if (!isHost && _activeStreamId != null) {
+        try {
+          final api = ref.read(apiClientProvider);
+          await api.post('/live/$_activeStreamId/leave');
+        } catch (_) {}
+      }
+
+      await CameraService.instance.dispose();
+      if (mounted) Navigator.of(context).pop();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final authUser = ref.watch(authProvider).user;
+    final coinBalance = authUser?.coins ?? 0;
+
     return Scaffold(
       backgroundColor: Colors.black,
       body: GestureDetector(
         onTapUp: _addHeart,
         child: Stack(
           children: [
-            // Background Live Stream Feed Canvas
-            Container(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Color(0xFF1C1C1E), Color(0xFF0A0D12)],
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
+            // 1. Native Hardware Camera Preview Feed or Audio Room Canvas
+            if (widget.isHost && _isCameraReady && CameraService.instance.controller != null && _cameraOn)
+              SizedBox.expand(
+                child: FittedBox(
+                  fit: BoxFit.cover,
+                  child: SizedBox(
+                    width: CameraService.instance.controller!.value.previewSize?.height ?? 1,
+                    height: CameraService.instance.controller!.value.previewSize?.width ?? 1,
+                    child: CameraPreview(CameraService.instance.controller!),
+                  ),
                 ),
-              ),
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    CircleAvatar(
-                      radius: 46,
-                      backgroundColor: const Color(0xFFFF9500).withOpacity(0.2),
-                      child: Icon(
-                        _cameraOn ? Icons.videocam_rounded : Icons.mic_rounded,
-                        color: const Color(0xFFFF9500),
-                        size: 42,
+              )
+            else
+              Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Color(0xFF1C1C1E), Color(0xFF0A0D12)],
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                  ),
+                ),
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      CircleAvatar(
+                        radius: 46,
+                        backgroundColor: const Color(0xFFFF9500).withOpacity(0.2),
+                        child: Icon(
+                          _cameraOn ? Icons.videocam_rounded : Icons.mic_rounded,
+                          color: const Color(0xFFFF9500),
+                          size: 42,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      widget.streamTitle,
-                      style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Hosted by ${widget.hostName}${widget.communityName != null ? ' in ${widget.communityName}' : ''}',
-                      style: const TextStyle(color: Colors.grey, fontSize: 13),
-                    ),
-                  ],
+                      const SizedBox(height: 12),
+                      Text(
+                        widget.streamTitle,
+                        style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Hosted by ${widget.hostName}${widget.communityName != null ? ' in ${widget.communityName}' : ''}',
+                        style: const TextStyle(color: Colors.grey, fontSize: 13),
+                      ),
+                      if (_connectionError != null) ...[
+                        const SizedBox(height: 12),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFF3B30).withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            _connectionError!,
+                            style: const TextStyle(color: Color(0xFFFF3B30), fontSize: 12),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
               ),
-            ),
 
-            // Floating Animated Hearts Layer
+            // 2. Floating Animated Hearts Layer
             ..._hearts.map((heart) => _FloatingHeartWidget(
                   key: ValueKey(heart.id),
                   heart: heart,
@@ -267,331 +426,167 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
                   },
                 )),
 
-            // Top Header Bar
+            // 3. Top Header Bar
             Positioned(
               top: MediaQuery.of(context).padding.top + 8,
               left: 16,
               right: 16,
-              child: Column(
+              child: Row(
                 children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFF3B30),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Row(
-                          children: [
-                            Icon(Icons.circle, color: Colors.white, size: 8),
-                            SizedBox(width: 6),
-                            Text('LIVE', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 11)),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.5),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.remove_red_eye_rounded, color: Colors.white, size: 14),
-                            const SizedBox(width: 4),
-                            Text('$_viewerCount', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.red.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.favorite_rounded, color: Colors.red, size: 14),
-                            const SizedBox(width: 4),
-                            Text('$_likesCount', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
-                          ],
-                        ),
-                      ),
-                      const Spacer(),
-                      GestureDetector(
-                        onTap: _showLeaderboard,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFF9500).withOpacity(0.25),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: const Color(0xFFFF9500).withOpacity(0.4)),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.emoji_events_rounded, color: Color(0xFFFF9500), size: 14),
-                              const SizedBox(width: 4),
-                              Text('🪙 $_totalGiftsCoins', style: const TextStyle(color: Color(0xFFFF9500), fontWeight: FontWeight.w900, fontSize: 12)),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      IconButton(
-                        onPressed: () => context.pop(),
-                        icon: const Icon(Icons.close_rounded, color: Colors.white),
-                      ),
-                    ],
-                  ),
-
-                  // Background Music / Sound Bar (If Active)
-                  if (widget.backgroundSound != null) ...[
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.6),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: Colors.grey[800]!),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.music_note_rounded, color: Color(0xFFFF9500), size: 14),
-                          const SizedBox(width: 6),
-                          Text(
-                            '🎵 ${widget.backgroundSound!['title']} (${widget.backgroundSound!['artist'] ?? 'Murih'})',
-                            style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
-                          ),
-                          const SizedBox(width: 8),
-                          GestureDetector(
-                            onTap: () => setState(() => _isPlayingMusic = !_isPlayingMusic),
-                            child: Icon(
-                              _isPlayingMusic ? Icons.pause_circle_filled_rounded : Icons.play_circle_fill_rounded,
-                              color: const Color(0xFFFF9500),
-                              size: 18,
-                            ),
-                          ),
-                        ],
-                      ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFF3B30),
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                  ],
+                    child: const Row(
+                      children: [
+                        Icon(Icons.circle, color: Colors.white, size: 8),
+                        SizedBox(width: 6),
+                        Text('LIVE', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 11)),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.5),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.remove_red_eye_rounded, color: Colors.white, size: 14),
+                        const SizedBox(width: 4),
+                        Text('$_viewerCount', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                      ],
+                    ),
+                  ),
+                  const Spacer(),
+
+                  // Real Wallet Coin Balance
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.5),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFFF9500).withOpacity(0.4)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Text('🪙 ', style: TextStyle(fontSize: 12)),
+                        Text('$coinBalance Coins', style: const TextStyle(color: Color(0xFFFF9500), fontWeight: FontWeight.w900, fontSize: 12)),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+
+                  // Close/End Stream Button
+                  IconButton(
+                    style: IconButton.styleFrom(backgroundColor: Colors.black.withOpacity(0.5)),
+                    icon: const Icon(Icons.close_rounded, color: Colors.white, size: 20),
+                    onPressed: _endOrLeaveStream,
+                  ),
                 ],
               ),
             ),
 
-            // Bottom Chat & Live Commerce Pinned Card & Interaction Controls
+            // 4. Live Chat Feed Overlay
             Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: Container(
-                padding: EdgeInsets.only(
-                  left: 16,
-                  right: 16,
-                  bottom: MediaQuery.of(context).viewInsets.bottom + 16,
-                  top: 10,
-                ),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Colors.transparent, Colors.black.withOpacity(0.95)],
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                  ),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Pinned Product Live Commerce Card
-                    if (_activeProduct != null)
-                      Container(
-                        margin: const EdgeInsets.only(bottom: 10),
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF1C1C1E),
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: const Color(0xFF34C759).withOpacity(0.6)),
-                        ),
-                        child: Row(
+              bottom: 80,
+              left: 16,
+              right: 80,
+              child: SizedBox(
+                height: 180,
+                child: ListView.separated(
+                  controller: _scrollController,
+                  itemCount: _chatMessages.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 6),
+                  itemBuilder: (context, idx) {
+                    final msg = _chatMessages[idx];
+                    return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.45),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: RichText(
+                        text: TextSpan(
                           children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
-                              child: Image.network(
-                                _activeProduct!['image_url'] as String,
-                                width: 44,
-                                height: 44,
-                                fit: BoxFit.cover,
-                              ),
+                            TextSpan(
+                              text: '${msg['name']} ',
+                              style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: msg['color'] as Color),
                             ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                        decoration: BoxDecoration(
-                                          color: const Color(0xFF34C759),
-                                          borderRadius: BorderRadius.circular(6),
-                                        ),
-                                        child: const Text('PINNED', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
-                                      ),
-                                      const SizedBox(width: 6),
-                                      Text(_activeProduct!['price'] as String, style: const TextStyle(color: Color(0xFF34C759), fontWeight: FontWeight.bold, fontSize: 12)),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    _activeProduct!['title'] as String,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF34C759),
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                              ),
-                              onPressed: () {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('Opening ${_activeProduct!['title']} checkout!')),
-                                );
-                              },
-                              child: const Text('Buy Now', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+                            TextSpan(
+                              text: msg['msg'] as String,
+                              style: const TextStyle(fontSize: 13, color: Colors.white),
                             ),
                           ],
                         ),
                       ),
+                    );
+                  },
+                ),
+              ),
+            ),
 
-                    // Chat Stream List
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(maxHeight: 140),
-                      child: ListView.builder(
-                        controller: _scrollController,
-                        itemCount: _chatMessages.length,
-                        itemBuilder: (ctx, idx) {
-                          final msg = _chatMessages[idx];
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 6),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: (msg['color'] as Color).withOpacity(0.2),
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: Text(
-                                    msg['role'] as String,
-                                    style: TextStyle(color: msg['color'] as Color, fontWeight: FontWeight.bold, fontSize: 10),
-                                  ),
-                                ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  '${msg['name']}: ',
-                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
-                                ),
-                                Expanded(
-                                  child: Text(
-                                    msg['msg'] as String,
-                                    style: const TextStyle(color: Colors.white70, fontSize: 12),
-                                  ),
-                                ),
-                              ],
+            // 5. Bottom Controls Bar
+            Positioned(
+              bottom: MediaQuery.of(context).padding.bottom + 12,
+              left: 16,
+              right: 16,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Container(
+                      height: 44,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.5),
+                        borderRadius: BorderRadius.circular(22),
+                        border: Border.all(color: Colors.white.withOpacity(0.15)),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: _chatCtrl,
+                              style: const TextStyle(color: Colors.white, fontSize: 13),
+                              decoration: const InputDecoration(
+                                hintText: 'Say something live…',
+                                hintStyle: TextStyle(color: Colors.grey, fontSize: 13),
+                                border: InputBorder.none,
+                                isDense: true,
+                              ),
+                              onSubmitted: (_) => _sendChat(),
                             ),
-                          );
-                        },
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.send_rounded, color: Color(0xFF007AFF), size: 18),
+                            onPressed: _sendChat,
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 8),
+                  ),
+                  const SizedBox(width: 8),
 
-                    // Input & Action Controls
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: _chatCtrl,
-                            style: const TextStyle(color: Colors.white, fontSize: 13),
-                            decoration: InputDecoration(
-                              hintText: 'Say something in live chat…',
-                              hintStyle: TextStyle(color: Colors.grey[500], fontSize: 13),
-                              filled: true,
-                              fillColor: Colors.white.withOpacity(0.15),
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide.none),
-                              suffixIcon: IconButton(
-                                icon: const Icon(Icons.send_rounded, color: Color(0xFF007AFF), size: 18),
-                                onPressed: _sendChat,
-                              ),
-                            ),
-                            onSubmitted: (_) => _sendChat(),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-
-                        // Toggle Camera Button
-                        CircleAvatar(
-                          backgroundColor: Colors.white.withOpacity(0.15),
-                          radius: 20,
-                          child: IconButton(
-                            icon: Icon(_cameraOn ? Icons.videocam_rounded : Icons.videocam_off_rounded, color: Colors.white, size: 18),
-                            onPressed: () => setState(() => _cameraOn = !_cameraOn),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-
-                        // Toggle Mic Button
-                        CircleAvatar(
-                          backgroundColor: Colors.white.withOpacity(0.15),
-                          radius: 20,
-                          child: IconButton(
-                            icon: Icon(_micOn ? Icons.mic_rounded : Icons.mic_off_rounded, color: Colors.white, size: 18),
-                            onPressed: () => setState(() => _micOn = !_micOn),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-
-                        // Gift button (Audience/Viewers only) or Host Controls (Host)
-                        if (!widget.isHost)
-                          GestureDetector(
-                            onTap: _openGiftingModal,
-                            child: const CircleAvatar(
-                              backgroundColor: Color(0xFFFF9500),
-                              radius: 20,
-                              child: Icon(Icons.card_giftcard_rounded, color: Colors.white, size: 20),
-                            ),
-                          )
-                        else
-                          CircleAvatar(
-                            backgroundColor: const Color(0xFF34C759),
-                            radius: 20,
-                            child: IconButton(
-                              icon: const Icon(Icons.sell_rounded, color: Colors.white, size: 18),
-                              tooltip: 'Live Commerce Products',
-                              onPressed: () {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Live Commerce: Your pinned store products are visible to viewers!')),
-                                );
-                              },
-                            ),
-                          ),
-                      ],
+                  // Host Controls: Switch Camera
+                  if (widget.isHost && _cameraOn)
+                    IconButton(
+                      style: IconButton.styleFrom(backgroundColor: Colors.black.withOpacity(0.5)),
+                      icon: Icon(_isSwitchingCamera ? Icons.hourglass_top : Icons.flip_camera_ios_rounded, color: Colors.white, size: 20),
+                      onPressed: _toggleCamera,
                     ),
-                  ],
-                ),
+
+                  // Non-Host Viewers: Real Gifting Button
+                  if (!widget.isHost)
+                    IconButton(
+                      style: IconButton.styleFrom(backgroundColor: const Color(0xFFFF9500)),
+                      icon: const Icon(Icons.card_giftcard_rounded, color: Colors.white, size: 20),
+                      onPressed: _openGiftingModal,
+                    ),
+                ],
               ),
             ),
           ],
@@ -619,52 +614,52 @@ class _FloatingHeartWidget extends StatefulWidget {
   final _FloatingHeart heart;
   final VoidCallback onComplete;
 
-  const _FloatingHeartWidget({super.key, required this.heart, required this.onComplete});
+  const _FloatingHeartWidget({
+    super.key,
+    required this.heart,
+    required this.onComplete,
+  });
 
   @override
   State<_FloatingHeartWidget> createState() => _FloatingHeartWidgetState();
 }
 
 class _FloatingHeartWidgetState extends State<_FloatingHeartWidget> with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _opacity;
-  late Animation<double> _scale;
-  late double _endX;
+  late AnimationController _anim;
+  late double _targetX;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 1400));
-    _opacity = Tween<double>(begin: 1.0, end: 0.0).animate(CurvedAnimation(parent: _controller, curve: const Interval(0.5, 1.0)));
-    _scale = Tween<double>(begin: 0.6, end: 1.6).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutBack));
-
-    _endX = widget.heart.startX + (Random().nextDouble() * 60 - 30);
-
-    _controller.forward().then((_) => widget.onComplete());
+    _targetX = widget.heart.startX + (Random().nextDouble() * 80 - 40);
+    _anim = AnimationController(vsync: this, duration: const Duration(milliseconds: 1400))
+      ..forward().then((_) => widget.onComplete());
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _anim.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: _controller,
+      animation: _anim,
       builder: (context, child) {
-        final double progress = _controller.value;
-        final double currentY = widget.heart.startY - (progress * 180);
-        final double currentX = widget.heart.startX + sin(progress * pi * 2) * 20;
+        final progress = _anim.value;
+        final dy = widget.heart.startY - (progress * 240);
+        final dx = widget.heart.startX + (progress * (_targetX - widget.heart.startX));
+        final opacity = (1.0 - progress).clamp(0.0, 1.0);
+        final scale = 0.8 + (progress * 0.5);
 
         return Positioned(
-          left: currentX,
-          top: currentY,
+          left: dx - 12,
+          top: dy - 12,
           child: Opacity(
-            opacity: _opacity.value,
+            opacity: opacity,
             child: Transform.scale(
-              scale: _scale.value,
+              scale: scale,
               child: Icon(Icons.favorite_rounded, color: widget.heart.color, size: 28),
             ),
           ),

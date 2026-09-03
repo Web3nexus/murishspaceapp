@@ -282,6 +282,11 @@ class AuthNotifier extends Notifier<AuthState> {
   }
 
   Future<bool> login(String email, String password) async {
+    final result = await loginWithDeviceCheck(email, password);
+    return result['status'] == 'success';
+  }
+
+  Future<Map<String, dynamic>> loginWithDeviceCheck(String email, String password) async {
     state = state.copyWith(loading: true, clearError: true);
     try {
       final response = await _dio.post('/auth/login', data: {
@@ -289,21 +294,54 @@ class AuthNotifier extends Notifier<AuthState> {
         'password': password,
       });
       final payload = ApiClient.instance.unwrap(response) as Map<String, dynamic>;
+
+      if (payload['status'] == 'pending_device_approval') {
+        state = state.copyWith(loading: false);
+        return {
+          'status': 'pending_device_approval',
+          'pending_request': payload['pending_request'],
+        };
+      }
+
       final token = payload['token'] as String;
       final user = UserProfile.fromJson(payload['user'] as Map<String, dynamic>);
       await ApiClient.saveToken(token);
       await ApiClient.saveUserProfile(jsonEncode(user.toJson()));
       await _recordSavedAccount(token, user);
       state = AuthState(user: user, token: token);
-      return true;
+      return {'status': 'success', 'user': user};
     } on ApiException catch (e) {
       state = state.copyWith(loading: false, errorMessage: e.message);
-      return false;
+      return {'status': 'error', 'message': e.message};
     } on DioException catch (e) {
-      state = state.copyWith(loading: false, errorMessage: _dioError(e, 'Login failed'));
+      final msg = _dioError(e, 'Login failed');
+      state = state.copyWith(loading: false, errorMessage: msg);
+      return {'status': 'error', 'message': msg};
+    } catch (e) {
+      state = state.copyWith(loading: false, errorMessage: 'An error occurred');
+      return {'status': 'error', 'message': 'An error occurred'};
+    }
+  }
+
+  Future<bool> completeApprovedLogin(String requestToken) async {
+    state = state.copyWith(loading: true, clearError: true);
+    try {
+      final response = await _dio.get('/auth/device-approval/check-status/$requestToken');
+      final payload = ApiClient.instance.unwrap(response) as Map<String, dynamic>;
+
+      if (payload['status'] == 'approved') {
+        final token = payload['token'] as String;
+        final user = UserProfile.fromJson(payload['user'] as Map<String, dynamic>);
+        await ApiClient.saveToken(token);
+        await ApiClient.saveUserProfile(jsonEncode(user.toJson()));
+        await _recordSavedAccount(token, user);
+        state = AuthState(user: user, token: token);
+        return true;
+      }
+      state = state.copyWith(loading: false);
       return false;
     } catch (_) {
-      state = state.copyWith(loading: false, errorMessage: 'An error occurred');
+      state = state.copyWith(loading: false);
       return false;
     }
   }

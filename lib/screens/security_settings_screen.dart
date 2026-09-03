@@ -194,6 +194,29 @@ class SecuritySettingsScreen extends ConsumerWidget {
 
           const Divider(height: 32),
 
+          // ── Device Security & Mobile Number ────────────────────
+          _SectionHeader(title: 'Account Security & Verified Devices'),
+          ListTile(
+            leading: const Icon(Icons.phone_android_rounded, color: Color(0xFFF09A3E)),
+            title: const Text('Verified Mobile Number'),
+            subtitle: Text(ref.watch(authProvider).user?.phone ?? 'No phone number registered'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () {
+              context.push('/profile/security/change-phone');
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.devices_rounded, color: Color(0xFFF09A3E)),
+            title: const Text('Logged-in Devices & Sessions'),
+            subtitle: const Text('Manage active sessions, device approvals, and remote logout'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () {
+              context.push('/profile/devices');
+            },
+          ),
+
+          const Divider(height: 32),
+
           // ── Account Deletion & Legal Compliance ─────────────────
           _SectionHeader(title: 'Account & Data Privacy'),
           ListTile(
