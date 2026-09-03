@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '../components/community_manage_sheet.dart';
 import '../components/ui_states.dart';
+import '../core/api_client.dart';
 import '../core/design_tokens.dart';
 import '../models/community_models.dart';
 import '../providers/auth_provider.dart';
@@ -883,38 +884,87 @@ class _CoursesAndGoodsTab extends ConsumerStatefulWidget {
 }
 
 class _CoursesAndGoodsTabState extends ConsumerState<_CoursesAndGoodsTab> {
-  List<Map<String, dynamic>> _digitalGoods = [
-    {
-      'id': 1,
-      'type': 'course',
-      'title': 'Complete Creator Mastery & Monetization',
-      'price': '₦25,000 / \$30',
-      'is_public': true,
-      'is_exclusive': false,
-      'lessons_count': 18,
-      'image_url': 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=500',
-    },
-    {
-      'id': 2,
-      'type': 'digital_product',
-      'title': 'VIP Member Templates & Design Kit',
-      'price': 'FREE for Members',
-      'is_public': false,
-      'is_exclusive': true,
-      'file_type': 'ZIP Archive (48MB)',
-      'image_url': 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=500',
-    },
-    {
-      'id': 3,
-      'type': 'course',
-      'title': 'Advanced Community Growth Blueprint',
-      'price': '50 Coins',
-      'is_public': true,
-      'is_exclusive': false,
-      'lessons_count': 12,
-      'image_url': 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=500',
-    },
-  ];
+  List<Map<String, dynamic>> _digitalGoods = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchCoursesAndGoods();
+  }
+
+  Future<void> _fetchCoursesAndGoods() async {
+    setState(() {
+      _loading = true;
+    });
+
+    try {
+      final api = ref.read(apiClientProvider);
+      final List<Map<String, dynamic>> combined = [];
+
+      // 1. Fetch Published Courses
+      try {
+        final coursesRes = await api.get('/courses');
+        final coursesList = coursesRes.data['data'] as List? ?? [];
+        for (final c in coursesList) {
+          final course = c as Map<String, dynamic>;
+          final price = (course['price'] as num?)?.toDouble() ?? 0.0;
+          final currency = course['currency'] ?? 'USD';
+          final formattedPrice = price <= 0 ? 'FREE' : (currency == 'USD' ? '\$$price' : '$currency $price');
+
+          combined.add({
+            'id': course['id'],
+            'type': 'course',
+            'title': course['title'] ?? 'Online Masterclass',
+            'price': formattedPrice,
+            'is_public': true,
+            'is_exclusive': false,
+            'lessons_count': (course['lessons_count'] as num?)?.toInt() ?? 0,
+            'image_url': course['thumbnail_url'] ?? 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=500',
+            'description': course['description'],
+          });
+        }
+      } catch (_) {}
+
+      // 2. Fetch Digital Products / Goods
+      try {
+        final productsRes = await api.get('/digital/products');
+        final productsList = productsRes.data['data'] as List? ?? [];
+        for (final p in productsList) {
+          final prod = p as Map<String, dynamic>;
+          final isFree = prod['is_free'] == true;
+          final price = (prod['price'] as num?)?.toDouble() ?? 0.0;
+          final currency = prod['currency'] ?? 'USD';
+          final formattedPrice = isFree || price <= 0 ? 'FREE' : (currency == 'USD' ? '\$$price' : '$currency $price');
+
+          combined.add({
+            'id': prod['id'],
+            'type': 'digital_product',
+            'title': prod['title'] ?? 'Digital Asset',
+            'price': formattedPrice,
+            'is_public': true,
+            'is_exclusive': false,
+            'file_type': '${prod['category'] ?? 'File'} Download',
+            'image_url': prod['cover_url'] ?? 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=500',
+            'description': prod['description'],
+          });
+        }
+      } catch (_) {}
+
+      if (mounted) {
+        setState(() {
+          _digitalGoods = combined;
+          _loading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -922,143 +972,195 @@ class _CoursesAndGoodsTabState extends ConsumerState<_CoursesAndGoodsTab> {
     final textPrimary = isDark ? Colors.white : Colors.black;
     final textSecondary = isDark ? Colors.grey[400] : Colors.grey[600];
 
-    return Container(
-      color: isDark ? const Color(0xFF000000) : const Color(0xFFF2F2F7),
-      child: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Community Courses & Digital Goods',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textPrimary),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF007AFF).withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  '${_digitalGoods.length} Items',
-                  style: const TextStyle(color: Color(0xFF007AFF), fontWeight: FontWeight.bold, fontSize: 11),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          ..._digitalGoods.map((item) {
-            final isCourse = item['type'] == 'course';
-            final isExclusive = item['is_exclusive'] as bool? ?? false;
+    if (_loading) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(32),
+          child: CircularProgressIndicator.adaptive(),
+        ),
+      );
+    }
 
-            return Container(
-              margin: const EdgeInsets.only(bottom: 14),
-              decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE5E5EA)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  ClipRRect(
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
-                    child: Image.network(
-                      item['image_url'] as String,
-                      width: double.infinity,
-                      height: 130,
-                      fit: BoxFit.cover,
-                    ),
+    return RefreshIndicator(
+      onRefresh: _fetchCoursesAndGoods,
+      child: Container(
+        color: isDark ? const Color(0xFF000000) : const Color(0xFFF2F2F7),
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Community Courses & Digital Goods',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textPrimary),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF007AFF).withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                  Padding(
-                    padding: const EdgeInsets.all(14),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
+                  child: Text(
+                    '${_digitalGoods.length} Items',
+                    style: const TextStyle(color: Color(0xFF007AFF), fontWeight: FontWeight.bold, fontSize: 11),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            if (_digitalGoods.isEmpty)
+              Container(
+                margin: const EdgeInsets.only(top: 20),
+                padding: const EdgeInsets.all(28),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE5E5EA)),
+                ),
+                child: Center(
+                  child: Column(
+                    children: [
+                      Icon(Icons.school_outlined, size: 48, color: textSecondary),
+                      const SizedBox(height: 12),
+                      Text(
+                        'No Courses or Goods Published Yet',
+                        style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: textPrimary),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Creators in this community have not published any digital assets or courses yet.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 12, color: textSecondary),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            else
+              ..._digitalGoods.map((item) {
+                final isCourse = item['type'] == 'course';
+                final isExclusive = item['is_exclusive'] as bool? ?? false;
+
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 14),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE5E5EA)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      ClipRRect(
+                        borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
+                        child: CachedNetworkImage(
+                          imageUrl: item['image_url'] as String,
+                          width: double.infinity,
+                          height: 130,
+                          fit: BoxFit.cover,
+                          placeholder: (_, __) => Container(
+                            height: 130,
+                            color: isDark ? Colors.grey[900] : Colors.grey[200],
+                            child: const Center(child: CircularProgressIndicator.adaptive()),
+                          ),
+                          errorWidget: (_, __, ___) => Container(
+                            height: 130,
+                            color: const Color(0xFF007AFF).withOpacity(0.2),
+                            child: const Center(child: Icon(Icons.menu_book_rounded, size: 40, color: Color(0xFF007AFF))),
+                          ),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.all(14),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                              decoration: BoxDecoration(
-                                color: isCourse
-                                    ? const Color(0xFF007AFF).withOpacity(0.15)
-                                    : const Color(0xFF5856D6).withOpacity(0.15),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Text(
-                                isCourse ? 'COURSE' : 'DIGITAL ASSET',
-                                style: TextStyle(
-                                  color: isCourse ? const Color(0xFF007AFF) : const Color(0xFF5856D6),
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 10,
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: isCourse
+                                        ? const Color(0xFF007AFF).withOpacity(0.15)
+                                        : const Color(0xFF5856D6).withOpacity(0.15),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    isCourse ? 'COURSE' : 'DIGITAL ASSET',
+                                    style: TextStyle(
+                                      color: isCourse ? const Color(0xFF007AFF) : const Color(0xFF5856D6),
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 10,
+                                    ),
+                                  ),
                                 ),
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                              decoration: BoxDecoration(
-                                color: isExclusive
-                                    ? const Color(0xFFFF9500).withOpacity(0.15)
-                                    : const Color(0xFF34C759).withOpacity(0.15),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Text(
-                                isExclusive ? 'MEMBERS ONLY' : 'PUBLIC MARKETPLACE',
-                                style: TextStyle(
-                                  color: isExclusive ? const Color(0xFFFF9500) : const Color(0xFF34C759),
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 10,
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: isExclusive
+                                        ? const Color(0xFFFF9500).withOpacity(0.15)
+                                        : const Color(0xFF34C759).withOpacity(0.15),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    isExclusive ? 'MEMBERS ONLY' : 'PUBLIC MARKETPLACE',
+                                    style: TextStyle(
+                                      color: isExclusive ? const Color(0xFFFF9500) : const Color(0xFF34C759),
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 10,
+                                    ),
+                                  ),
                                 ),
-                              ),
+                              ],
                             ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          item['title'] as String,
-                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: textPrimary),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          isCourse ? '${item['lessons_count']} interactive lessons' : '${item['file_type']}',
-                          style: TextStyle(fontSize: 12, color: textSecondary),
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
+                            const SizedBox(height: 8),
                             Text(
-                              item['price'] as String,
-                              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: Color(0xFF34C759)),
+                              item['title'] as String,
+                              style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: textPrimary),
                             ),
-                            ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF007AFF),
-                                foregroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                              ),
-                              onPressed: () {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('Accessing ${item['title']}!')),
-                                );
-                              },
-                              child: Text(
-                                isExclusive && !widget.isMember ? 'Join to Access' : (isCourse ? 'Start Learning' : 'Download Asset'),
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                              ),
+                            const SizedBox(height: 4),
+                            Text(
+                              isCourse ? '${item['lessons_count']} interactive lessons' : '${item['file_type']}',
+                              style: TextStyle(fontSize: 12, color: textSecondary),
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  item['price'] as String,
+                                  style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: Color(0xFF34C759)),
+                                ),
+                                ElevatedButton(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF007AFF),
+                                    foregroundColor: Colors.white,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                  ),
+                                  onPressed: () {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text('Accessing ${item['title']}!')),
+                                    );
+                                  },
+                                  child: Text(
+                                    isExclusive && !widget.isMember ? 'Join to Access' : (isCourse ? 'Start Learning' : 'Download Asset'),
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            );
-          }),
-        ],
+                );
+              }),
+          ],
+        ),
       ),
     );
   }
