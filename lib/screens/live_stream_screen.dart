@@ -2,7 +2,9 @@ import 'dart:async';
 import 'dart:math';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../components/send_gift_dialog.dart';
 import '../core/api_client.dart';
@@ -295,6 +297,190 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
     );
   }
 
+  void _openShareModal() {
+    final streamId = _activeStreamId ?? widget.streamId ?? 1;
+    final liveUrl = 'https://web.murihspace.com/live/$streamId';
+    final shareMessage = '🔴 Watch ${widget.hostName} live on MurihSpace: "${widget.streamTitle}"\n$liveUrl';
+
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        final sheetBg = isDark ? const Color(0xFF1C1C1E) : Colors.white;
+        final textPrimary = isDark ? Colors.white : Colors.black;
+        final textSecondary = isDark ? Colors.grey[400] : Colors.grey[600];
+
+        return Container(
+          decoration: BoxDecoration(
+            color: sheetBg,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          padding: EdgeInsets.fromLTRB(20, 12, 20, MediaQuery.of(ctx).padding.bottom + 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Drag handle
+              Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.withOpacity(0.3),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Title Header
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFF3B30),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.sensors, color: Colors.white, size: 12),
+                        SizedBox(width: 4),
+                        Text('LIVE', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 10)),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Share Live Broadcast',
+                          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: textPrimary),
+                        ),
+                        Text(
+                          'Invite friends to join ${widget.hostName}\'s stream',
+                          style: TextStyle(fontSize: 12, color: textSecondary),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+
+              // Link Copy Box
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF2F2F7),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: Colors.grey.withOpacity(0.2)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.link_rounded, color: Color(0xFF007AFF), size: 20),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        liveUrl,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 13, color: textPrimary, fontWeight: FontWeight.w500),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF007AFF),
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                      onPressed: () {
+                        Clipboard.setData(ClipboardData(text: liveUrl));
+                        HapticFeedback.mediumImpact();
+                        Navigator.pop(ctx);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('✓ Live stream link copied to clipboard!'),
+                            backgroundColor: Color(0xFF34C759),
+                            duration: Duration(seconds: 2),
+                          ),
+                        );
+                      },
+                      child: const Text('Copy', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Quick Share Options
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _ShareOptionItem(
+                    icon: Icons.chat_bubble_outline_rounded,
+                    color: const Color(0xFF25D366),
+                    label: 'WhatsApp',
+                    onTap: () async {
+                      Navigator.pop(ctx);
+                      final waUrl = Uri.parse('https://wa.me/?text=${Uri.encodeComponent(shareMessage)}');
+                      if (await canLaunchUrl(waUrl)) {
+                        await launchUrl(waUrl, mode: LaunchMode.externalApplication);
+                      }
+                    },
+                  ),
+                  _ShareOptionItem(
+                    icon: Icons.alternate_email_rounded,
+                    color: const Color(0xFF1DA1F2),
+                    label: 'X (Twitter)',
+                    onTap: () async {
+                      Navigator.pop(ctx);
+                      final xUrl = Uri.parse('https://twitter.com/intent/tweet?text=${Uri.encodeComponent(shareMessage)}');
+                      if (await canLaunchUrl(xUrl)) {
+                        await launchUrl(xUrl, mode: LaunchMode.externalApplication);
+                      }
+                    },
+                  ),
+                  _ShareOptionItem(
+                    icon: Icons.sms_outlined,
+                    color: const Color(0xFF34C759),
+                    label: 'Messages',
+                    onTap: () async {
+                      Navigator.pop(ctx);
+                      final smsUrl = Uri.parse('sms:?body=${Uri.encodeComponent(shareMessage)}');
+                      if (await canLaunchUrl(smsUrl)) {
+                        await launchUrl(smsUrl);
+                      }
+                    },
+                  ),
+                  _ShareOptionItem(
+                    icon: Icons.mail_outline_rounded,
+                    color: const Color(0xFFFF9500),
+                    label: 'Email',
+                    onTap: () async {
+                      Navigator.pop(ctx);
+                      final mailUrl = Uri.parse(
+                        'mailto:?subject=${Uri.encodeComponent('Join ${widget.hostName}\'s Live on MurihSpace')}&body=${Uri.encodeComponent(shareMessage)}',
+                      );
+                      if (await canLaunchUrl(mailUrl)) {
+                        await launchUrl(mailUrl);
+                      }
+                    },
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> _endOrLeaveStream() async {
     final isHost = widget.isHost;
 
@@ -481,6 +667,14 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
                   ),
                   const SizedBox(width: 8),
 
+                  // Share Live Stream Button
+                  IconButton(
+                    style: IconButton.styleFrom(backgroundColor: Colors.black.withOpacity(0.5)),
+                    icon: const Icon(Icons.share_rounded, color: Colors.white, size: 20),
+                    onPressed: _openShareModal,
+                  ),
+                  const SizedBox(width: 4),
+
                   // Close/End Stream Button
                   IconButton(
                     style: IconButton.styleFrom(backgroundColor: Colors.black.withOpacity(0.5)),
@@ -571,21 +765,32 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
                   ),
                   const SizedBox(width: 8),
 
+                  // Share Button in Bottom Bar
+                  IconButton(
+                    style: IconButton.styleFrom(backgroundColor: Colors.black.withOpacity(0.5)),
+                    icon: const Icon(Icons.share_rounded, color: Colors.white, size: 20),
+                    onPressed: _openShareModal,
+                  ),
+
                   // Host Controls: Switch Camera
-                  if (widget.isHost && _cameraOn)
+                  if (widget.isHost && _cameraOn) ...[
+                    const SizedBox(width: 6),
                     IconButton(
                       style: IconButton.styleFrom(backgroundColor: Colors.black.withOpacity(0.5)),
                       icon: Icon(_isSwitchingCamera ? Icons.hourglass_top : Icons.flip_camera_ios_rounded, color: Colors.white, size: 20),
                       onPressed: _toggleCamera,
                     ),
+                  ],
 
                   // Non-Host Viewers: Real Gifting Button
-                  if (!widget.isHost)
+                  if (!widget.isHost) ...[
+                    const SizedBox(width: 6),
                     IconButton(
                       style: IconButton.styleFrom(backgroundColor: const Color(0xFFFF9500)),
                       icon: const Icon(Icons.card_giftcard_rounded, color: Colors.white, size: 20),
                       onPressed: _openGiftingModal,
                     ),
+                  ],
                 ],
               ),
             ),
@@ -665,6 +870,51 @@ class _FloatingHeartWidgetState extends State<_FloatingHeartWidget> with SingleT
           ),
         );
       },
+    );
+  }
+}
+
+class _ShareOptionItem extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String label;
+  final VoidCallback onTap;
+
+  const _ShareOptionItem({
+    required this.icon,
+    required this.color,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.15),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: color, size: 24),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: isDark ? Colors.grey[300] : Colors.grey[700],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
