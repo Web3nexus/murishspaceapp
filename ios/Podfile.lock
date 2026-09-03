@@ -11,6 +11,8 @@ PODS:
     - PromisesObjC (~> 2.4)
     - PromisesSwift (~> 2.4)
     - RecaptchaInterop (~> 101.0)
+  - camera_avfoundation (0.0.1):
+    - Flutter
   - Flutter (1.0.0)
   - flutter_secure_storage_darwin (10.0.0):
     - Flutter
@@ -65,6 +67,7 @@ PODS:
     - Flutter
 
 DEPENDENCIES:
+  - camera_avfoundation (from `.symlinks/plugins/camera_avfoundation/ios`)
   - Flutter (from `Flutter`)
   - flutter_secure_storage_darwin (from `.symlinks/plugins/flutter_secure_storage_darwin/darwin`)
   - google_sign_in_ios (from `.symlinks/plugins/google_sign_in_ios/darwin`)
@@ -88,6 +91,8 @@ SPEC REPOS:
     - RecaptchaInterop
 
 EXTERNAL SOURCES:
+  camera_avfoundation:
+    :path: ".symlinks/plugins/camera_avfoundation/ios"
   Flutter:
     :path: Flutter
   flutter_secure_storage_darwin:
@@ -110,6 +115,7 @@ EXTERNAL SOURCES:
 SPEC CHECKSUMS:
   AppAuth: d4f13a8fe0baf391b2108511793e4b479691fb73
   AppCheckCore: e215d35177a9cf469927863e69c13e220df32a8b
+  camera_avfoundation: 5675ca25298b6f81fa0a325188e7df62cc217741
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
   flutter_secure_storage_darwin: acdb3f316ed05a3e68f856e0353b133eec373a23
   google_sign_in_ios: b48bb9af78576358a168361173155596c845f0b9
