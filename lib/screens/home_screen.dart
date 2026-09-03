@@ -28,13 +28,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   void _showQuickCreateMenu(BuildContext context, bool isDark) {
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+      backgroundColor: isDark ? const Color(0xFF141416) : Colors.white,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       builder: (ctx) => SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -47,67 +47,177 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-              Text(
-                'Quick Create',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                  color: isDark ? Colors.white : Colors.black,
-                ),
-              ),
-              const SizedBox(height: 16),
-              ListTile(
-                leading: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF007AFF).withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(10),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF007AFF).withValues(alpha: 0.15),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.bolt_rounded, color: Color(0xFF007AFF), size: 20),
                   ),
-                  child: const Icon(Icons.edit_note_rounded, color: Color(0xFF007AFF)),
-                ),
-                title: const Text('Create Post', style: TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: const Text('Share text, photos, or videos with your feed'),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  showPostComposer(context);
-                },
-              ),
-              const SizedBox(height: 4),
-              ListTile(
-                leading: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFF9500).withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(10),
+                  const SizedBox(width: 10),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Create Something New',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
+                          color: isDark ? Colors.white : Colors.black,
+                        ),
+                      ),
+                      Text(
+                        'Choose what you want to share with MurihSpace',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: isDark ? Colors.grey[400] : Colors.grey[600],
+                        ),
+                      ),
+                    ],
                   ),
-                  child: const Icon(Icons.add_a_photo_rounded, color: Color(0xFFFF9500)),
-                ),
-                title: const Text('Add Story', style: TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: const Text('Share a 24-hour visual status update'),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  showStoryComposerSheet(context);
-                },
+                ],
               ),
-              const SizedBox(height: 4),
-              ListTile(
-                leading: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFF3B30).withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(10),
+              const SizedBox(height: 20),
+
+              // 2x2 Action Cards
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildQuickCreateCard(
+                      ctx: ctx,
+                      title: 'Create Post',
+                      subtitle: 'Discussion & Polls',
+                      icon: Icons.article_rounded,
+                      gradient: const [Color(0xFF007AFF), Color(0xFF5856D6)],
+                      isDark: isDark,
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        showPostComposer(context);
+                      },
+                    ),
                   ),
-                  child: const Icon(Icons.live_tv_rounded, color: Color(0xFFFF3B30)),
-                ),
-                title: const Text('Go Live', style: TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: const Text('Broadcast live video to your community'),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  context.push('/app/live');
-                },
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildQuickCreateCard(
+                      ctx: ctx,
+                      title: 'Add Story',
+                      subtitle: '24h Visual Status',
+                      icon: Icons.auto_stories_rounded,
+                      gradient: const [Color(0xFFFF9500), Color(0xFFFF2D55)],
+                      isDark: isDark,
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        showStoryComposerSheet(context);
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildQuickCreateCard(
+                      ctx: ctx,
+                      title: 'Go Live',
+                      subtitle: 'Live Video Broadcast',
+                      icon: Icons.videocam_rounded,
+                      gradient: const [Color(0xFFFF3B30), Color(0xFFFF453A)],
+                      isDark: isDark,
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        context.push('/app/live');
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildQuickCreateCard(
+                      ctx: ctx,
+                      title: 'Community',
+                      subtitle: 'Launch New Space',
+                      icon: Icons.groups_rounded,
+                      gradient: const [Color(0xFFAF52DE), Color(0xFF5856D6)],
+                      isDark: isDark,
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        context.push('/communities/create');
+                      },
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuickCreateCard({
+    required BuildContext ctx,
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required List<Color> gradient,
+    required bool isDark,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1C1C1E) : const Color(0xFFF2F4F7),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE5E7EB),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: gradient,
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: gradient.first.withValues(alpha: 0.35),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: Icon(icon, color: Colors.white, size: 20),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w800,
+                color: isDark ? Colors.white : Colors.black,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              subtitle,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: isDark ? Colors.grey[400] : Colors.grey[600],
+              ),
+            ),
+          ],
         ),
       ),
     );
