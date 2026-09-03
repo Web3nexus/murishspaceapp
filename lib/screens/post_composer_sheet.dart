@@ -203,6 +203,7 @@ class _PostComposerState extends ConsumerState<_PostComposer> {
       backgroundColor: isDark ? const Color(0xFF1C1C1E) : Colors.white,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (ctx) {
+        final user = ref.watch(authProvider).user;
         return SafeArea(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -221,7 +222,7 @@ class _PostComposerState extends ConsumerState<_PostComposer> {
                 child: Row(
                   children: [
                     Text(
-                      'Choose Community',
+                      'Post Destination',
                       style: TextStyle(
                         fontSize: 17,
                         fontWeight: FontWeight.w800,
@@ -230,7 +231,7 @@ class _PostComposerState extends ConsumerState<_PostComposer> {
                     ),
                     const Spacer(),
                     Text(
-                      '${communities.length} available',
+                      '${communities.length + 1} options',
                       style: TextStyle(fontSize: 12, color: isDark ? Colors.grey[400] : Colors.grey[600]),
                     ),
                   ],
@@ -238,44 +239,76 @@ class _PostComposerState extends ConsumerState<_PostComposer> {
               ),
               const Divider(height: 1),
               Expanded(
-                child: ListView.separated(
-                  itemCount: communities.length,
-                  separatorBuilder: (context, index) => const Divider(height: 1, indent: 64),
-                  itemBuilder: (_, index) {
-                    final comm = communities[index];
-                    final selected = _communityId == comm.id;
-                    return ListTile(
+                child: ListView(
+                  children: [
+                    // Public Wall / Profile option
+                    ListTile(
                       leading: CircleAvatar(
                         radius: 20,
                         backgroundColor: const Color(0xFF007AFF).withValues(alpha: 0.15),
-                        backgroundImage: comm.logoUrl != null && comm.logoUrl!.isNotEmpty
-                            ? NetworkImage(comm.logoUrl!)
+                        backgroundImage: user?.avatarUrl != null && user!.avatarUrl!.isNotEmpty
+                            ? NetworkImage(user.avatarUrl!)
                             : null,
-                        child: comm.logoUrl == null || comm.logoUrl!.isEmpty
+                        child: user?.avatarUrl == null || user!.avatarUrl!.isEmpty
                             ? Text(
-                                comm.name.isNotEmpty ? comm.name[0].toUpperCase() : 'C',
+                                (user?.name ?? 'M')[0].toUpperCase(),
                                 style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF007AFF)),
                               )
                             : null,
                       ),
                       title: Text(
-                        comm.name,
+                        'My Public Profile / Wall',
                         style: TextStyle(
-                          fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
-                          color: selected ? const Color(0xFF007AFF) : (isDark ? Colors.white : Colors.black),
+                          fontWeight: _communityId == null ? FontWeight.w800 : FontWeight.w600,
+                          color: _communityId == null ? const Color(0xFF007AFF) : (isDark ? Colors.white : Colors.black),
                         ),
                       ),
                       subtitle: Text(
-                        '${comm.membersCount} members • ${comm.visibility == "private" ? "Private" : "Public"}',
+                        'Public • Visible to everyone on global feed',
                         style: TextStyle(fontSize: 12, color: isDark ? Colors.grey[400] : Colors.grey[600]),
                       ),
-                      trailing: selected ? const Icon(Icons.check_circle_rounded, color: Color(0xFF007AFF)) : null,
+                      trailing: _communityId == null ? const Icon(Icons.check_circle_rounded, color: Color(0xFF007AFF)) : null,
                       onTap: () {
-                        setState(() => _communityId = comm.id);
+                        setState(() => _communityId = null);
                         Navigator.pop(ctx);
                       },
-                    );
-                  },
+                    ),
+                    const Divider(height: 1, indent: 64),
+                    for (final comm in communities) ...[
+                      ListTile(
+                        leading: CircleAvatar(
+                          radius: 20,
+                          backgroundColor: const Color(0xFF007AFF).withValues(alpha: 0.15),
+                          backgroundImage: comm.logoUrl != null && comm.logoUrl!.isNotEmpty
+                              ? NetworkImage(comm.logoUrl!)
+                              : null,
+                          child: comm.logoUrl == null || comm.logoUrl!.isEmpty
+                              ? Text(
+                                  comm.name.isNotEmpty ? comm.name[0].toUpperCase() : 'C',
+                                  style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF007AFF)),
+                                )
+                              : null,
+                        ),
+                        title: Text(
+                          comm.name,
+                          style: TextStyle(
+                            fontWeight: _communityId == comm.id ? FontWeight.w800 : FontWeight.w600,
+                            color: _communityId == comm.id ? const Color(0xFF007AFF) : (isDark ? Colors.white : Colors.black),
+                          ),
+                        ),
+                        subtitle: Text(
+                          '${comm.membersCount} members • ${comm.visibility == "private" ? "Private" : "Public"}',
+                          style: TextStyle(fontSize: 12, color: isDark ? Colors.grey[400] : Colors.grey[600]),
+                        ),
+                        trailing: _communityId == comm.id ? const Icon(Icons.check_circle_rounded, color: Color(0xFF007AFF)) : null,
+                        onTap: () {
+                          setState(() => _communityId = comm.id);
+                          Navigator.pop(ctx);
+                        },
+                      ),
+                      const Divider(height: 1, indent: 64),
+                    ],
+                  ],
                 ),
               ),
             ],
@@ -519,7 +552,7 @@ class _PostComposerState extends ConsumerState<_PostComposer> {
                             spacing: 6,
                             runSpacing: 4,
                             children: [
-                              // Community selector button
+                              // Destination / Community selector button
                               GestureDetector(
                                 onTap: () => _showCommunityPicker(myCommunities, isDark),
                                 child: Container(
@@ -532,10 +565,16 @@ class _PostComposerState extends ConsumerState<_PostComposer> {
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      const Icon(Icons.groups_rounded, size: 14, color: Color(0xFF007AFF)),
+                                      Icon(
+                                        _communityId == null ? Icons.public_rounded : Icons.groups_rounded,
+                                        size: 14,
+                                        color: const Color(0xFF007AFF),
+                                      ),
                                       const SizedBox(width: 4),
                                       Text(
-                                        selectedCommunity?.name ?? 'Select Community',
+                                        _communityId == null
+                                            ? 'My Public Wall'
+                                            : (selectedCommunity?.name ?? 'Community'),
                                         style: TextStyle(
                                           fontSize: 12,
                                           fontWeight: FontWeight.w700,

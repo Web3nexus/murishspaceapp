@@ -399,11 +399,37 @@ class PostsNotifier extends Notifier<PostsState> {
     }
   }
 
+  Future<bool> votePoll(Post post, int optionIndex) async {
+    try {
+      final response = await _dio.post(
+        '/posts/${post.id}/poll/vote',
+        data: {'option_index': optionIndex},
+      );
+      final payload = response.data;
+      final data = payload is Map<String, dynamic> && payload['data'] is Map<String, dynamic>
+          ? payload['data']
+          : payload;
+
+      final pollResults = data is Map<String, dynamic> && data['poll_results'] != null
+          ? PollResults.fromJson(data['poll_results'])
+          : null;
+      final userVote = data is Map<String, dynamic> ? (data['user_poll_vote'] as num?)?.toInt() : optionIndex;
+
+      _replace(post.copyWith(
+        pollResults: pollResults,
+        userPollVote: userVote,
+      ));
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<bool> report(Post post, String reason, {String? description}) async {
     try {
       await _dio.post('/posts/${post.id}/report', data: {
         'reason': reason,
-        'description': ?description,
+        'description': description,
       });
       return true;
     } catch (_) {

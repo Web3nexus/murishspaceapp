@@ -141,9 +141,59 @@ class PostReaction {
   }
 }
 
+class PollOptionResult {
+  final int index;
+  final String label;
+  final int votesCount;
+  final double percentage;
+
+  const PollOptionResult({
+    required this.index,
+    required this.label,
+    required this.votesCount,
+    required this.percentage,
+  });
+
+  factory PollOptionResult.fromJson(dynamic json) {
+    if (json is! Map<String, dynamic>) {
+      return const PollOptionResult(index: 0, label: '', votesCount: 0, percentage: 0);
+    }
+    return PollOptionResult(
+      index: (json['index'] as num?)?.toInt() ?? 0,
+      label: json['label']?.toString() ?? '',
+      votesCount: (json['votes_count'] as num?)?.toInt() ?? 0,
+      percentage: (json['percentage'] as num?)?.toDouble() ?? 0.0,
+    );
+  }
+}
+
+class PollResults {
+  final int totalVotes;
+  final List<PollOptionResult> options;
+  final bool isExpired;
+
+  const PollResults({
+    required this.totalVotes,
+    this.options = const [],
+    this.isExpired = false,
+  });
+
+  factory PollResults.fromJson(dynamic json) {
+    if (json is! Map<String, dynamic>) {
+      return const PollResults(totalVotes: 0);
+    }
+    final rawOptions = json['options'];
+    return PollResults(
+      totalVotes: (json['total_votes'] as num?)?.toInt() ?? 0,
+      options: rawOptions is List ? rawOptions.map(PollOptionResult.fromJson).toList() : const [],
+      isExpired: json['is_expired'] as bool? ?? false,
+    );
+  }
+}
+
 class Post {
   final int id;
-  final int communityId;
+  final int? communityId;
   final int userId;
   final String type;
   final String content;
@@ -161,10 +211,18 @@ class Post {
   final List<PostReaction> reactions;
   final bool likedByMe;
   final bool savedByMe;
+  final String? pollQuestion;
+  final List<String> pollOptions;
+  final DateTime? pollEndsAt;
+  final PollResults? pollResults;
+  final int? userPollVote;
+  final String privacy;
+  final String? location;
+  final bool commentsDisabled;
 
   const Post({
     required this.id,
-    required this.communityId,
+    this.communityId,
     required this.userId,
     required this.type,
     required this.content,
@@ -182,10 +240,18 @@ class Post {
     this.reactions = const [],
     this.likedByMe = false,
     this.savedByMe = false,
+    this.pollQuestion,
+    this.pollOptions = const [],
+    this.pollEndsAt,
+    this.pollResults,
+    this.userPollVote,
+    this.privacy = 'public',
+    this.location,
+    this.commentsDisabled = false,
   });
 
   bool get hasMedia => mediaUrls.isNotEmpty;
-  bool get isPoll => type == 'poll';
+  bool get isPoll => type == 'poll' || pollOptions.isNotEmpty;
   bool get isAnnouncement => type == 'announcement';
 
   Post copyWith({
@@ -197,6 +263,8 @@ class Post {
     bool? likedByMe,
     bool? savedByMe,
     bool? isPinned,
+    PollResults? pollResults,
+    int? userPollVote,
   }) {
     return Post(
       id: id,
@@ -218,19 +286,28 @@ class Post {
       reactions: reactions,
       likedByMe: likedByMe ?? this.likedByMe,
       savedByMe: savedByMe ?? this.savedByMe,
+      pollQuestion: pollQuestion,
+      pollOptions: pollOptions,
+      pollEndsAt: pollEndsAt,
+      pollResults: pollResults ?? this.pollResults,
+      userPollVote: userPollVote ?? this.userPollVote,
+      privacy: privacy,
+      location: location,
+      commentsDisabled: commentsDisabled,
     );
   }
 
   factory Post.fromJson(dynamic json) {
     if (json is! Map<String, dynamic>) {
-      return const Post(id: 0, communityId: 0, userId: 0, type: 'post', content: '');
+      return const Post(id: 0, communityId: null, userId: 0, type: 'post', content: '');
     }
     final rawMedia = json['media_urls'];
     final rawHashtags = json['hashtags'];
     final rawReactions = json['reactions'];
+    final rawPollOptions = json['poll_options'];
     return Post(
       id: (json['id'] as num?)?.toInt() ?? 0,
-      communityId: (json['community_id'] as num?)?.toInt() ?? 0,
+      communityId: (json['community_id'] as num?)?.toInt(),
       userId: (json['user_id'] as num?)?.toInt() ?? 0,
       type: json['type'] as String? ?? 'post',
       content: json['content'] as String? ?? '',
@@ -246,6 +323,14 @@ class Post {
       author: ChatUser.fromJson(json['author']),
       community: CommunityRef.fromJson(json['community']),
       reactions: rawReactions is List ? rawReactions.map(PostReaction.fromJson).toList() : const [],
+      pollQuestion: json['poll_question'] as String?,
+      pollOptions: rawPollOptions is List ? rawPollOptions.whereType<String>().toList() : const [],
+      pollEndsAt: DateTime.tryParse(json['poll_ends_at'] as String? ?? ''),
+      pollResults: json['poll_results'] != null ? PollResults.fromJson(json['poll_results']) : null,
+      userPollVote: (json['user_poll_vote'] as num?)?.toInt(),
+      privacy: json['privacy'] as String? ?? 'public',
+      location: json['location'] as String?,
+      commentsDisabled: json['comments_disabled'] as bool? ?? false,
     );
   }
 }
