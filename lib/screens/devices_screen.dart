@@ -151,46 +151,88 @@ class DevicesScreen extends ConsumerWidget {
               ),
             ),
           ),
-          Container(
-            decoration: BoxDecoration(
-              color: cardBg,
-              borderRadius: BorderRadius.circular(16),
+          if (curr != null)
+            Container(
+              decoration: BoxDecoration(
+                color: cardBg,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: ListTile(
+                leading: Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: curr.color.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(curr.icon, color: curr.color, size: 22),
+                ),
+                title: Text(
+                  '${curr.deviceName} (This Device)',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
+                    color: textPrimary,
+                  ),
+                ),
+                subtitle: Text(
+                  '${curr.appVersion} · ${curr.location} (${curr.ipAddress})',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: textSecondary,
+                  ),
+                ),
+                trailing: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF34C759).withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Text('ONLINE', style: TextStyle(color: Color(0xFF34C759), fontWeight: FontWeight.bold, fontSize: 11)),
+                ),
+              ),
+            )
+          else
+            Container(
+              decoration: BoxDecoration(
+                color: cardBg,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: ListTile(
+                leading: Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1877F2).withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.smartphone_rounded, color: Color(0xFF1877F2), size: 22),
+                ),
+                title: Text(
+                  'Current Device',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
+                    color: textPrimary,
+                  ),
+                ),
+                subtitle: Text(
+                  'Active session',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: textSecondary,
+                  ),
+                ),
+                trailing: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF34C759).withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Text('ONLINE', style: TextStyle(color: Color(0xFF34C759), fontWeight: FontWeight.bold, fontSize: 11)),
+                ),
+              ),
             ),
-            child: ListTile(
-              leading: Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  color: curr.color.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(curr.icon, color: curr.color, size: 22),
-              ),
-              title: Text(
-                '${curr.deviceName} (This Device)',
-                style: TextStyle(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 15,
-                  color: textPrimary,
-                ),
-              ),
-              subtitle: Text(
-                '${curr.appVersion} · ${curr.location} (${curr.ipAddress})',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: textSecondary,
-                ),
-              ),
-              trailing: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF34C759).withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Text('ONLINE', style: TextStyle(color: Color(0xFF34C759), fontWeight: FontWeight.bold, fontSize: 11)),
-              ),
-            ),
-          ),
           const SizedBox(height: 20),
 
           // Active Sessions Section
