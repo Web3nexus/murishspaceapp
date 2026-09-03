@@ -134,10 +134,17 @@ class _BottomBar extends StatelessWidget {
 
     final items = <_BarItem>[
       const _BarItem(Icons.explore_outlined, Icons.explore_rounded, 'Feed'),
-      const _BarItem(
-        Icons.chat_bubble_outline_rounded,
-        Icons.chat_bubble_rounded,
+      _BarItem(
+        null,
+        null,
         'Chats',
+        builder: (selected, isDark) => BrandFavicon(
+          size: 22,
+          isDark: isDark,
+          color: selected
+              ? const Color(0xFF007AFF)
+              : (isDark ? Colors.white : const Color(0xFF007AFF)),
+        ),
       ),
       centerItem,
       fourthItem,
@@ -155,7 +162,7 @@ class _BottomBar extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.3 : 0.05),
+            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.05),
             blurRadius: 10,
             offset: const Offset(0, -2),
           ),
@@ -193,18 +200,18 @@ class _BottomBar extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 3),
             decoration: BoxDecoration(
               color: selected
-                  ? (isDark ? activeColor.withOpacity(0.2) : activeColor.withOpacity(0.12))
+                  ? (isDark ? activeColor.withValues(alpha: 0.2) : activeColor.withValues(alpha: 0.12))
                   : Colors.transparent,
               borderRadius: BorderRadius.circular(16),
             ),
-            child: item.customWidget != null
+            child: item.builder != null
                 ? SizedBox(
                     width: 22,
                     height: 22,
                     child: Center(
                       child: Opacity(
-                        opacity: selected ? 1.0 : 0.65,
-                        child: item.customWidget,
+                        opacity: selected ? 1.0 : (isDark ? 0.95 : 0.85),
+                        child: item.builder!(selected, isDark),
                       ),
                     ),
                   )
@@ -233,7 +240,7 @@ class _BarItem {
   final IconData? icon;
   final IconData? selectedIcon;
   final String label;
-  final Widget? customWidget;
+  final Widget Function(bool selected, bool isDark)? builder;
 
-  const _BarItem(this.icon, this.selectedIcon, this.label, {this.customWidget});
+  const _BarItem(this.icon, this.selectedIcon, this.label, {this.builder});
 }
