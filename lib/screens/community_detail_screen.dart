@@ -220,58 +220,62 @@ class _CommunityDetailScreenState extends ConsumerState<CommunityDetailScreen>
     final cardBg = isDark ? const Color(0xFF1C1C1E) : Colors.white;
     final textSecondary = isDark ? Colors.grey[400] : const Color(0xFF8E8E93);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-          _CommunityHeader(
+    return NestedScrollView(
+      headerSliverBuilder: (BuildContext context, bool innerBoxIsScrolled) {
+        return [
+          SliverToBoxAdapter(
+            child: _CommunityHeader(
+              community: community,
+              membership: membership,
+              isCreator: isCreator,
+              onJoin: () => _join(community),
+              onLeave: () => _leave(community),
+            ),
+          ),
+          SliverPersistentHeader(
+            pinned: true,
+            delegate: _SliverTabBarDelegate(
+              TabBar(
+                controller: _tabController,
+                isScrollable: true,
+                tabAlignment: TabAlignment.start,
+                labelColor: const Color(0xFF007AFF),
+                unselectedLabelColor: textSecondary,
+                indicatorColor: const Color(0xFF007AFF),
+                tabs: [
+                  const Tab(text: 'Feed'),
+                  const Tab(text: 'Courses & Goods'),
+                  const Tab(text: 'Chats'),
+                  const Tab(text: 'Members'),
+                  if (isCreator) const Tab(text: 'Requests'),
+                ],
+              ),
+              backgroundColor: cardBg,
+            ),
+          ),
+        ];
+      },
+      body: TabBarView(
+        controller: _tabController,
+        children: [
+          _FeedTab(
             community: community,
-            membership: membership,
-            isCreator: isCreator,
-            onJoin: () => _join(community),
-            onLeave: () => _leave(community),
+            isMember: isMember,
+            onCompose: () => _compose(community),
           ),
-          Container(
-            color: cardBg,
-            child: TabBar(
-              controller: _tabController,
-              isScrollable: true,
-              tabAlignment: TabAlignment.start,
-              labelColor: const Color(0xFF007AFF),
-              unselectedLabelColor: textSecondary,
-              indicatorColor: const Color(0xFF007AFF),
-              tabs: [
-                const Tab(text: 'Feed'),
-                const Tab(text: 'Courses & Goods'),
-                const Tab(text: 'Chats'),
-                const Tab(text: 'Members'),
-                if (isCreator) const Tab(text: 'Requests'),
-              ],
-            ),
+          _CoursesAndGoodsTab(
+            community: community,
+            isMember: isMember,
           ),
-          Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                _FeedTab(
-                  community: community,
-                  isMember: isMember,
-                  onCompose: () => _compose(community),
-                ),
-                _CoursesAndGoodsTab(
-                  community: community,
-                  isMember: isMember,
-                ),
-                _ChatsTab(
-                  community: community,
-                  isMember: isMember,
-                  onOpenChat: () => _openChat(community.id),
-                ),
-                _MembersTab(communityId: community.id),
-                if (isCreator) _RequestsTab(communityId: community.id),
-              ],
-            ),
+          _ChatsTab(
+            community: community,
+            isMember: isMember,
+            onOpenChat: () => _openChat(community.id),
           ),
-      ],
+          _MembersTab(communityId: community.id),
+          if (isCreator) _RequestsTab(communityId: community.id),
+        ],
+      ),
     );
   }
 
@@ -1163,5 +1167,31 @@ class _CoursesAndGoodsTabState extends ConsumerState<_CoursesAndGoodsTab> {
         ),
       ),
     );
+  }
+}
+
+class _SliverTabBarDelegate extends SliverPersistentHeaderDelegate {
+  final TabBar tabBar;
+  final Color backgroundColor;
+
+  const _SliverTabBarDelegate(this.tabBar, {required this.backgroundColor});
+
+  @override
+  double get minExtent => tabBar.preferredSize.height;
+
+  @override
+  double get maxExtent => tabBar.preferredSize.height;
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return Container(
+      color: backgroundColor,
+      child: tabBar,
+    );
+  }
+
+  @override
+  bool shouldRebuild(_SliverTabBarDelegate oldDelegate) {
+    return tabBar != oldDelegate.tabBar || backgroundColor != oldDelegate.backgroundColor;
   }
 }
