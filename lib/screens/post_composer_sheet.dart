@@ -11,8 +11,8 @@ import '../providers/auth_provider.dart';
 import '../providers/community_provider.dart';
 import '../providers/follow_provider.dart';
 
-/// Full-featured advanced creator studio for community posts.
-/// Returns the created [Post] (or null on cancel/failure).
+/// Full-featured advanced creator studio for public wall and community posts.
+/// Designed after Facebook/Threads creator experience with open canvas, rich bottom tools, and safe status bar handling.
 Future<Post?> showPostComposer(
   BuildContext context, {
   int? initialCommunityId,
@@ -47,7 +47,7 @@ class _PostComposerState extends ConsumerState<_PostComposer> {
   List<XFile> _images = [];
   int? _communityId;
   String _postType = 'post'; // 'post' | 'poll' | 'announcement'
-  String _privacy = 'community'; // 'community' | 'public' | 'followers'
+  String _privacy = 'public'; // 'public' | 'community' | 'followers'
   int _pollDurationDays = 3;
   bool _commentsDisabled = false;
   bool _submitting = false;
@@ -63,10 +63,24 @@ class _PostComposerState extends ConsumerState<_PostComposer> {
   ];
   final Set<String> _selectedTags = {};
 
+  final List<String> _popularLocations = [
+    'Lagos, Nigeria',
+    'Abuja, Nigeria',
+    'London, UK',
+    'New York, USA',
+    'Nairobi, Kenya',
+    'Dubai, UAE',
+    'MurihSpace HQ',
+    'Remote Space',
+  ];
+
   @override
   void initState() {
     super.initState();
     _communityId = widget.initialCommunityId;
+    if (_communityId != null) {
+      _privacy = 'community';
+    }
   }
 
   @override
@@ -123,13 +137,6 @@ class _PostComposerState extends ConsumerState<_PostComposer> {
   Future<void> _submit() async {
     final content = _contentController.text.trim();
     if (content.isEmpty && _images.isEmpty && _postType != 'poll') return;
-    final communityId = _communityId;
-    if (communityId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please choose a destination community.')),
-      );
-      return;
-    }
 
     if (_postType == 'poll') {
       final q = _pollQuestionController.text.trim();
@@ -161,7 +168,7 @@ class _PostComposerState extends ConsumerState<_PostComposer> {
       }
 
       final postPayload = <String, dynamic>{
-        'community_id': communityId,
+        'community_id': _communityId,
         'type': _postType,
         'content': content.isNotEmpty ? content : (_pollQuestionController.text.trim()),
         'privacy': _privacy,
@@ -182,7 +189,9 @@ class _PostComposerState extends ConsumerState<_PostComposer> {
 
       final response = await ApiClient.instance.dio.post('/posts', data: postPayload);
       final payload = response.data;
-      final rawPost = payload is Map<String, dynamic> ? payload['post'] : null;
+      final rawPost = payload is Map<String, dynamic> && payload['data'] is Map<String, dynamic>
+          ? payload['data']['post'] ?? payload['data']
+          : (payload is Map<String, dynamic> ? payload['post'] : null);
 
       ref.read(followProvider.notifier).incrementPostsCount(1);
 
@@ -241,7 +250,6 @@ class _PostComposerState extends ConsumerState<_PostComposer> {
               Expanded(
                 child: ListView(
                   children: [
-                    // Public Wall / Profile option
                     ListTile(
                       leading: CircleAvatar(
                         radius: 20,
@@ -264,12 +272,15 @@ class _PostComposerState extends ConsumerState<_PostComposer> {
                         ),
                       ),
                       subtitle: Text(
-                        'Public • Visible to everyone on global feed',
+                        'Public • Visible to everyone on feed',
                         style: TextStyle(fontSize: 12, color: isDark ? Colors.grey[400] : Colors.grey[600]),
                       ),
                       trailing: _communityId == null ? const Icon(Icons.check_circle_rounded, color: Color(0xFF007AFF)) : null,
                       onTap: () {
-                        setState(() => _communityId = null);
+                        setState(() {
+                          _communityId = null;
+                          _privacy = 'public';
+                        });
                         Navigator.pop(ctx);
                       },
                     ),
@@ -302,7 +313,10 @@ class _PostComposerState extends ConsumerState<_PostComposer> {
                         ),
                         trailing: _communityId == comm.id ? const Icon(Icons.check_circle_rounded, color: Color(0xFF007AFF)) : null,
                         onTap: () {
-                          setState(() => _communityId = comm.id);
+                          setState(() {
+                            _communityId = comm.id;
+                            _privacy = 'community';
+                          });
                           Navigator.pop(ctx);
                         },
                       ),
@@ -325,62 +339,231 @@ class _PostComposerState extends ConsumerState<_PostComposer> {
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (ctx) {
         return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 36,
-                  height: 4,
-                  margin: const EdgeInsets.only(bottom: 12),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.withValues(alpha: 0.4),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 36,
+                height: 4,
+                margin: const EdgeInsets.symmetric(vertical: 10),
+                decoration: BoxDecoration(
+                  color: Colors.grey.withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(2),
                 ),
-                Text(
-                  'Who can see this post?',
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Text(
+                  'Select Audience',
                   style: TextStyle(
-                    fontSize: 16,
+                    fontSize: 17,
                     fontWeight: FontWeight.w800,
                     color: isDark ? Colors.white : Colors.black,
                   ),
                 ),
-                const SizedBox(height: 12),
-                ListTile(
-                  leading: const Icon(Icons.public_rounded, color: Color(0xFF007AFF)),
-                  title: const Text('Public', style: TextStyle(fontWeight: FontWeight.w700)),
-                  subtitle: const Text('Anyone on MurihSpace can discover and interact'),
-                  trailing: _privacy == 'public' ? const Icon(Icons.check_circle_rounded, color: Color(0xFF007AFF)) : null,
-                  onTap: () {
-                    setState(() => _privacy = 'public');
-                    Navigator.pop(ctx);
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.groups_rounded, color: Color(0xFF34C759)),
-                  title: const Text('Community Members', style: TextStyle(fontWeight: FontWeight.w700)),
-                  subtitle: const Text('Only members of this community can view'),
-                  trailing: _privacy == 'community' ? const Icon(Icons.check_circle_rounded, color: Color(0xFF007AFF)) : null,
-                  onTap: () {
-                    setState(() => _privacy = 'community');
-                    Navigator.pop(ctx);
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.people_alt_rounded, color: Color(0xFFFF9500)),
-                  title: const Text('Followers Only', style: TextStyle(fontWeight: FontWeight.w700)),
-                  subtitle: const Text('Only your registered followers see this in feed'),
-                  trailing: _privacy == 'followers' ? const Icon(Icons.check_circle_rounded, color: Color(0xFF007AFF)) : null,
-                  onTap: () {
-                    setState(() => _privacy = 'followers');
-                    Navigator.pop(ctx);
-                  },
-                ),
-              ],
-            ),
+              ),
+              const Divider(height: 1),
+              _buildPrivacyOption(ctx, 'public', 'Public', 'Anyone on MurihSpace can view', Icons.public_rounded, isDark),
+              _buildPrivacyOption(ctx, 'followers', 'Followers Only', 'Only people who follow you', Icons.people_alt_outlined, isDark),
+              if (_communityId != null)
+                _buildPrivacyOption(ctx, 'community', 'Community Members', 'Restricted to members of this community', Icons.lock_outline_rounded, isDark),
+              const SizedBox(height: 12),
+            ],
           ),
+        );
+      },
+    );
+  }
+
+  Widget _buildPrivacyOption(
+    BuildContext ctx,
+    String value,
+    String title,
+    String subtitle,
+    IconData icon,
+    bool isDark,
+  ) {
+    final selected = _privacy == value;
+    return ListTile(
+      leading: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: selected
+              ? const Color(0xFF007AFF).withValues(alpha: 0.15)
+              : (isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF2F4F7)),
+          shape: BoxShape.circle,
+        ),
+        child: Icon(icon, color: selected ? const Color(0xFF007AFF) : (isDark ? Colors.white : Colors.black87), size: 20),
+      ),
+      title: Text(
+        title,
+        style: TextStyle(
+          fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+          color: selected ? const Color(0xFF007AFF) : (isDark ? Colors.white : Colors.black),
+        ),
+      ),
+      subtitle: Text(
+        subtitle,
+        style: TextStyle(fontSize: 12, color: isDark ? Colors.grey[400] : Colors.grey[600]),
+      ),
+      trailing: selected ? const Icon(Icons.check_circle_rounded, color: Color(0xFF007AFF)) : null,
+      onTap: () {
+        setState(() => _privacy = value);
+        Navigator.pop(ctx);
+      },
+    );
+  }
+
+  void _showLocationPicker(bool isDark) {
+    final searchCtrl = TextEditingController(text: _locationController.text);
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final query = searchCtrl.text.trim().toLowerCase();
+            final filtered = query.isEmpty
+                ? _popularLocations
+                : _popularLocations.where((l) => l.toLowerCase().contains(query)).toList();
+
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(ctx).viewInsets.bottom,
+                top: 10,
+                left: 16,
+                right: 16,
+              ),
+              child: SafeArea(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 36,
+                        height: 4,
+                        margin: const EdgeInsets.only(bottom: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.withValues(alpha: 0.4),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFF3B30).withValues(alpha: 0.15),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.location_on_rounded, color: Color(0xFFFF3B30), size: 20),
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          'Add Location / Check In',
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w900,
+                            color: isDark ? Colors.white : Colors.black,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF2F4F8),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: TextField(
+                        controller: searchCtrl,
+                        autofocus: true,
+                        onChanged: (_) => setModalState(() {}),
+                        style: TextStyle(color: isDark ? Colors.white : Colors.black),
+                        decoration: InputDecoration(
+                          hintText: 'Search city, spot, or type location...',
+                          hintStyle: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600], fontSize: 14),
+                          prefixIcon: const Icon(Icons.search_rounded, color: Color(0xFFFF3B30), size: 20),
+                          suffixIcon: searchCtrl.text.isNotEmpty
+                              ? IconButton(
+                                  icon: const Icon(Icons.clear_rounded, size: 18),
+                                  onPressed: () {
+                                    searchCtrl.clear();
+                                    setModalState(() {});
+                                  },
+                                )
+                              : null,
+                          border: InputBorder.none,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    if (searchCtrl.text.trim().isNotEmpty && !filtered.contains(searchCtrl.text.trim())) ...[
+                      ListTile(
+                        leading: const Icon(Icons.add_location_alt_rounded, color: Color(0xFF007AFF)),
+                        title: Text(
+                          'Use "${searchCtrl.text.trim()}"',
+                          style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF007AFF)),
+                        ),
+                        onTap: () {
+                          setState(() => _locationController.text = searchCtrl.text.trim());
+                          Navigator.pop(ctx);
+                        },
+                      ),
+                      const Divider(height: 1),
+                    ],
+                    Text(
+                      'POPULAR LOCATIONS',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.5,
+                        color: isDark ? Colors.grey[400] : Colors.grey[600],
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    SizedBox(
+                      height: 180,
+                      child: ListView.separated(
+                        itemCount: filtered.length,
+                        separatorBuilder: (_, __) => const Divider(height: 1, indent: 44),
+                        itemBuilder: (_, index) {
+                          final loc = filtered[index];
+                          final isSelected = _locationController.text.trim() == loc;
+                          return ListTile(
+                            dense: true,
+                            contentPadding: EdgeInsets.zero,
+                            leading: Icon(
+                              Icons.location_pin,
+                              color: isSelected ? const Color(0xFFFF3B30) : (isDark ? Colors.grey[400] : Colors.grey[600]),
+                              size: 20,
+                            ),
+                            title: Text(
+                              loc,
+                              style: TextStyle(
+                                fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                                color: isSelected ? const Color(0xFFFF3B30) : (isDark ? Colors.white : Colors.black),
+                              ),
+                            ),
+                            trailing: isSelected ? const Icon(Icons.check_rounded, color: Color(0xFFFF3B30), size: 18) : null,
+                            onTap: () {
+                              setState(() => _locationController.text = loc);
+                              Navigator.pop(ctx);
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
         );
       },
     );
@@ -389,126 +572,135 @@ class _PostComposerState extends ConsumerState<_PostComposer> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg = isDark ? const Color(0xFF141416) : Colors.white;
-    final cardBg = isDark ? const Color(0xFF1C1C1E) : const Color(0xFFF2F4F7);
-    final borderColor = isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE5E7EB);
-    final textPrimary = isDark ? Colors.white : Colors.black;
-    final textSecondary = isDark ? Colors.grey[400] : Colors.grey[600];
-
     final user = ref.watch(authProvider).user;
-    final myCommunities = ref.watch(myCommunitiesProvider).communities;
+    final myCommunities = ref.watch(joinedCommunitiesProvider).communities;
 
-    // Auto-select first community if none selected
-    if (_communityId == null && myCommunities.isNotEmpty) {
-      _communityId = myCommunities.first.id;
+    Community? selectedCommunity;
+    if (_communityId != null) {
+      try {
+        selectedCommunity = myCommunities.firstWhere((c) => c.id == _communityId);
+      } catch (_) {
+        selectedCommunity = null;
+      }
     }
-    final selectedCommunity = myCommunities.where((c) => c.id == _communityId).firstOrNull;
 
-    final canSubmit = (_contentController.text.trim().isNotEmpty ||
-            _images.isNotEmpty ||
-            (_postType == 'poll' && _pollQuestionController.text.trim().isNotEmpty)) &&
-        _communityId != null &&
-        !_submitting;
+    final hasText = _contentController.text.trim().isNotEmpty;
+    final hasImages = _images.isNotEmpty;
+    final hasPollContent = _postType == 'poll' &&
+        _pollQuestionController.text.trim().isNotEmpty &&
+        _pollOptionControllers.where((c) => c.text.trim().isNotEmpty).length >= 2;
+
+    final canSubmit = !_submitting && (hasText || hasImages || hasPollContent);
+
+    final bg = isDark ? const Color(0xFF141416) : Colors.white;
+    final textPrimary = isDark ? Colors.white : const Color(0xFF0F172A);
+    final textSecondary = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
+    final cardBg = isDark ? const Color(0xFF1C1C1E) : const Color(0xFFF8FAFC);
+    final borderColor = isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE2E8F0);
+
+    final firstName = (user?.name ?? 'there').split(' ').first;
+    final locationText = _locationController.text.trim();
 
     return Container(
-      height: MediaQuery.of(context).size.height * 0.92,
+      height: MediaQuery.of(context).size.height * 0.94,
       decoration: BoxDecoration(
         color: bg,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: Column(
         children: [
-          // Top Handle & Header
-          Container(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-            decoration: BoxDecoration(
-              border: Border(bottom: BorderSide(color: borderColor)),
-            ),
-            child: Column(
-              children: [
-                Container(
-                  width: 36,
-                  height: 4,
-                  margin: const EdgeInsets.only(bottom: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.withValues(alpha: 0.4),
-                    borderRadius: BorderRadius.circular(2),
+          SafeArea(
+            top: true,
+            bottom: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+              child: Column(
+                children: [
+                  Container(
+                    width: 36,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.withValues(alpha: 0.4),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
                   ),
-                ),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    IconButton(
-                      icon: Icon(Icons.close_rounded, color: textPrimary),
-                      onPressed: () => Navigator.pop(context),
-                      tooltip: 'Cancel',
-                    ),
-                    Text(
-                      'Create Post',
-                      style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w800,
-                        color: textPrimary,
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      IconButton(
+                        icon: Icon(Icons.close_rounded, color: textPrimary, size: 24),
+                        onPressed: () => Navigator.pop(context),
+                        tooltip: 'Cancel',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
                       ),
-                    ),
-                    AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      decoration: BoxDecoration(
-                        gradient: canSubmit
-                            ? const LinearGradient(
-                                colors: [Color(0xFF007AFF), Color(0xFF5856D6)],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              )
-                            : null,
-                        color: canSubmit ? null : (isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE5E7EB)),
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: canSubmit
-                            ? [
-                                BoxShadow(
-                                  color: const Color(0xFF007AFF).withValues(alpha: 0.35),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 3),
-                                )
-                              ]
-                            : null,
-                      ),
-                      child: ElevatedButton(
-                        onPressed: canSubmit ? _submit : null,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.transparent,
-                          shadowColor: Colors.transparent,
-                          foregroundColor: Colors.white,
-                          disabledForegroundColor: isDark ? Colors.grey[600] : Colors.grey[400],
-                          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                      Text(
+                        'Create Post',
+                        style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w900,
+                          color: textPrimary,
                         ),
-                        child: _submitting
-                            ? const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                              )
-                            : const Text(
-                                'Publish',
-                                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
-                              ),
                       ),
-                    ),
-                  ],
-                ),
-              ],
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        decoration: BoxDecoration(
+                          gradient: canSubmit
+                              ? const LinearGradient(
+                                  colors: [Color(0xFF007AFF), Color(0xFF5856D6)],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                )
+                              : null,
+                          color: canSubmit ? null : (isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE2E8F0)),
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: canSubmit
+                              ? [
+                                  BoxShadow(
+                                    color: const Color(0xFF007AFF).withValues(alpha: 0.35),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 3),
+                                  )
+                                ]
+                              : null,
+                        ),
+                        child: ElevatedButton(
+                          onPressed: canSubmit ? _submit : null,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.transparent,
+                            shadowColor: Colors.transparent,
+                            foregroundColor: Colors.white,
+                            disabledForegroundColor: isDark ? Colors.grey[600] : Colors.grey[400],
+                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+                            minimumSize: const Size(72, 34),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                          ),
+                          child: _submitting
+                              ? const SizedBox(
+                                  width: 14,
+                                  height: 14,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                )
+                              : const Text(
+                                  'Post',
+                                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900),
+                                ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
-
-          // Main Scrollable Editor Area
+          const Divider(height: 1),
           Expanded(
             child: ListView(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
               children: [
-                // User & Destination Selector Card
                 Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     CircleAvatar(
                       radius: 22,
@@ -516,10 +708,10 @@ class _PostComposerState extends ConsumerState<_PostComposer> {
                       backgroundImage: user?.avatarUrl != null && user!.avatarUrl!.isNotEmpty
                           ? NetworkImage(user.avatarUrl!)
                           : null,
-                      child: user?.avatarUrl == null
+                      child: user?.avatarUrl == null || user!.avatarUrl!.isEmpty
                           ? Text(
                               user?.name.isNotEmpty == true ? user!.name[0].toUpperCase() : 'U',
-                              style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF007AFF)),
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF007AFF)),
                             )
                           : null,
                     ),
@@ -528,38 +720,56 @@ class _PostComposerState extends ConsumerState<_PostComposer> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
-                            children: [
-                              Flexible(
-                                child: Text(
-                                  user?.name ?? 'You',
-                                  style: TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w800,
-                                    color: textPrimary,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
+                          RichText(
+                            text: TextSpan(
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w800,
+                                color: textPrimary,
                               ),
-                              if (user?.kycStatus == 'verified' || user?.kycStatus == 'approved') ...[
-                                const SizedBox(width: 4),
-                                const Icon(Icons.verified_rounded, color: Color(0xFF007AFF), size: 16),
+                              children: [
+                                TextSpan(text: user?.name ?? 'You'),
+                                if (user?.kycStatus == 'verified' || user?.kycStatus == 'approved')
+                                  const WidgetSpan(
+                                    alignment: PlaceholderAlignment.middle,
+                                    child: Padding(
+                                      padding: EdgeInsets.only(left: 4),
+                                      child: Icon(Icons.verified_rounded, color: Color(0xFF007AFF), size: 15),
+                                    ),
+                                  ),
+                                if (locationText.isNotEmpty) ...[
+                                  TextSpan(
+                                    text: ' is at ',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.normal,
+                                      color: textSecondary,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                  TextSpan(
+                                    text: locationText,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w800,
+                                      color: Color(0xFFFF3B30),
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ],
                               ],
-                            ],
+                            ),
                           ),
-                          const SizedBox(height: 4),
+                          const SizedBox(height: 6),
                           Wrap(
                             spacing: 6,
                             runSpacing: 4,
                             children: [
-                              // Destination / Community selector button
                               GestureDetector(
                                 onTap: () => _showCommunityPicker(myCommunities, isDark),
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                   decoration: BoxDecoration(
                                     color: cardBg,
-                                    borderRadius: BorderRadius.circular(12),
+                                    borderRadius: BorderRadius.circular(14),
                                     border: Border.all(color: borderColor),
                                   ),
                                   child: Row(
@@ -567,10 +777,10 @@ class _PostComposerState extends ConsumerState<_PostComposer> {
                                     children: [
                                       Icon(
                                         _communityId == null ? Icons.public_rounded : Icons.groups_rounded,
-                                        size: 14,
+                                        size: 13,
                                         color: const Color(0xFF007AFF),
                                       ),
-                                      const SizedBox(width: 4),
+                                      const SizedBox(width: 5),
                                       Text(
                                         _communityId == null
                                             ? 'My Public Wall'
@@ -588,14 +798,13 @@ class _PostComposerState extends ConsumerState<_PostComposer> {
                                   ),
                                 ),
                               ),
-                              // Privacy selector button
                               GestureDetector(
                                 onTap: () => _showPrivacyPicker(isDark),
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                   decoration: BoxDecoration(
                                     color: cardBg,
-                                    borderRadius: BorderRadius.circular(12),
+                                    borderRadius: BorderRadius.circular(14),
                                     border: Border.all(color: borderColor),
                                   ),
                                   child: Row(
@@ -633,54 +842,158 @@ class _PostComposerState extends ConsumerState<_PostComposer> {
                   ],
                 ),
                 const SizedBox(height: 16),
-
-                // Post Type Segmented Switcher
-                Container(
-                  padding: const EdgeInsets.all(3),
-                  decoration: BoxDecoration(
-                    color: cardBg,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: borderColor),
-                  ),
-                  child: Row(
-                    children: [
-                      _buildTypeTab('post', 'Discussion', Icons.article_rounded, isDark),
-                      _buildTypeTab('poll', 'Poll', Icons.poll_rounded, isDark),
-                      _buildTypeTab('announcement', 'Notice', Icons.campaign_rounded, isDark),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 14),
-
-                // Post Body Text Field
                 TextField(
                   controller: _contentController,
                   minLines: 4,
-                  maxLines: 12,
+                  maxLines: 15,
                   onChanged: (_) => setState(() {}),
                   style: TextStyle(
-                    fontSize: 16,
+                    fontSize: _contentController.text.length < 80 ? 19 : 16,
                     height: 1.45,
                     color: textPrimary,
+                    fontWeight: FontWeight.w500,
                   ),
                   decoration: InputDecoration(
                     hintText: _postType == 'poll'
-                        ? 'Describe your poll or ask a question...'
+                        ? 'Describe your poll question for $firstName...'
                         : _postType == 'announcement'
                             ? 'Share an important community announcement...'
-                            : "What's happening in your space?",
+                            : "What's on your mind, $firstName?",
                     hintStyle: TextStyle(
-                      fontSize: 16,
-                      color: textSecondary?.withValues(alpha: 0.7),
+                      fontSize: _contentController.text.length < 80 ? 19 : 16,
+                      color: textSecondary?.withValues(alpha: 0.65),
+                      fontWeight: FontWeight.w400,
                     ),
                     border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
                     contentPadding: EdgeInsets.zero,
                   ),
                 ),
-
-                // Poll Builder Section (If Poll active)
-                if (_postType == 'poll') ...[
+                if (_postType == 'announcement') ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          const Color(0xFFFF9500).withValues(alpha: 0.15),
+                          const Color(0xFFFF3B30).withValues(alpha: 0.15),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFFF9500).withValues(alpha: 0.4)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.campaign_rounded, color: Color(0xFFFF9500), size: 18),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Posting as an Official Notice (highlighted with orange accent)',
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87),
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: () => setState(() => _postType = 'post'),
+                          child: const Icon(Icons.close_rounded, size: 16),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                if (_images.isNotEmpty) ...[
                   const SizedBox(height: 12),
+                  SizedBox(
+                    height: _images.length == 1 ? 200 : 120,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _images.length,
+                      separatorBuilder: (_, __) => const SizedBox(width: 8),
+                      itemBuilder: (context, idx) {
+                        final file = _images[idx];
+                        return Stack(
+                          children: [
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(14),
+                              child: Container(
+                                width: _images.length == 1 ? MediaQuery.of(context).size.width - 32 : 120,
+                                height: _images.length == 1 ? 200 : 120,
+                                color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE2E8F0),
+                                child: Image.file(
+                                  File(file.path),
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                            ),
+                            Positioned(
+                              top: 6,
+                              right: 6,
+                              child: GestureDetector(
+                                onTap: () => setState(() => _images.removeAt(idx)),
+                                child: Container(
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withValues(alpha: 0.7),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.close_rounded,
+                                    size: 14,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  ),
+                ],
+                if (locationText.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFF3B30).withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: const Color(0xFFFF3B30).withValues(alpha: 0.3)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.location_on_rounded, size: 14, color: Color(0xFFFF3B30)),
+                          const SizedBox(width: 6),
+                          Text(
+                            locationText,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFFFF3B30),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          GestureDetector(
+                            onTap: () => setState(() => _locationController.clear()),
+                            child: Container(
+                              padding: const EdgeInsets.all(2),
+                              decoration: const BoxDecoration(
+                                color: Color(0xFFFF3B30),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.close_rounded, size: 10, color: Colors.white),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+                if (_postType == 'poll') ...[
+                  const SizedBox(height: 14),
                   Container(
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
@@ -696,16 +1009,24 @@ class _PostComposerState extends ConsumerState<_PostComposer> {
                             const Icon(Icons.poll_rounded, color: Color(0xFF007AFF), size: 18),
                             const SizedBox(width: 8),
                             Text(
-                              'Poll Question & Options',
+                              'Poll Question & Choices',
                               style: TextStyle(
-                                fontSize: 13,
+                                fontSize: 14,
                                 fontWeight: FontWeight.w800,
                                 color: textPrimary,
                               ),
                             ),
+                            const Spacer(),
+                            IconButton(
+                              icon: const Icon(Icons.close_rounded, size: 18),
+                              onPressed: () => setState(() => _postType = 'post'),
+                              tooltip: 'Remove Poll',
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                            ),
                           ],
                         ),
-                        const SizedBox(height: 10),
+                        const SizedBox(height: 12),
                         TextField(
                           controller: _pollQuestionController,
                           onChanged: (_) => setState(() {}),
@@ -757,93 +1078,16 @@ class _PostComposerState extends ConsumerState<_PostComposer> {
                             icon: const Icon(Icons.add_rounded, size: 18),
                             label: const Text('Add Option', style: TextStyle(fontWeight: FontWeight.w700)),
                           ),
-                        const Divider(height: 16),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'Poll Duration',
-                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: textSecondary),
-                            ),
-                            DropdownButton<int>(
-                              value: _pollDurationDays,
-                              underline: const SizedBox(),
-                              dropdownColor: isDark ? const Color(0xFF2C2C2E) : Colors.white,
-                              items: const [
-                                DropdownMenuItem(value: 1, child: Text('24 Hours')),
-                                DropdownMenuItem(value: 3, child: Text('3 Days')),
-                                DropdownMenuItem(value: 7, child: Text('7 Days')),
-                              ],
-                              onChanged: (val) {
-                                if (val != null) setState(() => _pollDurationDays = val);
-                              },
-                            ),
-                          ],
-                        ),
                       ],
                     ),
                   ),
                 ],
-
-                // Selected Images Gallery Preview Grid
-                if (_images.isNotEmpty) ...[
-                  const SizedBox(height: 14),
-                  Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
-                    children: [
-                      for (int i = 0; i < _images.length; i++)
-                        Stack(
-                          children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(14),
-                              child: Image.file(
-                                File(_images[i].path),
-                                width: (_images.length == 1) ? 220 : 96,
-                                height: (_images.length == 1) ? 160 : 96,
-                                fit: BoxFit.cover,
-                              ),
-                            ),
-                            Positioned(
-                              top: 6,
-                              right: 6,
-                              child: GestureDetector(
-                                onTap: () => setState(() => _images.removeAt(i)),
-                                child: Container(
-                                  padding: const EdgeInsets.all(4),
-                                  decoration: const BoxDecoration(
-                                    color: Colors.black87,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(Icons.close_rounded, size: 14, color: Colors.white),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                    ],
-                  ),
-                ],
-
-                // Location tag row (if filled)
-                if (_locationController.text.trim().isNotEmpty) ...[
-                  const SizedBox(height: 10),
-                  Chip(
-                    avatar: const Icon(Icons.location_on_rounded, size: 16, color: Color(0xFFFF3B30)),
-                    label: Text(_locationController.text.trim()),
-                    deleteIcon: const Icon(Icons.close_rounded, size: 14),
-                    onDeleted: () => setState(() => _locationController.clear()),
-                  ),
-                ],
-
                 const SizedBox(height: 16),
-
-                // Trending Hashtags Quick Inserter
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'ADD TOPICS / HASHTAGS',
+                      'TOPICS & HASHTAGS',
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w800,
@@ -852,62 +1096,84 @@ class _PostComposerState extends ConsumerState<_PostComposer> {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 6,
-                      children: [
-                        for (final tag in _suggestedTags)
-                          FilterChip(
-                            label: Text('#$tag'),
-                            selected: _selectedTags.contains(tag),
-                            selectedColor: const Color(0xFF007AFF).withValues(alpha: 0.2),
-                            checkmarkColor: const Color(0xFF007AFF),
-                            labelStyle: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: _selectedTags.contains(tag)
-                                  ? const Color(0xFF007AFF)
-                                  : (isDark ? Colors.grey[300] : Colors.grey[700]),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      physics: const BouncingScrollPhysics(),
+                      child: Row(
+                        children: [
+                          for (final tag in _suggestedTags) ...[
+                            Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: FilterChip(
+                                label: Text('#$tag'),
+                                selected: _selectedTags.contains(tag),
+                                selectedColor: const Color(0xFF007AFF).withValues(alpha: 0.18),
+                                checkmarkColor: const Color(0xFF007AFF),
+                                labelStyle: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: _selectedTags.contains(tag)
+                                      ? const Color(0xFF007AFF)
+                                      : (isDark ? Colors.grey[300] : Colors.grey[700]),
+                                ),
+                                backgroundColor: cardBg,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                side: BorderSide(
+                                  color: _selectedTags.contains(tag) ? const Color(0xFF007AFF) : borderColor,
+                                ),
+                                onSelected: (_) => _toggleTag(tag),
+                              ),
                             ),
-                            backgroundColor: cardBg,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                            side: BorderSide(
-                              color: _selectedTags.contains(tag) ? const Color(0xFF007AFF) : borderColor,
-                            ),
-                            onSelected: (_) => _toggleTag(tag),
-                          ),
-                      ],
+                          ],
+                        ],
+                      ),
                     ),
                   ],
                 ),
               ],
             ),
           ),
-
-          // Bottom Quick Media & Settings Toolbar
           Container(
-            padding: EdgeInsets.fromLTRB(16, 8, 16, MediaQuery.of(context).viewInsets.bottom + 8),
+            padding: EdgeInsets.fromLTRB(16, 10, 16, MediaQuery.of(context).viewInsets.bottom + 12),
             decoration: BoxDecoration(
               color: cardBg,
               border: Border(top: BorderSide(color: borderColor)),
             ),
             child: Row(
               children: [
+                Text(
+                  'Add to your post',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: textPrimary,
+                  ),
+                ),
+                const Spacer(),
                 IconButton(
-                  icon: const Icon(Icons.image_outlined, color: Color(0xFF007AFF), size: 24),
-                  tooltip: 'Add Photos',
+                  icon: const Icon(Icons.photo_library_rounded, color: Color(0xFF45BD62), size: 23),
+                  tooltip: 'Photos',
                   onPressed: _images.length < 4 ? _pickImages : null,
                 ),
                 IconButton(
-                  icon: const Icon(Icons.camera_alt_outlined, color: Color(0xFF34C759), size: 24),
-                  tooltip: 'Take Photo',
+                  icon: const Icon(Icons.camera_alt_rounded, color: Color(0xFF1877F2), size: 23),
+                  tooltip: 'Camera',
                   onPressed: _images.length < 4 ? _takePhoto : null,
                 ),
                 IconButton(
                   icon: Icon(
+                    Icons.location_on_rounded,
+                    color: locationText.isNotEmpty ? const Color(0xFFFF3B30) : const Color(0xFFF3425F),
+                    size: 23,
+                  ),
+                  tooltip: 'Add Location',
+                  onPressed: () => _showLocationPicker(isDark),
+                ),
+                IconButton(
+                  icon: Icon(
                     Icons.poll_rounded,
-                    color: _postType == 'poll' ? const Color(0xFF007AFF) : textSecondary,
-                    size: 24,
+                    color: _postType == 'poll' ? const Color(0xFF007AFF) : const Color(0xFF20C997),
+                    size: 23,
                   ),
                   tooltip: 'Create Poll',
                   onPressed: () {
@@ -918,18 +1184,22 @@ class _PostComposerState extends ConsumerState<_PostComposer> {
                 ),
                 IconButton(
                   icon: Icon(
-                    Icons.location_on_outlined,
-                    color: _locationController.text.isNotEmpty ? const Color(0xFFFF3B30) : textSecondary,
-                    size: 24,
+                    Icons.campaign_rounded,
+                    color: _postType == 'announcement' ? const Color(0xFFFF9500) : const Color(0xFFFF8A00),
+                    size: 23,
                   ),
-                  tooltip: 'Add Location',
-                  onPressed: () => _promptLocation(context, isDark),
+                  tooltip: 'Notice / Announcement',
+                  onPressed: () {
+                    setState(() {
+                      _postType = _postType == 'announcement' ? 'post' : 'announcement';
+                    });
+                  },
                 ),
                 IconButton(
                   icon: Icon(
-                    _commentsDisabled ? Icons.chat_bubble_outline_rounded : Icons.chat_bubble_rounded,
+                    _commentsDisabled ? Icons.comments_disabled_rounded : Icons.chat_bubble_rounded,
                     color: _commentsDisabled ? Colors.red : textSecondary,
-                    size: 22,
+                    size: 20,
                   ),
                   tooltip: _commentsDisabled ? 'Comments Disabled' : 'Disable Comments',
                   onPressed: () {
@@ -942,104 +1212,11 @@ class _PostComposerState extends ConsumerState<_PostComposer> {
                     );
                   },
                 ),
-                const Spacer(),
-                // Character counter
-                Text(
-                  '${_contentController.text.length} / 5,000',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: _contentController.text.length > 4500 ? Colors.red : textSecondary,
-                  ),
-                ),
               ],
             ),
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildTypeTab(String type, String label, IconData icon, bool isDark) {
-    final selected = _postType == type;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => setState(() => _postType = type),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          decoration: BoxDecoration(
-            color: selected
-                ? (isDark ? const Color(0xFF2C2C2E) : Colors.white)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(10),
-            boxShadow: selected
-                ? [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.08),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    )
-                  ]
-                : null,
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                icon,
-                size: 16,
-                color: selected ? const Color(0xFF007AFF) : (isDark ? Colors.grey[400] : Colors.grey[600]),
-              ),
-              const SizedBox(width: 6),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
-                  color: selected
-                      ? (isDark ? Colors.white : Colors.black)
-                      : (isDark ? Colors.grey[400] : Colors.grey[600]),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _promptLocation(BuildContext context, bool isDark) {
-    showDialog(
-      context: context,
-      builder: (ctx) {
-        final locCtrl = TextEditingController(text: _locationController.text);
-        return AlertDialog(
-          backgroundColor: isDark ? const Color(0xFF1C1C1E) : Colors.white,
-          title: const Text('Add Location Tag'),
-          content: TextField(
-            controller: locCtrl,
-            autofocus: true,
-            decoration: const InputDecoration(
-              hintText: 'e.g. Lagos, Nigeria or London, UK',
-              prefixIcon: Icon(Icons.location_on_rounded, color: Color(0xFFFF3B30)),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () {
-                setState(() => _locationController.text = locCtrl.text.trim());
-                Navigator.pop(ctx);
-              },
-              child: const Text('Save'),
-            ),
-          ],
-        );
-      },
     );
   }
 }
