@@ -276,13 +276,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFEFF3F6),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(
-                  Icons.chat_bubble_rounded,
-                  color: isDark ? Colors.white : const Color(0xFF007AFF),
+                child: BrandFavicon(
                   size: 20,
+                  isDark: isDark,
                 ),
               ),
-              tooltip: 'Messenger Chats',
+              tooltip: 'MurihSpace Messages',
             ),
           ),
         ],
