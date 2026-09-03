@@ -11,6 +11,7 @@ class BadgeStatus {
   final bool autoRenew;
   final bool kycVerified;
   final int monthlyFee;
+  final int annualFee;
   final int walletBalance;
 
   const BadgeStatus({
@@ -20,17 +21,21 @@ class BadgeStatus {
     required this.autoRenew,
     required this.kycVerified,
     required this.monthlyFee,
+    required this.annualFee,
     required this.walletBalance,
   });
 
   factory BadgeStatus.fromJson(Map<String, dynamic> json) {
+    final monthly = (json['monthly_fee'] as num?)?.toInt() ?? 100;
+    final annual = (json['annual_fee'] as num?)?.toInt() ?? (monthly * 12 * 0.67).round();
     return BadgeStatus(
       status: json['status'] as String? ?? 'not_applied',
       expiresAt: json['expires_at'] as String?,
       purchasedAt: json['purchased_at'] as String?,
       autoRenew: json['auto_renew'] as bool? ?? false,
       kycVerified: json['kyc_verified'] as bool? ?? false,
-      monthlyFee: (json['monthly_fee'] as num?)?.toInt() ?? 0,
+      monthlyFee: monthly,
+      annualFee: annual,
       walletBalance: (json['wallet_balance'] as num?)?.toInt() ?? 0,
     );
   }

@@ -176,7 +176,7 @@ class _VerificationBadgeScreenState extends ConsumerState<VerificationBadgeScree
                               ),
                               const SizedBox(height: 2),
                               Text(
-                                '\$39.99 / year',
+                                '${status?.annualFee ?? 800} Coins / year',
                                 style: TextStyle(
                                   fontSize: 11,
                                   color: _billingCycle == 'annual' ? Colors.white70 : Colors.grey[500],
@@ -211,7 +211,7 @@ class _VerificationBadgeScreenState extends ConsumerState<VerificationBadgeScree
                               ),
                               const SizedBox(height: 2),
                               Text(
-                                '\$4.99 / month',
+                                '${status?.monthlyFee ?? 100} Coins / month',
                                 style: TextStyle(
                                   fontSize: 11,
                                   color: _billingCycle == 'monthly' ? Colors.white70 : Colors.grey[500],
@@ -442,7 +442,11 @@ class _VerificationBadgeScreenState extends ConsumerState<VerificationBadgeScree
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (ctx) {
         final isDark = Theme.of(ctx).brightness == Brightness.dark;
-        final feeText = _billingCycle == 'annual' ? '\$39.99 / year' : '\$4.99 / month';
+        final status = ref.read(verificationBadgeProvider).status;
+        final requiredCoins = _billingCycle == 'annual' ? (status?.annualFee ?? 800) : (status?.monthlyFee ?? 100);
+        final feeText = '$requiredCoins Coins / ${_billingCycle == 'annual' ? 'year' : 'month'}';
+        final walletBalance = status?.walletBalance ?? 0;
+        final hasSufficientBalance = walletBalance >= requiredCoins;
 
         return Padding(
           padding: const EdgeInsets.all(24),
@@ -464,25 +468,57 @@ class _VerificationBadgeScreenState extends ConsumerState<VerificationBadgeScree
               ),
               const SizedBox(height: 8),
               Text(
-                'Admin verification review fee: $feeText.\n\nOnce paid, your application enters processing state (24 hours to 3 business days).',
+                'Admin verification review fee: $feeText.\n\nYour Available Wallet Balance: $walletBalance Coins.\n\nOnce paid, your application enters processing state (24 hours to 3 business days).',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 13, color: isDark ? Colors.grey[400] : Colors.grey[600], height: 1.4),
               ),
               const SizedBox(height: 24),
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF34C759),
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size(double.infinity, 48),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              if (hasSufficientBalance)
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF34C759),
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(double.infinity, 48),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: () async {
+                    Navigator.pop(ctx);
+                    await _run(context, ref, () => notifier.apply(billingCycle: _billingCycle), 'Application submitted & fee paid!');
+                  },
+                  icon: const Icon(Icons.payment_rounded),
+                  label: Text('Pay $feeText & Submit Application', style: const TextStyle(fontWeight: FontWeight.bold)),
+                )
+              else
+                Column(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        'Insufficient coin balance ($walletBalance / $requiredCoins Coins needed).',
+                        style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 12),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFFF9500),
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size(double.infinity, 48),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        context.push('/wallet');
+                      },
+                      icon: const Icon(Icons.add_card_rounded),
+                      label: const Text('Top Up Wallet / Get Coins', style: TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+                  ],
                 ),
-                onPressed: () async {
-                  Navigator.pop(ctx);
-                  await _run(context, ref, () => notifier.apply(billingCycle: _billingCycle), 'Application submitted & fee paid!');
-                },
-                icon: const Icon(Icons.payment_rounded),
-                label: Text('Pay $feeText & Submit Application', style: const TextStyle(fontWeight: FontWeight.bold)),
-              ),
             ],
           ),
         );
@@ -509,53 +545,6 @@ class _VerificationBadgeScreenState extends ConsumerState<VerificationBadgeScree
     );
   }
 
-  String _formatMoney(int minorUnits) {
-    final syms = {'NGN': '₦', 'USD': r'$', 'GBP': '£', 'EUR': '€'};
-    final sym = syms['NGN'] ?? '';
-    return '$sym${(minorUnits / 100).toStringAsFixed(2)}';
-  }
-
-  String _statusLabel(String status) {
-    switch (status) {
-      case 'not_applied':
-        return 'NOT APPLIED';
-      case 'payment_pending':
-        return 'PAYMENT PENDING';
-      case 'kyc_pending':
-        return 'KYC PENDING';
-      case 'under_review':
-        return 'UNDER REVIEW';
-      case 'verified':
-      case 'active':
-        return 'VERIFIED';
-      case 'rejected':
-        return 'REJECTED';
-      case 'suspended':
-        return 'SUSPENDED';
-      case 'revoked':
-        return 'REVOKED';
-      case 'expired':
-        return 'EXPIRED';
-      default:
-        return status.toUpperCase();
-    }
-  }
-
-  Color _statusColor(String status) {
-    switch (status) {
-      case 'verified':
-      case 'active':
-        return DesignTokens.success;
-      case 'rejected':
-      case 'revoked':
-        return DesignTokens.danger;
-      case 'suspended':
-      case 'expired':
-        return DesignTokens.warning;
-      default:
-        return DesignTokens.textSecondary;
-    }
-  }
   Widget _featureRow(String title, bool isDark) {
     return Row(
       children: [
