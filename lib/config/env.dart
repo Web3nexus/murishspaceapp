@@ -36,6 +36,45 @@ class Env {
       'https://api-staging.murihspace.com/api/v1';
   static const String _productionBaseUrl = 'https://api.murihspace.com/api/v1';
 
+  static const String _stagingWebUrl = 'https://staging.murihspace.com';
+  static const String _productionWebUrl = 'https://murihspace.com';
+
+  /// Resolves the primary frontend domain based on environment.
+  static String get webBaseUrl {
+    const explicit = String.fromEnvironment('WEB_BASE_URL');
+    if (explicit.isNotEmpty) return explicit;
+
+    if (_explicitBaseUrl.isNotEmpty) {
+      final parsed = Uri.tryParse(_explicitBaseUrl);
+      if (parsed != null && parsed.host.isNotEmpty) {
+        return '${parsed.scheme}://${parsed.host}${parsed.hasPort && parsed.port != 80 && parsed.port != 443 ? ":${parsed.port}" : ""}';
+      }
+    }
+
+    switch (apiEnv) {
+      case 'staging':
+        return _stagingWebUrl;
+      case 'production':
+      case 'prod':
+        return _productionWebUrl;
+      case 'local':
+      default:
+        return _productionWebUrl;
+    }
+  }
+
+  /// Generates the canonical profile URL for any user handle.
+  static String profileUrl(String username) {
+    final clean = username.trim().replaceFirst(RegExp(r'^@'), '');
+    return '$webBaseUrl/u/$clean';
+  }
+
+  /// Generates the canonical link-in-bio URL.
+  static String linkInBioUrl(String username) {
+    final clean = username.trim().replaceFirst(RegExp(r'^@'), '');
+    return '$webBaseUrl/l/$clean';
+  }
+
   /// Whether the app targets a hosted (staging/production) backend.
   static bool get isLive =>
       apiEnv == 'production' ||

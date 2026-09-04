@@ -1,11 +1,13 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../components/followers_list_dialog.dart';
 import '../components/online_status_badge.dart';
 import '../components/send_gift_dialog.dart';
+import '../config/env.dart';
 import '../core/api_client.dart';
 import '../providers/auth_provider.dart';
 import '../providers/chat_provider.dart';
@@ -178,6 +180,20 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
         ),
         actions: [
           IconButton(
+            icon: const Icon(Icons.share_outlined),
+            tooltip: 'Share Profile Link',
+            onPressed: () {
+              final link = Env.profileUrl(widget.username);
+              Clipboard.setData(ClipboardData(text: link));
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Profile link ($link) copied!'),
+                  backgroundColor: const Color(0xFF007AFF),
+                ),
+              );
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.card_giftcard_rounded, color: Color(0xFFFF9500)),
             tooltip: 'Send Gift',
             onPressed: () => SendGiftDialog.show(
@@ -185,10 +201,6 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
               recipientName: widget.name,
               recipientAvatar: widget.avatarUrl.isNotEmpty ? widget.avatarUrl : null,
             ),
-          ),
-          IconButton(
-            icon: Icon(Icons.more_vert_rounded, color: textPrimary),
-            onPressed: () {},
           ),
         ],
       ),
