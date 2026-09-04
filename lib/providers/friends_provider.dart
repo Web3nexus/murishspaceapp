@@ -39,7 +39,9 @@ class FriendUserItem {
 
     final reqId = requestId > 0
         ? requestId
-        : ((json['id'] as num?)?.toInt() ?? (json['request_id'] as num?)?.toInt() ?? 0);
+        : ((json['request_id'] as num?)?.toInt() ?? (userObj['request_id'] as num?)?.toInt() ?? (json['id'] as num?)?.toInt() ?? 0);
+
+    final resolvedStatus = (json['status'] as String?) ?? (userObj['status'] as String?) ?? status;
 
     return FriendUserItem(
       id: (userObj['id'] as num?)?.toInt() ?? (json['id'] as num?)?.toInt() ?? 0,
@@ -50,7 +52,7 @@ class FriendUserItem {
       avatarUrl: userObj['avatar_url']?.toString() ?? userObj['avatar']?.toString(),
       mutualCount: (json['mutual_friends'] as num?)?.toInt() ?? (userObj['mutual_friends'] as num?)?.toInt() ?? 0,
       isOnline: (userObj['is_online'] as bool?) ?? false,
-      status: status,
+      status: resolvedStatus,
     );
   }
 }
@@ -168,7 +170,8 @@ class FriendsNotifier extends Notifier<FriendsState> {
           : await _dio.get('/friends/suggestions');
 
       final list = ApiClient.instance.unwrapList(res, (item) {
-        return FriendUserItem.fromJson(item, status: 'none');
+        final serverStatus = (item['status'] as String?) ?? 'none';
+        return FriendUserItem.fromJson(item, status: serverStatus);
       });
       return list;
     } catch (_) {

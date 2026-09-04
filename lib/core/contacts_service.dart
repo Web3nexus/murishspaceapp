@@ -7,31 +7,44 @@ class MatchedContact {
   final String name;
   final String phone;
   final String username;
+  final String? avatarUrl;
   final String avatarColorHex;
+  final String status; // 'none', 'pending_sent', 'pending_received', 'accepted'
+  final int mutualCount;
   final bool isAlreadyFriend;
+  final int requestId;
 
   MatchedContact({
     required this.id,
     required this.name,
     required this.phone,
     required this.username,
-    required this.avatarColorHex,
+    this.avatarUrl,
+    this.avatarColorHex = '0xFF007AFF',
+    this.status = 'none',
+    this.mutualCount = 0,
     this.isAlreadyFriend = false,
+    this.requestId = 0,
   });
 
   factory MatchedContact.fromJson(Map<String, dynamic> json) {
+    final statusStr = json['status'] as String? ?? (json['is_friend'] == true ? 'accepted' : 'none');
     return MatchedContact(
-      id: (json['id'] as num).toInt(),
+      id: (json['id'] as num?)?.toInt() ?? 0,
       name: json['name'] as String? ?? 'Contact',
-      phone: json['phone'] as String? ?? '',
+      phone: json['phone'] as String? ?? json['mobile_number'] as String? ?? '',
       username: json['username'] as String? ?? '',
+      avatarUrl: json['avatar_url'] as String? ?? json['avatar'] as String?,
       avatarColorHex: json['avatar_color'] as String? ?? '0xFF007AFF',
-      isAlreadyFriend: json['is_friend'] as bool? ?? false,
+      status: statusStr,
+      mutualCount: (json['mutual_friends'] as num?)?.toInt() ?? 0,
+      isAlreadyFriend: (json['is_friend'] as bool?) ?? (statusStr == 'accepted'),
+      requestId: (json['request_id'] as num?)?.toInt() ?? 0,
     );
   }
 }
 
-/// Service for handling Contact Permissions & Sync matching.
+/// Service for handling Contact Permissions & Sync matching against backend.
 class ContactsService {
   ContactsService._();
   static final ContactsService instance = ContactsService._();
@@ -49,56 +62,30 @@ class ContactsService {
     return true;
   }
 
-  Future<List<MatchedContact>> syncContacts() async {
+  /// Syncs real device contact phone numbers to backend for matching.
+  /// If no contacts match, returns an empty list (NO hardcoded fake contacts).
+  Future<List<MatchedContact>> syncContacts({
+    List<Map<String, String>>? contacts,
+    List<String>? phones,
+  }) async {
     final dio = ApiClient.instance.dio;
     try {
-      // Send device contact phone numbers to backend for matching
-      final response = await dio.post('/v1/contacts/sync', data: {
-        'contacts': [
-          { 'name': 'Samuel Okeke', 'phone': '+2348123456789' },
-          { 'name': 'Grace Peters', 'phone': '+2349012345678' },
-          { 'name': 'Bayo Ogundipe', 'phone': '+2347034567890' },
-          { 'name': 'Chioma Eze', 'phone': '+2348056789012' },
-        ],
-      });
-      final payload = ApiClient.instance.unwrap(response);
-      if (payload is List) {
-        return payload.map((e) => MatchedContact.fromJson(e as Map<String, dynamic>)).toList();
+      final payload = <String, dynamic>{};
+      if (contacts != null && contacts.isNotEmpty) {
+        payload['contacts'] = contacts;
       }
-    } catch (_) {
-      // Non-fatal API fallback
-    }
+      if (phones != null && phones.isNotEmpty) {
+        payload['phones'] = phones;
+      }
 
-    // Fallback sample matched phone contacts
-    return [
-      MatchedContact(
-        id: 301,
-        name: 'Samuel Okeke',
-        phone: '+234 812 345 6789',
-        username: 'samuel_o',
-        avatarColorHex: '0xFF007AFF',
-      ),
-      MatchedContact(
-        id: 302,
-        name: 'Grace Peters',
-        phone: '+234 901 234 5678',
-        username: 'grace_p',
-        avatarColorHex: '0xFF5856D6',
-      ),
-      MatchedContact(
-        id: 303,
-        name: 'Bayo Ogundipe',
-        phone: '+234 703 456 7890',
-        username: 'bayo_o',
-        avatarColorHex: '0xFFFF9500',
-      ),
-      MatchedContact(
-        id: 304,
-        name: 'Chioma Eze',
-        phone: '+234 805 678 9012',
-        username: 'chioma_e',
-        avatarColorHex: '0xFF34C759',
-      ),
-    ];
+      final response = await dio.post('/friends/contacts/sync', data: payload);
+      final list = ApiClient.instance.unwrapList(response, (item) {
+        return MatchedContact.fromJson(item);
+      });
+      return list;
+    } catch (_) {
+      return const [];
+    }
   }
 }
+

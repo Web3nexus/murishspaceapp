@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -25,6 +26,7 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
   late final TabController _tab = TabController(length: 5, vsync: this);
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+  Timer? _searchDebounce;
 
   bool _hasContactPermission = false;
   bool _isSyncingContacts = false;
@@ -38,9 +40,20 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _tab.dispose();
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _onSearchChanged(String val) {
+    setState(() => _searchQuery = val);
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 300), () {
+      if (mounted) {
+        ref.read(friendsProvider.notifier).searchSuggestions(val);
+      }
+    });
   }
 
   Future<void> _checkContactPermission() async {
@@ -73,7 +86,9 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
         });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Found ${contacts.length} registered contacts on MurihSpace!'),
+            content: Text(contacts.isNotEmpty
+                ? 'Found ${contacts.length} registered contacts on MurihSpace!'
+                : 'Contacts synced. No registered friends found yet.'),
             backgroundColor: const Color(0xFF34C759),
           ),
         );
@@ -285,7 +300,7 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
                   ),
                   child: TextField(
                     controller: _searchController,
-                    onChanged: (val) => setState(() => _searchQuery = val),
+                    onChanged: _onSearchChanged,
                     style: TextStyle(fontSize: 14, color: textPrimary),
                     decoration: InputDecoration(
                       hintText: 'Search friends, phone contacts, or handle...',
@@ -296,7 +311,7 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
                               icon: Icon(Icons.clear_rounded, color: textSecondary, size: 18),
                               onPressed: () {
                                 _searchController.clear();
-                                setState(() => _searchQuery = '');
+                                _onSearchChanged('');
                               },
                             )
                           : null,
@@ -493,9 +508,14 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
                         },
                       ),
 
-                // ── Tab 2: Suggestions ────────────────────────────────────────────
+                // ── Tab 2: Suggestions / Search ────────────────────────────────────
                 filteredSuggestions.isEmpty
-                    ? _buildEmptyState('No suggestions available', Icons.person_search_rounded, textSecondary)
+                    ? _buildEmptyState(
+                        _searchQuery.isNotEmpty
+                            ? 'No users found matching "$_searchQuery"'
+                            : 'No suggestions available',
+                        Icons.person_search_rounded,
+                        textSecondary)
                     : ListView.separated(
                         padding: const EdgeInsets.symmetric(vertical: 4),
                         itemCount: filteredSuggestions.length,
@@ -506,57 +526,44 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                             child: Row(
                               children: [
-                                CircleAvatar(
-                                  radius: 22,
-                                  backgroundColor: const Color(0xFF5856D6),
-                                  backgroundImage: user.avatarUrl != null && user.avatarUrl!.isNotEmpty ? NetworkImage(user.avatarUrl!) : null,
-                                  child: user.avatarUrl == null || user.avatarUrl!.isEmpty
-                                      ? Text(
-                                          user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
-                                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
-                                        )
-                                      : null,
+                                GestureDetector(
+                                  onTap: () => context.push('/profile/user/${user.id}?name=${Uri.encodeComponent(user.name)}&username=${Uri.encodeComponent(user.username)}'),
+                                  child: CircleAvatar(
+                                    radius: 22,
+                                    backgroundColor: const Color(0xFF5856D6),
+                                    backgroundImage: user.avatarUrl != null && user.avatarUrl!.isNotEmpty ? NetworkImage(user.avatarUrl!) : null,
+                                    child: user.avatarUrl == null || user.avatarUrl!.isEmpty
+                                        ? Text(
+                                            user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
+                                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                                          )
+                                        : null,
+                                  ),
                                 ),
                                 const SizedBox(width: 12),
                                 Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        user.name,
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.w700,
-                                          fontSize: 15,
-                                          color: textPrimary,
+                                  child: GestureDetector(
+                                    onTap: () => context.push('/profile/user/${user.id}?name=${Uri.encodeComponent(user.name)}&username=${Uri.encodeComponent(user.username)}'),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          user.name,
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 15,
+                                            color: textPrimary,
+                                          ),
                                         ),
-                                      ),
-                                      Text(
-                                        '${user.title ?? 'Creator'} · ${user.mutualCount} mutuals',
-                                        style: TextStyle(fontSize: 12, color: textSecondary),
-                                      ),
-                                    ],
+                                        Text(
+                                          '@${user.username}${user.mutualCount > 0 ? " · ${user.mutualCount} mutuals" : ""}',
+                                          style: TextStyle(fontSize: 12, color: textSecondary),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
-                                ElevatedButton.icon(
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF007AFF),
-                                    foregroundColor: Colors.white,
-                                    elevation: 0,
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                  ),
-                                  onPressed: () {
-                                    ref.read(friendsProvider.notifier).sendRequest(user);
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text('Friend request sent to ${user.name}!'),
-                                        backgroundColor: const Color(0xFF34C759),
-                                      ),
-                                    );
-                                  },
-                                  icon: const Icon(Icons.person_add_rounded, size: 16),
-                                  label: const Text('Add Friend', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                                ),
+                                _buildSuggestionActionButton(user, isDark),
                               ],
                             ),
                           );
@@ -687,7 +694,7 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
 
                 // ── Tab 5: Contacts Matched on MurihSpace ────────────────────────
                 filteredContacts.isEmpty
-                    ? _buildEmptyState('No contacts matched yet', Icons.contacts_rounded, textSecondary)
+                    ? _buildContactsEmptyState(isDark, textPrimary, textSecondary)
                     : ListView.separated(
                         padding: const EdgeInsets.symmetric(vertical: 4),
                         itemCount: filteredContacts.length,
@@ -704,61 +711,52 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                             child: Row(
                               children: [
-                                CircleAvatar(
-                                  radius: 22,
-                                  backgroundColor: color,
-                                  child: Text(
-                                    contact.name.isNotEmpty ? contact.name[0].toUpperCase() : 'C',
-                                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                                GestureDetector(
+                                  onTap: () {
+                                    if (contact.id > 0) {
+                                      context.push('/profile/user/${contact.id}?name=${Uri.encodeComponent(contact.name)}&username=${Uri.encodeComponent(contact.username)}');
+                                    }
+                                  },
+                                  child: CircleAvatar(
+                                    radius: 22,
+                                    backgroundColor: color,
+                                    backgroundImage: contact.avatarUrl != null && contact.avatarUrl!.isNotEmpty ? NetworkImage(contact.avatarUrl!) : null,
+                                    child: contact.avatarUrl == null || contact.avatarUrl!.isEmpty
+                                        ? Text(
+                                            contact.name.isNotEmpty ? contact.name[0].toUpperCase() : 'C',
+                                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                                          )
+                                        : null,
                                   ),
                                 ),
                                 const SizedBox(width: 12),
                                 Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        contact.name,
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.w700,
-                                          fontSize: 15,
-                                          color: textPrimary,
-                                        ),
-                                      ),
-                                      Text(
-                                        '${contact.phone} · @${contact.username}',
-                                        style: TextStyle(fontSize: 12, color: textSecondary),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                ElevatedButton.icon(
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF007AFF),
-                                    foregroundColor: Colors.white,
-                                    elevation: 0,
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                                  ),
-                                  onPressed: () {
-                                    ref.read(friendsProvider.notifier).sendRequest(
-                                          FriendUserItem(
-                                            id: contact.id,
-                                            name: contact.name,
-                                            username: contact.username,
-                                            title: 'Phone Contact',
+                                  child: GestureDetector(
+                                    onTap: () {
+                                      if (contact.id > 0) {
+                                        context.push('/profile/user/${contact.id}?name=${Uri.encodeComponent(contact.name)}&username=${Uri.encodeComponent(contact.username)}');
+                                      }
+                                    },
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          contact.name,
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 15,
+                                            color: textPrimary,
                                           ),
-                                        );
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text('Friend request sent to ${contact.name} (@${contact.username})'),
-                                        backgroundColor: const Color(0xFF34C759),
-                                      ),
-                                    );
-                                  },
-                                  icon: const Icon(Icons.person_add_rounded, size: 16),
-                                  label: const Text('Add', style: TextStyle(fontWeight: FontWeight.bold)),
+                                        ),
+                                        Text(
+                                          '${contact.phone.isNotEmpty ? "${contact.phone} · " : ""}@${contact.username}',
+                                          style: TextStyle(fontSize: 12, color: textSecondary),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
                                 ),
+                                _buildMatchedContactActionButton(contact, isDark),
                               ],
                             ),
                           );
@@ -768,6 +766,214 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSuggestionActionButton(FriendUserItem user, bool isDark) {
+    if (user.status == 'accepted') {
+      return ElevatedButton.icon(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE5E5EA),
+          foregroundColor: isDark ? Colors.white : Colors.black,
+          elevation: 0,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        ),
+        onPressed: () => _openChatWithUser(user),
+        icon: const Icon(Icons.chat_bubble_outline_rounded, size: 14),
+        label: const Text('Message', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+      );
+    } else if (user.status == 'pending_sent') {
+      return OutlinedButton.icon(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: const Color(0xFF007AFF),
+          side: const BorderSide(color: Color(0xFF007AFF)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        ),
+        onPressed: () {
+          ref.read(friendsProvider.notifier).cancelSentRequest(user);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Cancelled request to ${user.name}')),
+          );
+        },
+        icon: const Icon(Icons.hourglass_top_rounded, size: 14),
+        label: const Text('Requested', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+      );
+    } else if (user.status == 'pending_received') {
+      return ElevatedButton(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFF34C759),
+          foregroundColor: Colors.white,
+          elevation: 0,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        ),
+        onPressed: () {
+          ref.read(friendsProvider.notifier).acceptRequest(user);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Accepted friend request from ${user.name}!'),
+              backgroundColor: const Color(0xFF34C759),
+            ),
+          );
+        },
+        child: const Text('Accept', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+      );
+    } else {
+      return ElevatedButton.icon(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFF007AFF),
+          foregroundColor: Colors.white,
+          elevation: 0,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        ),
+        onPressed: () {
+          ref.read(friendsProvider.notifier).sendRequest(user);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Friend request sent to ${user.name}!'),
+              backgroundColor: const Color(0xFF34C759),
+            ),
+          );
+        },
+        icon: const Icon(Icons.person_add_rounded, size: 16),
+        label: const Text('Add Friend', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+      );
+    }
+  }
+
+  Widget _buildMatchedContactActionButton(MatchedContact contact, bool isDark) {
+    if (contact.isAlreadyFriend || contact.status == 'accepted') {
+      return ElevatedButton.icon(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE5E5EA),
+          foregroundColor: isDark ? Colors.white : Colors.black,
+          elevation: 0,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        ),
+        onPressed: () => _openChatWithUser(FriendUserItem(
+          id: contact.id,
+          name: contact.name,
+          username: contact.username,
+          avatarUrl: contact.avatarUrl,
+        )),
+        icon: const Icon(Icons.chat_bubble_outline_rounded, size: 14),
+        label: const Text('Message', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+      );
+    } else if (contact.status == 'pending_sent') {
+      return OutlinedButton.icon(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: const Color(0xFF007AFF),
+          side: const BorderSide(color: Color(0xFF007AFF)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        ),
+        onPressed: null,
+        icon: const Icon(Icons.hourglass_top_rounded, size: 14),
+        label: const Text('Sent', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+      );
+    } else {
+      return ElevatedButton.icon(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFF007AFF),
+          foregroundColor: Colors.white,
+          elevation: 0,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        ),
+        onPressed: () {
+          ref.read(friendsProvider.notifier).sendRequest(
+                FriendUserItem(
+                  id: contact.id,
+                  name: contact.name,
+                  username: contact.username,
+                  title: 'Phone Contact',
+                  avatarUrl: contact.avatarUrl,
+                ),
+              );
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Friend request sent to ${contact.name} (@${contact.username})'),
+              backgroundColor: const Color(0xFF34C759),
+            ),
+          );
+        },
+        icon: const Icon(Icons.person_add_rounded, size: 16),
+        label: const Text('Add', style: TextStyle(fontWeight: FontWeight.bold)),
+      );
+    }
+  }
+
+  Widget _buildContactsEmptyState(bool isDark, Color textPrimary, Color? textSecondary) {
+    if (!_hasContactPermission) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF007AFF).withOpacity(0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.contacts_rounded, size: 48, color: Color(0xFF007AFF)),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Sync Your Phone Contacts',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: textPrimary),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Discover friends, colleagues, and contacts from your phone who are already on MurihSpace.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 13, color: textSecondary, height: 1.4),
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF007AFF),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                ),
+                onPressed: _showContactPermissionDialog,
+                icon: const Icon(Icons.sync_rounded, size: 18),
+                label: const Text('Sync Contacts Now', style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.person_search_rounded, size: 48, color: textSecondary),
+            const SizedBox(height: 14),
+            Text(
+              'No phone contacts matched yet',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textPrimary),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'When people in your phone address book join MurihSpace, they will appear here automatically.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 13, color: textSecondary, height: 1.4),
+            ),
+          ],
+        ),
       ),
     );
   }
