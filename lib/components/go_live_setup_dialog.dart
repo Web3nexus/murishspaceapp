@@ -276,13 +276,26 @@ class _GoLiveSetupDialogState extends ConsumerState<GoLiveSetupDialog> {
             const SizedBox(height: 6),
             TextField(
               controller: _titleCtrl,
-              style: TextStyle(color: textPrimary, fontSize: 14),
+              style: TextStyle(color: textPrimary, fontSize: 14, fontWeight: FontWeight.w600),
+              cursorColor: const Color(0xFF007AFF),
               decoration: InputDecoration(
                 hintText: 'e.g. Creator Strategy & Weekly Q&A',
                 hintStyle: TextStyle(color: textSecondary, fontSize: 13),
                 filled: true,
                 fillColor: cardBg,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                prefixIcon: const Icon(Icons.title_rounded, color: Color(0xFFFF3B30), size: 20),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide(color: isDark ? const Color(0xFF3A3A3C) : const Color(0xFFE2E8F0)),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide(color: isDark ? const Color(0xFF3A3A3C) : const Color(0xFFE2E8F0)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: const BorderSide(color: Color(0xFF007AFF), width: 1.5),
+                ),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               ),
             ),

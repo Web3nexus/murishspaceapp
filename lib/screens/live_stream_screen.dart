@@ -55,6 +55,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
 
   final List<Map<String, dynamic>> _chatMessages = [];
   final _chatCtrl = TextEditingController();
+  final _chatFocusNode = FocusNode();
   final ScrollController _scrollController = ScrollController();
 
   // Floating Hearts Animation State
@@ -69,6 +70,13 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
     super.initState();
     _activeStreamId = widget.streamId;
     _cameraOn = widget.cameraEnabled;
+
+    _chatCtrl.addListener(() {
+      if (mounted) setState(() {});
+    });
+    _chatFocusNode.addListener(() {
+      if (mounted) setState(() {});
+    });
 
     _initHardwareAndBackend();
   }
@@ -181,6 +189,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
   void dispose() {
     _metricsTimer?.cancel();
     _chatCtrl.dispose();
+    _chatFocusNode.dispose();
     _scrollController.dispose();
 
     // Release camera hardware on exit
@@ -532,11 +541,22 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
   Widget build(BuildContext context) {
     final authUser = ref.watch(authProvider).user;
     final coinBalance = authUser?.coins ?? 0;
+    final viewInsetsBottom = MediaQuery.of(context).viewInsets.bottom;
+    final isKeyboardOpen = viewInsetsBottom > 0;
+    final hasChatText = _chatCtrl.text.trim().isNotEmpty;
 
     return Scaffold(
       backgroundColor: Colors.black,
+      resizeToAvoidBottomInset: false,
       body: GestureDetector(
-        onTapUp: _addHeart,
+        behavior: HitTestBehavior.translucent,
+        onTapUp: (details) {
+          if (_chatFocusNode.hasFocus) {
+            _chatFocusNode.unfocus();
+          } else {
+            _addHeart(details);
+          }
+        },
         child: Stack(
           children: [
             // 1. Native Hardware Camera Preview Feed or Audio Room Canvas
@@ -566,7 +586,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
                     children: [
                       CircleAvatar(
                         radius: 46,
-                        backgroundColor: const Color(0xFFFF9500).withOpacity(0.2),
+                        backgroundColor: const Color(0xFFFF9500).withValues(alpha: 0.2),
                         child: Icon(
                           _cameraOn ? Icons.videocam_rounded : Icons.mic_rounded,
                           color: const Color(0xFFFF9500),
@@ -589,7 +609,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFFF3B30).withOpacity(0.2),
+                            color: const Color(0xFFFF3B30).withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Text(
@@ -637,7 +657,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.5),
+                      color: Colors.black.withValues(alpha: 0.55),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(
@@ -654,9 +674,9 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.5),
+                      color: Colors.black.withValues(alpha: 0.55),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFFFF9500).withOpacity(0.4)),
+                      border: Border.all(color: const Color(0xFFFF9500).withValues(alpha: 0.4)),
                     ),
                     child: Row(
                       children: [
@@ -669,7 +689,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
 
                   // Share Live Stream Button
                   IconButton(
-                    style: IconButton.styleFrom(backgroundColor: Colors.black.withOpacity(0.5)),
+                    style: IconButton.styleFrom(backgroundColor: Colors.black.withValues(alpha: 0.55)),
                     icon: const Icon(Icons.share_rounded, color: Colors.white, size: 20),
                     onPressed: _openShareModal,
                   ),
@@ -677,7 +697,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
 
                   // Close/End Stream Button
                   IconButton(
-                    style: IconButton.styleFrom(backgroundColor: Colors.black.withOpacity(0.5)),
+                    style: IconButton.styleFrom(backgroundColor: Colors.black.withValues(alpha: 0.55)),
                     icon: const Icon(Icons.close_rounded, color: Colors.white, size: 20),
                     onPressed: _endOrLeaveStream,
                   ),
@@ -685,13 +705,13 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
               ),
             ),
 
-            // 4. Live Chat Feed Overlay
+            // 4. Live Chat Feed Overlay (dynamically lifts above keyboard)
             Positioned(
-              bottom: 80,
+              bottom: viewInsetsBottom + 70,
               left: 16,
               right: 80,
               child: SizedBox(
-                height: 180,
+                height: isKeyboardOpen ? 120 : 180,
                 child: ListView.separated(
                   controller: _scrollController,
                   itemCount: _chatMessages.length,
@@ -701,8 +721,9 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
                     return Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                       decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.45),
+                        color: const Color(0xFF0F141C).withValues(alpha: 0.75),
                         borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
                       ),
                       child: RichText(
                         text: TextSpan(
@@ -713,7 +734,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
                             ),
                             TextSpan(
                               text: msg['msg'] as String,
-                              style: const TextStyle(fontSize: 13, color: Colors.white),
+                              style: const TextStyle(fontSize: 13, color: Colors.white, fontWeight: FontWeight.w500),
                             ),
                           ],
                         ),
@@ -724,59 +745,120 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
               ),
             ),
 
-            // 5. Bottom Controls Bar
+            // 5. Facebook-Style Bottom Controls & High-Contrast Chat Input Bar
             Positioned(
-              bottom: MediaQuery.of(context).padding.bottom + 12,
+              bottom: viewInsetsBottom + (isKeyboardOpen ? 8 : (MediaQuery.of(context).padding.bottom + 12)),
               left: 16,
               right: 16,
               child: Row(
                 children: [
                   Expanded(
                     child: Container(
-                      height: 44,
+                      height: 46,
                       padding: const EdgeInsets.symmetric(horizontal: 12),
                       decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.5),
-                        borderRadius: BorderRadius.circular(22),
-                        border: Border.all(color: Colors.white.withOpacity(0.15)),
+                        color: const Color(0xFF1E232B).withValues(alpha: 0.92),
+                        borderRadius: BorderRadius.circular(23),
+                        border: Border.all(
+                          color: _chatFocusNode.hasFocus
+                              ? const Color(0xFF007AFF)
+                              : Colors.white.withValues(alpha: 0.25),
+                          width: _chatFocusNode.hasFocus ? 1.5 : 1.0,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.45),
+                            blurRadius: 10,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
                       ),
                       child: Row(
                         children: [
+                          Icon(
+                            Icons.chat_bubble_outline_rounded,
+                            color: _chatFocusNode.hasFocus ? const Color(0xFF007AFF) : Colors.white70,
+                            size: 18,
+                          ),
+                          const SizedBox(width: 8),
                           Expanded(
-                            child: TextField(
-                              controller: _chatCtrl,
-                              style: const TextStyle(color: Colors.white, fontSize: 13),
-                              decoration: const InputDecoration(
-                                hintText: 'Say something live…',
-                                hintStyle: TextStyle(color: Colors.grey, fontSize: 13),
-                                border: InputBorder.none,
-                                isDense: true,
+                            child: Theme(
+                              data: ThemeData.dark().copyWith(
+                                textSelectionTheme: const TextSelectionThemeData(
+                                  cursorColor: Color(0xFF007AFF),
+                                  selectionColor: Color(0x66007AFF),
+                                  selectionHandleColor: Color(0xFF007AFF),
+                                ),
                               ),
-                              onSubmitted: (_) => _sendChat(),
+                              child: TextField(
+                                controller: _chatCtrl,
+                                focusNode: _chatFocusNode,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                cursorColor: const Color(0xFF007AFF),
+                                cursorWidth: 2.0,
+                                decoration: const InputDecoration(
+                                  hintText: 'Say something live…',
+                                  hintStyle: TextStyle(
+                                    color: Color(0xFFCBD5E1),
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w400,
+                                  ),
+                                  border: InputBorder.none,
+                                  enabledBorder: InputBorder.none,
+                                  focusedBorder: InputBorder.none,
+                                  disabledBorder: InputBorder.none,
+                                  isDense: true,
+                                  filled: false,
+                                  contentPadding: EdgeInsets.symmetric(vertical: 10),
+                                ),
+                                onSubmitted: (_) => _sendChat(),
+                              ),
                             ),
                           ),
-                          IconButton(
-                            icon: const Icon(Icons.send_rounded, color: Color(0xFF007AFF), size: 18),
-                            onPressed: _sendChat,
-                          ),
+                          if (hasChatText) ...[
+                            const SizedBox(width: 4),
+                            GestureDetector(
+                              onTap: _sendChat,
+                              child: Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFF007AFF),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(Icons.send_rounded, color: Colors.white, size: 14),
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),
                   ),
                   const SizedBox(width: 8),
 
-                  // Share Button in Bottom Bar
-                  IconButton(
-                    style: IconButton.styleFrom(backgroundColor: Colors.black.withOpacity(0.5)),
-                    icon: const Icon(Icons.share_rounded, color: Colors.white, size: 20),
-                    onPressed: _openShareModal,
-                  ),
+                  // Share Button in Bottom Bar (hidden while typing to maximize input area if needed)
+                  if (!isKeyboardOpen) ...[
+                    IconButton(
+                      style: IconButton.styleFrom(
+                        backgroundColor: const Color(0xFF1E232B).withValues(alpha: 0.92),
+                        padding: const EdgeInsets.all(10),
+                      ),
+                      icon: const Icon(Icons.share_rounded, color: Colors.white, size: 20),
+                      onPressed: _openShareModal,
+                    ),
+                  ],
 
                   // Host Controls: Switch Camera
                   if (widget.isHost && _cameraOn) ...[
                     const SizedBox(width: 6),
                     IconButton(
-                      style: IconButton.styleFrom(backgroundColor: Colors.black.withOpacity(0.5)),
+                      style: IconButton.styleFrom(
+                        backgroundColor: const Color(0xFF1E232B).withValues(alpha: 0.92),
+                        padding: const EdgeInsets.all(10),
+                      ),
                       icon: Icon(_isSwitchingCamera ? Icons.hourglass_top : Icons.flip_camera_ios_rounded, color: Colors.white, size: 20),
                       onPressed: _toggleCamera,
                     ),
@@ -786,7 +868,10 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
                   if (!widget.isHost) ...[
                     const SizedBox(width: 6),
                     IconButton(
-                      style: IconButton.styleFrom(backgroundColor: const Color(0xFFFF9500)),
+                      style: IconButton.styleFrom(
+                        backgroundColor: const Color(0xFFFF9500),
+                        padding: const EdgeInsets.all(10),
+                      ),
                       icon: const Icon(Icons.card_giftcard_rounded, color: Colors.white, size: 20),
                       onPressed: _openGiftingModal,
                     ),
