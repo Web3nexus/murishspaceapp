@@ -68,7 +68,16 @@ class _NewMessageSheetState extends ConsumerState<_NewMessageSheet> {
         queryParameters: {'q': query, 'type': 'users', 'per_page': 15},
       );
       final payload = ApiClient.instance.unwrap(response);
-      final raw = payload is Map<String, dynamic> ? payload['users'] : payload;
+      dynamic raw = payload;
+      if (payload is Map<String, dynamic>) {
+        if (payload['users'] is List) {
+          raw = payload['users'];
+        } else if (payload['results'] is Map<String, dynamic> && (payload['results'] as Map<String, dynamic>)['users'] is List) {
+          raw = (payload['results'] as Map<String, dynamic>)['users'];
+        } else if (payload['data'] is List) {
+          raw = payload['data'];
+        }
+      }
       final users = raw is List
           ? raw
               .map(ChatUser.fromJson)

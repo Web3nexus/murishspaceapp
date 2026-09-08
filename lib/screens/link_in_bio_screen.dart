@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../config/env.dart';
 import '../providers/auth_provider.dart';
 
 enum LinkType { url, product, social }
@@ -141,7 +142,7 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> with SingleTi
     LinkItem(
       id: 1,
       title: '🛍️ Full-Stack Starter Kit 2026',
-      url: 'https://murihspace.com/store/products/1',
+      url: '${Env.webBaseUrl}/store/products/1',
       icon: '🛍️',
       type: LinkType.product,
       price: 49.99,
@@ -159,7 +160,7 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> with SingleTi
     LinkItem(
       id: 3,
       title: '📅 Book 1-on-1 Strategy Session',
-      url: 'https://murihspace.com/coaching',
+      url: '${Env.webBaseUrl}/coaching',
       icon: '📅',
       type: LinkType.url,
       clickCount: 450,
@@ -167,7 +168,7 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> with SingleTi
     LinkItem(
       id: 4,
       title: '📜 Creator Media Kit & Analytics',
-      url: 'https://murihspace.com/media-kit',
+      url: '${Env.webBaseUrl}/media-kit',
       icon: '📜',
       type: LinkType.url,
       clickCount: 310,
@@ -441,7 +442,8 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> with SingleTi
     final user = ref.watch(authProvider).user;
     final username = user?.username ?? 'creator';
     final name = user?.name ?? 'Creator & Vendor';
-    final bioUrl = 'https://murihspace.com/bio/@$username';
+    final bioUrl = Env.profileUrl(username);
+    final displayUrl = bioUrl.replaceFirst(RegExp(r'^https?:\/\/'), '');
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bg = isDark ? Colors.black : const Color(0xFFF2F2F7);
@@ -461,7 +463,7 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> with SingleTi
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('Link in Bio Studio', style: TextStyle(color: textPrimary, fontWeight: FontWeight.w900, fontSize: 18)),
-            Text('murihspace.com/bio/@$username', style: const TextStyle(color: Color(0xFF007AFF), fontSize: 11, fontWeight: FontWeight.bold)),
+            Text(displayUrl, style: const TextStyle(color: Color(0xFF007AFF), fontSize: 11, fontWeight: FontWeight.bold)),
           ],
         ),
         actions: [

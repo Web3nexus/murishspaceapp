@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 
 import '../components/followers_list_dialog.dart';
 import '../components/online_status_badge.dart';
+import '../config/env.dart';
 import '../core/roles.dart';
 import '../providers/auth_provider.dart';
 import '../providers/follow_provider.dart';
@@ -55,6 +56,24 @@ class YouScreen extends ConsumerWidget {
           ),
         ),
         actions: [
+          IconButton(
+            onPressed: () {
+              final link = Env.profileUrl(user?.username ?? '');
+              Clipboard.setData(ClipboardData(text: link));
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Profile link ($link) copied!'),
+                  backgroundColor: const Color(0xFF007AFF),
+                ),
+              );
+            },
+            icon: Icon(
+              Icons.share_outlined,
+              color: isDark ? Colors.white : Colors.black,
+              size: 22,
+            ),
+            tooltip: 'Share Profile Link',
+          ),
           IconButton(
             onPressed: () => context.push('/settings'),
             icon: Icon(
@@ -1125,7 +1144,7 @@ class _CreatorMediaKitCard extends ConsumerWidget {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                   onPressed: () {
-                    Clipboard.setData(const ClipboardData(text: 'https://murihspace.com/creator/mediakit'));
+                    Clipboard.setData(ClipboardData(text: '${Env.webBaseUrl}/creator/mediakit'));
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('Public Creator Media Kit link copied!')),
                     );
