@@ -206,6 +206,7 @@
 				9705A1C41CF9048500538489 /* Embed Frameworks */,
 				3B06AD1E1E4923F5004D2608 /* Thin Binary */,
 				389BDE5B73582779151E15D0 /* [CP] Embed Pods Frameworks */,
+				F6C7EF162EC3CC0800C636F2 /* [Flutter] Generate Missing Framework dSYMs */,
 				32A298EEAFB873A852BB965C /* [CP] Copy Pods Resources */,
 			);
 			buildRules = (
@@ -386,6 +387,26 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+			showEnvVarsInLog = 0;
+		};
+		F6C7EF162EC3CC0800C636F2 /* [Flutter] Generate Missing Framework dSYMs */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "[Flutter] Generate Missing Framework dSYMs";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "if [ -n \"$DWARF_DSYM_FOLDER_PATH\" ] && [ -d \"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}\" ]; then\n  for framework in \"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}\"/*.framework; do\n    if [ -d \"$framework\" ]; then\n      name=$(basename \"$framework\" .framework)\n      binary=\"$framework/$name\"\n      dsym=\"${DWARF_DSYM_FOLDER_PATH}/${name}.framework.dSYM\"\n      if [ -f \"$binary\" ] && [ ! -d \"$dsym\" ]; then\n        echo \"Generating missing dSYM for $name...\"\n        dsymutil \"$binary\" -o \"$dsym\" || true\n      fi\n    fi\n  done\nfi\n";
 			showEnvVarsInLog = 0;
 		};
 /* End PBXShellScriptBuildPhase section */
