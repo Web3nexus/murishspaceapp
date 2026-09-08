@@ -7,6 +7,8 @@ import 'config/theme.dart';
 import 'providers/security_provider.dart';
 import 'components/app_lock_overlay.dart';
 import 'components/in_app_notification_overlay.dart';
+import 'providers/auth_provider.dart';
+import 'providers/realtime_provider.dart';
 
 void main() {
   runApp(
@@ -48,6 +50,21 @@ class _MurihSpaceAppState extends ConsumerState<MurihSpaceApp> with WidgetsBindi
   @override
   Widget build(BuildContext context) {
     final router = ref.watch(appRouterProvider);
+
+    // Automatically manage real-time notifications for authenticated user
+    ref.listen(authProvider, (previous, next) {
+      final user = next.user;
+      if (user != null) {
+        ref.read(realtimeProvider).listenToUser(user.id);
+      } else {
+        ref.read(realtimeProvider).dispose();
+      }
+    });
+
+    final currentUser = ref.watch(authProvider).user;
+    if (currentUser != null) {
+      ref.read(realtimeProvider).listenToUser(currentUser.id);
+    }
 
     return MaterialApp.router(
       title: Env.appName,

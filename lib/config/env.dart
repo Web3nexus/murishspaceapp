@@ -1,4 +1,5 @@
 import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart' show kReleaseMode;
 
 /// Resolves which API backend (and Reverb cluster) the app talks to.
 ///
@@ -6,17 +7,17 @@ import 'dart:io' show Platform;
 ///  1. `--dart-define=API_BASE_URL=...` — explicit override (LAN IP,
 ///     tunnel, anything). Highest priority, always wins.
 ///  2. `--dart-define=API_ENV=production|staging` — a named environment
-///     mapped to a hosted URL. Defaults to `local`.
-///  3. Local fallback based on the running platform so emulators and
-///     simulators "just work" against a local `php artisan serve`:
+///     mapped to a hosted URL.
+///  3. In Release/Archive mode (e.g. Xcode Archive or TestFlight), defaults
+///     to `production` (https://api.murihspace.com/api/v1).
+///  4. Local fallback in debug mode for emulator/simulator:
 ///       - Android emulator -> http://10.0.2.2:8000/api/v1
 ///       - everything else   -> http://127.0.0.1:8000/api/v1
 ///
-/// Real devices cannot reach the dev machine via 10.0.2.2/127.0.0.1, so
-/// for a phone use an explicit override:
-///   `flutter run --dart-define=API_BASE_URL=http://<your-mac-lan-ip>:8000/api/v1`
-/// or point at a hosted backend:
-///   `flutter run --dart-define=API_ENV=staging`
+/// To archive or run against staging:
+///   `flutter build ipa --dart-define=API_ENV=staging`
+/// To archive or run against production:
+///   `flutter build ipa --dart-define=API_ENV=production`
 class Env {
   static const String appName = String.fromEnvironment(
     'APP_NAME',
@@ -27,10 +28,16 @@ class Env {
     'API_BASE_URL',
   );
 
-  static const String apiEnv = String.fromEnvironment(
+  static const String _rawApiEnv = String.fromEnvironment(
     'API_ENV',
-    defaultValue: 'local',
   );
+
+  /// Resolves the active environment name (`staging`, `production`, or `local`).
+  static String get apiEnv {
+    if (_rawApiEnv.isNotEmpty) return _rawApiEnv;
+    if (kReleaseMode) return 'production';
+    return 'local';
+  }
 
   static const String _stagingBaseUrl =
       'https://api-staging.murihspace.com/api/v1';

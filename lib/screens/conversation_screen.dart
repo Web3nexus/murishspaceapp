@@ -69,6 +69,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
     _controller.removeListener(_handleComposerChange);
     _controller.dispose();
     _scroll.dispose();
+    ref.read(realtimeProvider).leaveConversation(widget.conversationId);
     super.dispose();
   }
 

@@ -1,27 +1,51 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../components/in_app_notification_overlay.dart';
 import '../core/api_client.dart';
 import '../core/realtime_client.dart';
 import '../models/chat_models.dart';
+import '../models/notification_models.dart';
+import 'auth_provider.dart';
 import 'chat_provider.dart';
 import 'messages_provider.dart';
+import 'notifications_provider.dart';
 
-/// Connects to Reverb and routes broadcast events into chat state.
+/// Connects to Reverb and routes broadcast events into chat and notification state.
 class RealtimeService {
   RealtimeService(this._ref);
 
   final Ref _ref;
   ReverbClient? _client;
-  final Set<int> _subscribed = {};
+  final Set<int> _subscribedConversations = {};
+  int? _userId;
+  int? _activeConversationId;
+
+  /// Subscribes to the user's personal private notification channel.
+  void listenToUser(int userId) {
+    if (_userId == userId && _client != null && _client!.isConnected) return;
+    _userId = userId;
+    final client = _ensureClient();
+    client.subscribe('private-App.Models.User.$userId');
+  }
+
+  /// Marks which conversation the user is currently viewing to suppress duplicate banners.
+  void setActiveConversation(int? conversationId) {
+    _activeConversationId = conversationId;
+  }
 
   /// Ensures the socket is connected and subscribed to the conversation's
   /// private channel. Idempotent per conversation.
   void enterConversation(int conversationId) {
-    if (_subscribed.contains(conversationId)) return;
-    _subscribed.add(conversationId);
+    setActiveConversation(conversationId);
+    if (_subscribedConversations.contains(conversationId)) return;
+    _subscribedConversations.add(conversationId);
     final client = _ensureClient();
-    if (client.isConnected) {
-      client.subscribe('private-conversation.$conversationId');
+    client.subscribe('private-conversation.$conversationId');
+  }
+
+  void leaveConversation(int conversationId) {
+    if (_activeConversationId == conversationId) {
+      _activeConversationId = null;
     }
   }
 
@@ -40,6 +64,23 @@ class RealtimeService {
   }
 
   void _dispatch(RealtimeEvent event) {
+    // 1. Personal user notification channel
+    final userMatch = RegExp(r'^private-App\.Models\.User\.(\d+)$').firstMatch(event.channel);
+    if (userMatch != null) {
+      if (event.event == 'notification' || event.event.contains('NotificationBroadcast')) {
+        try {
+          final data = event.data is Map
+              ? Map<String, dynamic>.from(event.data as Map)
+              : <String, dynamic>{};
+          final notif = AppNotification.fromJson(data);
+          _ref.read(inAppNotificationProvider.notifier).showFromAppNotification(notif);
+          _ref.read(notificationsProvider.notifier).refresh();
+        } catch (_) {}
+      }
+      return;
+    }
+
+    // 2. Conversation messages & events
     final match = RegExp(r'^private-conversation\.(\d+)$').firstMatch(event.channel);
     if (match == null) return;
     final conversationId = int.parse(match.group(1)!);
@@ -47,7 +88,14 @@ class RealtimeService {
 
     switch (event.event) {
       case 'App\\Events\\MessageSent':
-        notifier.applyRealtime(Message.fromJson(event.data));
+        final msg = Message.fromJson(event.data);
+        notifier.applyRealtime(msg);
+
+        // If user is not currently inside this conversation, show an in-app banner
+        final currentUserId = _ref.read(authProvider).user?.id;
+        if (conversationId != _activeConversationId && msg.userId != currentUserId) {
+          _ref.read(inAppNotificationProvider.notifier).showFromMessage(msg);
+        }
       case 'MessageDeleted':
         final data = event.data is Map ? (event.data as Map) : const {};
         final messageId = (data['id'] as num?)?.toInt() ?? 0;
@@ -77,7 +125,9 @@ class RealtimeService {
   void dispose() {
     _client?.dispose();
     _client = null;
-    _subscribed.clear();
+    _subscribedConversations.clear();
+    _userId = null;
+    _activeConversationId = null;
   }
 }
 

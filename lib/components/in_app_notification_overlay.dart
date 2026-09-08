@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../models/chat_models.dart';
 import '../models/notification_models.dart';
 import '../providers/notifications_provider.dart';
 
@@ -103,6 +104,21 @@ class InAppNotificationNotifier extends Notifier<InAppNotificationItem?> {
       accentColor: color,
       isOfficial: isOfficial,
       isVerified: isVerified,
+    ));
+  }
+
+  void showFromMessage(Message msg) {
+    final sender = msg.user?.name.isNotEmpty == true
+        ? msg.user!.name
+        : (msg.user?.username.isNotEmpty == true ? '@${msg.user!.username}' : 'New Message');
+    show(InAppNotificationItem(
+      id: 'msg_${msg.id}',
+      title: sender,
+      body: msg.content.isNotEmpty ? msg.content : (msg.attachmentType != null ? 'Sent an attachment' : 'Sent a message'),
+      subtitle: msg.user?.username != null && msg.user!.username.isNotEmpty ? '@${msg.user!.username}' : null,
+      route: '/chats/${msg.conversationId}',
+      icon: Icons.chat_bubble_rounded,
+      accentColor: const Color(0xFF007AFF),
     ));
   }
 
