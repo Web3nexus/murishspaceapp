@@ -124,10 +124,11 @@ class Env {
     return '127.0.0.1';
   }
 
-  static const int reverbPort = int.fromEnvironment(
-    'REVERB_PORT',
-  defaultValue: 8080,
-  );
+  static int get reverbPort {
+    const explicit = int.fromEnvironment('REVERB_PORT', defaultValue: 0);
+    if (explicit != 0) return explicit;
+    return isLive ? 443 : 8080;
+  }
 
   static String get reverbScheme {
     const explicit = String.fromEnvironment('REVERB_SCHEME');
