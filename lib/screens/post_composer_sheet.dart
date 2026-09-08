@@ -573,7 +573,7 @@ class _PostComposerState extends ConsumerState<_PostComposer> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final user = ref.watch(authProvider).user;
-    final myCommunities = ref.watch(joinedCommunitiesProvider).communities;
+    final myCommunities = ref.watch(myCommunitiesProvider).communities;
 
     Community? selectedCommunity;
     if (_communityId != null) {
