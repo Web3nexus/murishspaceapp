@@ -267,6 +267,26 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         ),
       ),
       GoRoute(
+        path: '/c/:slug',
+        builder: (_, state) => CommunityDetailScreen(
+          slug: state.pathParameters['slug']!,
+        ),
+      ),
+      GoRoute(
+        path: '/communities/:slug',
+        builder: (_, state) => CommunityDetailScreen(
+          slug: state.pathParameters['slug']!,
+        ),
+      ),
+      GoRoute(
+        path: '/u/:username',
+        builder: (_, state) => UserProfileScreen(
+          userId: 0,
+          name: state.pathParameters['username'] ?? 'User',
+          username: state.pathParameters['username'] ?? 'user',
+        ),
+      ),
+      GoRoute(
         path: '/friends',
         builder: (_, _) => const FriendsScreen(),
       ),
