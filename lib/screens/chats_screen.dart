@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -1158,84 +1159,129 @@ class _SystemBroadcastTile extends ConsumerWidget {
                     ),
                     const SizedBox(height: 14),
                     Expanded(
-                      child: ListView.separated(
-                        itemCount: bState.messages.length,
-                        separatorBuilder: (_, _) => const SizedBox(height: 12),
-                        itemBuilder: (context, idx) {
-                          final msg = bState.messages[idx];
-                          return Container(
-                            padding: const EdgeInsets.all(14),
-                            decoration: BoxDecoration(
-                              color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF2F2F7),
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: msg.color.withValues(alpha: 0.3)),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
+                      child: bState.messages.isEmpty
+                          ? Center(
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 24),
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    Icon(msg.icon, color: msg.color, size: 18),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        msg.title,
-                                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: textPrimary),
+                                    Container(
+                                      padding: const EdgeInsets.all(16),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF007AFF).withValues(alpha: 0.1),
+                                        shape: BoxShape.circle,
                                       ),
+                                      child: const Icon(Icons.campaign_outlined, size: 36, color: Color(0xFF007AFF)),
                                     ),
+                                    const SizedBox(height: 14),
+                                    Text('No System Broadcasts', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: textPrimary)),
+                                    const SizedBox(height: 6),
                                     Text(
-                                      '${msg.timestamp.hour.toString().padLeft(2, '0')}:${msg.timestamp.minute.toString().padLeft(2, '0')}',
-                                      style: TextStyle(fontSize: 11, color: textSecondary),
+                                      'Official announcements, security alerts and verification codes from MurihSpace will appear here.',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(fontSize: 13, color: textSecondary, height: 1.4),
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  msg.body,
-                                  style: TextStyle(fontSize: 13, color: textPrimary, height: 1.35),
-                                ),
-                                if (msg.otpCode != null) ...[
-                                  const SizedBox(height: 10),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFFF9500).withValues(alpha: 0.15),
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        const Icon(Icons.key_rounded, color: Color(0xFFFF9500), size: 16),
-                                        const SizedBox(width: 6),
-                                        Text(
-                                          'SMS OTP CODE: ${msg.otpCode}',
-                                          style: const TextStyle(color: Color(0xFFFF9500), fontWeight: FontWeight.w900, fontSize: 13),
+                              ),
+                            )
+                          : ListView.separated(
+                              itemCount: bState.messages.length,
+                              separatorBuilder: (_, _) => const SizedBox(height: 12),
+                              itemBuilder: (context, idx) {
+                                final msg = bState.messages[idx];
+                                return Container(
+                                  padding: const EdgeInsets.all(14),
+                                  decoration: BoxDecoration(
+                                    color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF2F2F7),
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(color: msg.color.withValues(alpha: 0.3)),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Icon(msg.icon, color: msg.color, size: 18),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Text(
+                                              msg.title,
+                                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: textPrimary),
+                                            ),
+                                          ),
+                                          Text(
+                                            '${msg.timestamp.hour.toString().padLeft(2, '0')}:${msg.timestamp.minute.toString().padLeft(2, '0')}',
+                                            style: TextStyle(fontSize: 11, color: textSecondary),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        msg.body,
+                                        style: TextStyle(fontSize: 13, color: textPrimary, height: 1.35),
+                                      ),
+                                      if (msg.otpCode != null) ...[
+                                        const SizedBox(height: 10),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFFFF9500).withValues(alpha: 0.15),
+                                            borderRadius: BorderRadius.circular(12),
+                                            border: Border.all(color: const Color(0xFFFF9500).withValues(alpha: 0.3)),
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              const Icon(Icons.key_rounded, color: Color(0xFFFF9500), size: 18),
+                                              const SizedBox(width: 8),
+                                              Expanded(
+                                                child: Text(
+                                                  'LOGIN CODE: ${msg.otpCode}',
+                                                  style: const TextStyle(color: Color(0xFFFF9500), fontWeight: FontWeight.w900, fontSize: 14, letterSpacing: 1),
+                                                ),
+                                              ),
+                                              GestureDetector(
+                                                onTap: () {
+                                                  Clipboard.setData(ClipboardData(text: msg.otpCode!));
+                                                  ScaffoldMessenger.of(context).showSnackBar(
+                                                    const SnackBar(content: Text('Code copied to clipboard!'), duration: Duration(seconds: 2)),
+                                                  );
+                                                },
+                                                child: Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                                  decoration: BoxDecoration(
+                                                    color: const Color(0xFFFF9500),
+                                                    borderRadius: BorderRadius.circular(8),
+                                                  ),
+                                                  child: const Text('Copy', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
                                         ),
                                       ],
-                                    ),
+                                      if (msg.actionUrl != null) ...[
+                                        const SizedBox(height: 10),
+                                        OutlinedButton.icon(
+                                          style: OutlinedButton.styleFrom(
+                                            foregroundColor: msg.color,
+                                            side: BorderSide(color: msg.color),
+                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                          ),
+                                          onPressed: () {
+                                            Navigator.pop(ctx);
+                                            context.push(msg.actionUrl!);
+                                          },
+                                          icon: const Icon(Icons.arrow_forward_rounded, size: 14),
+                                          label: const Text('Review Notification', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                        ),
+                                      ],
+                                    ],
                                   ),
-                                ],
-                                if (msg.actionUrl != null) ...[
-                                  const SizedBox(height: 10),
-                                  OutlinedButton.icon(
-                                    style: OutlinedButton.styleFrom(
-                                      foregroundColor: msg.color,
-                                      side: BorderSide(color: msg.color),
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                    ),
-                                    onPressed: () {
-                                      Navigator.pop(ctx);
-                                      context.push(msg.actionUrl!);
-                                    },
-                                    icon: const Icon(Icons.arrow_forward_rounded, size: 14),
-                                    label: const Text('Review Security Alert', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                                  ),
-                                ],
-                              ],
+                                );
+                              },
                             ),
-                          );
-                        },
-                      ),
                     ),
                   ],
                 ),

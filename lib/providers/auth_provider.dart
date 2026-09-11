@@ -352,6 +352,39 @@ class AuthNotifier extends Notifier<AuthState> {
     }
   }
 
+  Future<Map<String, dynamic>> verifyDeviceLoginCode(String requestToken, String code) async {
+    state = state.copyWith(loading: true, clearError: true);
+    try {
+      final response = await _dio.post('/auth/device-approval/verify-code', data: {
+        'request_token': requestToken,
+        'code': code,
+      });
+      final payload = ApiClient.instance.unwrap(response) as Map<String, dynamic>;
+
+      if (payload['status'] == 'approved') {
+        final token = payload['token'] as String;
+        final user = UserProfile.fromJson(payload['user'] as Map<String, dynamic>);
+        await ApiClient.saveToken(token);
+        await ApiClient.saveUserProfile(jsonEncode(user.toJson()));
+        await _recordSavedAccount(token, user);
+        state = AuthState(user: user, token: token);
+        return {'status': 'success', 'user': user};
+      }
+      state = state.copyWith(loading: false);
+      return {'status': 'error', 'message': payload['message'] ?? 'Verification failed'};
+    } on ApiException catch (e) {
+      state = state.copyWith(loading: false, errorMessage: e.message);
+      return {'status': 'error', 'message': e.message};
+    } on DioException catch (e) {
+      final msg = _dioError(e, 'Verification failed');
+      state = state.copyWith(loading: false, errorMessage: msg);
+      return {'status': 'error', 'message': msg};
+    } catch (e) {
+      state = state.copyWith(loading: false, errorMessage: 'An error occurred');
+      return {'status': 'error', 'message': 'An error occurred'};
+    }
+  }
+
   /// Switches into another account, logging in and storing it in saved accounts.
   Future<bool> switchAccount(String emailOrPhone, String password) async {
     return login(emailOrPhone, password);
@@ -430,12 +463,14 @@ class AuthNotifier extends Notifier<AuthState> {
   Future<Map<String, dynamic>?> requestOtp({
     required String intent,
     required String phoneE164,
+    bool forceSms = false,
   }) async {
     state = state.copyWith(loading: true, clearError: true);
     try {
       final response = await _dio.post('/auth/otp/request', data: {
         'intent': intent,
         'phone_e164': phoneE164,
+        if (forceSms) 'force_sms': true,
       });
       final data = ApiClient.instance.unwrap(response) as Map<String, dynamic>;
       state = state.copyWith(loading: false);

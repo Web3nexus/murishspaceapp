@@ -34,6 +34,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   bool _otpStep = false;
   String _phoneE164 = '';
   String _maskedPhone = '';
+  String? _otpChannel;
   String? _phoneError;
   String? _otpError;
   bool _noAccount = false;
@@ -71,7 +72,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   // --- Phone Flow ---
-  Future<void> _requestPhoneOtp() async {
+  Future<void> _requestPhoneOtp({bool forceSms = false}) async {
     if (!(_phoneFormKey.currentState?.validate() ?? false)) return;
     if (_phoneE164.isEmpty) return;
 
@@ -83,11 +84,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final data = await ref.read(authProvider.notifier).requestOtp(
           intent: 'login',
           phoneE164: _phoneE164,
+          forceSms: forceSms,
         );
 
     if (data != null) {
       setState(() {
         _maskedPhone = data['masked_phone'] as String? ?? _phoneE164;
+        _otpChannel = data['channel'] as String? ?? (forceSms ? 'sms' : null);
         _otpStep = true;
       });
       _otpController.clear();
@@ -131,8 +134,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final data = await ref.read(authProvider.notifier).requestOtp(
           intent: 'login',
           phoneE164: _phoneE164,
+          forceSms: _otpChannel == 'sms',
         );
     if (data != null) {
+      setState(() {
+        _otpChannel = data['channel'] as String? ?? _otpChannel;
+      });
       _startResendCooldown((data['resend_after_seconds'] as num?)?.toInt() ?? 60);
     }
   }
@@ -184,63 +191,161 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   void _showPendingDeviceApprovalSheet(String requestToken) {
     Timer? pollTimer;
+    final codeController = TextEditingController();
+    String? codeError;
+    bool verifyingCode = false;
 
     showModalBottomSheet<void>(
       context: context,
       isDismissible: false,
       enableDrag: false,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (ctx) {
-        // Start polling
-        pollTimer = Timer.periodic(const Duration(seconds: 2), (t) async {
-          final approved = await ref.read(authProvider.notifier).completeApprovedLogin(requestToken);
-          if (approved && mounted) {
-            t.cancel();
-            if (ctx.mounted) Navigator.of(ctx).pop();
-            context.go('/app/home');
-          }
-        });
-
         final isDark = Theme.of(ctx).brightness == Brightness.dark;
-        return Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFF9500).withOpacity(0.15),
-                  shape: BoxShape.circle,
+        final textPrimary = DesignTokens.textPrimaryOf(isDark);
+        final border = DesignTokens.borderOf(isDark);
+        final surface = DesignTokens.surfaceOf(isDark);
+
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            pollTimer ??= Timer.periodic(const Duration(seconds: 2), (t) async {
+              final approved = await ref.read(authProvider.notifier).completeApprovedLogin(requestToken);
+              if (approved && mounted) {
+                t.cancel();
+                if (ctx.mounted) Navigator.of(ctx).pop();
+                context.go('/app/home');
+              }
+            });
+
+            Future<void> submitCode(String pin) async {
+              if (pin.trim().length != 6 || verifyingCode) return;
+              setSheetState(() {
+                verifyingCode = true;
+                codeError = null;
+              });
+              final res = await ref.read(authProvider.notifier).verifyDeviceLoginCode(requestToken, pin.trim());
+              if (res['status'] == 'success' && mounted) {
+                pollTimer?.cancel();
+                if (ctx.mounted) Navigator.of(ctx).pop();
+                context.go('/app/home');
+              } else {
+                if (ctx.mounted) {
+                  setSheetState(() {
+                    verifyingCode = false;
+                    codeError = res['message'] as String? ?? 'Invalid verification code';
+                  });
+                }
+              }
+            }
+
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 24,
+                right: 24,
+                top: 24,
+                bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFF9500).withValues(alpha: 0.15),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.security_update_good_rounded, color: Color(0xFFFF9500), size: 36),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Verify New Device',
+                      style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'We sent a 6-digit verification code to your other active device(s). Enter the code below or tap "Approve" on that device to sign in.',
+                      style: TextStyle(fontSize: 13, color: isDark ? Colors.grey[400] : Colors.grey[600]),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 20),
+                    Pinput(
+                      controller: codeController,
+                      length: 6,
+                      defaultPinTheme: PinTheme(
+                        width: 44,
+                        height: 52,
+                        textStyle: TextStyle(fontSize: 20, color: textPrimary, fontWeight: FontWeight.w600),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: border),
+                          borderRadius: BorderRadius.circular(12),
+                          color: surface,
+                        ),
+                      ),
+                      focusedPinTheme: PinTheme(
+                        width: 44,
+                        height: 52,
+                        textStyle: TextStyle(fontSize: 20, color: textPrimary, fontWeight: FontWeight.w600),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: DesignTokens.primary, width: 2),
+                          borderRadius: BorderRadius.circular(12),
+                          color: surface,
+                        ),
+                      ),
+                      onChanged: (_) {
+                        if (codeError != null) setSheetState(() => codeError = null);
+                      },
+                      onCompleted: submitCode,
+                    ),
+                    if (codeError != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        codeError!,
+                        style: const TextStyle(color: DesignTokens.danger, fontSize: 12, fontWeight: FontWeight.w500),
+                      ),
+                    ],
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton(
+                        onPressed: verifyingCode ? null : () => submitCode(codeController.text),
+                        child: verifyingCode
+                            ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                            : const Text('Verify Code'),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const SizedBox(width: 14, height: 14, child: CircularProgressIndicator.adaptive(strokeWidth: 2)),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Waiting for authorization prompt...',
+                          style: TextStyle(fontSize: 12, color: isDark ? Colors.grey[400] : Colors.grey[600]),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    TextButton(
+                      onPressed: () {
+                        pollTimer?.cancel();
+                        Navigator.of(ctx).pop();
+                      },
+                      child: const Text('Cancel Login Attempt'),
+                    ),
+                  ],
                 ),
-                child: const Icon(Icons.security_update_good_rounded, color: Color(0xFFFF9500), size: 36),
               ),
-              const SizedBox(height: 16),
-              const Text(
-                'Approval Request Sent',
-                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'A login authorization prompt was sent to your other active device(s). Please tap "Approve" on that device to sign in.',
-                style: TextStyle(fontSize: 13, color: isDark ? Colors.grey[400] : Colors.grey[600]),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 24),
-              const CircularProgressIndicator.adaptive(),
-              const SizedBox(height: 20),
-              TextButton(
-                onPressed: () {
-                  pollTimer?.cancel();
-                  Navigator.of(ctx).pop();
-                },
-                child: const Text('Cancel Login Attempt'),
-              ),
-            ],
-          ),
+            );
+          },
         );
       },
-    ).whenComplete(() => pollTimer?.cancel());
+    ).whenComplete(() {
+      pollTimer?.cancel();
+      codeController.dispose();
+    });
   }
 
   void _showEnvironmentSwitcher(BuildContext context) {
@@ -607,6 +712,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final border = DesignTokens.borderOf(isDark);
     final surface = DesignTokens.surfaceOf(isDark);
 
+    final isInApp = _otpChannel == 'in_app_active_device';
+
     return Form(
       key: _otpFormKey,
       child: Column(
@@ -615,23 +722,66 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: DesignTokens.primary.withValues(alpha: 0.1),
+              color: isInApp
+                  ? const Color(0xFFFF9500).withValues(alpha: 0.12)
+                  : DesignTokens.primary.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isInApp
+                    ? const Color(0xFFFF9500).withValues(alpha: 0.3)
+                    : DesignTokens.primary.withValues(alpha: 0.2),
+              ),
             ),
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.check_circle, color: DesignTokens.primary, size: 20),
-                const SizedBox(width: 8),
+                Icon(
+                  isInApp ? Icons.devices_rounded : Icons.check_circle,
+                  color: isInApp ? const Color(0xFFFF9500) : DesignTokens.primary,
+                  size: 22,
+                ),
+                const SizedBox(width: 10),
                 Expanded(
-                  child: Text(
-                    'We sent a 6-digit code to $_maskedPhone.',
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        isInApp ? 'Sent to Active Device' : 'Code Sent',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: isInApp ? const Color(0xFFFF9500) : DesignTokens.primary,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        isInApp
+                            ? 'A 6-digit login code was sent to your active MurihSpace session (Web / Mobile). Check your active session notifications.'
+                            : 'We sent a 6-digit code to $_maskedPhone.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: isDark ? Colors.grey[300] : Colors.grey[800],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 16),
+          if (isInApp) ...[
+            const SizedBox(height: 6),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: loading ? null : () => _requestPhoneOtp(forceSms: true),
+                icon: const Icon(Icons.sms_outlined, size: 15),
+                label: const Text('Send via SMS instead', style: TextStyle(fontSize: 12)),
+              ),
+            ),
+          ],
+          const SizedBox(height: 12),
           Pinput(
             controller: _otpController,
             length: 6,
