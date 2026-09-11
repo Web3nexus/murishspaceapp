@@ -620,7 +620,7 @@ class _ChatProfileSettingsScreenState extends ConsumerState<ChatProfileSettingsS
                   : (raw is List ? raw : []);
               return items.map<Map<String, dynamic>>((e) => Map<String, dynamic>.from(e as Map)).toList();
             } catch (_) {
-              return [];
+              return <Map<String, dynamic>>[];
             }
           }(),
           builder: (ctx2, snap) {

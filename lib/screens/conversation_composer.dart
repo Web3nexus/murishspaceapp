@@ -62,6 +62,7 @@ class Composer extends StatelessWidget {
               }
             : null,
         onSendPoll: onSendPoll,
+        onSendGift: onSendGift,
       ),
     );
   }
@@ -268,11 +269,13 @@ class _TelegramAttachmentSheet extends StatelessWidget {
   final VoidCallback onPickImage;
   final VoidCallback? onPickCamera;
   final ValueChanged<Map<String, dynamic>>? onSendPoll;
+  final VoidCallback? onSendGift;
 
   const _TelegramAttachmentSheet({
     required this.onPickImage,
     this.onPickCamera,
     this.onSendPoll,
+    this.onSendGift,
   });
 
   @override

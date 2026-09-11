@@ -12,10 +12,8 @@ import '../core/design_tokens.dart';
 import '../models/chat_models.dart';
 import '../providers/auth_provider.dart';
 import '../providers/chat_provider.dart';
-import '../providers/calls_provider.dart';
 import '../providers/messages_provider.dart';
 import '../providers/realtime_provider.dart';
-import '../components/gift_animation_overlay.dart';
 import '../components/send_gift_dialog.dart';
 import 'call_screen.dart';
 import 'chat_profile_settings_screen.dart';
@@ -194,7 +192,6 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
 
         ref.read(conversationMessagesProvider(widget.conversationId).notifier).sendMessage(
           content: giftPayload,
-          type: 'gift',
           attachmentType: 'gift',
         );
         _scrollToBottom();

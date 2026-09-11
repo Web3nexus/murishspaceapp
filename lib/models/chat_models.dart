@@ -132,6 +132,7 @@ class Message {
   Message copyWith({
     String? status,
     String? content,
+    String? clientUuid,
     List<ReactionSummary>? reactions,
     bool? deleted,
     bool? read,
@@ -143,7 +144,7 @@ class Message {
       content: content ?? this.content,
       type: type,
       status: status ?? this.status,
-      clientUuid: clientUuid,
+      clientUuid: clientUuid ?? this.clientUuid,
       replyToId: replyToId,
       replyTo: replyTo,
       forwardedFromMessageId: forwardedFromMessageId,
