@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../components/kyc_live_gate_dialog.dart';
 import '../components/send_gift_dialog.dart';
 import '../core/api_client.dart';
 import '../core/camera_service.dart';
@@ -82,6 +83,19 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
   }
 
   Future<void> _initHardwareAndBackend() async {
+    // 0. KYC check if user is host
+    if (widget.isHost) {
+      final user = ref.read(authProvider).user;
+      final kycStatus = user?.kycStatus.toLowerCase() ?? 'unsubmitted';
+      if (kycStatus != 'verified' && kycStatus != 'approved') {
+        if (mounted) {
+          Navigator.of(context).pop();
+          showKycRequiredLiveModal(context);
+        }
+        return;
+      }
+    }
+
     // 1. Initialize local hardware camera if hosting and camera enabled
     if (widget.isHost && _cameraOn && widget.streamMode != 'audio') {
       final cameraReady = await CameraService.instance.initialize(preferFront: true);
@@ -138,6 +152,14 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
 
       await _pollLiveMetricsAndChat();
     } catch (e) {
+      final errStr = e.toString().toLowerCase();
+      if (widget.isHost && (errStr.contains('kyc') || errStr.contains('403'))) {
+        if (mounted) {
+          Navigator.of(context).pop();
+          showKycRequiredLiveModal(context);
+          return;
+        }
+      }
       if (mounted) {
         setState(() {
           _connectionError = e.toString().replaceAll('Exception: ', '');

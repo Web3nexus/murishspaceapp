@@ -25,12 +25,25 @@ class _CommunitiesScreenState extends ConsumerState<CommunitiesScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tab = TabController(length: 2, vsync: this);
   final _searchController = TextEditingController();
+  String _searchQuery = '';
+  Timer? _searchDebounce;
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _tab.dispose();
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _onSearchChanged(String val) {
+    setState(() => _searchQuery = val);
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 350), () {
+      if (mounted) {
+        ref.read(discoverCommunitiesProvider.notifier).search(val);
+      }
+    });
   }
 
   @override
@@ -91,6 +104,7 @@ class _CommunitiesScreenState extends ConsumerState<CommunitiesScreen>
                       Expanded(
                         child: TextField(
                           controller: _searchController,
+                          onChanged: _onSearchChanged,
                           style: TextStyle(
                             fontSize: 14,
                             color: isDark ? Colors.white : Colors.black,
@@ -101,6 +115,19 @@ class _CommunitiesScreenState extends ConsumerState<CommunitiesScreen>
                               fontSize: 14,
                               color: isDark ? const Color(0xFF8E8E93) : const Color(0xFF8E8E93),
                             ),
+                            suffixIcon: _searchQuery.isNotEmpty
+                                ? GestureDetector(
+                                    onTap: () {
+                                      _searchController.clear();
+                                      _onSearchChanged('');
+                                    },
+                                    child: Icon(
+                                      Icons.close_rounded,
+                                      size: 18,
+                                      color: isDark ? Colors.grey[400] : const Color(0xFF8E8E93),
+                                    ),
+                                  )
+                                : null,
                             border: InputBorder.none,
                             enabledBorder: InputBorder.none,
                             focusedBorder: InputBorder.none,
@@ -129,9 +156,9 @@ class _CommunitiesScreenState extends ConsumerState<CommunitiesScreen>
       ),
       body: TabBarView(
         controller: _tab,
-        children: const [
-          _MyCommunitiesView(),
-          _DiscoverView(),
+        children: [
+          _MyCommunitiesView(searchQuery: _searchQuery),
+          const _DiscoverView(),
         ],
       ),
     );
@@ -146,7 +173,8 @@ class _CommunitiesScreenState extends ConsumerState<CommunitiesScreen>
 }
 
 class _MyCommunitiesView extends ConsumerWidget {
-  const _MyCommunitiesView();
+  final String searchQuery;
+  const _MyCommunitiesView({this.searchQuery = ''});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -159,11 +187,23 @@ class _MyCommunitiesView extends ConsumerWidget {
     if (state.error != null && state.communities.isEmpty) {
       return ErrorStateWidget(title: 'Could not load communities', description: state.error!, onRetry: () => notifier.refresh());
     }
-    if (state.communities.isEmpty) {
-      return const EmptyStateWidget(
+
+    final filtered = searchQuery.trim().isEmpty
+        ? state.communities
+        : state.communities.where((c) {
+            final q = searchQuery.toLowerCase();
+            return c.name.toLowerCase().contains(q) ||
+                (c.description?.toLowerCase().contains(q) ?? false) ||
+                (c.category?.toLowerCase().contains(q) ?? false);
+          }).toList();
+
+    if (filtered.isEmpty) {
+      return EmptyStateWidget(
         icon: Icons.groups_outlined,
-        title: 'No communities yet',
-        description: 'Join communities from the Discover tab, or create your own.',
+        title: searchQuery.isNotEmpty ? 'No matches found' : 'No communities yet',
+        description: searchQuery.isNotEmpty
+            ? 'No joined communities match "$searchQuery".'
+            : 'Join communities from Public Channels, or create your own.',
       );
     }
     return RefreshIndicator(
@@ -171,9 +211,9 @@ class _MyCommunitiesView extends ConsumerWidget {
       child: ListView.separated(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.symmetric(vertical: 8),
-        itemCount: state.communities.length,
+        itemCount: filtered.length,
         separatorBuilder: (_, _) => const SizedBox(height: 4),
-        itemBuilder: (_, i) => _CommunityCard(community: state.communities[i]),
+        itemBuilder: (_, i) => _CommunityCard(community: filtered[i]),
       ),
     );
   }
@@ -239,69 +279,19 @@ class _CommunityCard extends StatelessWidget {
   }
 }
 
-class _DiscoverView extends ConsumerStatefulWidget {
+class _DiscoverView extends ConsumerWidget {
   const _DiscoverView();
 
   @override
-  ConsumerState<_DiscoverView> createState() => _DiscoverViewState();
-}
-
-class _DiscoverViewState extends ConsumerState<_DiscoverView> {
-  final _search = TextEditingController();
-  Timer? _debounce;
-
-  @override
-  void dispose() {
-    _debounce?.cancel();
-    _search.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(discoverCommunitiesProvider);
     final myIds = ref.watch(myCommunitiesProvider).communities.map((c) => c.id).toSet();
     final notifier = ref.read(discoverCommunitiesProvider.notifier);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final searchBg = isDark ? const Color(0xFF1C1C1E) : const Color(0xFFEFF3F6);
-    final borderCol = isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE5E5EA);
 
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
-          child: TextField(
-            controller: _search,
-            onChanged: (value) {
-              _debounce?.cancel();
-              _debounce = Timer(const Duration(milliseconds: 400), () => notifier.search(value));
-            },
-            style: TextStyle(color: isDark ? Colors.white : Colors.black),
-            decoration: InputDecoration(
-              hintText: 'Search communities…',
-              hintStyle: TextStyle(color: isDark ? Colors.grey[400] : const Color(0xFF8E8E93)),
-              prefixIcon: Icon(Icons.search, size: 20, color: isDark ? Colors.grey[400] : const Color(0xFF8E8E93)),
-              filled: true,
-              fillColor: searchBg,
-              isDense: true,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(DesignTokens.radiusMd),
-                borderSide: BorderSide(color: borderCol),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(DesignTokens.radiusMd),
-                borderSide: BorderSide(color: borderCol),
-              ),
-            ),
-          ),
-        ),
-        Expanded(child: _discoverBody(context, state, myIds, notifier)),
-      ],
-    );
+    return _discoverBody(context, ref, state, myIds, notifier);
   }
 
-  Widget _discoverBody(BuildContext context, DiscoverState state, Set<int> myIds, DiscoverCommunitiesNotifier notifier) {
+  Widget _discoverBody(BuildContext context, WidgetRef ref, DiscoverState state, Set<int> myIds, DiscoverCommunitiesNotifier notifier) {
     if (state.loading && state.communities.isEmpty) {
       return const LoadingStateWidget(message: 'Discovering communities…');
     }
@@ -335,13 +325,13 @@ class _DiscoverViewState extends ConsumerState<_DiscoverView> {
         return _DiscoverCard(
           community: community,
           joined: joined,
-          onJoin: () => _join(community, joined),
+          onJoin: () => _join(context, ref, community, joined),
         );
       },
     );
   }
 
-  Future<void> _join(Community community, bool joined) async {
+  Future<void> _join(BuildContext context, WidgetRef ref, Community community, bool joined) async {
     if (joined) {
       ref.read(discoverCommunitiesProvider.notifier).refresh();
       return;

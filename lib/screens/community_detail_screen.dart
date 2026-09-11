@@ -18,6 +18,7 @@ import 'post_composer_sheet.dart';
 import 'post_report_dialog.dart';
 
 import '../components/go_live_setup_dialog.dart';
+import '../components/kyc_live_gate_dialog.dart';
 import '../components/send_gift_dialog.dart';
 
 /// Community home: header + join/leave + Feed / Courses / Chats / Members tabs.
@@ -180,7 +181,15 @@ class _CommunityDetailScreenState extends ConsumerState<CommunityDetailScreen>
             IconButton(
               icon: const Icon(Icons.videocam_rounded, color: Color(0xFFFF3B30)),
               tooltip: 'Go Live / Host Meeting',
-              onPressed: () => GoLiveSetupDialog.show(context, community: community),
+              onPressed: () {
+                final user = ref.read(authProvider).user;
+                final kycStatus = user?.kycStatus.toLowerCase() ?? 'unsubmitted';
+                if (kycStatus != 'verified' && kycStatus != 'approved') {
+                  showKycRequiredLiveModal(context);
+                } else {
+                  GoLiveSetupDialog.show(context, community: community);
+                }
+              },
             ),
             if (!isCreator)
               IconButton(

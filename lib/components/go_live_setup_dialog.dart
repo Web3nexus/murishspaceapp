@@ -5,7 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/api_client.dart';
 import '../core/permissions_service.dart';
 import '../models/community_models.dart';
+import '../providers/auth_provider.dart';
 import '../screens/live_stream_screen.dart';
+import 'kyc_live_gate_dialog.dart';
 
 /// Interactive Go Live & Meeting Setup Modal with dynamic sound tracks,
 /// live commerce products fetching, and stream mode selection.
@@ -152,6 +154,14 @@ class _GoLiveSetupDialogState extends ConsumerState<GoLiveSetupDialog> {
   }
 
   Future<void> _startLive() async {
+    final user = ref.read(authProvider).user;
+    final kycStatus = user?.kycStatus.toLowerCase() ?? 'unsubmitted';
+    if (kycStatus != 'verified' && kycStatus != 'approved') {
+      Navigator.pop(context);
+      showKycRequiredLiveModal(context);
+      return;
+    }
+
     if (_titleCtrl.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please provide a title for the broadcast.')),

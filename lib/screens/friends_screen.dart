@@ -290,6 +290,10 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
         .where((c) => c.name.toLowerCase().contains(_searchQuery.toLowerCase()) || c.phone.contains(_searchQuery) || c.username.toLowerCase().contains(_searchQuery.toLowerCase()))
         .toList();
 
+    final filteredCommunities = communities
+        .where((c) => c.name.toLowerCase().contains(_searchQuery.toLowerCase()) || (c.category?.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false) || (c.description?.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false))
+        .toList();
+
     return Scaffold(
       backgroundColor: bg,
       appBar: AppBar(
@@ -673,14 +677,19 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
                       ),
 
                 // ── Tab 4: Communities ─────────────────────────────────────────────
-                communities.isEmpty
-                    ? _buildEmptyState('No communities joined yet', Icons.groups_rounded, textSecondary)
+                filteredCommunities.isEmpty
+                    ? _buildEmptyState(
+                        _searchQuery.isNotEmpty
+                            ? 'No communities matching "$_searchQuery"'
+                            : 'No communities joined yet',
+                        Icons.groups_rounded,
+                        textSecondary)
                     : ListView.separated(
                         padding: const EdgeInsets.symmetric(vertical: 4),
-                        itemCount: communities.length,
+                        itemCount: filteredCommunities.length,
                         separatorBuilder: (_, _) => const Divider(height: 1, indent: 68),
                         itemBuilder: (ctx, i) {
-                          final comm = communities[i];
+                          final comm = filteredCommunities[i];
                           return Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                             child: Row(

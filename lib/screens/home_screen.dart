@@ -13,6 +13,8 @@ import 'post_composer_sheet.dart';
 import 'post_report_dialog.dart';
 import 'story_composer_sheet.dart';
 import 'story_viewer_screen.dart';
+import '../components/go_live_setup_dialog.dart';
+import '../components/kyc_live_gate_dialog.dart';
 
 /// FB/Instagram style Home Feed screen with MurihSpace Brand Logo & Messenger jump action.
 class HomeScreen extends ConsumerStatefulWidget {
@@ -129,7 +131,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       isDark: isDark,
                       onTap: () {
                         Navigator.pop(ctx);
-                        context.push('/app/live');
+                        final user = ref.read(authProvider).user;
+                        final kycStatus = user?.kycStatus.toLowerCase() ?? 'unsubmitted';
+                        if (kycStatus != 'verified' && kycStatus != 'approved') {
+                          showKycRequiredLiveModal(context);
+                        } else {
+                          context.push('/app/live');
+                        }
                       },
                     ),
                   ),
