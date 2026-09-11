@@ -21,57 +21,90 @@ class AppShell extends ConsumerStatefulWidget {
 }
 
 class _AppShellState extends ConsumerState<AppShell> {
-  bool _wizardAutoShown = false;
+  bool _bannerDismissed = false;
 
   @override
   Widget build(BuildContext context) {
     final auth = ref.watch(authProvider);
     final role = auth.user?.role ?? UserRole.member;
     final isOnboarded = auth.user?.onboardingCompleted ?? true;
-
-    if (auth.user != null && !isOnboarded && !_wizardAutoShown) {
-      _wizardAutoShown = true;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          AiOnboardingWizardDialog.show(context);
-        }
-      });
-    }
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
       body: Column(
         children: [
-          if (auth.user != null && !isOnboarded)
+          if (auth.user != null && !isOnboarded && !_bannerDismissed)
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Color(0xFF007AFF), Color(0xFF5856D6)],
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF181A20) : const Color(0xFFF4F6F8),
+                border: Border(
+                  bottom: BorderSide(
+                    color: isDark ? const Color(0xFF2B2F38) : const Color(0xFFE2E8F0),
+                    width: 1,
+                  ),
                 ),
               ),
               child: SafeArea(
                 bottom: false,
                 child: Row(
                   children: [
-                    const BrandFavicon(size: 18),
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF262933) : const Color(0xFFEAEFF5),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const BrandFavicon(size: 16),
+                    ),
                     const SizedBox(width: 10),
-                    const Expanded(
-                      child: Text(
-                        'Your profile space is incomplete — Complete verification setup to activate account.',
-                        style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Complete Your Space Setup',
+                            style: TextStyle(
+                              color: isDark ? Colors.white : const Color(0xFF111827),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Set your profile, bio & preferences.',
+                            style: TextStyle(
+                              color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(width: 6),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: const Color(0xFF007AFF),
-                        elevation: 0,
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    const SizedBox(width: 8),
+                    FilledButton.tonal(
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        backgroundColor: isDark ? const Color(0xFF2D3748) : const Color(0xFFE2E8F0),
+                        foregroundColor: isDark ? Colors.white : const Color(0xFF0F172A),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                       ),
                       onPressed: () => AiOnboardingWizardDialog.show(context),
-                      child: const Text('Setup Wizard', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 11)),
+                      child: const Text('Setup', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 11)),
+                    ),
+                    const SizedBox(width: 4),
+                    IconButton(
+                      icon: Icon(
+                        Icons.close_rounded,
+                        size: 16,
+                        color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8),
+                      ),
+                      visualDensity: VisualDensity.compact,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                      onPressed: () => setState(() => _bannerDismissed = true),
                     ),
                   ],
                 ),

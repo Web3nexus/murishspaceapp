@@ -91,28 +91,19 @@ class _AiOnboardingWizardDialogState extends ConsumerState<AiOnboardingWizardDia
         await ref.read(authProvider.notifier).markOnboardingCompleted();
         final currentUser = ref.read(authProvider).user;
         if (currentUser != null) {
-          final updatedUser = UserProfile(
-            id: currentUser.id,
-            name: currentUser.name,
-            email: currentUser.email,
-            username: currentUser.username,
-            role: currentUser.role,
-            kycStatus: currentUser.kycStatus,
-            emailVerified: currentUser.emailVerified,
+          final updatedUser = currentUser.copyWith(
             onboardingCompleted: true,
+            bio: _headlineCtrl.text.trim().isNotEmpty ? _headlineCtrl.text.trim() : currentUser.bio,
             followersCount: (_verifiedFollowerCount != null && _verifiedFollowerCount! > 0)
                 ? _verifiedFollowerCount!
                 : currentUser.followersCount,
-            bannerUrl: currentUser.bannerUrl,
-            isOnline: currentUser.isOnline,
-            lastSeen: currentUser.lastSeen,
           );
           ref.read(authProvider.notifier).setUser(updatedUser);
         }
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Account Setup Completed. Social Reach & Profile Verified.'),
+            content: Text('Account Setup Completed. Profile and verification recorded.'),
             backgroundColor: Color(0xFF007AFF),
           ),
         );
@@ -133,7 +124,6 @@ class _AiOnboardingWizardDialogState extends ConsumerState<AiOnboardingWizardDia
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final textPrimary = isDark ? Colors.white : Colors.black;
     final textSecondary = isDark ? Colors.grey[400] : Colors.grey[600];
-    final cardBg = isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF0F2F5);
 
     return Padding(
       padding: EdgeInsets.only(

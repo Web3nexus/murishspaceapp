@@ -267,14 +267,20 @@ class AuthNotifier extends Notifier<AuthState> {
     }
   }
 
-  /// Fetches latest user profile stats (followers, following, posts, coins, etc.) from backend
   Future<void> refreshProfile() async {
     final token = await ApiClient.readToken();
     if (token == null) return;
     try {
       final response = await _dio.get('/user');
       final data = ApiClient.instance.unwrap(response) as Map<String, dynamic>;
-      final user = UserProfile.fromJson(data);
+      var user = UserProfile.fromJson(data);
+      final localOnboarded = await ApiClient.readAiOnboardingCompleted() == 'true';
+      if (localOnboarded || user.onboardingCompleted) {
+        user = user.copyWith(onboardingCompleted: true);
+        if (!localOnboarded) {
+          await ApiClient.saveAiOnboardingCompleted();
+        }
+      }
       await ApiClient.saveUserProfile(jsonEncode(user.toJson()));
       await _recordSavedAccount(token, user);
       state = state.copyWith(user: user);
@@ -411,6 +417,14 @@ class AuthNotifier extends Notifier<AuthState> {
 
   Future<void> markOnboardingCompleted() async {
     await ApiClient.saveAiOnboardingCompleted();
+    try {
+      await _dio.post('/onboarding/complete');
+    } catch (_) {}
+    if (state.user != null) {
+      final updated = state.user!.copyWith(onboardingCompleted: true);
+      await ApiClient.saveUserProfile(jsonEncode(updated.toJson()));
+      state = state.copyWith(user: updated);
+    }
   }
 
   Future<Map<String, dynamic>?> requestOtp({
@@ -651,6 +665,7 @@ class AuthNotifier extends Notifier<AuthState> {
   /// Applies a locally-refreshed copy of the profile (e.g. after editing it).
   void setUser(UserProfile user) {
     state = state.copyWith(user: user);
+    ApiClient.saveUserProfile(jsonEncode(user.toJson())).catchError((_) {});
   }
 
   /// Switches active profile mode (Member ↔ Creator ↔ Vendor).
