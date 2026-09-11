@@ -238,6 +238,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               ),
             ],
           ),
+        );
       },
     ).whenComplete(() => pollTimer?.cancel());
   }
