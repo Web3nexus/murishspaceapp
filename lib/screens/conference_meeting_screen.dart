@@ -3,17 +3,20 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../components/gift_animation_overlay.dart';
 import '../components/send_gift_dialog.dart';
 
 /// Multi-User Group Conference Meeting Screen with Hand Raising, Host Controls, & Gifting.
 class ConferenceMeetingScreen extends ConsumerStatefulWidget {
   final String meetingTitle;
   final String meetingId;
+  final int? hostUserId;
 
   const ConferenceMeetingScreen({
     super.key,
     this.meetingTitle = 'Creator Strategy & Community Conference',
     this.meetingId = 'conf-9482-nxt',
+    this.hostUserId = 1,
   });
 
   @override
@@ -76,7 +79,24 @@ class _ConferenceMeetingScreenState extends ConsumerState<ConferenceMeetingScree
           IconButton(
             icon: const Icon(Icons.card_giftcard_rounded, color: Color(0xFFFF9500)),
             tooltip: 'Send Gift to Host',
-            onPressed: () => SendGiftDialog.show(context, recipientName: 'Vincent (Host)'),
+            onPressed: () => SendGiftDialog.show(
+              context,
+              recipientId: widget.hostUserId ?? 1,
+              recipientName: 'Vincent (Host)',
+              onGiftSent: (gift, amount) {
+                ref.read(giftAnimationProvider.notifier).play(
+                  GiftAnimationData(
+                    giftName: gift.name,
+                    iconUrl: gift.iconUrl,
+                    iconEmoji: gift.icon,
+                    coinPrice: amount,
+                    senderName: 'You',
+                    recipientName: 'Vincent (Host)',
+                    animationType: gift.animationType,
+                  ),
+                );
+              },
+            ),
           ),
         ],
       ),
@@ -183,7 +203,24 @@ class _ConferenceMeetingScreenState extends ConsumerState<ConferenceMeetingScree
                   icon: Icons.card_giftcard_rounded,
                   label: 'Gift',
                   color: const Color(0xFFFF9500),
-                  onTap: () => SendGiftDialog.show(context, recipientName: 'Conference Host'),
+                  onTap: () => SendGiftDialog.show(
+                    context,
+                    recipientId: widget.hostUserId ?? 1,
+                    recipientName: 'Conference Host',
+                    onGiftSent: (gift, amount) {
+                      ref.read(giftAnimationProvider.notifier).play(
+                        GiftAnimationData(
+                          giftName: gift.name,
+                          iconUrl: gift.iconUrl,
+                          iconEmoji: gift.icon,
+                          coinPrice: amount,
+                          senderName: 'You',
+                          recipientName: 'Conference Host',
+                          animationType: gift.animationType,
+                        ),
+                      );
+                    },
+                  ),
                 ),
                 _controlBtn(
                   icon: Icons.call_end_rounded,

@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../components/gift_animation_overlay.dart';
 import '../components/kyc_live_gate_dialog.dart';
 import '../components/send_gift_dialog.dart';
 import '../core/api_client.dart';
@@ -46,9 +47,11 @@ class LiveStreamScreen extends ConsumerStatefulWidget {
 
 class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with TickerProviderStateMixin {
   int? _activeStreamId;
+  int? _hostUserId;
   int _viewerCount = 1;
   int _likesCount = 0;
   int _totalGiftsCoins = 0;
+  final Set<dynamic> _seenGiftMessageIds = {};
 
   bool _isCameraReady = false;
   late bool _cameraOn;
@@ -132,6 +135,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
         if (streamData != null && mounted) {
           setState(() {
             _activeStreamId = (streamData['id'] as num?)?.toInt();
+            _hostUserId = (streamData['user_id'] as num?)?.toInt() ?? (streamData['user']?['id'] as num?)?.toInt();
             _viewerCount = (streamData['viewers_count'] as num?)?.toInt() ?? 1;
             _likesCount = (streamData['likes_count'] as num?)?.toInt() ?? 0;
             _totalGiftsCoins = (streamData['total_coins_earned'] as num?)?.toInt() ?? 0;
@@ -143,6 +147,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
         final streamData = res.data['data']?['stream'] ?? res.data['stream'];
         if (streamData != null && mounted) {
           setState(() {
+            _hostUserId = (streamData['user_id'] as num?)?.toInt() ?? (streamData['user']?['id'] as num?)?.toInt();
             _viewerCount = (streamData['viewers_count'] as num?)?.toInt() ?? 1;
             _likesCount = (streamData['likes_count'] as num?)?.toInt() ?? 0;
             _totalGiftsCoins = (streamData['total_coins_earned'] as num?)?.toInt() ?? 0;
@@ -178,6 +183,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
 
       if (streamData != null && mounted) {
         setState(() {
+          _hostUserId ??= (streamData['user_id'] as num?)?.toInt() ?? (streamData['user']?['id'] as num?)?.toInt();
           _viewerCount = (streamData['viewers_count'] as num?)?.toInt() ?? _viewerCount;
           _likesCount = (streamData['likes_count'] as num?)?.toInt() ?? _likesCount;
           _totalGiftsCoins = (streamData['total_coins_earned'] as num?)?.toInt() ?? _totalGiftsCoins;
@@ -188,6 +194,45 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
       final chatRes = await api.get('/live/$_activeStreamId/chat');
       final msgList = (chatRes.data['data']?['data'] ?? chatRes.data['data']) as List?;
       if (msgList != null && mounted) {
+        final currentUserId = ref.read(authProvider).user?.id;
+
+        // Check for newly arrived gifts to play the celebration animation
+        for (final m in msgList) {
+          if (m is! Map<String, dynamic>) continue;
+          final id = m['id'];
+          final type = m['type']?.toString();
+          final text = m['message']?.toString() ?? '';
+          final user = m['user'] as Map<String, dynamic>?;
+          final senderId = (user?['id'] as num?)?.toInt();
+
+          final isGiftMessage = type == 'gift' || text.contains('🎁') || text.contains('sent a gift');
+          if (isGiftMessage && id != null && !_seenGiftMessageIds.contains(id)) {
+            _seenGiftMessageIds.add(id);
+
+            // If not sent by current user (since sender already triggered immediate animation)
+            if (senderId != currentUserId) {
+              final senderName = user?['name'] ?? 'A Viewer';
+              final giftName = m['gift_name']?.toString() ?? 'Celebration Gift';
+              final coinPrice = (m['coin_price'] as num?)?.toInt() ?? 100;
+              final animType = coinPrice >= 1000
+                  ? 'full_screen'
+                  : (coinPrice >= 400 ? 'premium' : (coinPrice <= 20 ? 'micro' : 'standard'));
+
+              ref.read(giftAnimationProvider.notifier).play(
+                GiftAnimationData(
+                  giftName: giftName,
+                  iconUrl: m['icon_url']?.toString(),
+                  iconEmoji: '🎁',
+                  coinPrice: coinPrice,
+                  senderName: senderName,
+                  recipientName: widget.hostName,
+                  animationType: animType,
+                ),
+              );
+            }
+          }
+        }
+
         final parsed = msgList.map((m) {
           final user = m['user'] as Map<String, dynamic>?;
           return {
@@ -298,7 +343,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => SendGiftDialog(
-        recipientId: _activeStreamId ?? 1,
+        recipientId: _hostUserId ?? 1,
         recipientName: widget.hostName,
         onGiftSent: (gift, amount) {
           // Update user wallet state and total stream coins

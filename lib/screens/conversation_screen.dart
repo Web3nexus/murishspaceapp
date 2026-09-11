@@ -15,6 +15,8 @@ import '../providers/chat_provider.dart';
 import '../providers/calls_provider.dart';
 import '../providers/messages_provider.dart';
 import '../providers/realtime_provider.dart';
+import '../components/gift_animation_overlay.dart';
+import '../components/send_gift_dialog.dart';
 import 'call_screen.dart';
 import 'chat_profile_settings_screen.dart';
 import 'conversation_composer.dart';
@@ -167,6 +169,39 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
     _scrollToBottom();
   }
 
+  void _openGiftDialog() {
+    final conversation = ref
+        .read(conversationsProvider)
+        .conversations
+        .where((c) => c.id == widget.conversationId)
+        .firstOrNull;
+    final other = conversation?.otherUser;
+    final recipientId = other?.id;
+    final recipientName = other?.name ?? conversation?.title ?? 'Friend';
+
+    SendGiftDialog.show(
+      context,
+      recipientId: recipientId,
+      recipientName: recipientName,
+      recipientAvatar: other?.avatarUrl,
+      onGiftSent: (gift, amount) {
+        final giftPayload = '[GIFT]${jsonEncode({
+          'name': gift.name,
+          'icon': gift.icon,
+          'coins': amount,
+          'animation_type': gift.animationType,
+        })}[/GIFT]';
+
+        ref.read(conversationMessagesProvider(widget.conversationId).notifier).sendMessage(
+          content: giftPayload,
+          type: 'gift',
+          attachmentType: 'gift',
+        );
+        _scrollToBottom();
+      },
+    );
+  }
+
   Future<(int, String, String)> _uploadAttachment(XFile file) async {
     final bytes = await file.readAsBytes();
     final form = FormData.fromMap({
@@ -303,6 +338,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
             onDismissImage: () => setState(() => _pendingImage = null),
             onSend: _send,
             onSendPoll: _sendPoll,
+            onSendGift: _openGiftDialog,
           ),
         ],
       ),

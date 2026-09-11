@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../components/app_bottom_sheet.dart';
+import '../components/gift_animation_overlay.dart';
 import '../core/design_tokens.dart';
 import '../models/chat_models.dart';
 import '../utils/format.dart';
@@ -351,6 +352,12 @@ class _BubbleContent extends StatelessWidget {
           else if (message.attachmentType == 'poll' || message.content.startsWith('[POLL]'))
             _ChatPollWidget(
               content: message.content,
+              mine: mine,
+              isDark: isDark,
+            )
+          else if (message.type == 'gift' || message.attachmentType == 'gift' || message.content.startsWith('[GIFT]'))
+            _ChatGiftWidget(
+              message: message,
               mine: mine,
               isDark: isDark,
             )
@@ -814,3 +821,142 @@ class _ChatPollWidgetState extends State<_ChatPollWidget> {
   }
 }
 
+class _ChatGiftWidget extends StatelessWidget {
+  final Message message;
+  final bool mine;
+  final bool isDark;
+
+  const _ChatGiftWidget({
+    required this.message,
+    required this.mine,
+    required this.isDark,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    String giftName = 'Virtual Gift';
+    String giftEmoji = '🎁';
+    int coins = 100;
+    String animType = 'standard';
+
+    final text = message.content;
+    if (text.startsWith('[GIFT]') && text.contains('[/GIFT]')) {
+      try {
+        final jsonStr = text.substring('[GIFT]'.length, text.indexOf('[/GIFT]'));
+        final map = jsonDecode(jsonStr) as Map<String, dynamic>;
+        giftName = map['name']?.toString() ?? giftName;
+        giftEmoji = map['icon']?.toString() ?? giftEmoji;
+        coins = (map['coins'] as num?)?.toInt() ?? coins;
+        animType = map['animation_type']?.toString() ?? animType;
+      } catch (_) {}
+    } else {
+      giftName = text.replaceAll('[GIFT]', '').trim();
+    }
+
+    return InkWell(
+      onTap: () {
+        GiftAnimationOverlay.show(
+          context,
+          giftName: giftName,
+          iconEmoji: giftEmoji,
+          coinPrice: coins,
+          senderName: mine ? 'You' : (message.user?.name ?? 'Friend'),
+          animationType: animType,
+        );
+      },
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 4),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: mine
+              ? const Color(0xFF0055B3).withOpacity(0.4)
+              : (isDark ? const Color(0xFF262C38) : const Color(0xFFFFF8E7)),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: const Color(0xFFFF9500).withOpacity(0.6),
+            width: 1.5,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: const Color(0xFFFF9500).withOpacity(0.15),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: const Color(0xFFFFD700).withOpacity(0.6),
+                  width: 1.5,
+                ),
+              ),
+              child: Center(
+                child: Text(
+                  giftEmoji,
+                  style: const TextStyle(fontSize: 24),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Flexible(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.auto_awesome, color: Color(0xFFFFD700), size: 13),
+                      const SizedBox(width: 4),
+                      Text(
+                        mine ? 'You sent a gift' : '${message.user?.name ?? "Friend"} sent a gift',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFFFFB340),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    giftName,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w900,
+                      color: mine ? Colors.white : (isDark ? Colors.white : Colors.black87),
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '🪙 $coins Coins',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFFFF9500),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        '· Tap to view',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: mine ? Colors.white70 : Colors.grey,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

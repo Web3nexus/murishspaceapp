@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/api_client.dart';
 import '../providers/wallet_provider.dart';
+import 'gift_animation_overlay.dart';
 
 class GiftOption {
   final int id;
@@ -13,6 +14,7 @@ class GiftOption {
   final String? animationUrl;
   final int coinCost;
   final Color color;
+  final String animationType;
 
   const GiftOption({
     required this.id,
@@ -22,6 +24,7 @@ class GiftOption {
     this.animationUrl,
     required this.coinCost,
     required this.color,
+    this.animationType = 'standard',
   });
 
   factory GiftOption.fromJson(Map<String, dynamic> json) {
@@ -54,6 +57,19 @@ class GiftOption {
       col = const Color(0xFFFF9500);
     }
 
+    String animType = json['animation_type']?.toString() ?? '';
+    if (animType.isEmpty) {
+      if (price >= 1000) {
+        animType = 'full_screen';
+      } else if (price >= 400) {
+        animType = 'premium';
+      } else if (price <= 20) {
+        animType = 'micro';
+      } else {
+        animType = 'standard';
+      }
+    }
+
     return GiftOption(
       id: (json['id'] as num?)?.toInt() ?? 1,
       name: name,
@@ -62,6 +78,7 @@ class GiftOption {
       animationUrl: json['animation_url']?.toString(),
       coinCost: price,
       color: col,
+      animationType: animType,
     );
   }
 }
@@ -111,12 +128,12 @@ class SendGiftDialog extends ConsumerStatefulWidget {
 
 class _SendGiftDialogState extends ConsumerState<SendGiftDialog> {
   static const _defaultGifts = [
-    GiftOption(id: 1, name: 'Gold Coin', icon: '🪙', coinCost: 10, color: Color(0xFFFF9500)),
-    GiftOption(id: 2, name: 'Magic Rose', icon: '🌹', coinCost: 50, color: Color(0xFFFF3B30)),
-    GiftOption(id: 3, name: 'Sparkle Diamond', icon: '💎', coinCost: 200, color: Color(0xFF007AFF)),
-    GiftOption(id: 4, name: 'Royalty Crown', icon: '👑', coinCost: 500, color: Color(0xFFFFD700)),
-    GiftOption(id: 5, name: 'Super Rocket', icon: '🚀', coinCost: 1000, color: Color(0xFFAF52DE)),
-    GiftOption(id: 6, name: 'Love Heart', icon: '💖', coinCost: 100, color: Color(0xFFFF2D55)),
+    GiftOption(id: 1, name: 'Gold Coin', icon: '🪙', coinCost: 10, color: Color(0xFFFF9500), animationType: 'micro'),
+    GiftOption(id: 2, name: 'Magic Rose', icon: '🌹', coinCost: 50, color: Color(0xFFFF3B30), animationType: 'standard'),
+    GiftOption(id: 3, name: 'Sparkle Diamond', icon: '💎', coinCost: 200, color: Color(0xFF007AFF), animationType: 'standard'),
+    GiftOption(id: 4, name: 'Royalty Crown', icon: '👑', coinCost: 500, color: Color(0xFFFFD700), animationType: 'premium'),
+    GiftOption(id: 5, name: 'Super Rocket', icon: '🚀', coinCost: 1000, color: Color(0xFFAF52DE), animationType: 'full_screen'),
+    GiftOption(id: 6, name: 'Love Heart', icon: '💖', coinCost: 100, color: Color(0xFFFF2D55), animationType: 'standard'),
   ];
 
   List<GiftOption> _systemGifts = _defaultGifts;
@@ -179,6 +196,20 @@ class _SendGiftDialogState extends ConsumerState<SendGiftDialog> {
 
     if (mounted) {
       setState(() => _sending = false);
+      
+      // Trigger full celebration animation across the screen
+      ref.read(giftAnimationProvider.notifier).play(
+        GiftAnimationData(
+          giftName: gift.name,
+          iconUrl: gift.iconUrl,
+          iconEmoji: gift.icon,
+          coinPrice: gift.coinCost,
+          senderName: 'You',
+          recipientName: widget.recipientName,
+          animationType: gift.animationType,
+        ),
+      );
+
       widget.onGiftSent?.call(gift, gift.coinCost);
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(

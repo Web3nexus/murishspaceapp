@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../providers/gifts_provider.dart';
+import '../components/gift_animation_overlay.dart';
 import '../components/ui_states.dart';
+import '../providers/gifts_provider.dart';
 
 /// TikTok-style gift screen with a gift tray, category pills, and send flow.
 class GiftsScreen extends ConsumerStatefulWidget {
@@ -54,6 +55,19 @@ class _GiftsScreenState extends ConsumerState<GiftsScreen> {
     if (!mounted) return;
     setState(() => _sending = false);
     if (ok) {
+      ref.read(giftAnimationProvider.notifier).play(
+        GiftAnimationData(
+          giftName: gift.name,
+          iconUrl: gift.iconUrl,
+          coinPrice: gift.coinPrice,
+          senderName: 'You',
+          recipientName: 'User #$recipientId',
+          animationType: gift.coinPrice >= 1000
+              ? 'full_screen'
+              : (gift.coinPrice >= 400 ? 'premium' : 'standard'),
+        ),
+      );
+
       Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Sent ${gift.name}!')),

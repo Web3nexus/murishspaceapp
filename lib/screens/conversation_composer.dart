@@ -22,6 +22,7 @@ class Composer extends StatelessWidget {
   final VoidCallback onDismissImage;
   final VoidCallback onSend;
   final ValueChanged<Map<String, dynamic>>? onSendPoll;
+  final VoidCallback? onSendGift;
 
   const Composer({
     super.key,
@@ -36,6 +37,7 @@ class Composer extends StatelessWidget {
     required this.onDismissImage,
     required this.onSend,
     this.onSendPoll,
+    this.onSendGift,
   });
 
   void _showAttachmentSheet(BuildContext context) {
@@ -305,7 +307,11 @@ class _TelegramAttachmentSheet extends StatelessWidget {
       }),
       _AttachmentAction('Gift', Icons.card_giftcard_rounded, const Color(0xFFFF2D55), () {
         navigator.pop();
-        router.push('/gifts');
+        if (onSendGift != null) {
+          onSendGift!();
+        } else {
+          router.push('/gifts');
+        }
       }),
       _AttachmentAction('Wallet', Icons.account_balance_wallet_rounded, const Color(0xFF5856D6), () {
         navigator.pop();

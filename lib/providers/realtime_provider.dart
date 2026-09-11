@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../components/gift_animation_overlay.dart';
 import '../components/in_app_notification_overlay.dart';
 import '../core/api_client.dart';
 import '../core/realtime_client.dart';
@@ -90,6 +92,29 @@ class RealtimeService {
         return;
       }
 
+      if (event.event == 'gift.received' || event.event.contains('GiftReceived') || event.event.contains('GiftSent')) {
+        try {
+          final giftName = data['gift_name']?.toString() ?? data['gift']?['name']?.toString() ?? 'Gift';
+          final senderName = data['sender_name']?.toString() ?? data['sender']?['name']?.toString() ?? 'Someone';
+          final coinPrice = (data['coin_price'] as num?)?.toInt() ?? (data['amount'] as num?)?.toInt() ?? 100;
+          final animType = data['animation_type']?.toString() ??
+              (coinPrice >= 1000 ? 'full_screen' : (coinPrice >= 400 ? 'premium' : 'standard'));
+
+          _ref.read(giftAnimationProvider.notifier).play(
+            GiftAnimationData(
+              giftName: giftName,
+              iconEmoji: data['icon']?.toString() ?? '🎁',
+              iconUrl: data['icon_url']?.toString(),
+              coinPrice: coinPrice,
+              senderName: senderName,
+              recipientName: 'You',
+              animationType: animType,
+            ),
+          );
+        } catch (_) {}
+        return;
+      }
+
       if (event.event == 'notification' || event.event.contains('NotificationBroadcast')) {
         try {
           final notif = AppNotification.fromJson(data);
@@ -111,8 +136,39 @@ class RealtimeService {
         final msg = Message.fromJson(event.data);
         notifier.applyRealtime(msg);
 
-        // If user is not currently inside this conversation, show an in-app banner
         final currentUserId = _ref.read(authProvider).user?.id;
+
+        // If incoming message is a gift, trigger celebration animation
+        if (msg.userId != currentUserId &&
+            (msg.type == 'gift' || msg.attachmentType == 'gift' || msg.content.startsWith('[GIFT]'))) {
+          String giftName = 'Virtual Gift';
+          String giftEmoji = '🎁';
+          int coins = 100;
+          String animType = 'standard';
+          final text = msg.content;
+          if (text.startsWith('[GIFT]') && text.contains('[/GIFT]')) {
+            try {
+              final jsonStr = text.substring('[GIFT]'.length, text.indexOf('[/GIFT]'));
+              final map = jsonDecode(jsonStr) as Map<String, dynamic>;
+              giftName = map['name']?.toString() ?? giftName;
+              giftEmoji = map['icon']?.toString() ?? giftEmoji;
+              coins = (map['coins'] as num?)?.toInt() ?? coins;
+              animType = map['animation_type']?.toString() ?? animType;
+            } catch (_) {}
+          }
+          _ref.read(giftAnimationProvider.notifier).play(
+            GiftAnimationData(
+              giftName: giftName,
+              iconEmoji: giftEmoji,
+              coinPrice: coins,
+              senderName: msg.user?.name ?? 'Friend',
+              recipientName: 'You',
+              animationType: animType,
+            ),
+          );
+        }
+
+        // If user is not currently inside this conversation, show an in-app banner
         if (conversationId != _activeConversationId && msg.userId != currentUserId) {
           _ref.read(inAppNotificationProvider.notifier).showFromMessage(msg);
         }
