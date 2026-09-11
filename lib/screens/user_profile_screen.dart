@@ -13,6 +13,7 @@ import '../providers/auth_provider.dart';
 import '../providers/chat_provider.dart';
 import '../providers/follow_provider.dart';
 import '../providers/friends_provider.dart';
+import 'call_screen.dart';
 
 /// Public User & Friend Profile Screen with Gifting, Direct Messaging, Follow & Add Friend CTAs.
 class UserProfileScreen extends ConsumerStatefulWidget {
@@ -397,6 +398,54 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                           onPressed: _openChat,
                           icon: const Icon(Icons.chat_bubble_outline_rounded, color: Color(0xFF007AFF), size: 20),
                           tooltip: 'Message',
+                        ),
+                        const SizedBox(width: 8),
+
+                        // Voice Call Button
+                        IconButton.filledTonal(
+                          style: IconButton.styleFrom(
+                            backgroundColor: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF2F2F7),
+                            padding: const EdgeInsets.all(12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          ),
+                          onPressed: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => CallScreen(
+                                  contactName: widget.name,
+                                  phoneNumber: '+234 812 000 1122',
+                                  avatarUrl: widget.avatarUrl.isNotEmpty ? widget.avatarUrl : null,
+                                  isVideo: false,
+                                ),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.call_rounded, color: Color(0xFF34C759), size: 20),
+                          tooltip: 'Voice Call',
+                        ),
+                        const SizedBox(width: 8),
+
+                        // Video Call Button
+                        IconButton.filledTonal(
+                          style: IconButton.styleFrom(
+                            backgroundColor: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF2F2F7),
+                            padding: const EdgeInsets.all(12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          ),
+                          onPressed: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => CallScreen(
+                                  contactName: widget.name,
+                                  phoneNumber: '+234 812 000 1122',
+                                  avatarUrl: widget.avatarUrl.isNotEmpty ? widget.avatarUrl : null,
+                                  isVideo: true,
+                                ),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.videocam_rounded, color: Color(0xFF007AFF), size: 20),
+                          tooltip: 'Video Call',
                         ),
                       ],
                     ),

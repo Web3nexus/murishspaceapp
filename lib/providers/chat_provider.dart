@@ -124,8 +124,27 @@ class ConversationsNotifier extends Notifier<ConversationsState> {
       final response = await _dio.post('/conversations/direct', data: {'user_id': userId});
       final payload = ApiClient.instance.unwrap(response);
       if (payload is Map<String, dynamic>) {
-        final conversation = Conversation.fromJson(payload);
+        var conversation = Conversation.fromJson(payload);
         if (conversation.id != 0) {
+          if (conversation.otherUser == null || conversation.otherUser!.id == 0) {
+            conversation = Conversation(
+              id: conversation.id,
+              type: conversation.type,
+              title: (conversation.title.isNotEmpty && conversation.title != 'Direct Message')
+                  ? conversation.title
+                  : (name ?? 'Friend'),
+              otherUser: ChatUser(
+                id: userId,
+                name: name ?? 'Friend',
+                username: username ?? 'user_$userId',
+                avatarUrl: avatarUrl,
+              ),
+              community: conversation.community,
+              latestMessage: conversation.latestMessage,
+              unreadCount: conversation.unreadCount,
+              updatedAt: conversation.updatedAt ?? DateTime.now(),
+            );
+          }
           upsert(conversation);
           return conversation;
         }

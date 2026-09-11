@@ -58,6 +58,20 @@ class ConversationMessagesNotifier extends Notifier<ConversationMessagesState> {
 
   Future<void> _load() async {
     _page = 1;
+    if (conversationId >= 9000 && conversationId < 100000) {
+      final targetUserId = conversationId - 9000;
+      try {
+        final res = await _dio.post('/conversations/direct', data: {'user_id': targetUserId});
+        final p = ApiClient.instance.unwrap(res);
+        if (p is Map<String, dynamic>) {
+          final realConv = Conversation.fromJson(p);
+          if (realConv.id > 0 && realConv.id != conversationId) {
+            ref.read(conversationsProvider.notifier).upsert(realConv);
+          }
+        }
+      } catch (_) {}
+    }
+
     try {
       final response = await _dio.get('/conversations/$conversationId/messages');
       final payload = ApiClient.instance.unwrap(response);
@@ -65,7 +79,11 @@ class ConversationMessagesNotifier extends Notifier<ConversationMessagesState> {
       state = ConversationMessagesState(messages: list, hasMore: hasMore);
       await markRead();
     } on DioException catch (e) {
-      state = state.copyWith(loading: false, error: _errorMessage(e));
+      if (e.response?.statusCode == 404) {
+        state = const ConversationMessagesState(messages: [], hasMore: false);
+      } else {
+        state = state.copyWith(loading: false, error: _errorMessage(e));
+      }
     } on ApiException catch (e) {
       state = state.copyWith(loading: false, error: e.message);
     } catch (_) {

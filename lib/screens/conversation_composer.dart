@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../components/create_poll_sheet.dart';
 import '../core/design_tokens.dart';
 import '../models/chat_models.dart';
 import 'community_create_dialog.dart';
@@ -19,6 +20,7 @@ class Composer extends StatelessWidget {
   final VoidCallback onDismissReply;
   final VoidCallback onDismissImage;
   final VoidCallback onSend;
+  final ValueChanged<Map<String, dynamic>>? onSendPoll;
 
   const Composer({
     super.key,
@@ -31,6 +33,7 @@ class Composer extends StatelessWidget {
     required this.onDismissReply,
     required this.onDismissImage,
     required this.onSend,
+    this.onSendPoll,
   });
 
   void _showAttachmentSheet(BuildContext context) {
@@ -48,6 +51,7 @@ class Composer extends StatelessWidget {
           Navigator.pop(ctx);
           onPickImage();
         },
+        onSendPoll: onSendPoll,
       ),
     );
   }
@@ -170,8 +174,9 @@ class Composer extends StatelessWidget {
 
 class _TelegramAttachmentSheet extends StatelessWidget {
   final VoidCallback onPickImage;
+  final ValueChanged<Map<String, dynamic>>? onSendPoll;
 
-  const _TelegramAttachmentSheet({required this.onPickImage});
+  const _TelegramAttachmentSheet({required this.onPickImage, this.onSendPoll});
 
   @override
   Widget build(BuildContext context) {
@@ -184,9 +189,13 @@ class _TelegramAttachmentSheet extends StatelessWidget {
       _AttachmentAction('Gallery', Icons.photo_library_rounded, const Color(0xFF007AFF), onPickImage),
       _AttachmentAction('Poll', Icons.poll_rounded, const Color(0xFFFF9500), () {
         navigator.pop();
-        messenger.showSnackBar(
-          const SnackBar(content: Text('Poll feature available in group chats')),
-        );
+        if (onSendPoll != null) {
+          CreatePollSheet.show(context, onSubmit: onSendPoll!);
+        } else {
+          messenger.showSnackBar(
+            const SnackBar(content: Text('Poll feature is available here.')),
+          );
+        }
       }),
       _AttachmentAction('Community', Icons.group_add_rounded, const Color(0xFF34C759), () {
         navigator.pop();

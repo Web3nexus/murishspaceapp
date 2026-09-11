@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -347,6 +348,12 @@ class _BubbleContent extends StatelessWidget {
                 Text('Voice message', style: TextStyle(color: textColor)),
               ],
             )
+          else if (message.attachmentType == 'poll' || message.content.startsWith('[POLL]'))
+            _ChatPollWidget(
+              content: message.content,
+              mine: mine,
+              isDark: isDark,
+            )
           else if (!message.deleted)
             Text(
               message.content,
@@ -515,3 +522,295 @@ class _EmojiAction extends StatelessWidget {
     );
   }
 }
+
+/// Interactive Chat Poll Widget with instant voting, progress bars, and percentage tallies.
+class _ChatPollWidget extends StatefulWidget {
+  final String content;
+  final bool mine;
+  final bool isDark;
+
+  const _ChatPollWidget({
+    required this.content,
+    required this.mine,
+    required this.isDark,
+  });
+
+  @override
+  State<_ChatPollWidget> createState() => _ChatPollWidgetState();
+}
+
+class _ChatPollWidgetState extends State<_ChatPollWidget> {
+  String _question = 'Poll';
+  List<String> _options = [];
+  bool _isMultiple = false;
+  bool _isAnonymous = true;
+  final Map<int, int> _voteCounts = {};
+  final Set<int> _myVotes = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _parsePoll();
+  }
+
+  void _parsePoll() {
+    String raw = widget.content.trim();
+    if (raw.startsWith('[POLL]') && raw.endsWith('[/POLL]')) {
+      raw = raw.substring(6, raw.length - 7);
+    }
+
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is Map<String, dynamic>) {
+        _question = decoded['question']?.toString() ?? 'Poll';
+        final rawOptions = decoded['options'];
+        if (rawOptions is List) {
+          _options = rawOptions.map((e) => e.toString()).toList();
+        }
+        _isMultiple = decoded['is_multiple'] as bool? ?? false;
+        _isAnonymous = decoded['is_anonymous'] as bool? ?? true;
+
+        final rawVotes = decoded['votes'];
+        if (rawVotes is Map<String, dynamic>) {
+          rawVotes.forEach((key, val) {
+            final idx = int.tryParse(key);
+            if (idx != null && val is List) {
+              _voteCounts[idx] = val.length;
+            }
+          });
+        }
+      }
+    } catch (_) {
+      // Fallback plain text parse if formatted like "📊 Poll: ..."
+      final lines = widget.content.split('\n').where((l) => l.trim().isNotEmpty).toList();
+      if (lines.isNotEmpty) {
+        _question = lines.first.replaceAll('📊 Poll:', '').replaceAll('📊', '').trim();
+        _options = lines.skip(1).map((l) => l.replaceAll(RegExp(r'^[0-9]+[.\-)]\s*'), '').trim()).toList();
+      }
+    }
+
+    if (_options.isEmpty) {
+      _options = ['Option 1', 'Option 2'];
+    }
+
+    // Default vote distribution simulation if empty
+    for (int i = 0; i < _options.length; i++) {
+      _voteCounts.putIfAbsent(i, () => 0);
+    }
+  }
+
+  void _onOptionTap(int index) {
+    HapticFeedback.selectionClick();
+    setState(() {
+      if (_isMultiple) {
+        if (_myVotes.contains(index)) {
+          _myVotes.remove(index);
+          _voteCounts[index] = (_voteCounts[index] ?? 1) - 1;
+        } else {
+          _myVotes.add(index);
+          _voteCounts[index] = (_voteCounts[index] ?? 0) + 1;
+        }
+      } else {
+        if (_myVotes.contains(index)) {
+          _myVotes.remove(index);
+          _voteCounts[index] = (_voteCounts[index] ?? 1) - 1;
+        } else {
+          for (final prev in _myVotes) {
+            _voteCounts[prev] = (_voteCounts[prev] ?? 1) - 1;
+          }
+          _myVotes.clear();
+          _myVotes.add(index);
+          _voteCounts[index] = (_voteCounts[index] ?? 0) + 1;
+        }
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final totalVotes = _voteCounts.values.fold<int>(0, (sum, count) => sum + count);
+    final hasVoted = _myVotes.isNotEmpty;
+    final textColor = widget.mine ? Colors.white : (widget.isDark ? Colors.white : Colors.black87);
+    final subtextColor = widget.mine ? Colors.white70 : (widget.isDark ? Colors.grey[400] : Colors.grey[600]);
+
+    return Container(
+      width: 260,
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Poll icon and header
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: (widget.mine ? Colors.white : const Color(0xFFFF9500)).withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Icon(
+                  Icons.poll_rounded,
+                  size: 14,
+                  color: widget.mine ? Colors.white : const Color(0xFFFF9500),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                _isAnonymous ? 'Anonymous Poll' : 'Public Poll',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: subtextColor,
+                ),
+              ),
+              if (_isMultiple) ...[
+                const SizedBox(width: 6),
+                Text('· Multi-choice', style: TextStyle(fontSize: 10, color: subtextColor)),
+              ],
+            ],
+          ),
+          const SizedBox(height: 8),
+
+          // Question
+          Text(
+            _question,
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: textColor,
+              height: 1.3,
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Option Items
+          for (int i = 0; i < _options.length; i++) ...[
+            _buildOptionTile(
+              index: i,
+              label: _options[i],
+              votes: _voteCounts[i] ?? 0,
+              totalVotes: totalVotes,
+              isSelected: _myVotes.contains(i),
+              hasVoted: hasVoted,
+              textColor: textColor,
+              subtextColor: subtextColor,
+            ),
+            const SizedBox(height: 6),
+          ],
+
+          const SizedBox(height: 4),
+          // Footer
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                totalVotes == 1 ? '1 vote' : '$totalVotes votes',
+                style: TextStyle(fontSize: 11, color: subtextColor, fontWeight: FontWeight.w500),
+              ),
+              if (hasVoted)
+                Text(
+                  'Voted',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: widget.mine ? Colors.white : const Color(0xFF34C759),
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOptionTile({
+    required int index,
+    required String label,
+    required int votes,
+    required int totalVotes,
+    required bool isSelected,
+    required bool hasVoted,
+    required Color textColor,
+    required Color? subtextColor,
+  }) {
+    final percent = totalVotes > 0 ? (votes / totalVotes) : 0.0;
+    final percentInt = (percent * 100).round();
+
+    return GestureDetector(
+      onTap: () => _onOptionTap(index),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: (widget.mine ? Colors.white : (widget.isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF2F4F7)))
+              .withValues(alpha: widget.mine ? 0.15 : 1.0),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isSelected
+                ? (widget.mine ? Colors.white : const Color(0xFF007AFF))
+                : Colors.transparent,
+            width: 1.5,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  isSelected
+                      ? (_isMultiple ? Icons.check_box_rounded : Icons.check_circle_rounded)
+                      : (_isMultiple ? Icons.check_box_outline_blank_rounded : Icons.radio_button_unchecked_rounded),
+                  size: 16,
+                  color: isSelected
+                      ? (widget.mine ? Colors.white : const Color(0xFF007AFF))
+                      : subtextColor,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                      color: textColor,
+                    ),
+                  ),
+                ),
+                if (hasVoted) ...[
+                  const SizedBox(width: 6),
+                  Text(
+                    '$percentInt%',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: isSelected
+                          ? (widget.mine ? Colors.white : const Color(0xFF007AFF))
+                          : subtextColor,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+            if (hasVoted) ...[
+              const SizedBox(height: 6),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: percent,
+                  minHeight: 4,
+                  backgroundColor: (widget.mine ? Colors.white24 : Colors.grey[300]),
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    isSelected
+                        ? (widget.mine ? Colors.white : const Color(0xFF007AFF))
+                        : (widget.mine ? Colors.white54 : Colors.grey),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+

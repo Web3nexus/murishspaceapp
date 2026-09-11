@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -127,6 +128,29 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
     } else {
       await notifier.sendMessage(content: text, replyToId: replyToId);
     }
+  }
+
+  void _sendPoll(Map<String, dynamic> pollData) {
+    final question = pollData['question'] as String;
+    final options = (pollData['options'] as List).cast<String>();
+    final isMultiple = pollData['is_multiple'] as bool? ?? false;
+    final isAnonymous = pollData['is_anonymous'] as bool? ?? true;
+
+    final pollPayload = {
+      'question': question,
+      'options': options,
+      'is_multiple': isMultiple,
+      'is_anonymous': isAnonymous,
+      'votes': <String, List<int>>{},
+    };
+
+    final pollEncoded = '[POLL]${jsonEncode(pollPayload)}[/POLL]';
+
+    ref.read(conversationMessagesProvider(widget.conversationId).notifier).sendMessage(
+      content: pollEncoded,
+      attachmentType: 'poll',
+    );
+    _scrollToBottom();
   }
 
   Future<(int, String, String)> _uploadAttachment(XFile file) async {
@@ -259,6 +283,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
             onDismissReply: () => setState(() => _replyTo = null),
             onDismissImage: () => setState(() => _pendingImage = null),
             onSend: _send,
+            onSendPoll: _sendPoll,
           ),
         ],
       ),

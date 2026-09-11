@@ -1,13 +1,21 @@
 import 'dart:async';
+import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../providers/calls_provider.dart';
 
+enum CallStatus {
+  connecting,
+  ringing,
+  connected,
+  ended,
+}
+
 /// Interactive Real-Time Voice & Video Call Screen with Mute, Camera Toggles,
-/// Speakerphone, Camera Switch, and Live Duration Timer.
+/// Speakerphone, Camera Switch, realistic Connecting -> Ringing -> Connected flow,
+/// and live Camera Preview for video calls.
 class CallScreen extends ConsumerStatefulWidget {
   final String contactName;
   final String? phoneNumber;
@@ -26,15 +34,24 @@ class CallScreen extends ConsumerStatefulWidget {
   ConsumerState<CallScreen> createState() => _CallScreenState();
 }
 
-class _CallScreenState extends ConsumerState<CallScreen> {
+class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProviderStateMixin {
   bool _isMuted = false;
   late bool _isCameraOff;
   bool _isSpeakerOn = false;
   bool _isFrontCamera = true;
-  bool _isConnected = false;
+  CallStatus _status = CallStatus.connecting;
 
   int _callSeconds = 0;
   Timer? _callTimer;
+  Timer? _statusTransitionTimer;
+  Timer? _ringingHapticTimer;
+
+  CameraController? _cameraController;
+  List<CameraDescription> _availableCameras = [];
+  bool _cameraReady = false;
+
+  late AnimationController _pulseController;
+  late Animation<double> _pulseAnimation;
 
   @override
   void initState() {
@@ -42,24 +59,105 @@ class _CallScreenState extends ConsumerState<CallScreen> {
     _isCameraOff = !widget.isVideo;
     _isSpeakerOn = widget.isVideo;
 
-    // Simulate connecting sequence
-    Future.delayed(const Duration(seconds: 2), () {
-      if (mounted) {
-        setState(() => _isConnected = true);
-        _startTimer();
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    )..repeat(reverse: true);
+
+    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.15).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
+
+    if (widget.isVideo) {
+      _initCamera();
+    }
+
+    _startCallProgression();
+  }
+
+  Future<void> _initCamera() async {
+    try {
+      _availableCameras = await availableCameras();
+      if (_availableCameras.isNotEmpty) {
+        final front = _availableCameras.firstWhere(
+          (c) => c.lensDirection == CameraLensDirection.front,
+          orElse: () => _availableCameras.first,
+        );
+        _cameraController = CameraController(
+          front,
+          ResolutionPreset.medium,
+          enableAudio: true,
+        );
+        await _cameraController!.initialize();
+        if (mounted) {
+          setState(() => _cameraReady = true);
+        }
       }
+    } catch (e) {
+      debugPrint('Call camera initialization error: $e');
+    }
+  }
+
+  Future<void> _flipCamera() async {
+    if (_availableCameras.length < 2) return;
+    _isFrontCamera = !_isFrontCamera;
+    final targetDirection = _isFrontCamera ? CameraLensDirection.front : CameraLensDirection.back;
+    final target = _availableCameras.firstWhere(
+      (c) => c.lensDirection == targetDirection,
+      orElse: () => _availableCameras.first,
+    );
+    try {
+      await _cameraController?.dispose();
+      _cameraController = CameraController(target, ResolutionPreset.medium, enableAudio: true);
+      await _cameraController!.initialize();
+      if (mounted) setState(() {});
+    } catch (e) {
+      debugPrint('Error flipping camera: $e');
+    }
+  }
+
+  void _startCallProgression() {
+    // Step 1: Connecting (1.5s)
+    _statusTransitionTimer = Timer(const Duration(milliseconds: 1500), () {
+      if (!mounted) return;
+      setState(() => _status = CallStatus.ringing);
+      HapticFeedback.lightImpact();
+
+      // Soft vibration every 2.5s while ringing
+      _ringingHapticTimer = Timer.periodic(const Duration(milliseconds: 2500), (timer) {
+        if (!mounted || _status != CallStatus.ringing) {
+          timer.cancel();
+          return;
+        }
+        HapticFeedback.selectionClick();
+      });
+
+      // Step 2: Ringing for 4.5s -> Connected
+      _statusTransitionTimer = Timer(const Duration(milliseconds: 4500), () {
+        if (!mounted) return;
+        _ringingHapticTimer?.cancel();
+        setState(() => _status = CallStatus.connected);
+        HapticFeedback.mediumImpact();
+        _startDurationTimer();
+      });
     });
   }
 
-  void _startTimer() {
+  void _startDurationTimer() {
     _callTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (mounted) setState(() => _callSeconds++);
+      if (mounted && _status == CallStatus.connected) {
+        setState(() => _callSeconds++);
+      }
     });
   }
 
   @override
   void dispose() {
+    _statusTransitionTimer?.cancel();
+    _ringingHapticTimer?.cancel();
     _callTimer?.cancel();
+    _pulseController.dispose();
+    _cameraController?.dispose();
     super.dispose();
   }
 
@@ -69,8 +167,22 @@ class _CallScreenState extends ConsumerState<CallScreen> {
     return '$mins:$secs';
   }
 
+  String get _statusLabel {
+    switch (_status) {
+      case CallStatus.connecting:
+        return 'Connecting…';
+      case CallStatus.ringing:
+        return 'Ringing…';
+      case CallStatus.connected:
+        return widget.isVideo ? 'Video Call · ${_formatDuration(_callSeconds)}' : _formatDuration(_callSeconds);
+      case CallStatus.ended:
+        return 'Call Ended';
+    }
+  }
+
   void _endCall() {
     HapticFeedback.mediumImpact();
+    setState(() => _status = CallStatus.ended);
     ref.read(callsProvider.notifier).logNewCall(
           contactName: widget.contactName,
           phoneNumber: widget.phoneNumber ?? '+234 812 000 1122',
@@ -84,42 +196,22 @@ class _CallScreenState extends ConsumerState<CallScreen> {
   @override
   Widget build(BuildContext context) {
     final hasAvatar = widget.avatarUrl != null && widget.avatarUrl!.isNotEmpty;
+    final isCameraActive = widget.isVideo && !_isCameraOff && _cameraReady && _cameraController != null && _cameraController!.value.isInitialized;
 
     return Scaffold(
       backgroundColor: const Color(0xFF0F141C),
       body: Stack(
+        fit: StackFit.expand,
         children: [
-          // Background Canvas (Video feed simulation or blurred dark gradient)
-          if (widget.isVideo && !_isCameraOff)
-            Container(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Color(0xFF1E293B), Color(0xFF0F172A)],
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                ),
-              ),
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    CircleAvatar(
-                      radius: 54,
-                      backgroundImage: hasAvatar ? NetworkImage(widget.avatarUrl!) : null,
-                      backgroundColor: const Color(0xFF007AFF),
-                      child: !hasAvatar
-                          ? Text(
-                              widget.contactName.isNotEmpty ? widget.contactName[0].toUpperCase() : '?',
-                              style: const TextStyle(fontSize: 40, fontWeight: FontWeight.bold, color: Colors.white),
-                            )
-                          : null,
-                    ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'HD Video Call Active',
-                      style: TextStyle(color: Color(0xFF34C759), fontWeight: FontWeight.bold, fontSize: 13),
-                    ),
-                  ],
+          // Background Canvas: Real Camera Preview when active, or Dark Gradient
+          if (isCameraActive)
+            SizedBox.expand(
+              child: FittedBox(
+                fit: BoxFit.cover,
+                child: SizedBox(
+                  width: _cameraController!.value.previewSize?.height ?? 1,
+                  height: _cameraController!.value.previewSize?.width ?? 1,
+                  child: CameraPreview(_cameraController!),
                 ),
               ),
             )
@@ -132,46 +224,100 @@ class _CallScreenState extends ConsumerState<CallScreen> {
                   end: Alignment.bottomCenter,
                 ),
               ),
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(color: const Color(0xFF007AFF).withOpacity(0.5), width: 3),
-                      ),
-                      child: CircleAvatar(
-                        radius: 58,
-                        backgroundImage: hasAvatar ? NetworkImage(widget.avatarUrl!) : null,
-                        backgroundColor: const Color(0xFF007AFF),
-                        child: !hasAvatar
-                            ? Text(
-                                widget.contactName.isNotEmpty ? widget.contactName[0].toUpperCase() : '?',
-                                style: const TextStyle(fontSize: 44, fontWeight: FontWeight.bold, color: Colors.white),
-                              )
-                            : null,
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    Text(
-                      widget.contactName,
-                      style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: Colors.white),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      !_isConnected ? 'Calling…' : _formatDuration(_callSeconds),
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: !_isConnected ? Colors.white70 : const Color(0xFF34C759),
-                      ),
-                    ),
+            ),
+
+          // Dark overlay gradient for contrast
+          if (isCameraActive)
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Colors.black.withValues(alpha: 0.6),
+                    Colors.transparent,
+                    Colors.black.withValues(alpha: 0.75),
                   ],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
                 ),
               ),
             ),
+
+          // Center Contact & Status Info (or overlay on video)
+          Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                ScaleTransition(
+                  scale: _status == CallStatus.ringing ? _pulseAnimation : const AlwaysStoppedAnimation(1.0),
+                  child: Container(
+                    padding: const EdgeInsets.all(5),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: _status == CallStatus.ringing
+                            ? const Color(0xFF34C759).withValues(alpha: 0.8)
+                            : (_status == CallStatus.connected
+                                ? const Color(0xFF007AFF).withValues(alpha: 0.6)
+                                : Colors.white24),
+                        width: 3,
+                      ),
+                      boxShadow: _status == CallStatus.ringing
+                          ? [
+                              BoxShadow(
+                                color: const Color(0xFF34C759).withValues(alpha: 0.35),
+                                blurRadius: 28,
+                                spreadRadius: 6,
+                              ),
+                            ]
+                          : null,
+                    ),
+                    child: CircleAvatar(
+                      radius: widget.isVideo ? 48 : 58,
+                      backgroundImage: hasAvatar ? NetworkImage(widget.avatarUrl!) : null,
+                      backgroundColor: const Color(0xFF007AFF),
+                      child: !hasAvatar
+                          ? Text(
+                              widget.contactName.isNotEmpty ? widget.contactName[0].toUpperCase() : '?',
+                              style: TextStyle(
+                                fontSize: widget.isVideo ? 36 : 44,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            )
+                          : null,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Text(
+                  widget.contactName,
+                  style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: Colors.white),
+                ),
+                const SizedBox(height: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.black38,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    widget.isVideo
+                        ? (_status == CallStatus.connected
+                            ? 'Video Call · ${_formatDuration(_callSeconds)}'
+                            : 'Video Call · $_statusLabel')
+                        : _statusLabel,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: _status == CallStatus.connected
+                          ? const Color(0xFF34C759)
+                          : (_status == CallStatus.ringing ? const Color(0xFFFFD60A) : Colors.white70),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
 
           // Top App Bar
           Positioned(
@@ -186,21 +332,24 @@ class _CallScreenState extends ConsumerState<CallScreen> {
                   icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                   decoration: BoxDecoration(
-                    color: Colors.black45,
+                    color: Colors.black54,
                     borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.white12),
                   ),
                   child: Row(
                     children: [
                       Icon(
                         widget.isVideo ? Icons.videocam_rounded : Icons.call_rounded,
-                        color: const Color(0xFF34C759),
-                        size: 14,
+                        color: _status == CallStatus.connected
+                            ? const Color(0xFF34C759)
+                            : (_status == CallStatus.ringing ? const Color(0xFFFFD60A) : Colors.white70),
+                        size: 15,
                       ),
                       const SizedBox(width: 6),
                       Text(
-                        _isConnected ? _formatDuration(_callSeconds) : 'Connecting…',
+                        _statusLabel,
                         style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
                       ),
                     ],
@@ -208,13 +357,9 @@ class _CallScreenState extends ConsumerState<CallScreen> {
                 ),
                 if (widget.isVideo)
                   IconButton(
-                    onPressed: () {
-                      setState(() => _isFrontCamera = !_isFrontCamera);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text(_isFrontCamera ? 'Front Camera' : 'Back Camera')),
-                      );
-                    },
+                    onPressed: _flipCamera,
                     icon: const Icon(Icons.flip_camera_ios_rounded, color: Colors.white),
+                    tooltip: 'Flip Camera',
                   )
                 else
                   const SizedBox(width: 48),
@@ -265,6 +410,9 @@ class _CallScreenState extends ConsumerState<CallScreen> {
                       onTap: () {
                         HapticFeedback.selectionClick();
                         setState(() => _isCameraOff = !_isCameraOff);
+                        if (!_isCameraOff && (_cameraController == null || !_cameraController!.value.isInitialized)) {
+                          _initCamera();
+                        }
                       },
                     ),
 

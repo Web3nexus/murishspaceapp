@@ -13,6 +13,7 @@ import '../providers/auth_provider.dart';
 import '../providers/chat_provider.dart';
 import '../providers/community_provider.dart';
 import '../providers/friends_provider.dart';
+import 'call_screen.dart';
 import 'user_profile_screen.dart';
 
 /// Modern Redesigned Friends, Connections & Phone Contacts Matching Hub.
@@ -663,12 +664,36 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
                                   icon: Container(
                                     padding: const EdgeInsets.all(8),
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFF007AFF).withOpacity(0.12),
+                                      color: const Color(0xFF34C759).withValues(alpha: 0.12),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(Icons.call_rounded, color: Color(0xFF34C759), size: 16),
+                                  ),
+                                  onPressed: () {
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (_) => CallScreen(
+                                          contactName: user.name,
+                                          phoneNumber: '+234 812 000 1122',
+                                          avatarUrl: user.avatarUrl,
+                                          isVideo: false,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                  tooltip: 'Voice Call',
+                                ),
+                                IconButton(
+                                  icon: Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF007AFF).withValues(alpha: 0.12),
                                       shape: BoxShape.circle,
                                     ),
                                     child: const Icon(Icons.chat_bubble_rounded, color: Color(0xFF007AFF), size: 16),
                                   ),
                                   onPressed: () => _openChatWithUser(user),
+                                  tooltip: 'Message',
                                 ),
                               ],
                             ),
