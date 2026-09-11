@@ -32,11 +32,21 @@ class Env {
     'API_ENV',
   );
 
+  static String? _runtimeEnvOverride;
+
+  /// Allows runtime switching of backend environment.
+  static void setRuntimeEnv(String? env) {
+    _runtimeEnvOverride = env;
+  }
+
   /// Resolves the active environment name (`staging`, `production`, or `local`).
   static String get apiEnv {
+    if (_runtimeEnvOverride != null && _runtimeEnvOverride!.isNotEmpty) {
+      return _runtimeEnvOverride!;
+    }
     if (_rawApiEnv.isNotEmpty) return _rawApiEnv;
-    if (kReleaseMode) return 'production';
-    return 'local';
+    // Default to staging for current active staging testing
+    return 'staging';
   }
 
   static const String _stagingBaseUrl =

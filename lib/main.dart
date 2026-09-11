@@ -7,10 +7,17 @@ import 'config/theme.dart';
 import 'providers/security_provider.dart';
 import 'components/app_lock_overlay.dart';
 import 'components/in_app_notification_overlay.dart';
+import 'core/api_client.dart';
 import 'providers/auth_provider.dart';
 import 'providers/realtime_provider.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final savedEnv = await ApiClient.readApiEnv();
+  if (savedEnv != null && savedEnv.isNotEmpty) {
+    Env.setRuntimeEnv(savedEnv);
+    ApiClient.instance.updateBaseUrl(Env.apiBaseUrl);
+  }
   runApp(
     const ProviderScope(
       child: MurihSpaceApp(),

@@ -41,7 +41,7 @@ class StoryNotifier extends Notifier<StoryState> {
   Future<void> fetchStories() async {
     state = state.copyWith(isLoading: true, error: null);
     try {
-      final response = await _dio.get('/v1/stories/feed');
+      final response = await _dio.get('/stories/feed');
       final payload = ApiClient.instance.unwrap(response);
 
       if (payload is Map<String, dynamic> && payload.containsKey('data')) {
@@ -80,7 +80,7 @@ class StoryNotifier extends Notifier<StoryState> {
 
     // Try posting to backend API
     try {
-      await _dio.post('/v1/stories', data: {
+      await _dio.post('/stories', data: {
         'media_url': mediaUrl,
         'caption': caption,
         'media_type': 'image',
@@ -129,7 +129,7 @@ class StoryNotifier extends Notifier<StoryState> {
     state = state.copyWith(groups: updatedGroups);
 
     // Notify backend asynchronously
-    _dio.post('/v1/stories/$storyId/view').catchError((_) => Response(requestOptions: RequestOptions()));
+    _dio.post('/stories/$storyId/view').catchError((_) => Response(requestOptions: RequestOptions()));
   }
 
   /// Default initial stories for the authenticated user.

@@ -65,6 +65,10 @@ class ApiClient {
     return dio;
   }
 
+  void updateBaseUrl(String newUrl) {
+    dio.options.baseUrl = newUrl;
+  }
+
   Future<Response<T>> get<T>(
     String path, {
     Object? data,
@@ -178,9 +182,14 @@ class ApiClient {
 
   // ── Token & Onboarding storage ────────────────────────────────
   static const aiOnboardingCompletedKey = 'murihspace_ai_onboarding_completed';
+  static const apiEnvKey = 'murihspace_api_env';
   static Future<String?> readToken() => _secureStorage.read(key: tokenKey);
   static Future<void> saveToken(String token) => _secureStorage.write(key: tokenKey, value: token);
   static Future<void> clearToken() => _secureStorage.delete(key: tokenKey);
+
+  static Future<String?> readApiEnv() => _secureStorage.read(key: apiEnvKey);
+  static Future<void> saveApiEnv(String env) => _secureStorage.write(key: apiEnvKey, value: env);
+  static Future<void> clearApiEnv() => _secureStorage.delete(key: apiEnvKey);
 
   static Future<String?> readAiOnboardingCompleted() => _secureStorage.read(key: aiOnboardingCompletedKey);
   static Future<void> saveAiOnboardingCompleted() => _secureStorage.write(key: aiOnboardingCompletedKey, value: 'true');

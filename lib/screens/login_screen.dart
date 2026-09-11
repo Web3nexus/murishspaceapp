@@ -8,6 +8,8 @@ import 'package:pinput/pinput.dart';
 import '../components/app_bottom_sheet.dart';
 import '../components/brand.dart';
 import '../components/inline_field_error.dart';
+import '../config/env.dart';
+import '../core/api_client.dart';
 import '../core/design_tokens.dart';
 import '../core/roles.dart';
 import '../providers/auth_provider.dart';
@@ -236,9 +238,73 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               ),
             ],
           ),
-        );
       },
     ).whenComplete(() => pollTimer?.cancel());
+  }
+
+  void _showEnvironmentSwitcher(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        final current = Env.apiEnv;
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Select Server Environment',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Choose backend server for authentication and data sync.',
+                  style: TextStyle(fontSize: 13, color: Colors.grey),
+                ),
+                const SizedBox(height: 16),
+                _envTile('staging', 'Staging Backend (api-staging.murihspace.com)', 'Recommended for testing features', current == 'staging'),
+                _envTile('production', 'Production Backend (api.murihspace.com)', 'Live platform environment', current == 'production' || current == 'prod'),
+                _envTile('local', 'Local Emulator (10.0.2.2:8000)', 'Local development server', current == 'local'),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _envTile(String envKey, String title, String subtitle, bool isSelected) {
+    return ListTile(
+      leading: Icon(
+        isSelected ? Icons.radio_button_checked : Icons.radio_button_off,
+        color: isSelected ? Colors.green : Colors.grey,
+      ),
+      title: Text(title, style: TextStyle(fontWeight: isSelected ? FontWeight.bold : FontWeight.normal, fontSize: 14)),
+      subtitle: Text(subtitle, style: const TextStyle(fontSize: 12)),
+      onTap: () async {
+        Navigator.pop(context);
+        Env.setRuntimeEnv(envKey);
+        ApiClient.instance.updateBaseUrl(Env.apiBaseUrl);
+        await ApiClient.saveApiEnv(envKey);
+        await ApiClient.clearToken();
+        await ApiClient.clearUserProfile();
+        ref.read(authProvider.notifier).logout();
+        if (mounted) {
+          setState(() {});
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Switched to ${envKey.toUpperCase()} (${Env.apiBaseUrl})'),
+              backgroundColor: isSelected ? Colors.blueGrey : Colors.teal,
+            ),
+          );
+        }
+      },
+    );
   }
 
   @override
@@ -287,7 +353,52 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 BrandLogo(height: 42, isDark: isDark),
-                const SizedBox(height: 24),
+                const SizedBox(height: 10),
+                Center(
+                  child: InkWell(
+                    onTap: () => _showEnvironmentSwitcher(context),
+                    borderRadius: BorderRadius.circular(14),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Env.apiEnv == 'staging'
+                            ? Colors.green.withValues(alpha: 0.12)
+                            : Colors.blue.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: Env.apiEnv == 'staging'
+                              ? Colors.green.withValues(alpha: 0.3)
+                              : Colors.blue.withValues(alpha: 0.3),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 7,
+                            height: 7,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Env.apiEnv == 'staging' ? Colors.green : Colors.blue,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Server: ${Env.apiEnv.toUpperCase()}',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: textSecondary,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Icon(Icons.unfold_more, size: 14, color: textSecondary),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 18),
                 Text(
                   'Connect Safely.',
                   style: TextStyle(
