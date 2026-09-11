@@ -229,7 +229,7 @@ class _ChatBody extends ConsumerStatefulWidget {
 class _ChatBodyState extends ConsumerState<_ChatBody> {
   String _filter = 'All';
   bool _showPullHeader = false;
-  static const _filters = ['All', 'Communities', 'Marketplace', 'Requests', 'Spam'];
+  static const _filters = ['All', 'App', 'Communities', 'Marketplace', 'Requests', 'Spam'];
 
   @override
   Widget build(BuildContext context) {
@@ -239,14 +239,35 @@ class _ChatBodyState extends ConsumerState<_ChatBody> {
     final base = all.where((c) => !c.isArchived).toList();
 
     final filtered = switch (_filter) {
-      'Communities' => base.where((c) => c.type == 'community' || c.community != null).toList(),
+      // 'App' = personal/direct DMs that are NOT marketplace, community, or group chats
+      'App' => base
+          .where((c) =>
+              (c.type == 'direct' || c.type == 'app') &&
+              !c.hasActiveEscrow &&
+              c.type != 'marketplace' &&
+              c.type != 'saved' &&
+              c.community == null &&
+              (c.memberCount == null || c.memberCount! <= 2))
+          .toList(),
+      // 'Communities' = group chats, community channels, and chats with member count > 2
+      'Communities' => base
+          .where((c) =>
+              c.type == 'community' ||
+              c.type == 'group' ||
+              c.community != null ||
+              (c.memberCount != null && c.memberCount! > 2))
+          .toList(),
+      // 'Marketplace' = escrow/commerce/deal/product chats
       'Marketplace' => base
           .where((c) =>
               c.type == 'marketplace' ||
               c.hasActiveEscrow ||
+              (c.escrowAmount != null && c.escrowAmount! > 0) ||
               c.title.toLowerCase().contains('order') ||
+              c.title.toLowerCase().contains('deal') ||
               c.title.toLowerCase().contains('product') ||
               c.title.toLowerCase().contains('store') ||
+              c.title.toLowerCase().contains('escrow') ||
               c.title.toLowerCase().contains('seller') ||
               c.title.toLowerCase().contains('buyer'))
           .toList(),
@@ -332,7 +353,13 @@ class _ChatBodyState extends ConsumerState<_ChatBody> {
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              if (f == 'Communities')
+                              if (f == 'App')
+                                Padding(
+                                  padding: const EdgeInsets.only(right: 6),
+                                  child: Icon(Icons.chat_bubble_outline_rounded,
+                                      size: 15, color: selected ? Colors.white : (isDark ? Colors.grey[400] : Colors.grey[700])),
+                                )
+                              else if (f == 'Communities')
                                 Padding(
                                   padding: const EdgeInsets.only(right: 6),
                                   child: Icon(Icons.groups_rounded,

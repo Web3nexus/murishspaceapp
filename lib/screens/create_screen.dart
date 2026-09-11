@@ -818,79 +818,115 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
             ),
             const SizedBox(height: 16),
 
-            // FOR YOU: Create Your Ads Today Card
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF007AFF), Color(0xFF5856D6)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
+            // FOR YOU: Create Your Ads Today Card — Premium Clean Design
+            Builder(builder: (context) {
+              final isDarkCard = Theme.of(context).brightness == Brightness.dark;
+              final cardBg = isDarkCard ? const Color(0xFF1A1D27) : const Color(0xFFF8FAFC);
+              final borderColor = isDarkCard ? const Color(0xFF2E3347) : const Color(0xFFDDE3EF);
+              final titleColor = isDarkCard ? Colors.white : const Color(0xFF0D1117);
+              final subtitleColor = isDarkCard ? const Color(0xFF8B92A5) : const Color(0xFF5A6478);
+
+              return Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: cardBg,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: borderColor, width: 1),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(isDarkCard ? 0.25 : 0.06),
+                      blurRadius: 12,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
                 ),
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF007AFF).withOpacity(0.25),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.25),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Text(
-                          'FOR YOU',
-                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 10),
-                        ),
-                      ),
-                      const Icon(Icons.ads_click_rounded, color: Colors.white70, size: 22),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  const Text(
-                    'Create Your Ads Today',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    'Boost your catalog products, drive 5x more conversions, and convert chats into escrow sales.',
-                    style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.3),
-                  ),
-                  const SizedBox(height: 14),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 42,
-                    child: ElevatedButton(
-                      onPressed: () => context.push('/ads-manager'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: const Color(0xFF007AFF),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        elevation: 0,
-                      ),
-                      child: const Text(
-                        'Launch Ads & Catalog Promos',
-                        style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Left accent bar
+                    Container(
+                      width: 3,
+                      height: 80,
+                      margin: const EdgeInsets.only(right: 14, top: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF00C9A7),
+                        borderRadius: BorderRadius.circular(4),
                       ),
                     ),
-                  ),
-                ],
-              ),
-            ),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF00C9A7).withOpacity(0.12),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(
+                                    color: const Color(0xFF00C9A7).withOpacity(0.3),
+                                    width: 1,
+                                  ),
+                                ),
+                                child: const Text(
+                                  'FOR YOU',
+                                  style: TextStyle(
+                                    color: Color(0xFF00C9A7),
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 9,
+                                    letterSpacing: 0.8,
+                                  ),
+                                ),
+                              ),
+                              Icon(
+                                Icons.ads_click_rounded,
+                                color: const Color(0xFF00C9A7).withOpacity(0.7),
+                                size: 20,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            'Create Your Ads Today',
+                            style: TextStyle(
+                              color: titleColor,
+                              fontSize: 17,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.3,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Boost your catalog products, drive 5x more conversions, and convert chats into escrow sales.',
+                            style: TextStyle(color: subtitleColor, fontSize: 12, height: 1.35),
+                          ),
+                          const SizedBox(height: 14),
+                          SizedBox(
+                            width: double.infinity,
+                            height: 42,
+                            child: ElevatedButton(
+                              onPressed: () => context.push('/ads-manager'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF00C9A7),
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                elevation: 0,
+                              ),
+                              child: const Text(
+                                'Launch Ads & Catalog Promos',
+                                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
             const SizedBox(height: 18),
 
             // Quick Creation Action Grid Header

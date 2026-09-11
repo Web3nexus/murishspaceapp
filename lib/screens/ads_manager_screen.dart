@@ -211,93 +211,120 @@ class _AdsManagerScreenState extends ConsumerState<AdsManagerScreen>
       ),
       body: Column(
         children: [
-          // "For You: Create Your Ads Today" Banner Card
+          // "For You: Create Your Ads Today" Banner Card — Premium Clean Design
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF007AFF), Color(0xFF5856D6)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
+            child: Builder(builder: (context) {
+              final isDarkCard = Theme.of(context).brightness == Brightness.dark;
+              final cardBg = isDarkCard ? const Color(0xFF1A1D27) : const Color(0xFFF8FAFC);
+              final borderColor = isDarkCard ? const Color(0xFF2E3347) : const Color(0xFFDDE3EF);
+              final titleColor = isDarkCard ? Colors.white : const Color(0xFF0D1117);
+              final subtitleColor = isDarkCard ? const Color(0xFF8B92A5) : const Color(0xFF5A6478);
+
+              return Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: cardBg,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: borderColor, width: 1),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(isDarkCard ? 0.25 : 0.06),
+                      blurRadius: 12,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
                 ),
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF007AFF).withOpacity(0.3),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.25),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: const Text(
-                                'FOR YOU',
-                                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 10),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            if (!verified)
+                child: Row(
+                  children: [
+                    // Left accent bar
+                    Container(
+                      width: 3,
+                      height: 64,
+                      margin: const EdgeInsets.only(right: 14),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF00C9A7),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFFFF9500),
-                                  borderRadius: BorderRadius.circular(8),
+                                  color: const Color(0xFF00C9A7).withOpacity(0.12),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(
+                                    color: const Color(0xFF00C9A7).withOpacity(0.3),
+                                    width: 1,
+                                  ),
                                 ),
                                 child: const Text(
-                                  'Verification Needed',
-                                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10),
+                                  'FOR YOU',
+                                  style: TextStyle(
+                                    color: Color(0xFF00C9A7),
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 9,
+                                    letterSpacing: 0.8,
+                                  ),
                                 ),
                               ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          'Create Your Ads Today',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.w900,
+                              if (!verified) ...[
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFFF9500).withOpacity(0.12),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: const Text(
+                                    'Verification Needed',
+                                    style: TextStyle(color: Color(0xFFFF9500), fontWeight: FontWeight.bold, fontSize: 9),
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
-                        ),
-                        const SizedBox(height: 4),
-                        const Text(
-                          'Promote products & boost high-conversion sales across feeds and messenger.',
-                          style: TextStyle(color: Colors.white70, fontSize: 12),
-                        ),
-                      ],
+                          const SizedBox(height: 8),
+                          Text(
+                            'Create Your Ads Today',
+                            style: TextStyle(
+                              color: titleColor,
+                              fontSize: 17,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.3,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            'Promote products & boost high-conversion sales across feeds and messenger.',
+                            style: TextStyle(color: subtitleColor, fontSize: 12, height: 1.4),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  ElevatedButton(
-                    onPressed: () {
-                      _tabController.animateTo(0);
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: const Color(0xFF007AFF),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      elevation: 0,
+                    const SizedBox(width: 12),
+                    ElevatedButton(
+                      onPressed: () {
+                        _tabController.animateTo(0);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF00C9A7),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      ),
+                      child: const Text('Start Ad', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
                     ),
-                    child: const Text('Start Ad', style: TextStyle(fontWeight: FontWeight.w800)),
-                  ),
-                ],
-              ),
-            ),
+                  ],
+                ),
+              );
+            }),
           ),
 
           Expanded(

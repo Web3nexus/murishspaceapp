@@ -224,6 +224,8 @@ class Conversation {
   final bool hasActiveEscrow;
   final double? escrowAmount;
   final String? escrowCurrency;
+  final bool isFinancial;
+  final List<String> tags;
 
   const Conversation({
     required this.id,
@@ -241,6 +243,8 @@ class Conversation {
     this.hasActiveEscrow = false,
     this.escrowAmount,
     this.escrowCurrency = 'USD',
+    this.isFinancial = false,
+    this.tags = const [],
   });
 
   String? get avatarUrl => otherUser?.avatarUrl ?? community?.logoUrl;
@@ -263,6 +267,8 @@ class Conversation {
     bool? hasActiveEscrow,
     double? escrowAmount,
     String? escrowCurrency,
+    bool? isFinancial,
+    List<String>? tags,
   }) {
     return Conversation(
       id: id,
@@ -280,10 +286,17 @@ class Conversation {
       hasActiveEscrow: hasActiveEscrow ?? this.hasActiveEscrow,
       escrowAmount: escrowAmount ?? this.escrowAmount,
       escrowCurrency: escrowCurrency ?? this.escrowCurrency,
+      isFinancial: isFinancial ?? this.isFinancial,
+      tags: tags ?? this.tags,
     );
   }
 
-  factory Conversation.fromJson(dynamic json) {
+  factory Conversation.fromJson(dynamic raw) {
+    // Unwrap nested 'data' envelope if middleware double-wrapped the response
+    final json = (raw is Map<String, dynamic> && raw.containsKey('data') && raw['id'] == null)
+        ? raw['data'] as Map<String, dynamic>? ?? raw
+        : raw;
+
     if (json is! Map<String, dynamic>) {
       return const Conversation(id: 0, type: 'direct', title: 'Direct Message');
     }
@@ -292,6 +305,14 @@ class Conversation {
     final effectiveTitle = (rawTitle != null && rawTitle.isNotEmpty)
         ? rawTitle
         : (other.name.isNotEmpty ? other.name : 'Direct Message');
+
+    final hasEscrow = (json['has_active_escrow'] as bool?) ?? (json['escrow_amount'] != null);
+    final isFinancialFromServer = (json['is_financial'] as bool?) ?? hasEscrow;
+
+    final rawTags = json['tags'];
+    final tags = rawTags is List
+        ? rawTags.map((t) => t.toString()).toList()
+        : <String>[];
 
     return Conversation(
       id: (json['id'] as num?)?.toInt() ?? 0,
@@ -306,9 +327,11 @@ class Conversation {
       isMuted: (json['is_muted'] as bool?) ?? false,
       isPinned: (json['is_pinned'] as bool?) ?? false,
       memberCount: (json['member_count'] as num?)?.toInt(),
-      hasActiveEscrow: (json['has_active_escrow'] as bool?) ?? (json['escrow_amount'] != null),
+      hasActiveEscrow: hasEscrow,
       escrowAmount: (json['escrow_amount'] as num?)?.toDouble(),
       escrowCurrency: json['escrow_currency']?.toString() ?? 'USD',
+      isFinancial: isFinancialFromServer,
+      tags: tags,
     );
   }
 }
