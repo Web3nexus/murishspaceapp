@@ -51,9 +51,12 @@ class Community {
     if (json is! Map<String, dynamic>) {
       return const Community(id: 0, name: '', slug: '');
     }
+    final creatorUser = ChatUser.fromJson(json['creator']);
     return Community(
       id: (json['id'] as num?)?.toInt() ?? 0,
-      userId: (json['user_id'] as num?)?.toInt(),
+      userId: (json['user_id'] as num?)?.toInt() ??
+          (json['userId'] as num?)?.toInt() ??
+          (creatorUser.id != 0 ? creatorUser.id : null),
       name: json['name']?.toString() ?? '',
       slug: json['slug']?.toString() ?? '',
       description: json['description']?.toString(),
@@ -65,8 +68,8 @@ class Community {
       coverUrl: json['cover_url']?.toString(),
       membersCount:
           (json['members_count'] as num?)?.toInt() ?? (json['active_members_count'] as num?)?.toInt() ?? 0,
-      isJoined: (json['is_joined'] as bool?) ?? (json['joined'] as bool?) ?? true,
-      creator: ChatUser.fromJson(json['creator']),
+      isJoined: (json['is_joined'] as bool?) ?? (json['joined'] as bool?) ?? false,
+      creator: creatorUser,
     );
   }
 }
@@ -85,13 +88,21 @@ class MembershipStatus {
     this.status = 'none',
   });
 
-  factory MembershipStatus.fromJson(dynamic json) {
-    if (json is! Map<String, dynamic>) return const MembershipStatus(isMember: false, isPending: false);
+  factory MembershipStatus.fromJson(dynamic rawJson) {
+    if (rawJson is! Map<String, dynamic>) return const MembershipStatus(isMember: false, isPending: false);
+    final json = (rawJson['data'] is Map<String, dynamic>) ? rawJson['data'] as Map<String, dynamic> : rawJson;
+    final statusStr = (json['status'] ?? 
+        (json['membership'] is Map ? (json['membership'] as Map)['status'] : null))?.toString().toLowerCase() ?? 'none';
+    final role = json['role']?.toString() ?? 
+        (json['membership'] is Map ? (json['membership'] as Map)['role']?.toString() : null);
+    final isMember = json['is_member'] == true || statusStr == 'active' || role == 'owner' || role == 'admin' || role == 'moderator';
+    final isPending = json['is_pending'] == true || statusStr == 'pending';
+
     return MembershipStatus(
-      isMember: json['is_member'] as bool? ?? false,
-      isPending: json['is_pending'] as bool? ?? false,
-      role: json['role']?.toString(),
-      status: json['status']?.toString() ?? 'none',
+      isMember: isMember,
+      isPending: isPending,
+      role: role,
+      status: statusStr,
     );
   }
 }

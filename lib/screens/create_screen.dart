@@ -955,7 +955,7 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
                     isDark: isDark,
                     onTap: () => showStoryComposerSheet(context),
                   ),
-                if (isCreator && Permissions.roleHas(role, 'community.create'))
+                if ((isCreator || isVendor) && Permissions.roleHas(role, 'community.create'))
                   _createGridCard(
                     icon: Icons.group_add_rounded,
                     iconColor: const Color(0xFF5856D6),
@@ -1016,6 +1016,16 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
                       subtitle: Text('Virtual conference or in-person meetup for creators', style: TextStyle(fontSize: 12, color: textSecondary)),
                       trailing: const Icon(Icons.chevron_right_rounded),
                       onTap: _showScheduleEventModal,
+                    ),
+                  ],
+                  if (isCreator || isVendor) ...[
+                    Divider(height: 1, color: isDark ? const Color(0xFF3A3B3C) : const Color(0xFFE4E6EB)),
+                    ListTile(
+                      leading: const Icon(Icons.groups_rounded, color: Color(0xFF5856D6)),
+                      title: Text('Manage Communities & Groups', style: TextStyle(fontWeight: FontWeight.w700, color: textPrimary)),
+                      subtitle: Text('Manage members, requests, and group settings', style: TextStyle(fontSize: 12, color: textSecondary)),
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                      onTap: () => context.push('/app/communities'),
                     ),
                   ],
                 ],

@@ -23,7 +23,6 @@ import '../screens/community_detail_screen.dart';
 import '../screens/community_create_dialog.dart';
 import '../screens/conversation_screen.dart';
 import '../screens/create_screen.dart';
-import '../screens/discover_screen.dart';
 import '../screens/forgot_password_screen.dart';
 import '../screens/gifts_screen.dart';
 import '../screens/kyc_screen.dart';
@@ -328,6 +327,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/app/communities',
+        builder: (_, _) => const CommunitiesScreen(),
+      ),
+      GoRoute(
+        path: '/communities/create',
         builder: (_, _) => const CommunitiesScreen(),
       ),
       GoRoute(

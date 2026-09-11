@@ -6,7 +6,6 @@ import 'package:image_picker/image_picker.dart';
 
 import '../components/create_poll_sheet.dart';
 import '../components/emoji_picker_sheet.dart';
-import '../core/design_tokens.dart';
 import '../models/chat_models.dart';
 import 'community_create_dialog.dart';
 

@@ -247,7 +247,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                     label: const Text('Add 24h Story'),
                     onPressed: () {
                       Navigator.pop(ctx);
-                      StoryComposerSheet.show(context);
+                      showStoryComposerSheet(context);
                     },
                   )
                 else
@@ -591,9 +591,6 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
           // Real Creator Courses & Digital Goods Showcase
           _UserCoursesAndGoodsShowcase(userId: widget.userId, creatorName: widget.name),
           const SizedBox(height: 30),
-              ],
-            ),
-          ),
         ],
       ),
     );

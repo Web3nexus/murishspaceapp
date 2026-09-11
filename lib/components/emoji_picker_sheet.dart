@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../config/design_tokens.dart';
+import '../core/design_tokens.dart';
 
 class EmojiPickerSheet extends StatefulWidget {
   final ValueChanged<String> onEmojiSelected;

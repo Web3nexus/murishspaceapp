@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../config/design_tokens.dart';
+import '../core/design_tokens.dart';
 
 /// Comprehensive Share Service bringing up native phone share sheet + direct app channels.
 class AppShare {
@@ -258,3 +258,4 @@ class _ShareChannel {
     required this.onTap,
   });
 }
+

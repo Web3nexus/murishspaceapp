@@ -7,7 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../components/online_status_badge.dart';
-import '../config/design_tokens.dart';
+import '../core/design_tokens.dart';
 import '../core/api_client.dart';
 import '../models/chat_models.dart';
 import '../providers/chat_provider.dart';
@@ -37,7 +37,6 @@ class _ChatProfileSettingsScreenState extends ConsumerState<ChatProfileSettingsS
   bool _isNotificationsEnabled = true;
   String _muteDuration = 'None';
   String _selectedSound = 'Default';
-  bool _isLoading = false;
 
   @override
   void initState() {
@@ -63,7 +62,8 @@ class _ChatProfileSettingsScreenState extends ConsumerState<ChatProfileSettingsS
           localizedReason: enable
               ? 'Authenticate to lock this conversation'
               : 'Authenticate to unlock this conversation',
-          options: const AuthenticationOptions(stickyAuth: true, biometricOnly: false),
+          persistAcrossBackgrounding: true,
+          biometricOnly: false,
         );
         if (!didAuth) return;
       }
@@ -358,7 +358,7 @@ class _ChatProfileSettingsScreenState extends ConsumerState<ChatProfileSettingsS
                 if (groupName.isEmpty) return;
 
                 try {
-                  final resp = await ApiClient.instance.dio.post('/conversations/group', data: {
+                  await ApiClient.instance.dio.post('/conversations/group', data: {
                     'title': groupName,
                   });
                   if (mounted) {

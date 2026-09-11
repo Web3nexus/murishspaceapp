@@ -54,8 +54,8 @@ abstract final class Permissions {
     'product.manage': [UserRole.creator, UserRole.vendor],
 
     // Community
-    'community.create': [UserRole.creator],
-    'community.manage': [UserRole.creator],
+    'community.create': [UserRole.creator, UserRole.vendor],
+    'community.manage': [UserRole.creator, UserRole.vendor],
 
     // Events
     'event.create': [UserRole.creator],

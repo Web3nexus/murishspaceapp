@@ -549,10 +549,35 @@ class CommunityDetailNotifier extends Notifier<CommunityDetailState> {
   Future<void> _load() async {
     try {
       final response = await _dio.get('/communities/$slug');
-      final payload = ApiClient.instance.unwrap(response);
-      final community = Community.fromJson(payload is Map<String, dynamic> ? payload['community'] : null);
+      final rawData = response.data;
+      Map<String, dynamic>? commJson;
+      Map<String, dynamic>? membJson;
+
+      if (rawData is Map<String, dynamic>) {
+        if (rawData['community'] is Map<String, dynamic>) {
+          commJson = rawData['community'] as Map<String, dynamic>;
+        } else if (rawData['data'] is Map<String, dynamic>) {
+          final inner = rawData['data'] as Map<String, dynamic>;
+          commJson = inner['community'] is Map<String, dynamic>
+              ? inner['community'] as Map<String, dynamic>
+              : inner;
+          if (inner['membership'] is Map<String, dynamic>) {
+            membJson = inner['membership'] as Map<String, dynamic>;
+          }
+        } else {
+          commJson = rawData;
+        }
+
+        if (membJson == null && rawData['membership'] is Map<String, dynamic>) {
+          membJson = rawData['membership'] as Map<String, dynamic>;
+        }
+      }
+
+      final community = Community.fromJson(commJson);
       MembershipStatus? membership;
-      if (community.id != 0) {
+      if (membJson != null) {
+        membership = MembershipStatus.fromJson(membJson);
+      } else if (community.id != 0) {
         membership = await _loadMembership(community.id);
       }
       state = CommunityDetailState(community: community, membership: membership);
@@ -580,19 +605,23 @@ class CommunityDetailNotifier extends Notifier<CommunityDetailState> {
     try {
       final response = await _dio.post('/communities/${community.id}/join');
       final data = response.data;
-      final status = data is Map<String, dynamic> ? data['status'] : null;
+      final parsedStatus = MembershipStatus.fromJson(data);
+      final isPending = parsedStatus.isPending;
+      final isMember = parsedStatus.isMember || !isPending;
+
       state = state.copyWith(
         membership: MembershipStatus(
-          isMember: status == 'active',
-          isPending: status == 'pending',
-          role: status == 'active' ? 'member' : null,
-          status: status as String? ?? 'none',
+          isMember: isMember,
+          isPending: isPending,
+          role: parsedStatus.role ?? 'member',
+          status: isPending ? 'pending' : 'active',
         ),
       );
-      if (status == 'active') {
+      if (isMember) {
         state = state.copyWith(
           community: Community(
             id: community.id,
+            userId: community.userId,
             name: community.name,
             slug: community.slug,
             description: community.description,
@@ -603,6 +632,7 @@ class CommunityDetailNotifier extends Notifier<CommunityDetailState> {
             logoUrl: community.logoUrl,
             coverUrl: community.coverUrl,
             membersCount: community.membersCount + 1,
+            isJoined: true,
             creator: community.creator,
           ),
         );
@@ -622,6 +652,7 @@ class CommunityDetailNotifier extends Notifier<CommunityDetailState> {
         membership: const MembershipStatus(isMember: false, isPending: false, status: 'none'),
         community: Community(
           id: community.id,
+          userId: community.userId,
           name: community.name,
           slug: community.slug,
           description: community.description,
@@ -632,6 +663,7 @@ class CommunityDetailNotifier extends Notifier<CommunityDetailState> {
           logoUrl: community.logoUrl,
           coverUrl: community.coverUrl,
           membersCount: (community.membersCount - 1).clamp(0, 1 << 31),
+          isJoined: false,
           creator: community.creator,
         ),
       );

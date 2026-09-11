@@ -152,7 +152,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       isDark: isDark,
                       onTap: () {
                         Navigator.pop(ctx);
-                        context.push('/communities/create');
+                        context.push('/app/communities');
                       },
                     ),
                   ),

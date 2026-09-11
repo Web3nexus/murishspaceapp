@@ -171,7 +171,8 @@ class _CommunityDetailScreenState extends ConsumerState<CommunityDetailScreen>
     final community = detail.community;
     final membership = detail.membership;
     final myId = ref.watch(authProvider).user?.id;
-    final isCreator = community?.creator?.id == myId;
+    final isCreator = myId != null &&
+        (community?.creator?.id == myId || community?.userId == myId);
 
     return Scaffold(
       appBar: AppBar(
@@ -222,7 +223,10 @@ class _CommunityDetailScreenState extends ConsumerState<CommunityDetailScreen>
   }
 
   Widget _buildContent(Community community, MembershipStatus? membership, bool isCreator) {
-    final isMember = membership?.isMember ?? false;
+    final myId = ref.watch(authProvider).user?.id;
+    final inMyList = myId != null &&
+        ref.watch(myCommunitiesProvider).communities.any((c) => c.id == community.id);
+    final isMember = isCreator || (membership?.isMember ?? false) || inMyList || community.isJoined;
     final tabCount = isCreator ? 5 : 4;
     _syncTabCount(tabCount);
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -236,6 +240,7 @@ class _CommunityDetailScreenState extends ConsumerState<CommunityDetailScreen>
             child: _CommunityHeader(
               community: community,
               membership: membership,
+              isMember: isMember,
               isCreator: isCreator,
               onJoin: () => _join(community),
               onLeave: () => _leave(community),
@@ -356,12 +361,30 @@ class _CommunityDetailScreenState extends ConsumerState<CommunityDetailScreen>
   }
 
   Future<void> _leave(Community community) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Leave Community'),
+        content: Text('Are you sure you want to leave ${community.name}? You will lose access to member discussions and community updates.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+            style: TextButton.styleFrom(foregroundColor: const Color(0xFFFF3B30)),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Leave', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true || !mounted) return;
+
     final notifier = ref.read(communityDetailProvider(widget.slug).notifier);
     final ok = await notifier.leave();
     if (!mounted) return;
     if (ok) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Left the community.')),
+        SnackBar(content: Text('Left ${community.name}.')),
       );
       ref.read(myCommunitiesProvider.notifier).remove(community.id);
     } else {
@@ -375,6 +398,7 @@ class _CommunityDetailScreenState extends ConsumerState<CommunityDetailScreen>
 class _CommunityHeader extends ConsumerWidget {
   final Community community;
   final MembershipStatus? membership;
+  final bool isMember;
   final bool isCreator;
   final VoidCallback onJoin;
   final VoidCallback onLeave;
@@ -382,6 +406,7 @@ class _CommunityHeader extends ConsumerWidget {
   const _CommunityHeader({
     required this.community,
     this.membership,
+    required this.isMember,
     required this.isCreator,
     required this.onJoin,
     required this.onLeave,
@@ -389,7 +414,6 @@ class _CommunityHeader extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final isMember = membership?.isMember ?? false;
     final isPending = membership?.isPending ?? false;
     final isPaid = community.pricingType == 'paid' && (community.priceAmount ?? 0) > 0;
     final coinPrice = (community.priceAmount ?? 50).toInt();
@@ -402,7 +426,7 @@ class _CommunityHeader extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Banner Image Container
+          // Banner Image Container (solid slate with dot pattern)
           Stack(
             clipBehavior: Clip.none,
             children: [
@@ -410,11 +434,7 @@ class _CommunityHeader extends ConsumerWidget {
                 width: double.infinity,
                 height: 140,
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF007AFF), Color(0xFF5856D6)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
+                  color: isDark ? const Color(0xFF141720) : const Color(0xFF1E2433),
                   image: coverUrl != null && coverUrl.isNotEmpty
                       ? DecorationImage(
                           image: NetworkImage(coverUrl),
@@ -422,6 +442,9 @@ class _CommunityHeader extends ConsumerWidget {
                         )
                       : null,
                 ),
+                child: coverUrl == null || coverUrl.isEmpty
+                    ? CustomPaint(painter: _PatternCoverPainter(isDark: isDark))
+                    : null,
               ),
               // Creator Edit & Manage Button
               if (isCreator)
@@ -502,6 +525,27 @@ class _CommunityHeader extends ConsumerWidget {
                                 '${community.membersCount} members · ${community.visibility.toUpperCase()}',
                                 style: TextStyle(fontSize: 12, color: isDark ? Colors.grey[400] : Colors.grey[600], fontWeight: FontWeight.w600),
                               ),
+                              if (isCreator) ...[
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF007AFF).withOpacity(0.15),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: const Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.stars_rounded, size: 12, color: Color(0xFF007AFF)),
+                                      SizedBox(width: 3),
+                                      Text(
+                                        'Owner',
+                                        style: TextStyle(color: Color(0xFF007AFF), fontWeight: FontWeight.bold, fontSize: 10),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
                               if (isPaid) ...[
                                 const SizedBox(width: 8),
                                 Container(
@@ -528,10 +572,85 @@ class _CommunityHeader extends ConsumerWidget {
                         ],
                       ),
                     ),
-                    if (isMember)
-                      OutlinedButton(
-                        onPressed: onLeave,
-                        child: const Text('Leave'),
+                    if (isCreator)
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF007AFF),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                        ),
+                        onPressed: () => CommunityManageSheet.show(context, community),
+                        icon: const Icon(Icons.tune_rounded, size: 16),
+                        label: const Text('Manage', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                      )
+                    else if (isMember)
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF34C759).withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: const Color(0xFF34C759).withOpacity(0.4)),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.check_circle_rounded, size: 15, color: Color(0xFF34C759)),
+                                SizedBox(width: 4),
+                                Text(
+                                  'Joined',
+                                  style: TextStyle(
+                                    color: Color(0xFF34C759),
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          PopupMenuButton<String>(
+                            icon: Icon(Icons.more_vert_rounded, size: 20, color: isDark ? Colors.grey[400] : Colors.grey[600]),
+                            tooltip: 'Membership options',
+                            onSelected: (val) {
+                              if (val == 'leave') {
+                                onLeave();
+                              }
+                            },
+                            itemBuilder: (ctx) => [
+                              const PopupMenuItem(
+                                value: 'leave',
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.exit_to_app_rounded, color: Color(0xFFFF3B30), size: 18),
+                                    SizedBox(width: 8),
+                                    Text('Leave Community', style: TextStyle(color: Color(0xFFFF3B30), fontWeight: FontWeight.w600)),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      )
+                    else if (isPending)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: Colors.amber.withOpacity(0.5)),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.hourglass_top_rounded, size: 14, color: Colors.amber),
+                            SizedBox(width: 4),
+                            Text('Pending', style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 13)),
+                          ],
+                        ),
                       )
                     else
                       ElevatedButton(
@@ -539,20 +658,19 @@ class _CommunityHeader extends ConsumerWidget {
                           backgroundColor: isPaid ? const Color(0xFFFF9500) : const Color(0xFF007AFF),
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                         ),
-                        onPressed: isPending ? null : onJoin,
-                        child: isPending
-                            ? const Text('Pending')
-                            : (isPaid
-                                ? Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      const Icon(Icons.monetization_on_rounded, size: 16, color: Colors.white),
-                                      const SizedBox(width: 4),
-                                      Text('Subscribe ($coinPrice)', style: const TextStyle(fontWeight: FontWeight.bold)),
-                                    ],
-                                  )
-                                : const Text('Join Community', style: TextStyle(fontWeight: FontWeight.bold))),
+                        onPressed: onJoin,
+                        child: isPaid
+                            ? Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.monetization_on_rounded, size: 16, color: Colors.white),
+                                  const SizedBox(width: 4),
+                                  Text('Subscribe ($coinPrice)', style: const TextStyle(fontWeight: FontWeight.bold)),
+                                ],
+                              )
+                            : const Text('Join Community', style: TextStyle(fontWeight: FontWeight.bold)),
                       ),
                   ],
                 ),
@@ -1203,4 +1321,42 @@ class _SliverTabBarDelegate extends SliverPersistentHeaderDelegate {
   bool shouldRebuild(_SliverTabBarDelegate oldDelegate) {
     return tabBar != oldDelegate.tabBar || backgroundColor != oldDelegate.backgroundColor;
   }
+}
+
+class _PatternCoverPainter extends CustomPainter {
+  final bool isDark;
+
+  const _PatternCoverPainter({required this.isDark});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final dotPaint = Paint()
+      ..color = Colors.white.withOpacity(isDark ? 0.08 : 0.12)
+      ..style = PaintingStyle.fill;
+
+    const spacing = 18.0;
+    for (double x = 8; x < size.width; x += spacing) {
+      for (double y = 8; y < size.height; y += spacing) {
+        canvas.drawCircle(Offset(x, y), 1.2, dotPaint);
+      }
+    }
+
+    final linePaint = Paint()
+      ..color = Colors.white.withOpacity(isDark ? 0.05 : 0.08)
+      ..strokeWidth = 1.0
+      ..style = PaintingStyle.stroke;
+
+    for (int i = 0; i < 4; i++) {
+      final offset = i * 28.0;
+      canvas.drawLine(
+        Offset(size.width - 140 + offset, 0),
+        Offset(size.width + offset, 140),
+        linePaint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _PatternCoverPainter oldDelegate) =>
+      oldDelegate.isDark != isDark;
 }
