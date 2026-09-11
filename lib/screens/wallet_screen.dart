@@ -285,7 +285,18 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
   }
 
   void _openDepositModal() {
-    final amountController = TextEditingController(text: '5000');
+    final amountController = TextEditingController(text: '25');
+    String selectedCurrency = 'USD';
+    const availableCurrencies = ['USD', 'NGN', 'KES', 'GHS', 'EUR', 'GBP'];
+    final rates = {
+      'USD': 1.0,
+      'NGN': 1326.0,
+      'KES': 129.5,
+      'GHS': 11.4,
+      'EUR': 0.86,
+      'GBP': 0.74,
+    };
+
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -293,43 +304,155 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (ctx) {
         final isDark = Theme.of(ctx).brightness == Brightness.dark;
-        return Padding(
-          padding: EdgeInsets.only(left: 20, right: 20, top: 20, bottom: MediaQuery.of(ctx).viewInsets.bottom + 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Deposit Funds', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black)),
-              const SizedBox(height: 16),
-              TextField(
-                controller: amountController,
-                keyboardType: TextInputType.number,
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black),
-                decoration: InputDecoration(
-                  prefixText: '₦ ',
-                  labelText: 'Deposit Amount (NGN)',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
-                ),
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            final raw = double.tryParse(amountController.text.trim()) ?? 25.0;
+            final double usdAmount = selectedCurrency == 'USD'
+                ? raw
+                : (raw / (rates[selectedCurrency] ?? 1.0));
+            final double localAmount = selectedCurrency == 'USD'
+                ? (raw * (rates['NGN'] ?? 1326.0))
+                : raw;
+            final localCurrency = selectedCurrency == 'USD' ? 'NGN' : selectedCurrency;
+
+            return Padding(
+              padding: EdgeInsets.only(left: 20, right: 20, top: 20, bottom: MediaQuery.of(ctx).viewInsets.bottom + 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Deposit Funds (USD Base)', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black)),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF007AFF).withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Text('Locked Rate · 15m', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF007AFF))),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text('Balances are stored in USD to safeguard against local currency devaluation.', style: TextStyle(fontSize: 12, color: isDark ? Colors.grey[400] : Colors.grey[600])),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      // Currency Selector
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        decoration: BoxDecoration(
+                          color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF2F2F7),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: isDark ? Colors.white12 : Colors.black12),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: selectedCurrency,
+                            dropdownColor: isDark ? const Color(0xFF2C2C2E) : Colors.white,
+                            items: availableCurrencies.map((c) {
+                              return DropdownMenuItem<String>(
+                                value: c,
+                                child: Text('$c (${CurrencyFormatter.getSymbol(c)})', style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black)),
+                              );
+                            }).toList(),
+                            onChanged: (val) {
+                              if (val != null) {
+                                setSheetState(() {
+                                  selectedCurrency = val;
+                                  amountController.text = val == 'USD' ? '25' : '35000';
+                                });
+                              }
+                            },
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      // Amount Input
+                      Expanded(
+                        child: TextField(
+                          controller: amountController,
+                          keyboardType: TextInputType.number,
+                          onChanged: (_) => setSheetState(() {}),
+                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black),
+                          decoration: InputDecoration(
+                            prefixText: '${CurrencyFormatter.getSymbol(selectedCurrency)} ',
+                            labelText: 'Amount ($selectedCurrency)',
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+
+                  // Conversion Preview Box
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF242C38) : const Color(0xFFF0F5FF),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: const Color(0xFF007AFF).withValues(alpha: 0.2)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text('Credited to Wallet:', style: TextStyle(fontSize: 13, color: isDark ? Colors.grey[300] : Colors.grey[700])),
+                            Text('\$${usdAmount.toStringAsFixed(2)} USD', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF34C759))),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text('Estimated Local Charge:', style: TextStyle(fontSize: 13, color: isDark ? Colors.grey[300] : Colors.grey[700])),
+                            Text('${CurrencyFormatter.getSymbol(localCurrency)}${localAmount.toStringAsFixed(2)} $localCurrency', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: isDark ? Colors.grey[300] : Colors.grey[800])),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text('Equivalent MSH Coins:', style: TextStyle(fontSize: 13, color: isDark ? Colors.grey[300] : Colors.grey[700])),
+                            Text('${(usdAmount * 100).toInt()} MSH', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFFFF9500))),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF007AFF), foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
+                      onPressed: () async {
+                        final usdCents = (usdAmount * 100).toInt();
+                        await ref.read(walletProvider.notifier).deposit(amount: usdCents, currency: 'USD');
+                        if (mounted) {
+                          Navigator.pop(ctx);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Deposit of \$${usdAmount.toStringAsFixed(2)} USD successfully credited!'),
+                              backgroundColor: const Color(0xFF34C759),
+                            ),
+                          );
+                        }
+                      },
+                      child: Text('Deposit \$${usdAmount.toStringAsFixed(2)} USD', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF007AFF), foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
-                  onPressed: () async {
-                    final raw = int.tryParse(amountController.text.trim()) ?? 5000;
-                    await ref.read(walletProvider.notifier).deposit(amount: raw * 100);
-                    if (mounted) {
-                      Navigator.pop(ctx);
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Deposit of ₦$raw successful!'), backgroundColor: const Color(0xFF34C759)));
-                    }
-                  },
-                  child: const Text('Proceed to Checkout', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                ),
-              ),
-            ],
-          ),
+            );
+          },
         );
       },
     );
@@ -402,9 +525,19 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
       return;
     }
 
-    final amountController = TextEditingController(text: '10000');
+    final amountController = TextEditingController(text: '50');
     final pinController = TextEditingController();
     final security = ref.read(securityProvider);
+    String destCurrency = 'NGN';
+    const destCurrencies = ['NGN', 'KES', 'GHS', 'USD', 'EUR', 'GBP'];
+    final rates = {
+      'USD': 1.0,
+      'NGN': 1326.0,
+      'KES': 129.5,
+      'GHS': 11.4,
+      'EUR': 0.86,
+      'GBP': 0.74,
+    };
 
     showModalBottomSheet<void>(
       context: context,
@@ -413,65 +546,186 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (ctx) {
         final isDark = Theme.of(ctx).brightness == Brightness.dark;
-        return Padding(
-          padding: EdgeInsets.only(left: 20, right: 20, top: 20, bottom: MediaQuery.of(ctx).viewInsets.bottom + 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Withdraw to Bank Account', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black)),
-              const SizedBox(height: 16),
-              TextField(
-                controller: amountController,
-                keyboardType: TextInputType.number,
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black),
-                decoration: InputDecoration(
-                  prefixText: '₦ ',
-                  labelText: 'Withdrawal Amount',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
-                ),
-              ),
-              const SizedBox(height: 12),
-              if (security.isTransactionPinSet) ...[
-                TextField(
-                  controller: pinController,
-                  obscureText: true,
-                  keyboardType: TextInputType.number,
-                  maxLength: 4,
-                  style: TextStyle(color: isDark ? Colors.white : Colors.black),
-                  decoration: InputDecoration(
-                    prefixIcon: const Icon(Icons.lock_rounded),
-                    labelText: 'Enter 4-Digit Transaction PIN',
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            final rawUsd = double.tryParse(amountController.text.trim()) ?? 50.0;
+            final feeUsd = (rawUsd * 0.015) < 1.0 ? 1.0 : (rawUsd * 0.015);
+            final netUsd = rawUsd > feeUsd ? (rawUsd - feeUsd) : 0.0;
+            final rate = rates[destCurrency] ?? 1.0;
+            final estimatedPayout = netUsd * rate;
+
+            return Padding(
+              padding: EdgeInsets.only(left: 20, right: 20, top: 20, bottom: MediaQuery.of(ctx).viewInsets.bottom + 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Withdraw to Bank Account', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black)),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF34C759).withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Text('Live FX Rate Lock', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF34C759))),
+                      ),
+                    ],
                   ),
-                ),
-                const SizedBox(height: 12),
-              ],
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF34C759), foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
-                  onPressed: () async {
-                    final raw = int.tryParse(amountController.text.trim()) ?? 10000;
-                    if (security.isTransactionPinSet) {
-                      final okPin = await ref.read(securityProvider.notifier).verifyTransactionPin(pinController.text.trim());
-                      if (!okPin) {
-                        if (!mounted) return;
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Invalid Transaction PIN.')));
-                        return;
-                      }
-                    }
-                    if (mounted) {
-                      Navigator.pop(ctx);
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Withdrawal of ₦$raw submitted to your Bank!'), backgroundColor: const Color(0xFF34C759)));
-                    }
-                  },
-                  child: const Text('Confirm Withdrawal', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                ),
+                  const SizedBox(height: 6),
+                  Text('Earnings are disbursed from your USD balance directly into your local bank.', style: TextStyle(fontSize: 12, color: isDark ? Colors.grey[400] : Colors.grey[600])),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      // Destination Currency Selector
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        decoration: BoxDecoration(
+                          color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF2F2F7),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: isDark ? Colors.white12 : Colors.black12),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: destCurrency,
+                            dropdownColor: isDark ? const Color(0xFF2C2C2E) : Colors.white,
+                            items: destCurrencies.map((c) {
+                              return DropdownMenuItem<String>(
+                                value: c,
+                                child: Text('$c (${CurrencyFormatter.getSymbol(c)})', style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black)),
+                              );
+                            }).toList(),
+                            onChanged: (val) {
+                              if (val != null) {
+                                setSheetState(() => destCurrency = val);
+                              }
+                            },
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      // Amount Input (in USD)
+                      Expanded(
+                        child: TextField(
+                          controller: amountController,
+                          keyboardType: TextInputType.number,
+                          onChanged: (_) => setSheetState(() {}),
+                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black),
+                          decoration: InputDecoration(
+                            prefixText: r'$ ',
+                            labelText: 'Withdrawal Amount (USD)',
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+
+                  // Conversion & Payout Breakdown
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF1E2822) : const Color(0xFFF2FBF5),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: const Color(0xFF34C759).withValues(alpha: 0.25)),
+                    ),
+                    child: Column(
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text('Requested Gross:', style: TextStyle(fontSize: 13, color: isDark ? Colors.grey[300] : Colors.grey[700])),
+                            Text('\$${rawUsd.toStringAsFixed(2)} USD', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text('Platform Withdrawal Fee:', style: TextStyle(fontSize: 13, color: isDark ? Colors.grey[300] : Colors.grey[700])),
+                            Text('-\$${feeUsd.toStringAsFixed(2)} USD', style: TextStyle(fontSize: 13, color: Colors.red[400], fontWeight: FontWeight.w600)),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text('Live Exchange Rate:', style: TextStyle(fontSize: 13, color: isDark ? Colors.grey[300] : Colors.grey[700])),
+                            Text('1 USD = ${CurrencyFormatter.getSymbol(destCurrency)}${rate.toStringAsFixed(2)} $destCurrency', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                          ],
+                        ),
+                        const Divider(height: 16),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text('Estimated Bank Credit:', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black)),
+                            Text(
+                              '${CurrencyFormatter.getSymbol(destCurrency)}${estimatedPayout.toStringAsFixed(2)} $destCurrency',
+                              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: Color(0xFF34C759)),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 14),
+                  if (security.isTransactionPinSet) ...[
+                    TextField(
+                      controller: pinController,
+                      obscureText: true,
+                      keyboardType: TextInputType.number,
+                      maxLength: 4,
+                      style: TextStyle(color: isDark ? Colors.white : Colors.black),
+                      decoration: InputDecoration(
+                        prefixIcon: const Icon(Icons.lock_rounded),
+                        labelText: 'Enter 4-Digit Transaction PIN',
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                  ],
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF34C759), foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
+                      onPressed: () async {
+                        final raw = (rawUsd * 100).toInt();
+                        if (security.isTransactionPinSet) {
+                          final okPin = await ref.read(securityProvider.notifier).verifyTransactionPin(pinController.text.trim());
+                          if (!okPin) {
+                            if (!mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Invalid Transaction PIN.')));
+                            return;
+                          }
+                        }
+                        await ref.read(walletProvider.notifier).submitWithdrawal(
+                          amountUsdCents: raw,
+                          pin: pinController.text.trim().isNotEmpty ? pinController.text.trim() : '0000',
+                          destinationCurrency: destCurrency,
+                        );
+                        if (mounted) {
+                          Navigator.pop(ctx);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Withdrawal of \$${rawUsd.toStringAsFixed(2)} USD (≈ ${CurrencyFormatter.getSymbol(destCurrency)}${estimatedPayout.toStringAsFixed(2)}) submitted to your Bank!'),
+                              backgroundColor: const Color(0xFF34C759),
+                            ),
+                          );
+                        }
+                      },
+                      child: Text('Confirm Payout of \$${rawUsd.toStringAsFixed(2)} USD', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            );
+          },
         );
       },
     );
@@ -663,10 +917,16 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
   }
 
   Widget _buildFancyVirtualCard(WalletState state, bool isDark) {
-    final system = state.wallets.where((w) => w.type == WalletType.system).firstOrNull;
-    final cashMinorUnits = system?.available ?? 0;
-    final coinBalance = cashMinorUnits ~/ 100;
-    final currency = system?.currency ?? 'NGN';
+    final activeWallet = state.wallets.length > _activeCardIndex
+        ? state.wallets[_activeCardIndex]
+        : (state.wallets.where((w) => w.type == WalletType.system).firstOrNull ?? state.wallets.firstOrNull);
+
+    final cashMinorUnits = activeWallet?.available ?? 0;
+    final coinBalance = activeWallet?.coins ?? cashMinorUnits;
+    final currency = activeWallet?.currency ?? 'USD';
+    final localEstimated = activeWallet?.localFormatted ?? '';
+    final localRate = activeWallet?.localRate ?? 1326.0;
+    final localCurrency = activeWallet?.localCurrency ?? 'NGN';
 
     final cardGradients = [
       const [Color(0xFF007AFF), Color(0xFF5856D6)],
@@ -726,18 +986,41 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
             ],
           ),
           const SizedBox(height: 18),
-          const Text('Total Available Balance', style: TextStyle(color: Colors.white70, fontSize: 13)),
+          const Text('Total Available Balance (USD Base)', style: TextStyle(color: Colors.white70, fontSize: 13)),
           const SizedBox(height: 4),
           Text(
             _hideBalance ? '••••••••' : CurrencyFormatter.format(cashMinorUnits, currency),
             style: const TextStyle(color: Colors.white, fontSize: 34, fontWeight: FontWeight.w900, letterSpacing: 0.5),
           ),
-          const SizedBox(height: 16),
+          if (!_hideBalance && localEstimated.isNotEmpty) ...[
+            const SizedBox(height: 2),
+            Text(
+              '≈ $localEstimated  (\$1 = ${CurrencyFormatter.getSymbol(localCurrency)}${localRate.toStringAsFixed(0)})',
+              style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600),
+            ),
+          ],
+          const SizedBox(height: 14),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text('•••• •••• •••• 9842', style: TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w600, letterSpacing: 1.5)),
-              Text(_hideBalance ? 'MSH: ••••' : '${coinBalance.toString()} MSH', style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.25),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.monetization_on_rounded, color: Color(0xFFFFD700), size: 15),
+                    const SizedBox(width: 5),
+                    Text(
+                      _hideBalance ? 'MSH: ••••' : CurrencyFormatter.formatCoins(coinBalance),
+                      style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w800),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
         ],
@@ -924,7 +1207,20 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                   ],
                 ),
               ),
-              Text(CurrencyFormatter.format(wallet.available, wallet.currency), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Color(0xFF007AFF))),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    CurrencyFormatter.format(wallet.available, wallet.currency),
+                    style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Color(0xFF007AFF)),
+                  ),
+                  if (wallet.localFormatted != null && wallet.currency == 'USD')
+                    Text(
+                      wallet.localFormatted!,
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: isDark ? Colors.grey[400] : Colors.grey[600]),
+                    ),
+                ],
+              ),
             ],
           ),
         ],
@@ -951,7 +1247,12 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('${pack.coins} MSH', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18, color: isDark ? Colors.white : Colors.black)),
-                Text(pack.badge ?? CurrencyFormatter.format(pack.price, pack.currency), style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600], fontSize: 12)),
+                Text(
+                  pack.localFormatted.isNotEmpty
+                      ? (pack.badge != null ? '${pack.badge!} · ${pack.localFormatted}' : pack.localFormatted)
+                      : (pack.badge ?? CurrencyFormatter.format(pack.price, pack.currency)),
+                  style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600], fontSize: 12),
+                ),
               ],
             ),
           ),

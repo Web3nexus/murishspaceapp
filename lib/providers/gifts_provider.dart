@@ -39,6 +39,9 @@ class CoinPack {
   final int price;
   final String currency;
   final String? badge;
+  final String localFormatted;
+  final String localCurrency;
+  final double localPrice;
 
   CoinPack({
     required this.id,
@@ -48,6 +51,9 @@ class CoinPack {
     required this.price,
     required this.currency,
     required this.badge,
+    this.localFormatted = '',
+    this.localCurrency = 'NGN',
+    this.localPrice = 0.0,
   });
 
   int get totalCoins => coins + bonusCoins;
@@ -59,8 +65,11 @@ class CoinPack {
       coins: (json['coins'] as num?)?.toInt() ?? 0,
       bonusCoins: (json['bonus_coins'] as num?)?.toInt() ?? 0,
       price: (json['price'] as num?)?.toInt() ?? 0,
-      currency: json['currency']?.toString() ?? 'NGN',
+      currency: json['currency']?.toString() ?? 'USD',
       badge: json['badge']?.toString(),
+      localFormatted: json['local_formatted']?.toString() ?? '',
+      localCurrency: json['local_currency']?.toString() ?? 'NGN',
+      localPrice: (json['local_price'] as num?)?.toDouble() ?? 0.0,
     );
   }
 }

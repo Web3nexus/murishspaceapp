@@ -32,6 +32,12 @@ class Wallet {
   final int disputed;
   final int total;
   final String currency;
+  final double amountUsd;
+  final int coins;
+  final String localCurrency;
+  final double localRate;
+  final double localEstimatedAvailable;
+  final String localFormatted;
   final bool hasPin;
   final String status;
 
@@ -47,15 +53,27 @@ class Wallet {
     required this.disputed,
     required this.total,
     required this.currency,
+    required this.amountUsd,
+    required this.coins,
+    required this.localCurrency,
+    required this.localRate,
+    required this.localEstimatedAvailable,
+    required this.localFormatted,
     required this.hasPin,
     required this.status,
   });
 
   factory Wallet.fromJson(Map<String, dynamic> json) {
+    final available = (json['available'] as num?)?.toInt() ?? 0;
+    final currency = json['currency'] as String? ?? 'USD';
+    final amountUsd = (json['amount_usd'] as num?)?.toDouble() ?? (available / 100.0);
+    final localRate = (json['local_rate'] as num?)?.toDouble() ?? 1326.0;
+    final localEstimated = (json['local_estimated_available'] as num?)?.toDouble() ?? (amountUsd * localRate);
+
     return Wallet(
       id: (json['id'] as num?)?.toInt() ?? 0,
       type: WalletType.fromApi(json['wallet_type'] as String? ?? 'system'),
-      available: (json['available'] as num?)?.toInt() ?? 0,
+      available: available,
       pending: (json['pending'] as num?)?.toInt() ?? 0,
       reserved: (json['reserved'] as num?)?.toInt() ?? 0,
       escrow: (json['escrow'] as num?)?.toInt() ?? 0,
@@ -63,15 +81,21 @@ class Wallet {
       nonWithdrawable: (json['non_withdrawable'] as num?)?.toInt() ?? 0,
       disputed: (json['disputed'] as num?)?.toInt() ?? 0,
       total: (json['total'] as num?)?.toInt() ?? 0,
-      currency: json['currency'] as String? ?? 'NGN',
+      currency: currency,
+      amountUsd: amountUsd,
+      coins: (json['coins'] as num?)?.toInt() ?? available,
+      localCurrency: json['local_currency'] as String? ?? 'NGN',
+      localRate: localRate,
+      localEstimatedAvailable: localEstimated,
+      localFormatted: json['local_formatted'] as String? ?? '',
       hasPin: json['has_pin'] as bool? ?? false,
       status: json['status'] as String? ?? 'active',
     );
   }
 
-  /// Human-readable money string using the backend minor-unit format (e.g. NGN 1,000.00).
+  /// Human-readable money string using the backend minor-unit format (e.g. $1,000.00).
   String get formatted {
-    final syms = {'NGN': '₦', 'USD': r'$', 'GBP': '£', 'EUR': '€'};
+    final syms = {'USD': r'$', 'NGN': '₦', 'GBP': '£', 'EUR': '€'};
     final sym = syms[currency] ?? '$currency ';
     return '$sym${(available / 100).toStringAsFixed(2)}';
   }
@@ -125,7 +149,27 @@ class WalletState {
   double get creatorBalance {
     final creatorWallet = wallets.firstWhere(
       (w) => w.type == WalletType.creator,
-      orElse: () => const Wallet(id: 0, type: WalletType.creator, available: 245000, pending: 0, reserved: 0, escrow: 0, withdrawable: 245000, nonWithdrawable: 0, disputed: 0, total: 245000, currency: 'USD', hasPin: true, status: 'active'),
+      orElse: () => const Wallet(
+        id: 0,
+        type: WalletType.creator,
+        available: 245000,
+        pending: 0,
+        reserved: 0,
+        escrow: 0,
+        withdrawable: 245000,
+        nonWithdrawable: 0,
+        disputed: 0,
+        total: 245000,
+        currency: 'USD',
+        amountUsd: 2450.0,
+        coins: 245000,
+        localCurrency: 'NGN',
+        localRate: 1326.0,
+        localEstimatedAvailable: 3248700.0,
+        localFormatted: '₦3,248,700.00',
+        hasPin: true,
+        status: 'active',
+      ),
     );
     return creatorWallet.available / 100.0;
   }
@@ -133,7 +177,27 @@ class WalletState {
   double get businessEscrowBalance {
     final bizWallet = wallets.firstWhere(
       (w) => w.type == WalletType.business,
-      orElse: () => const Wallet(id: 0, type: WalletType.business, available: 48000, pending: 0, reserved: 0, escrow: 48000, withdrawable: 0, nonWithdrawable: 0, disputed: 0, total: 48000, currency: 'USD', hasPin: true, status: 'active'),
+      orElse: () => const Wallet(
+        id: 0,
+        type: WalletType.business,
+        available: 48000,
+        pending: 0,
+        reserved: 0,
+        escrow: 48000,
+        withdrawable: 0,
+        nonWithdrawable: 0,
+        disputed: 0,
+        total: 48000,
+        currency: 'USD',
+        amountUsd: 480.0,
+        coins: 48000,
+        localCurrency: 'NGN',
+        localRate: 1326.0,
+        localEstimatedAvailable: 636480.0,
+        localFormatted: '₦636,480.00',
+        hasPin: true,
+        status: 'active',
+      ),
     );
     return bizWallet.escrow / 100.0;
   }
@@ -215,7 +279,7 @@ class WalletNotifier extends Notifier<WalletState> {
   /// POST /wallet/deposit — idempotent cash deposit into the system wallet.
   Future<bool> deposit({
     required int amount,
-    String currency = 'NGN',
+    String currency = 'USD',
     String paymentGateway = 'paystack',
   }) async {
     try {
@@ -232,6 +296,52 @@ class WalletNotifier extends Notifier<WalletState> {
       return false;
     } catch (_) {
       state = state.copyWith(error: 'Deposit failed.');
+      return false;
+    }
+  }
+
+  /// POST /withdrawals/preview — live payout calculation and rate lock.
+  Future<Map<String, dynamic>?> previewWithdrawal({
+    required int amountUsdCents,
+    String destinationCurrency = 'NGN',
+    String walletType = 'creator',
+  }) async {
+    try {
+      final response = await _dio.post('/withdrawals/preview', data: {
+        'amount': amountUsdCents,
+        'destination_currency': destinationCurrency,
+        'wallet_type': walletType,
+      });
+      if (response.data is Map<String, dynamic>) {
+        return response.data as Map<String, dynamic>;
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// POST /withdrawals — submit withdrawal request.
+  Future<bool> submitWithdrawal({
+    required int amountUsdCents,
+    required String pin,
+    String destinationCurrency = 'NGN',
+    String walletType = 'creator',
+  }) async {
+    try {
+      await _dio.post('/withdrawals', data: {
+        'amount': amountUsdCents,
+        'currency': destinationCurrency,
+        'wallet_type': walletType,
+        'pin': pin,
+      });
+      await _load();
+      return true;
+    } on DioException catch (e) {
+      state = state.copyWith(error: _errorMessage(e));
+      return false;
+    } catch (_) {
+      state = state.copyWith(error: 'Withdrawal failed.');
       return false;
     }
   }
