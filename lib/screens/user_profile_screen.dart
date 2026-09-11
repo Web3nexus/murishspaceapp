@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../components/followers_list_dialog.dart';
 import '../components/online_status_badge.dart';
 import '../components/send_gift_dialog.dart';
+import '../components/share_sheet.dart';
 import '../config/env.dart';
 import '../core/api_client.dart';
 import '../providers/auth_provider.dart';
@@ -301,15 +302,14 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.share_outlined),
-            tooltip: 'Share Profile Link',
+            tooltip: 'Share Profile',
             onPressed: () {
               final link = Env.profileUrl(widget.username);
-              Clipboard.setData(ClipboardData(text: link));
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Profile link ($link) copied!'),
-                  backgroundColor: const Color(0xFF007AFF),
-                ),
+              AppShare.showShareSheet(
+                context,
+                title: 'Share ${widget.name}\'s Profile',
+                text: 'Check out ${widget.name} (@${widget.username}) on Murih Space!',
+                url: link,
               );
             },
           ),

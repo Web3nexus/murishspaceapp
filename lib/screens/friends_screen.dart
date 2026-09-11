@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../components/app_bottom_sheet.dart';
+import '../components/share_sheet.dart';
 import '../config/env.dart';
 import '../core/api_client.dart';
 import '../core/contacts_service.dart';
@@ -122,12 +123,11 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
     final user = ref.read(authProvider).user;
     final username = user?.username ?? 'user';
     final profileUrl = Env.profileUrl(username);
-    Clipboard.setData(ClipboardData(text: profileUrl));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Profile invite link ($profileUrl) copied!'),
-        backgroundColor: const Color(0xFF007AFF),
-      ),
+    AppShare.showShareSheet(
+      context,
+      title: 'Invite Friends to Murih Space',
+      text: 'Join me on Murih Space! Connect, chat, and explore Web3 communities:',
+      url: profileUrl,
     );
   }
 
@@ -240,14 +240,16 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
                         padding: const EdgeInsets.symmetric(vertical: 12),
                       ),
                       onPressed: () {
-                        Clipboard.setData(ClipboardData(text: profileUrl));
                         Navigator.pop(ctx);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Profile link copied: $profileUrl')),
+                        AppShare.showShareSheet(
+                          context,
+                          title: 'Invite Friends to Murih Space',
+                          text: 'Join me on Murih Space! Connect, chat, and explore Web3 communities:',
+                          url: profileUrl,
                         );
                       },
-                      icon: const Icon(Icons.copy_rounded, size: 18),
-                      label: const Text('Copy Link', style: TextStyle(fontWeight: FontWeight.bold)),
+                      icon: const Icon(Icons.share_rounded, size: 18),
+                      label: const Text('Share Invite Link', style: TextStyle(fontWeight: FontWeight.bold)),
                     ),
                   ),
                 ],

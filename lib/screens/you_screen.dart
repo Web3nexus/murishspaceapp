@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 
 import '../components/followers_list_dialog.dart';
 import '../components/online_status_badge.dart';
+import '../components/share_sheet.dart';
 import '../config/env.dart';
 import '../core/roles.dart';
 import '../providers/auth_provider.dart';
@@ -59,12 +60,11 @@ class YouScreen extends ConsumerWidget {
           IconButton(
             onPressed: () {
               final link = Env.profileUrl(user?.username ?? '');
-              Clipboard.setData(ClipboardData(text: link));
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Profile link ($link) copied!'),
-                  backgroundColor: const Color(0xFF007AFF),
-                ),
+              AppShare.showShareSheet(
+                context,
+                title: 'Share Profile',
+                text: 'Connect with ${user?.name ?? 'me'} on Murih Space!',
+                url: link,
               );
             },
             icon: Icon(
@@ -122,41 +122,45 @@ class YouScreen extends ConsumerWidget {
               ),
               child: Column(
                 children: [
-                  // Cover Banner Header
+                  // Cover Banner Header (Solid Slate & Subtle Geometric Pattern - No AI Gradient)
                   Container(
-                    height: 110,
+                    height: 115,
                     width: double.infinity,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF007AFF), Color(0xFF5856D6), Color(0xFFFF9500)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      image: user?.bannerUrl != null && user!.bannerUrl!.isNotEmpty
-                          ? DecorationImage(
-                              image: NetworkImage(user.bannerUrl!),
-                              fit: BoxFit.cover,
-                            )
-                          : null,
-                    ),
+                    color: isDark ? const Color(0xFF141720) : const Color(0xFF1E293B),
                     child: Stack(
                       children: [
+                        if (user?.bannerUrl != null && user!.bannerUrl!.isNotEmpty)
+                          Positioned.fill(
+                            child: Image.network(
+                              user.bannerUrl!,
+                              fit: BoxFit.cover,
+                            ),
+                          )
+                        else
+                          Positioned.fill(
+                            child: CustomPaint(
+                              painter: _PatternCoverPainter(isDark: isDark),
+                            ),
+                          ),
                         Positioned(
                           top: 10,
                           right: 10,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: Colors.black45,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: const Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.edit_rounded, color: Colors.white, size: 12),
-                                SizedBox(width: 4),
-                                Text('Edit Profile', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
-                              ],
+                          child: GestureDetector(
+                            onTap: () => context.push('/profile'),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.black54,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.edit_rounded, color: Colors.white, size: 12),
+                                  SizedBox(width: 4),
+                                  Text('Edit Profile', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                                ],
+                              ),
                             ),
                           ),
                         ),
@@ -1309,5 +1313,42 @@ class _VendorStoreSummaryCard extends ConsumerWidget {
       ],
     );
   }
+}
+
+class _PatternCoverPainter extends CustomPainter {
+  final bool isDark;
+
+  const _PatternCoverPainter({required this.isDark});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final dotPaint = Paint()
+      ..color = Colors.white.withOpacity(isDark ? 0.08 : 0.12)
+      ..style = PaintingStyle.fill;
+
+    const spacing = 18.0;
+    for (double x = 8; x < size.width; x += spacing) {
+      for (double y = 8; y < size.height; y += spacing) {
+        canvas.drawCircle(Offset(x, y), 1.2, dotPaint);
+      }
+    }
+
+    final linePaint = Paint()
+      ..color = Colors.white.withOpacity(isDark ? 0.05 : 0.08)
+      ..strokeWidth = 1.0
+      ..style = PaintingStyle.stroke;
+
+    for (int i = 0; i < 4; i++) {
+      final offset = i * 28.0;
+      canvas.drawLine(
+        Offset(size.width - 140 + offset, 0),
+        Offset(size.width + offset, 140),
+        linePaint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 

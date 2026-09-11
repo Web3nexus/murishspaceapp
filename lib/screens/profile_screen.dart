@@ -774,12 +774,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       width: double.infinity,
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(20),
-                        gradient: _selectedBannerPath == null
-                            ? LinearGradient(
-                                colors: [_selectedAccentColor, const Color(0xFF5856D6)],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              )
+                        color: _selectedBannerPath == null
+                            ? (isDark ? const Color(0xFF141720) : const Color(0xFF1E293B))
                             : null,
                         image: _selectedBannerPath != null
                             ? DecorationImage(
@@ -829,9 +825,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           padding: const EdgeInsets.all(3.5),
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            gradient: LinearGradient(
-                              colors: [_selectedAccentColor, const Color(0xFF5856D6)],
-                            ),
+                            color: _selectedAccentColor.withValues(alpha: 0.2),
+                            border: Border.all(color: _selectedAccentColor, width: 2.5),
                           ),
                           child: Container(
                             width: 84,
