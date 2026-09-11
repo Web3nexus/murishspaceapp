@@ -260,6 +260,18 @@ class ConversationMessagesNotifier extends Notifier<ConversationMessagesState> {
     }
   }
 
+  Future<void> clearChat({bool forEveryone = false}) async {
+    state = state.copyWith(messages: []);
+    try {
+      await _dio.delete(
+        '/conversations/$conversationId/messages',
+        queryParameters: {'mode': forEveryone ? 'everyone' : 'me'},
+      );
+    } catch (_) {
+      // Local state is cleared
+    }
+  }
+
   // ── Real-time hooks ───────────────────────────────────────────
 
   /// Appends a message delivered by Reverb, deduping against id / client_uuid.

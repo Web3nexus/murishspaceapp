@@ -16,6 +16,7 @@ import '../providers/calls_provider.dart';
 import '../providers/messages_provider.dart';
 import '../providers/realtime_provider.dart';
 import 'call_screen.dart';
+import 'chat_profile_settings_screen.dart';
 import 'conversation_composer.dart';
 import 'message_bubble.dart';
 
@@ -441,6 +442,21 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
+              leading: const Icon(Icons.info_outline_rounded, color: Color(0xFF007AFF)),
+              title: Text(conversation?.type == 'community' ? 'Community Info & Settings' : 'Contact Info & Settings'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => ChatProfileSettingsScreen(
+                      conversationId: widget.conversationId,
+                      initialConversation: conversation,
+                    ),
+                  ),
+                );
+              },
+            ),
+            ListTile(
               leading: Icon(isMuted ? Icons.volume_up_outlined : Icons.notifications_off_outlined),
               title: Text(isMuted ? 'Unmute notifications' : 'Mute notifications'),
               onTap: () {
@@ -484,44 +500,71 @@ class _ConversationTitle extends ConsumerWidget {
     final isCommunity = conversation?.type == 'community';
     final memberCount = conversation?.memberCount;
 
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        OnlineAvatarBadge(
-          isOnline: !isCommunity,
-          badgeSize: 10,
-          child: CircleAvatar(
-            radius: 16,
-            backgroundColor: DesignTokens.primarySoft,
-            backgroundImage: avatar != null && avatar.isNotEmpty ? NetworkImage(avatar) : null,
-            child: avatar == null || avatar.isEmpty
-                ? Text(
-                    title.isEmpty ? '?' : title.substring(0, 1).toUpperCase(),
-                    style: const TextStyle(color: DesignTokens.primaryDark, fontWeight: FontWeight.w700, fontSize: 14),
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => ChatProfileSettingsScreen(
+              conversationId: conversationId,
+              initialConversation: conversation,
+            ),
+          ),
+        );
+      },
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          OnlineAvatarBadge(
+            isOnline: !isCommunity,
+            badgeSize: 10,
+            child: CircleAvatar(
+              radius: 16,
+              backgroundColor: DesignTokens.primarySoft,
+              backgroundImage: avatar != null && avatar.isNotEmpty ? NetworkImage(avatar) : null,
+              child: avatar == null || avatar.isEmpty
+                  ? Text(
+                      title.isEmpty ? '?' : title.substring(0, 1).toUpperCase(),
+                      style: const TextStyle(color: DesignTokens.primaryDark, fontWeight: FontWeight.w700, fontSize: 14),
+                    )
+                  : null,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Flexible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    const Icon(Icons.chevron_right_rounded, size: 16, color: Colors.grey),
+                  ],
+                ),
+                if (isCommunity)
+                  Text(
+                    memberCount == null ? 'Community' : 'Community · $memberCount members',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 11, color: DesignTokens.textSecondary),
                   )
-                : null,
+                else
+                  const OnlineStatusBadge(isOnline: true, showLabel: true, dotSize: 6),
+              ],
+            ),
           ),
-        ),
-        const SizedBox(width: 10),
-        Flexible(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              if (isCommunity)
-                Text(
-                  memberCount == null ? 'Community' : 'Community · $memberCount members',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 11, color: DesignTokens.textSecondary),
-                )
-              else
-                const OnlineStatusBadge(isOnline: true, showLabel: true, dotSize: 6),
-            ],
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

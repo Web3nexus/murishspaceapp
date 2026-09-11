@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../components/create_poll_sheet.dart';
+import '../components/emoji_picker_sheet.dart';
 import '../core/design_tokens.dart';
 import '../models/chat_models.dart';
 import 'community_create_dialog.dart';
@@ -126,10 +127,17 @@ class Composer extends StatelessWidget {
                               ),
                             ),
                           ),
-                          Icon(
-                            Icons.sentiment_satisfied_alt_rounded,
-                            color: isDark ? const Color(0xFF8E8E93) : const Color(0xFF61758A),
-                            size: 22,
+                          GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () => _openEmojiPicker(context),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                              child: Icon(
+                                Icons.sentiment_satisfied_alt_rounded,
+                                color: isDark ? const Color(0xFF8E8E93) : const Color(0xFF61758A),
+                                size: 22,
+                              ),
+                            ),
                           ),
                         ],
                       ),
@@ -168,6 +176,55 @@ class Composer extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+
+  void _openEmojiPicker(BuildContext context) {
+    EmojiPickerSheet.show(
+      context,
+      onEmojiSelected: (emoji) {
+        final text = controller.text;
+        final selection = controller.selection;
+        final start = selection.baseOffset >= 0 ? selection.baseOffset : text.length;
+        final end = selection.extentOffset >= 0 ? selection.extentOffset : text.length;
+        final newText = text.replaceRange(
+          start < end ? start : end,
+          start < end ? end : start,
+          emoji,
+        );
+        controller.value = TextEditingValue(
+          text: newText,
+          selection: TextSelection.collapsed(offset: (start < end ? start : end) + emoji.length),
+        );
+      },
+      onBackspace: () {
+        final text = controller.text;
+        if (text.isEmpty) return;
+        final selection = controller.selection;
+        final start = selection.baseOffset >= 0 ? selection.baseOffset : text.length;
+        final end = selection.extentOffset >= 0 ? selection.extentOffset : text.length;
+        if (start != end) {
+          final newText = text.replaceRange(
+            start < end ? start : end,
+            start < end ? end : start,
+            '',
+          );
+          controller.value = TextEditingValue(
+            text: newText,
+            selection: TextSelection.collapsed(offset: start < end ? start : end),
+          );
+        } else if (start > 0) {
+          final runes = text.runes.toList();
+          if (runes.isNotEmpty) {
+            runes.removeLast();
+            final newText = String.fromCharCodes(runes);
+            controller.value = TextEditingValue(
+              text: newText,
+              selection: TextSelection.collapsed(offset: newText.length),
+            );
+          }
+        }
+      },
     );
   }
 }
