@@ -48,6 +48,9 @@ class ConversationMessagesNotifier extends Notifier<ConversationMessagesState> {
   final int conversationId;
   int _page = 1;
 
+  int? _resolvedConversationId;
+  int get _effectiveConversationId => _resolvedConversationId ?? conversationId;
+
   Dio get _dio => ApiClient.instance.dio;
 
   @override
@@ -65,15 +68,18 @@ class ConversationMessagesNotifier extends Notifier<ConversationMessagesState> {
         final p = ApiClient.instance.unwrap(res);
         if (p is Map<String, dynamic>) {
           final realConv = Conversation.fromJson(p);
-          if (realConv.id > 0 && realConv.id != conversationId) {
-            ref.read(conversationsProvider.notifier).upsert(realConv);
+          if (realConv.id > 0) {
+            _resolvedConversationId = realConv.id;
+            if (realConv.id != conversationId) {
+              ref.read(conversationsProvider.notifier).upsert(realConv);
+            }
           }
         }
       } catch (_) {}
     }
 
     try {
-      final response = await _dio.get('/conversations/$conversationId/messages');
+      final response = await _dio.get('/conversations/$_effectiveConversationId/messages');
       final payload = ApiClient.instance.unwrap(response);
       final (list, hasMore) = _messagesFromPayload(payload);
       state = ConversationMessagesState(messages: list, hasMore: hasMore);
@@ -99,7 +105,7 @@ class ConversationMessagesNotifier extends Notifier<ConversationMessagesState> {
     final nextPage = _page + 1;
     try {
       final response = await _dio.get(
-        '/conversations/$conversationId/messages',
+        '/conversations/$_effectiveConversationId/messages',
         queryParameters: {'page': nextPage},
       );
       final payload = ApiClient.instance.unwrap(response);
@@ -137,9 +143,27 @@ class ConversationMessagesNotifier extends Notifier<ConversationMessagesState> {
     final auth = ref.read(authProvider);
     final me = auth.user;
     final clientUuid = ApiClient.generateIdempotencyKey();
+
+    int targetConversationId = _effectiveConversationId;
+    if (targetConversationId >= 9000 && targetConversationId < 100000) {
+      final targetUserId = targetConversationId - 9000;
+      try {
+        final res = await _dio.post('/conversations/direct', data: {'user_id': targetUserId});
+        final p = ApiClient.instance.unwrap(res);
+        if (p is Map<String, dynamic>) {
+          final realConv = Conversation.fromJson(p);
+          if (realConv.id > 0) {
+            _resolvedConversationId = realConv.id;
+            targetConversationId = realConv.id;
+            ref.read(conversationsProvider.notifier).upsert(realConv);
+          }
+        }
+      } catch (_) {}
+    }
+
     final optimistic = Message(
       id: 0,
-      conversationId: conversationId,
+      conversationId: targetConversationId,
       userId: me?.id ?? 0,
       content: content,
       type: attachmentType ?? 'text',
@@ -159,7 +183,7 @@ class ConversationMessagesNotifier extends Notifier<ConversationMessagesState> {
 
     try {
       final response = await _dio.post(
-        '/conversations/$conversationId/messages',
+        '/conversations/$targetConversationId/messages',
         data: {
           'content': content,
           'client_uuid': clientUuid,
@@ -169,7 +193,12 @@ class ConversationMessagesNotifier extends Notifier<ConversationMessagesState> {
           'attachment_type': ?attachmentType,
         },
       );
-      final confirmed = Message.fromJson(ApiClient.instance.unwrap(response));
+      final rawPayload = ApiClient.instance.unwrap(response);
+      final parsed = Message.fromJson(rawPayload);
+      final confirmed = parsed.copyWith(
+        status: parsed.status.isEmpty || parsed.status == 'sending' ? 'sent' : parsed.status,
+        clientUuid: clientUuid,
+      );
       _appendOrReplace(confirmed, byUuid: clientUuid);
       ref.read(conversationsProvider.notifier).applyMessage(confirmed, currentUserId: me?.id ?? 0);
     } on DioException {
@@ -209,7 +238,7 @@ class ConversationMessagesNotifier extends Notifier<ConversationMessagesState> {
 
   Future<void> markRead() async {
     try {
-      await _dio.post('/conversations/$conversationId/read');
+      await _dio.post('/conversations/$_effectiveConversationId/read');
     } catch (_) {
       // Non-fatal.
     }
@@ -218,7 +247,7 @@ class ConversationMessagesNotifier extends Notifier<ConversationMessagesState> {
   /// Throttled on the caller side; the backend broadcasts the event to others.
   Future<void> sendTyping(bool isTyping) async {
     try {
-      await _dio.post('/conversations/$conversationId/typing', data: {'is_typing': isTyping});
+      await _dio.post('/conversations/$_effectiveConversationId/typing', data: {'is_typing': isTyping});
     } catch (_) {
       // Non-fatal.
     }
@@ -252,7 +281,7 @@ class ConversationMessagesNotifier extends Notifier<ConversationMessagesState> {
     );
     try {
       await _dio.delete(
-        '/conversations/$conversationId/messages/$messageId',
+        '/conversations/$_effectiveConversationId/messages/$messageId',
         queryParameters: {'mode': forEveryone ? 'everyone' : 'me'},
       );
     } catch (_) {
@@ -264,7 +293,7 @@ class ConversationMessagesNotifier extends Notifier<ConversationMessagesState> {
     state = state.copyWith(messages: []);
     try {
       await _dio.delete(
-        '/conversations/$conversationId/messages',
+        '/conversations/$_effectiveConversationId/messages',
         queryParameters: {'mode': forEveryone ? 'everyone' : 'me'},
       );
     } catch (_) {

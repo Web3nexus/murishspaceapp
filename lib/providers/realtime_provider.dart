@@ -6,6 +6,7 @@ import '../core/realtime_client.dart';
 import '../models/chat_models.dart';
 import '../models/notification_models.dart';
 import 'auth_provider.dart';
+import 'calls_provider.dart';
 import 'chat_provider.dart';
 import 'messages_provider.dart';
 import 'notifications_provider.dart';
@@ -20,12 +21,13 @@ class RealtimeService {
   int? _userId;
   int? _activeConversationId;
 
-  /// Subscribes to the user's personal private notification channel.
+  /// Subscribes to the user's personal private notification and call channels.
   void listenToUser(int userId) {
     if (_userId == userId && _client != null && _client!.isConnected) return;
     _userId = userId;
     final client = _ensureClient();
     client.subscribe('private-App.Models.User.$userId');
+    client.subscribe('private-user.$userId');
   }
 
   /// Marks which conversation the user is currently viewing to suppress duplicate banners.
@@ -64,14 +66,32 @@ class RealtimeService {
   }
 
   void _dispatch(RealtimeEvent event) {
-    // 1. Personal user notification channel
-    final userMatch = RegExp(r'^private-App\.Models\.User\.(\d+)$').firstMatch(event.channel);
+    // 1. Personal user notification & call signaling channels
+    final userMatch = RegExp(r'^private-(?:App\.Models\.User|user)\.(\d+)$').firstMatch(event.channel);
     if (userMatch != null) {
+      final data = event.data is Map
+          ? Map<String, dynamic>.from(event.data as Map)
+          : <String, dynamic>{};
+
+      if (event.event == 'call.incoming' || event.event.contains('CallIncoming')) {
+        _ref.read(callsProvider.notifier).handleIncomingCall(data);
+        return;
+      }
+      if (event.event == 'call.accepted' || event.event.contains('CallAccepted')) {
+        _ref.read(callsProvider.notifier).handleCallAccepted(data);
+        return;
+      }
+      if (event.event == 'call.declined' || event.event.contains('CallDeclined')) {
+        _ref.read(callsProvider.notifier).handleCallDeclined(data);
+        return;
+      }
+      if (event.event == 'call.ended' || event.event.contains('CallEnded')) {
+        _ref.read(callsProvider.notifier).handleCallEnded(data);
+        return;
+      }
+
       if (event.event == 'notification' || event.event.contains('NotificationBroadcast')) {
         try {
-          final data = event.data is Map
-              ? Map<String, dynamic>.from(event.data as Map)
-              : <String, dynamic>{};
           final notif = AppNotification.fromJson(data);
           _ref.read(inAppNotificationProvider.notifier).showFromAppNotification(notif);
           _ref.read(notificationsProvider.notifier).refresh();

@@ -213,6 +213,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
             onPressed: () {
               final title = conversation?.otherUser?.name ?? (conversation?.title.isNotEmpty == true ? conversation!.title : 'Contact');
               final avatar = conversation?.otherUser?.avatarUrl ?? '';
+              final recipientId = conversation?.otherUser?.id;
               Navigator.of(context).push(
                 MaterialPageRoute(
                   builder: (_) => CallScreen(
@@ -220,6 +221,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                     phoneNumber: '+234 812 000 1122',
                     avatarUrl: avatar,
                     isVideo: false,
+                    recipientId: recipientId,
                   ),
                 ),
               );
@@ -231,6 +233,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
             onPressed: () {
               final title = conversation?.otherUser?.name ?? (conversation?.title.isNotEmpty == true ? conversation!.title : 'Contact');
               final avatar = conversation?.otherUser?.avatarUrl ?? '';
+              final recipientId = conversation?.otherUser?.id;
               Navigator.of(context).push(
                 MaterialPageRoute(
                   builder: (_) => CallScreen(
@@ -238,6 +241,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                     phoneNumber: '+234 812 000 1122',
                     avatarUrl: avatar,
                     isVideo: true,
+                    recipientId: recipientId,
                   ),
                 ),
               );

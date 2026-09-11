@@ -160,10 +160,13 @@ class Message {
 
   /// Parses both the REST payload (`{id, conversation_id, user, ...}`) and the
   /// broadcast payload from `App\Events\MessageSent` (same shape, flat).
-  factory Message.fromJson(dynamic json) {
-    if (json is! Map<String, dynamic>) {
+  factory Message.fromJson(dynamic rawJson) {
+    if (rawJson is! Map<String, dynamic>) {
       return const Message(id: 0, conversationId: 0, userId: 0, content: '', type: 'text', status: 'sent');
     }
+    final json = (rawJson['data'] is Map<String, dynamic> && !rawJson.containsKey('content') && !rawJson.containsKey('type'))
+        ? rawJson['data'] as Map<String, dynamic>
+        : rawJson;
     final replyToRaw = json['reply_to'];
     return Message(
       id: (json['id'] as num?)?.toInt() ?? 0,

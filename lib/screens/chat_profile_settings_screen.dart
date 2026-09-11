@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../components/online_status_badge.dart';
@@ -14,6 +15,7 @@ import '../providers/chat_provider.dart';
 import '../providers/messages_provider.dart';
 import '../models/story_models.dart';
 import '../providers/story_provider.dart';
+import '../services/sound_service.dart';
 import 'call_screen.dart';
 import 'story_viewer_screen.dart';
 
@@ -37,6 +39,7 @@ class _ChatProfileSettingsScreenState extends ConsumerState<ChatProfileSettingsS
   bool _isNotificationsEnabled = true;
   String _muteDuration = 'None';
   String _selectedSound = 'Default';
+  bool _isBlocked = false;
 
   @override
   void initState() {
@@ -89,6 +92,7 @@ class _ChatProfileSettingsScreenState extends ConsumerState<ChatProfileSettingsS
   }
 
   Future<void> _toggleMute(bool enabled) async {
+    HapticFeedback.selectionClick();
     final notifier = ref.read(conversationsProvider.notifier);
     await notifier.setSettings(widget.conversationId, muted: !enabled);
     if (mounted) {
@@ -167,14 +171,12 @@ class _ChatProfileSettingsScreenState extends ConsumerState<ChatProfileSettingsS
   }
 
   void _setMute(String duration) {
+    HapticFeedback.selectionClick();
     setState(() {
       _isNotificationsEnabled = false;
       _muteDuration = duration;
     });
     ref.read(conversationsProvider.notifier).setSettings(widget.conversationId, muted: true);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Muted for $duration')),
-    );
   }
 
   void _showNotificationSoundPicker() {
@@ -182,47 +184,148 @@ class _ChatProfileSettingsScreenState extends ConsumerState<ChatProfileSettingsS
     showDialog(
       context: context,
       builder: (ctx) {
-        return AlertDialog(
-          title: const Text('Notification Sound'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: sounds.map((sound) {
-              return RadioListTile<String>(
-                title: Text(sound),
-                value: sound,
-                groupValue: _selectedSound,
-                onChanged: (val) {
-                  if (val != null) {
-                    setState(() => _selectedSound = val);
-                    Navigator.pop(ctx);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Notification sound set to $val')),
-                    );
-                  }
-                },
-              );
-            }).toList(),
-          ),
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Notification Sound'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: sounds.map((sound) {
+                  final isSelected = _selectedSound == sound;
+                  return ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Radio<String>(
+                      value: sound,
+                      groupValue: _selectedSound,
+                      onChanged: (val) {
+                        if (val != null) {
+                          setState(() => _selectedSound = val);
+                          setDialogState(() {});
+                          SoundService.instance.playNotificationPreview(val);
+                        }
+                      },
+                    ),
+                    title: Text(
+                      sound,
+                      style: TextStyle(fontWeight: isSelected ? FontWeight.bold : FontWeight.normal),
+                    ),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.volume_up_rounded, color: Color(0xFF007AFF), size: 20),
+                      tooltip: 'Preview sound',
+                      onPressed: () {
+                        SoundService.instance.playNotificationPreview(sound);
+                      },
+                    ),
+                    onTap: () {
+                      setState(() => _selectedSound = sound);
+                      setDialogState(() {});
+                      SoundService.instance.playNotificationPreview(sound);
+                    },
+                  );
+                }).toList(),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Done'),
+                ),
+              ],
+            );
+          },
         );
       },
     );
   }
 
-  void _saveContact(String name, String phone, String username) {
-    Clipboard.setData(ClipboardData(
-      text: 'Name: $name\nPhone: $phone\nUsername: @$username\nProfile: https://murihspace.com/@$username',
-    ));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Contact details for $name saved & copied to clipboard!'),
-        action: SnackBarAction(
-          label: 'Call',
-          textColor: Colors.greenAccent,
-          onPressed: () {
-            launchUrl(Uri.parse('tel:$phone'));
-          },
-        ),
+  void _showSaveContactModal(String name, String phone, String username) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
+      builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 38,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.withOpacity(0.4),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Save Contact',
+                  style: Theme.of(ctx).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Choose where to save $name (@$username)',
+                  style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600], fontSize: 13),
+                ),
+                const SizedBox(height: 18),
+                ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: const Color(0xFF007AFF).withOpacity(0.12),
+                    child: const Icon(Icons.contacts_rounded, color: Color(0xFF007AFF)),
+                  ),
+                  title: const Text('Save to Device Contacts', style: TextStyle(fontWeight: FontWeight.w600)),
+                  subtitle: const Text('Export vCard (.vcf) directly to your phone contacts'),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () async {
+                    Navigator.pop(ctx);
+                    final vcard = 'BEGIN:VCARD\r\nVERSION:3.0\r\nFN:$name\r\nTEL;TYPE=CELL:$phone\r\nNOTE:MurihSpace @$username\r\nURL:https://murihspace.com/@$username\r\nEND:VCARD';
+                    await Share.share(vcard, subject: '$name Contact Card');
+                  },
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: const Color(0xFFFF9500).withOpacity(0.12),
+                    child: const Icon(Icons.star_rounded, color: Color(0xFFFF9500)),
+                  ),
+                  title: const Text('Save to Murih Starred Contacts', style: TextStyle(fontWeight: FontWeight.w600)),
+                  subtitle: const Text('Quick-access in your Murih Space contacts tab'),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () async {
+                    Navigator.pop(ctx);
+                    final prefs = await SharedPreferences.getInstance();
+                    await prefs.setBool('starred_user_${widget.conversationId}', true);
+                    HapticFeedback.lightImpact();
+                  },
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: const Color(0xFF34C759).withOpacity(0.12),
+                    child: const Icon(Icons.copy_rounded, color: Color(0xFF34C759)),
+                  ),
+                  title: const Text('Copy Contact Details', style: TextStyle(fontWeight: FontWeight.w600)),
+                  subtitle: const Text('Copy full phone number and handle to clipboard'),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    Clipboard.setData(ClipboardData(
+                      text: 'Name: $name\nPhone: $phone\nUsername: @$username\nProfile: https://murihspace.com/@$username',
+                    ));
+                    HapticFeedback.selectionClick();
+                  },
+                ),
+                const SizedBox(height: 8),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -453,22 +556,144 @@ class _ChatProfileSettingsScreenState extends ConsumerState<ChatProfileSettingsS
                 Navigator.pop(ctx);
                 try {
                   await ApiClient.instance.dio.post('/users/$userId/block');
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('$name has been blocked.')),
-                    );
-                  }
+                  if (mounted) setState(() => _isBlocked = true);
                 } catch (e) {
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Blocked $name.')),
-                    );
-                  }
+                  if (mounted) setState(() => _isBlocked = true);
                 }
               },
               child: const Text('Block', style: TextStyle(color: Colors.white)),
             ),
           ],
+        );
+      },
+    );
+  }
+
+  void _confirmUnblockUser(int userId, String name) {
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: Text('Unblock $name?'),
+          content: Text('$name will be able to message you and interact with you again.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+              onPressed: () async {
+                Navigator.pop(ctx);
+                try {
+                  await ApiClient.instance.dio.delete('/users/$userId/block');
+                  if (mounted) setState(() => _isBlocked = false);
+                } catch (e) {
+                  if (mounted) setState(() => _isBlocked = false);
+                }
+              },
+              child: const Text('Unblock', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _showMutualCommunitiesSheet(int userId, String name) async {
+    if (userId == 0) return;
+
+    // Show loading sheet first
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return FutureBuilder<List<Map<String, dynamic>>>(
+          future: () async {
+            try {
+              final res = await ApiClient.instance.dio.get('/users/$userId/mutual-communities');
+              final raw = res.data;
+              final List items = (raw is Map && raw.containsKey('data'))
+                  ? (raw['data'] is List ? raw['data'] : [])
+                  : (raw is List ? raw : []);
+              return items.map<Map<String, dynamic>>((e) => Map<String, dynamic>.from(e as Map)).toList();
+            } catch (_) {
+              return [];
+            }
+          }(),
+          builder: (ctx2, snap) {
+            if (snap.connectionState == ConnectionState.waiting) {
+              return const SizedBox(
+                height: 160,
+                child: Center(child: CircularProgressIndicator()),
+              );
+            }
+            final communities = snap.data ?? [];
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                    child: Text(
+                      'Groups & Communities in Common with $name',
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  if (communities.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+                      child: Text(
+                        'No mutual groups or communities yet.',
+                        style: TextStyle(color: DesignTokens.textSecondary),
+                      ),
+                    )
+                  else
+                    ListView.separated(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: communities.length,
+                      separatorBuilder: (_, __) => const Divider(height: 1),
+                      itemBuilder: (_, i) {
+                        final c = communities[i];
+                        final cName = c['name'] as String? ?? 'Unknown';
+                        final tag = c['tag'] as String? ?? c['handle'] as String? ?? '';
+                        final memberCount = c['member_count'] as int? ?? c['members_count'] as int? ?? 0;
+                        return ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: DesignTokens.primarySoft,
+                            child: Text(
+                              cName.isNotEmpty ? cName[0].toUpperCase() : '?',
+                              style: const TextStyle(color: DesignTokens.primary, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                          title: Text(cName, style: const TextStyle(fontWeight: FontWeight.w600)),
+                          subtitle: tag.isNotEmpty
+                              ? Text('@$tag · $memberCount members', style: const TextStyle(fontSize: 12))
+                              : Text('$memberCount members', style: const TextStyle(fontSize: 12)),
+                          trailing: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: DesignTokens.primarySoft,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              tag.isNotEmpty ? '@$tag' : 'Community',
+                              style: const TextStyle(fontSize: 11, color: DesignTokens.primary, fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  const SizedBox(height: 16),
+                ],
+              ),
+            );
+          },
         );
       },
     );
@@ -736,7 +961,7 @@ class _ChatProfileSettingsScreenState extends ConsumerState<ChatProfileSettingsS
                       icon: Icons.person_add_alt_1_rounded,
                       label: 'Save',
                       color: const Color(0xFF5856D6),
-                      onTap: () => _saveContact(title, phone, username),
+                      onTap: () => _showSaveContactModal(title, phone, username),
                     ),
                   ],
                 ),
@@ -888,13 +1113,8 @@ class _ChatProfileSettingsScreenState extends ConsumerState<ChatProfileSettingsS
                 ListTile(
                   leading: const Icon(Icons.diversity_3_outlined, color: DesignTokens.primary),
                   title: const Text('Groups & Communities in Common'),
-                  subtitle: const Text('Tech Innovators, Murih Creators Hub, Web3 Alliance'),
                   trailing: const Icon(Icons.chevron_right_rounded),
-                  onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('3 mutual communities shared with this contact.')),
-                    );
-                  },
+                  onTap: () => _showMutualCommunitiesSheet(otherUser?.id ?? 0, title),
                 ),
               ],
             ),
@@ -925,9 +1145,17 @@ class _ChatProfileSettingsScreenState extends ConsumerState<ChatProfileSettingsS
                 const Divider(height: 1),
                 if (!isCommunity) ...[
                   ListTile(
-                    leading: const Icon(Icons.block_flipped, color: Colors.redAccent),
-                    title: Text('Block $title', style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.w600)),
-                    onTap: () => _confirmBlockUser(otherUser?.id ?? widget.conversationId, title),
+                    leading: Icon(
+                      _isBlocked ? Icons.lock_open_rounded : Icons.block_flipped,
+                      color: Colors.redAccent,
+                    ),
+                    title: Text(
+                      _isBlocked ? 'Unblock $title' : 'Block $title',
+                      style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.w600),
+                    ),
+                    onTap: () => _isBlocked
+                        ? _confirmUnblockUser(otherUser?.id ?? widget.conversationId, title)
+                        : _confirmBlockUser(otherUser?.id ?? widget.conversationId, title),
                   ),
                   const Divider(height: 1),
                 ],
