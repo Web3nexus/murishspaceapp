@@ -202,3 +202,4 @@ class _EmojiPickerSheetState extends State<EmojiPickerSheet> with SingleTickerPr
     );
   }
 }
+

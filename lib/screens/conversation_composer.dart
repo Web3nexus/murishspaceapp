@@ -18,6 +18,7 @@ class Composer extends StatelessWidget {
   final bool uploading;
   final bool canSend;
   final VoidCallback onPickImage;
+  final VoidCallback? onPickCamera;
   final VoidCallback onDismissReply;
   final VoidCallback onDismissImage;
   final VoidCallback onSend;
@@ -31,6 +32,7 @@ class Composer extends StatelessWidget {
     this.uploading = false,
     required this.canSend,
     required this.onPickImage,
+    this.onPickCamera,
     required this.onDismissReply,
     required this.onDismissImage,
     required this.onSend,
@@ -52,6 +54,12 @@ class Composer extends StatelessWidget {
           Navigator.pop(ctx);
           onPickImage();
         },
+        onPickCamera: onPickCamera != null
+            ? () {
+                Navigator.pop(ctx);
+                onPickCamera!();
+              }
+            : null,
         onSendPoll: onSendPoll,
       ),
     );
@@ -60,11 +68,21 @@ class Composer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg = isDark ? Colors.black : const Color(0xFFF7FAFC);
-    final inputBg = isDark ? const Color(0xFF1C1C1E) : const Color(0xFFEFF3F6);
+    final bg = isDark ? const Color(0xFF181A20) : Colors.white;
+    final inputBg = isDark ? const Color(0xFF222630) : const Color(0xFFF1F5F9);
 
     return Container(
-      color: bg,
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(isDark ? 0.3 : 0.06),
+            blurRadius: 10,
+            offset: const Offset(0, -3),
+          ),
+        ],
+      ),
       child: SafeArea(
         top: false,
         child: Column(
@@ -73,7 +91,7 @@ class Composer extends StatelessWidget {
             if (replyTo != null) _ReplyBar(message: replyTo!, onDismiss: onDismissReply),
             if (pendingImage != null) _ImagePreview(file: pendingImage!, onDismiss: onDismissImage),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
@@ -86,18 +104,34 @@ class Composer extends StatelessWidget {
                       size: 24,
                     ),
                     tooltip: 'Attachments',
+                    padding: const EdgeInsets.all(8),
+                    constraints: const BoxConstraints(),
                   ),
-                  // Capsule text field
+                  // Quick Camera capture button beside the input field
+                  if (onPickCamera != null)
+                    IconButton(
+                      onPressed: uploading ? null : onPickCamera,
+                      icon: Icon(
+                        Icons.camera_alt_rounded,
+                        color: isDark ? const Color(0xFF8E8E93) : const Color(0xFF61758A),
+                        size: 24,
+                      ),
+                      tooltip: 'Take Photo',
+                      padding: const EdgeInsets.only(left: 4, right: 6, bottom: 8, top: 8),
+                      constraints: const BoxConstraints(),
+                    ),
+                  // Capsule text field with modern curved radius
                   Expanded(
                     child: Container(
                       decoration: BoxDecoration(
                         color: inputBg,
-                        borderRadius: BorderRadius.circular(24),
+                        borderRadius: BorderRadius.circular(28),
                         border: Border.all(
-                          color: isDark ? const Color(0xFF2C2C2E) : Colors.transparent,
+                          color: isDark ? const Color(0xFF323846) : const Color(0xFFE2E8F0),
+                          width: 1.0,
                         ),
                       ),
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 3),
                       child: Row(
                         children: [
                           Expanded(
@@ -231,9 +265,14 @@ class Composer extends StatelessWidget {
 
 class _TelegramAttachmentSheet extends StatelessWidget {
   final VoidCallback onPickImage;
+  final VoidCallback? onPickCamera;
   final ValueChanged<Map<String, dynamic>>? onSendPoll;
 
-  const _TelegramAttachmentSheet({required this.onPickImage, this.onSendPoll});
+  const _TelegramAttachmentSheet({
+    required this.onPickImage,
+    this.onPickCamera,
+    this.onSendPoll,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -243,6 +282,13 @@ class _TelegramAttachmentSheet extends StatelessWidget {
     final navigator = Navigator.of(context);
 
     final actions = [
+      _AttachmentAction('Camera', Icons.camera_alt_rounded, const Color(0xFF34C759), () {
+        if (onPickCamera != null) {
+          onPickCamera!();
+        } else {
+          onPickImage();
+        }
+      }),
       _AttachmentAction('Gallery', Icons.photo_library_rounded, const Color(0xFF007AFF), onPickImage),
       _AttachmentAction('Poll', Icons.poll_rounded, const Color(0xFFFF9500), () {
         navigator.pop();

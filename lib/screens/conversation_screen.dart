@@ -88,6 +88,19 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
     }
   }
 
+  Future<void> _pickCamera() async {
+    try {
+      final file = await _picker.pickImage(source: ImageSource.camera, imageQuality: 85);
+      if (file != null) setState(() => _pendingImage = file);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not open the camera.')),
+        );
+      }
+    }
+  }
+
   Future<void> _send() async {
     final text = _controller.text.trim();
     final image = _pendingImage;
@@ -281,6 +294,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
             uploading: _uploading,
             canSend: _controller.text.trim().isNotEmpty || _pendingImage != null,
             onPickImage: _pickImage,
+            onPickCamera: _pickCamera,
             onDismissReply: () => setState(() => _replyTo = null),
             onDismissImage: () => setState(() => _pendingImage = null),
             onSend: _send,

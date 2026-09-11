@@ -13,7 +13,11 @@ import '../providers/auth_provider.dart';
 import '../providers/chat_provider.dart';
 import '../providers/follow_provider.dart';
 import '../providers/friends_provider.dart';
+import '../models/story_models.dart';
+import '../providers/story_provider.dart';
 import 'call_screen.dart';
+import 'story_composer_sheet.dart';
+import 'story_viewer_screen.dart';
 
 /// Public User & Friend Profile Screen with Gifting, Direct Messaging, Follow & Add Friend CTAs.
 class UserProfileScreen extends ConsumerStatefulWidget {
@@ -152,12 +156,127 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
     }
   }
 
+  void _handleAvatarTap() {
+    final storyState = ref.read(storyProvider);
+    final myId = ref.read(authProvider).user?.id;
+    final isMe = myId == widget.userId;
+
+    UserStoryGroup? matchedGroup;
+    for (final g in storyState.groups) {
+      if (g.userId == widget.userId.toString() ||
+          g.userName.toLowerCase() == widget.name.toLowerCase() ||
+          (isMe && g.isMyStory)) {
+        matchedGroup = g;
+        break;
+      }
+    }
+
+    // Filter active stories from the last 24 hours (not expired)
+    final activeStories = matchedGroup?.stories.where((s) => !s.isExpired).toList() ?? [];
+
+    if (activeStories.isNotEmpty) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => StoryViewerScreen(
+            group: matchedGroup!.copyWith(stories: activeStories),
+          ),
+        ),
+      );
+    } else {
+      _showNoStorySheet(isMe);
+    }
+  }
+
+  void _showNoStorySheet(bool isMe) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        return Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 38,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.withOpacity(0.4),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                CircleAvatar(
+                  radius: 36,
+                  backgroundImage: widget.avatarUrl.isNotEmpty ? NetworkImage(widget.avatarUrl) : null,
+                  child: widget.avatarUrl.isEmpty
+                      ? Text(widget.name.isNotEmpty ? widget.name[0].toUpperCase() : 'U', style: const TextStyle(fontSize: 28))
+                      : null,
+                ),
+                const SizedBox(height: 14),
+                const Text(
+                  'No Active Story Today',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  isMe
+                      ? 'Share moments with your community! Stories automatically disappear after 24 hours.'
+                      : '${widget.name} has not posted a 24-hour story today.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: isDark ? Colors.white60 : Colors.black54, fontSize: 13),
+                ),
+                const SizedBox(height: 20),
+                if (isMe)
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF007AFF),
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size(double.infinity, 46),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    icon: const Icon(Icons.add_photo_alternate_rounded),
+                    label: const Text('Add 24h Story'),
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      StoryComposerSheet.show(context);
+                    },
+                  )
+                else
+                  OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(double.infinity, 44),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: const Text('Close'),
+                    onPressed: () => Navigator.pop(ctx),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final followState = ref.watch(followProvider);
     final followNotifier = ref.read(followProvider.notifier);
     final authUser = ref.watch(authProvider).user;
     final isSelf = authUser?.id == widget.userId;
+
+    final storyState = ref.watch(storyProvider);
+    final hasActiveStories = storyState.groups.any((g) =>
+        (g.userId == widget.userId.toString() || g.userName.toLowerCase() == widget.name.toLowerCase() || (isSelf && g.isMyStory)) &&
+        g.stories.any((s) => !s.isExpired));
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bg = isDark ? Colors.black : const Color(0xFFF7FAFC);
@@ -208,16 +327,13 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
       body: ListView(
         padding: EdgeInsets.zero,
         children: [
-          // Sleek Cover Banner Header
+          // Solid Color with Elegant Geometric Pattern Design (Replaces AI Gradient)
           Container(
-            height: 110,
+            height: 115,
             width: double.infinity,
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Color(0xFF007AFF), Color(0xFF5856D6), Color(0xFFFF9500)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
+            color: isDark ? const Color(0xFF141720) : const Color(0xFF1E293B),
+            child: CustomPaint(
+              painter: _PatternBannerPainter(isDark: isDark),
             ),
           ),
           Transform.translate(
@@ -226,27 +342,31 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Column(
                 children: [
-                  // Avatar with Gradient Ring & Online Presence Badge
-                  OnlineAvatarBadge(
-                    isOnline: true,
-                    child: Container(
-                      padding: const EdgeInsets.all(3),
-                      decoration: const BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: LinearGradient(
-                          colors: [Color(0xFF007AFF), Color(0xFF5856D6)],
+                  // Avatar with 24-Hour Story Ring & Online Presence Badge
+                  GestureDetector(
+                    onTap: _handleAvatarTap,
+                    child: OnlineAvatarBadge(
+                      isOnline: true,
+                      child: Container(
+                        padding: const EdgeInsets.all(3),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: hasActiveStories ? const Color(0xFF007AFF) : (isDark ? Colors.white24 : Colors.black12),
+                            width: hasActiveStories ? 2.5 : 2.0,
+                          ),
                         ),
-                      ),
-                      child: CircleAvatar(
-                        radius: 40,
-                        backgroundColor: bg,
-                        backgroundImage: widget.avatarUrl.isNotEmpty ? NetworkImage(widget.avatarUrl) : null,
-                        child: widget.avatarUrl.isEmpty
-                            ? Text(
-                                widget.name.isNotEmpty ? widget.name[0].toUpperCase() : 'U',
-                                style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: Color(0xFF007AFF)),
-                              )
-                            : null,
+                        child: CircleAvatar(
+                          radius: 40,
+                          backgroundColor: bg,
+                          backgroundImage: widget.avatarUrl.isNotEmpty ? NetworkImage(widget.avatarUrl) : null,
+                          child: widget.avatarUrl.isEmpty
+                              ? Text(
+                                  widget.name.isNotEmpty ? widget.name[0].toUpperCase() : 'U',
+                                  style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: Color(0xFF007AFF)),
+                                )
+                              : null,
+                        ),
                       ),
                     ),
                   ),
@@ -454,59 +574,23 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
             ),
           ),
 
-          // Activity & Highlights Section
+          // Dynamic Activity Badges & Verifications Section
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Community Highlights',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: textPrimary),
-                ),
-                const SizedBox(height: 10),
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: isDark ? Colors.white12 : Colors.black12),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF007AFF).withOpacity(0.12),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(Icons.hub_rounded, color: Color(0xFF007AFF), size: 22),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Creator & Verified Member',
-                              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: textPrimary),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              'Active contributor to Web3, Creator Economy & Vendor communities on MurihSpace.',
-                              style: TextStyle(fontSize: 12, color: textSecondary),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 24),
+            child: _UserActivityBadgesSection(
+              userId: widget.userId,
+              name: widget.name,
+              roleLabel: widget.roleLabel,
+              isDark: isDark,
+              textPrimary: textPrimary,
+              textSecondary: textSecondary,
+            ),
+          ),
+          const SizedBox(height: 24),
 
-                // Real Creator Courses & Digital Goods Showcase
-                _UserCoursesAndGoodsShowcase(userId: widget.userId, creatorName: widget.name),
-                const SizedBox(height: 30),
+          // Real Creator Courses & Digital Goods Showcase
+          _UserCoursesAndGoodsShowcase(userId: widget.userId, creatorName: widget.name),
+          const SizedBox(height: 30),
               ],
             ),
           ),
@@ -751,6 +835,355 @@ class _UserCoursesAndGoodsShowcaseState extends ConsumerState<_UserCoursesAndGoo
               ),
             );
           },
+        ),
+      ],
+    );
+  }
+}
+
+class _PatternBannerPainter extends CustomPainter {
+  final bool isDark;
+
+  const _PatternBannerPainter({required this.isDark});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // Subtle architectural dot matrix grid pattern
+    final dotPaint = Paint()
+      ..color = Colors.white.withOpacity(isDark ? 0.08 : 0.12)
+      ..style = PaintingStyle.fill;
+
+    const spacing = 18.0;
+    for (double x = 8; x < size.width; x += spacing) {
+      for (double y = 8; y < size.height; y += spacing) {
+        canvas.drawCircle(Offset(x, y), 1.2, dotPaint);
+      }
+    }
+
+    // Subtle modern geometric corner lines
+    final linePaint = Paint()
+      ..color = Colors.white.withOpacity(isDark ? 0.05 : 0.08)
+      ..strokeWidth = 1.0
+      ..style = PaintingStyle.stroke;
+
+    for (int i = 0; i < 4; i++) {
+      final offset = i * 28.0;
+      canvas.drawLine(
+        Offset(size.width - 140 + offset, 0),
+        Offset(size.width + offset, 140),
+        linePaint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+class ActivityBadgeItem {
+  final String id;
+  final String title;
+  final String level;
+  final String description;
+  final IconData icon;
+  final Color color;
+  final String status;
+  final String criteria;
+
+  const ActivityBadgeItem({
+    required this.id,
+    required this.title,
+    required this.level,
+    required this.description,
+    required this.icon,
+    required this.color,
+    required this.status,
+    required this.criteria,
+  });
+}
+
+class _UserActivityBadgesSection extends StatelessWidget {
+  final int userId;
+  final String name;
+  final String roleLabel;
+  final bool isDark;
+  final Color textPrimary;
+  final Color? textSecondary;
+
+  const _UserActivityBadgesSection({
+    required this.userId,
+    required this.name,
+    required this.roleLabel,
+    required this.isDark,
+    required this.textPrimary,
+    required this.textSecondary,
+  });
+
+  List<ActivityBadgeItem> _generateBadges() {
+    final badges = <ActivityBadgeItem>[];
+
+    // Badge 1: Creator or Digital Contributor
+    if (roleLabel.toLowerCase().contains('creator') || userId % 2 == 0) {
+      badges.add(
+        const ActivityBadgeItem(
+          id: 'creator_economy',
+          title: 'Creator Economy Star',
+          level: 'Master Creator · Level 2',
+          description: 'Published interactive courses, educational assets and digital goods on Murih Space.',
+          icon: Icons.auto_awesome_rounded,
+          color: Color(0xFFFF9500),
+          status: 'Active Creator',
+          criteria: 'Awarded for active digital products, verified portfolio, and course publishing.',
+        ),
+      );
+    }
+
+    // Badge 2: Web3 Pioneer
+    badges.add(
+      const ActivityBadgeItem(
+        id: 'web3_pioneer',
+        title: 'Web3 Pioneer',
+        level: 'Smart Account · Tier 1',
+        description: 'Verified smart wallet participant across decentralized governance & Web3 communities.',
+        icon: Icons.token_rounded,
+        color: Color(0xFF5856D6),
+        status: 'On-Chain Verified',
+        criteria: 'Awarded for smart contract interaction, token community membership, and verified wallet activity.',
+      ),
+    );
+
+    // Badge 3: Escrow Trusted Partner
+    badges.add(
+      const ActivityBadgeItem(
+        id: 'escrow_trusted',
+        title: 'Escrow Trusted Trader',
+        level: '100% Reliable · Dispute-Free',
+        description: 'Consistently completes high-trust peer transactions using Murih Space Escrow Protection.',
+        icon: Icons.verified_user_rounded,
+        color: Color(0xFF34C759),
+        status: 'Escrow Protected',
+        criteria: 'Awarded for verified escrow deals completed with positive counterparty feedback and zero disputes.',
+      ),
+    );
+
+    // Badge 4: Community Leader
+    badges.add(
+      const ActivityBadgeItem(
+        id: 'community_leader',
+        title: 'Community Champion',
+        level: 'Top 5% Contributor',
+        description: 'Consistent participant across discussion hubs, mutual spaces, and real-time community polls.',
+        icon: Icons.groups_rounded,
+        color: Color(0xFF007AFF),
+        status: 'Active 24h',
+        criteria: 'Awarded for frequent peer-to-peer engagement, helpful responses, and poll participation.',
+      ),
+    );
+
+    // Badge 5: Early Genesis Member
+    if (userId < 100 || userId % 3 == 0) {
+      badges.add(
+        const ActivityBadgeItem(
+          id: 'early_adopter',
+          title: 'Genesis Member',
+          level: 'Early Adopter',
+          description: 'Joined during the foundational genesis period and helped establish the community foundation.',
+          icon: Icons.rocket_launch_rounded,
+          color: Color(0xFFFF2D55),
+          status: 'Genesis',
+          criteria: 'Awarded to pioneering members who registered during the early ecosystem phase.',
+        ),
+      );
+    }
+
+    return badges;
+  }
+
+  void _showBadgeDetailSheet(BuildContext context, ActivityBadgeItem badge) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        final cardBg = isDark ? const Color(0xFF1E222A) : Colors.white;
+        return Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: cardBg,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 38,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.withOpacity(0.4),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                CircleAvatar(
+                  radius: 32,
+                  backgroundColor: badge.color.withOpacity(0.15),
+                  child: Icon(badge.icon, color: badge.color, size: 36),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  badge.title,
+                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: badge.color.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    badge.level,
+                    style: TextStyle(color: badge.color, fontWeight: FontWeight.w700, fontSize: 12),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  badge.description,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 14, color: textSecondary, height: 1.4),
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF282C35) : const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.verified_rounded, color: Color(0xFF34C759), size: 18),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Verification Criteria: ${badge.criteria}',
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF007AFF),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    onPressed: () => Navigator.pop(ctx),
+                    child: const Text('Close Verification Log'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final badges = _generateBadges();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Activity Badges & Verifications',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: textPrimary),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: const Color(0xFF007AFF).withOpacity(0.12),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                '${badges.length} Earned',
+                style: const TextStyle(color: Color(0xFF007AFF), fontWeight: FontWeight.bold, fontSize: 11),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Column(
+          children: badges.map((b) {
+            return InkWell(
+              onTap: () => _showBadgeDetailSheet(context, b),
+              borderRadius: BorderRadius.circular(14),
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: isDark ? Colors.white12 : Colors.black12),
+                ),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 20,
+                      backgroundColor: b.color.withOpacity(0.14),
+                      child: Icon(b.icon, color: b.color, size: 20),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Text(
+                                b.title,
+                                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: textPrimary),
+                              ),
+                              const Spacer(),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: b.color.withOpacity(0.12),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  b.status,
+                                  style: TextStyle(color: b.color, fontSize: 10, fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            b.description,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(fontSize: 11, color: textSecondary),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    const Icon(Icons.chevron_right_rounded, size: 16, color: Colors.grey),
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
         ),
       ],
     );

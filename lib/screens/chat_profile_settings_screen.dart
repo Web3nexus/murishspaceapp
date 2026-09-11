@@ -12,7 +12,10 @@ import '../core/api_client.dart';
 import '../models/chat_models.dart';
 import '../providers/chat_provider.dart';
 import '../providers/messages_provider.dart';
+import '../models/story_models.dart';
+import '../providers/story_provider.dart';
 import 'call_screen.dart';
+import 'story_viewer_screen.dart';
 
 class ChatProfileSettingsScreen extends ConsumerStatefulWidget {
   final int conversationId;
@@ -617,19 +620,46 @@ class _ChatProfileSettingsScreenState extends ConsumerState<ChatProfileSettingsS
             ),
             child: Column(
               children: [
-                OnlineAvatarBadge(
-                  isOnline: !isCommunity,
-                  badgeSize: 16,
-                  child: CircleAvatar(
-                    radius: 46,
-                    backgroundColor: DesignTokens.primarySoft,
-                    backgroundImage: avatar.isNotEmpty ? CachedNetworkImageProvider(avatar) : null,
-                    child: avatar.isEmpty
-                        ? Text(
-                            title.isNotEmpty ? title.substring(0, 1).toUpperCase() : '?',
-                            style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: DesignTokens.primaryDark),
-                          )
-                        : null,
+                GestureDetector(
+                  onTap: () {
+                    if (isCommunity) return;
+                    final storyState = ref.read(storyProvider);
+                    UserStoryGroup? matched;
+                    for (final g in storyState.groups) {
+                      if (g.userId == otherUser?.id.toString() ||
+                          g.userName.toLowerCase() == (otherUser?.name ?? title).toLowerCase()) {
+                        matched = g;
+                        break;
+                      }
+                    }
+                    final activeStories = matched?.stories.where((s) => !s.isExpired).toList() ?? [];
+                    if (activeStories.isNotEmpty) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => StoryViewerScreen(group: matched!.copyWith(stories: activeStories)),
+                        ),
+                      );
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('No active 24h stories from $title today.')),
+                      );
+                    }
+                  },
+                  child: OnlineAvatarBadge(
+                    isOnline: !isCommunity,
+                    badgeSize: 16,
+                    child: CircleAvatar(
+                      radius: 46,
+                      backgroundColor: DesignTokens.primarySoft,
+                      backgroundImage: avatar.isNotEmpty ? CachedNetworkImageProvider(avatar) : null,
+                      child: avatar.isEmpty
+                          ? Text(
+                              title.isNotEmpty ? title.substring(0, 1).toUpperCase() : '?',
+                              style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: DesignTokens.primaryDark),
+                            )
+                          : null,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -959,3 +989,4 @@ class _QuickActionButton extends StatelessWidget {
     );
   }
 }
+
