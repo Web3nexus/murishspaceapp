@@ -247,10 +247,7 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> {
                                     ? NetworkImage(widget.group.userAvatar!)
                                     : null,
                                 child: widget.group.userAvatar == null
-                                    ? Text(
-                                        widget.group.userName[0].toUpperCase(),
-                                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                                      )
+                                    ? Icon(Icons.person, color: Colors.white, size: 20)
                                     : null,
                               ),
                               const SizedBox(width: 10),

@@ -484,10 +484,7 @@ class _CommunityHeader extends ConsumerWidget {
                     backgroundColor: const Color(0xFF007AFF),
                     backgroundImage: logoUrl != null && logoUrl.isNotEmpty ? NetworkImage(logoUrl) : null,
                     child: logoUrl == null || logoUrl.isEmpty
-                        ? Text(
-                            community.initials,
-                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 22),
-                          )
+                        ? const Icon(Icons.person, color: Colors.white, size: 37)
                         : null,
                   ),
                 ),
@@ -898,10 +895,7 @@ class _MembersTab extends ConsumerWidget {
                 backgroundColor: const Color(0xFF007AFF).withOpacity(0.15),
                 backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty ? CachedNetworkImageProvider(avatarUrl) : null,
                 child: avatarUrl == null || avatarUrl.isEmpty
-                    ? Text(
-                        (user?.name ?? '?').isEmpty ? '?' : (user!.name).substring(0, 1).toUpperCase(),
-                        style: const TextStyle(color: Color(0xFF007AFF), fontWeight: FontWeight.w700),
-                      )
+                    ? const Icon(Icons.person, color: Color(0xFF007AFF), size: 22)
                     : null,
               ),
               title: Text(user?.name ?? 'MurihSpace user', style: TextStyle(fontWeight: FontWeight.bold, color: textPrimary)),
@@ -972,10 +966,7 @@ class _RequestsTab extends ConsumerWidget {
                   backgroundColor: const Color(0xFF007AFF).withOpacity(0.15),
                   backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty ? CachedNetworkImageProvider(avatarUrl) : null,
                   child: avatarUrl == null || avatarUrl.isEmpty
-                      ? Text(
-                          (user?.name ?? '?').isEmpty ? '?' : (user!.name).substring(0, 1).toUpperCase(),
-                          style: const TextStyle(color: Color(0xFF007AFF), fontWeight: FontWeight.w700),
-                        )
+                      ? const Icon(Icons.person, color: Color(0xFF007AFF), size: 22)
                       : null,
                 ),
                 title: Text(user?.name ?? 'MurihSpace user', style: TextStyle(fontWeight: FontWeight.bold, color: textPrimary)),

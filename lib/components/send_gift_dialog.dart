@@ -265,10 +265,7 @@ class _SendGiftDialogState extends ConsumerState<SendGiftDialog> {
                     ? NetworkImage(widget.recipientAvatar!)
                     : null,
                 child: widget.recipientAvatar == null || widget.recipientAvatar!.isEmpty
-                    ? Text(
-                        widget.recipientName.isNotEmpty ? widget.recipientName[0].toUpperCase() : 'U',
-                        style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFFFF9500)),
-                      )
+                    ? const Icon(Icons.person, color: Color(0xFFFF9500), size: 22)
                     : null,
               ),
               const SizedBox(width: 12),

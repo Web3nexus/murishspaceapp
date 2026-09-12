@@ -322,10 +322,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       CircleAvatar(
                         radius: 18,
                         backgroundColor: const Color(0xFF007AFF),
-                        child: Text(
-                          (user?.name ?? 'M')[0].toUpperCase(),
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                        ),
+                        child: const Icon(Icons.person, color: Colors.white, size: 20),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -431,13 +428,7 @@ class _StoriesRow extends ConsumerWidget {
                           ),
                           child: CircleAvatar(
                             backgroundColor: isDark ? const Color(0xFF1C1C1E) : Colors.white,
-                            child: Text(
-                              (user?.name ?? 'M')[0].toUpperCase(),
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: isDark ? Colors.white : Colors.black,
-                              ),
-                            ),
+                            child: Icon(Icons.person, color: isDark ? Colors.white : Colors.black, size: 20),
                           ),
                         ),
                         // Plus (+) Badge Icon
@@ -520,13 +511,7 @@ class _StoriesRow extends ConsumerWidget {
                       backgroundColor: isDark ? const Color(0xFF1C1C1E) : Colors.white,
                       backgroundImage: group.userAvatar != null ? NetworkImage(group.userAvatar!) : null,
                       child: group.userAvatar == null
-                          ? Text(
-                              group.userName[0].toUpperCase(),
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: isDark ? Colors.white : Colors.black,
-                              ),
-                            )
+                          ? Icon(Icons.person, color: isDark ? Colors.white : Colors.black, size: 25)
                           : null,
                     ),
                   ),

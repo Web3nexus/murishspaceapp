@@ -218,7 +218,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                   radius: 36,
                   backgroundImage: widget.avatarUrl.isNotEmpty ? NetworkImage(widget.avatarUrl) : null,
                   child: widget.avatarUrl.isEmpty
-                      ? Text(widget.name.isNotEmpty ? widget.name[0].toUpperCase() : 'U', style: const TextStyle(fontSize: 28))
+                      ? Icon(Icons.person, size: 40)
                       : null,
                 ),
                 const SizedBox(height: 14),
@@ -361,10 +361,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                           backgroundColor: bg,
                           backgroundImage: widget.avatarUrl.isNotEmpty ? NetworkImage(widget.avatarUrl) : null,
                           child: widget.avatarUrl.isEmpty
-                              ? Text(
-                                  widget.name.isNotEmpty ? widget.name[0].toUpperCase() : 'U',
-                                  style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: Color(0xFF007AFF)),
-                                )
+                              ? Icon(Icons.person, color: Color(0xFF007AFF), size: 44)
                               : null,
                         ),
                       ),

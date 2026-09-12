@@ -209,10 +209,7 @@ class _CommentTile extends StatelessWidget {
             backgroundColor: DesignTokens.primarySoft,
             backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty ? NetworkImage(avatarUrl) : null,
             child: avatarUrl == null || avatarUrl.isEmpty
-                ? Text(
-                    name.isEmpty ? '?' : name.substring(0, 1).toUpperCase(),
-                    style: const TextStyle(color: DesignTokens.primaryDark, fontWeight: FontWeight.w700, fontSize: 13),
-                  )
+                ? const Icon(Icons.person, color: DesignTokens.primaryDark, size: 20)
                 : null,
           ),
           const SizedBox(width: 10),

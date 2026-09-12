@@ -416,10 +416,7 @@ class CommunityLogo extends StatelessWidget {
       backgroundColor: DesignTokens.primarySoft,
       backgroundImage: logoUrl != null && logoUrl.isNotEmpty ? NetworkImage(logoUrl) : null,
       child: logoUrl == null || logoUrl.isEmpty
-          ? Text(
-              community.initials,
-              style: const TextStyle(color: DesignTokens.primaryDark, fontWeight: FontWeight.w700, fontSize: 16),
-            )
+          ? Icon(Icons.person, color: DesignTokens.primaryDark, size: (size / 2) * 1.1)
           : null,
     );
   }

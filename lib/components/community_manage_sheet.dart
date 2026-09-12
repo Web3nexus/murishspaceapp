@@ -470,7 +470,7 @@ class _CommunityManageSheetState extends ConsumerState<CommunityManageSheet> wit
                                     backgroundColor: const Color(0xFF007AFF).withOpacity(0.15),
                                     backgroundImage: avatar != null && avatar.isNotEmpty ? NetworkImage(avatar) : null,
                                     child: avatar == null || avatar.isEmpty
-                                        ? Text(name.isNotEmpty ? name[0] : 'U', style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF007AFF)))
+                                        ? const Icon(Icons.person, color: Color(0xFF007AFF), size: 22)
                                         : null,
                                   ),
                                   title: Text(name, style: TextStyle(fontWeight: FontWeight.bold, color: textPrimary)),
@@ -523,7 +523,7 @@ class _CommunityManageSheetState extends ConsumerState<CommunityManageSheet> wit
                                     backgroundColor: const Color(0xFF5856D6).withOpacity(0.15),
                                     backgroundImage: avatar != null && avatar.isNotEmpty ? NetworkImage(avatar) : null,
                                     child: avatar == null || avatar.isEmpty
-                                        ? Text(name.isNotEmpty ? name[0] : 'M', style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF5856D6)))
+                                        ? const Icon(Icons.person, color: Color(0xFF5856D6), size: 22)
                                         : null,
                                   ),
                                   title: Text(name, style: TextStyle(fontWeight: FontWeight.bold, color: textPrimary)),
@@ -847,7 +847,7 @@ class _CommunityManageSheetState extends ConsumerState<CommunityManageSheet> wit
                                           backgroundColor: const Color(0xFFFF9500).withOpacity(0.15),
                                           backgroundImage: avatar != null && avatar.isNotEmpty ? NetworkImage(avatar) : null,
                                           child: avatar == null || avatar.isEmpty
-                                              ? Text('${idx + 1}', style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFFFF9500)))
+                                              ? const Icon(Icons.person, color: Color(0xFFFF9500), size: 22)
                                               : null,
                                         ),
                                         title: Text(name, style: TextStyle(fontWeight: FontWeight.bold, color: textPrimary)),

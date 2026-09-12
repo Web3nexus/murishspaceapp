@@ -734,10 +734,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                             CircleAvatar(
                               radius: 24,
                               backgroundColor: const Color(0xFF007AFF),
-                              child: Text(
-                                sellerName[0].toUpperCase(),
-                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 20),
-                              ),
+                              child: Icon(Icons.person, color: Colors.white, size: 26),
                             ),
                             const SizedBox(width: 12),
                             Expanded(

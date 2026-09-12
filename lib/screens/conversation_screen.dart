@@ -574,10 +574,7 @@ class _ConversationTitle extends ConsumerWidget {
               backgroundColor: DesignTokens.primarySoft,
               backgroundImage: avatar != null && avatar.isNotEmpty ? NetworkImage(avatar) : null,
               child: avatar == null || avatar.isEmpty
-                  ? Text(
-                      title.isEmpty ? '?' : title.substring(0, 1).toUpperCase(),
-                      style: const TextStyle(color: DesignTokens.primaryDark, fontWeight: FontWeight.w700, fontSize: 14),
-                    )
+                  ? const Icon(Icons.person, color: DesignTokens.primaryDark, size: 18)
                   : null,
             ),
           ),
@@ -726,14 +723,7 @@ class _ForwardSheet extends StatelessWidget {
                     backgroundImage:
                         c.avatarUrl != null && c.avatarUrl!.isNotEmpty ? NetworkImage(c.avatarUrl!) : null,
                     child: c.avatarUrl == null || c.avatarUrl!.isEmpty
-                        ? Text(
-                            c.initials,
-                            style: const TextStyle(
-                              color: DesignTokens.primaryDark,
-                              fontWeight: FontWeight.w700,
-                              fontSize: 13,
-                            ),
-                          )
+                        ? const Icon(Icons.person, color: DesignTokens.primaryDark, size: 22)
                         : null,
                   ),
                   title: Text(c.title, maxLines: 1, overflow: TextOverflow.ellipsis),

@@ -285,10 +285,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
                       ? CachedNetworkImageProvider(avatarUrl)
                       : null,
                   child: avatarUrl == null || avatarUrl.isEmpty
-                      ? Text(
-                          name.isNotEmpty ? name[0].toUpperCase() : 'U',
-                          style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF007AFF)),
-                        )
+                      ? Icon(Icons.person, color: Color(0xFF007AFF), size: 24)
                       : null,
                 ),
                 title: Text(
@@ -355,10 +352,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
                       ? CachedNetworkImageProvider(logoUrl)
                       : null,
                   child: logoUrl == null || logoUrl.isEmpty
-                      ? Text(
-                          name.isNotEmpty ? name[0].toUpperCase() : 'C',
-                          style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF5856D6)),
-                        )
+                      ? Icon(Icons.person, color: Color(0xFF5856D6), size: 24)
                       : null,
                 ),
                 title: Text(

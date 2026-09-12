@@ -477,10 +477,7 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
                                         backgroundColor: const Color(0xFF007AFF),
                                         backgroundImage: user.avatarUrl != null && user.avatarUrl!.isNotEmpty ? NetworkImage(user.avatarUrl!) : null,
                                         child: user.avatarUrl == null || user.avatarUrl!.isEmpty
-                                            ? Text(
-                                                user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
-                                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
-                                              )
+                                            ? Icon(Icons.person, color: Colors.white, size: 26)
                                             : null,
                                       ),
                                       const SizedBox(width: 12),
@@ -581,10 +578,7 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
                                     backgroundColor: const Color(0xFF5856D6),
                                     backgroundImage: user.avatarUrl != null && user.avatarUrl!.isNotEmpty ? NetworkImage(user.avatarUrl!) : null,
                                     child: user.avatarUrl == null || user.avatarUrl!.isEmpty
-                                        ? Text(
-                                            user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
-                                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
-                                          )
+                                        ? Icon(Icons.person, color: Colors.white, size: 24)
                                         : null,
                                   ),
                                 ),
@@ -636,10 +630,7 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
                                   backgroundColor: const Color(0xFF007AFF),
                                   backgroundImage: user.avatarUrl != null && user.avatarUrl!.isNotEmpty ? NetworkImage(user.avatarUrl!) : null,
                                   child: user.avatarUrl == null || user.avatarUrl!.isEmpty
-                                      ? Text(
-                                          user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
-                                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
-                                        )
+                                      ? Icon(Icons.person, color: Colors.white, size: 24)
                                       : null,
                                 ),
                                 const SizedBox(width: 12),
@@ -726,10 +717,7 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
                                   backgroundColor: const Color(0xFFFF9500),
                                   backgroundImage: comm.coverUrl != null && comm.coverUrl!.isNotEmpty ? NetworkImage(comm.coverUrl!) : null,
                                   child: comm.coverUrl == null || comm.coverUrl!.isEmpty
-                                      ? Text(
-                                          comm.name.isNotEmpty ? comm.name[0].toUpperCase() : 'C',
-                                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
-                                        )
+                                      ? Icon(Icons.person, color: Colors.white, size: 24)
                                       : null,
                                 ),
                                 const SizedBox(width: 12),
@@ -799,10 +787,7 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
                                     backgroundColor: color,
                                     backgroundImage: contact.avatarUrl != null && contact.avatarUrl!.isNotEmpty ? NetworkImage(contact.avatarUrl!) : null,
                                     child: contact.avatarUrl == null || contact.avatarUrl!.isEmpty
-                                        ? Text(
-                                            contact.name.isNotEmpty ? contact.name[0].toUpperCase() : 'C',
-                                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
-                                          )
+                                        ? Icon(Icons.person, color: Colors.white, size: 24)
                                         : null,
                                   ),
                                 ),
@@ -1306,10 +1291,7 @@ class _AddFriendModalSheetState extends ConsumerState<_AddFriendModalSheet> {
                             backgroundColor: const Color(0xFF5856D6),
                             backgroundImage: u.avatarUrl != null && u.avatarUrl!.isNotEmpty ? NetworkImage(u.avatarUrl!) : null,
                             child: u.avatarUrl == null || u.avatarUrl!.isEmpty
-                                ? Text(
-                                    u.name.isNotEmpty ? u.name[0].toUpperCase() : '?',
-                                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
-                                  )
+                                ? Icon(Icons.person, color: Colors.white, size: 22)
                                 : null,
                           ),
                         ),

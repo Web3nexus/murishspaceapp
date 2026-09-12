@@ -773,10 +773,7 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
                   CircleAvatar(
                     radius: 20,
                     backgroundColor: const Color(0xFF007AFF),
-                    child: Text(
-                      (user?.name ?? 'M')[0].toUpperCase(),
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
-                    ),
+                    child: Icon(Icons.person, color: Colors.white, size: 22),
                   ),
                   const SizedBox(width: 12),
                   Expanded(

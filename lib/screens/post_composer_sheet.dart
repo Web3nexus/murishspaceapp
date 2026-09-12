@@ -258,10 +258,7 @@ class _PostComposerState extends ConsumerState<_PostComposer> {
                             ? NetworkImage(user.avatarUrl!)
                             : null,
                         child: user?.avatarUrl == null || user!.avatarUrl!.isEmpty
-                            ? Text(
-                                (user?.name ?? 'M')[0].toUpperCase(),
-                                style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF007AFF)),
-                              )
+                            ? const Icon(Icons.person, color: Color(0xFF007AFF), size: 22)
                             : null,
                       ),
                       title: Text(
@@ -294,10 +291,7 @@ class _PostComposerState extends ConsumerState<_PostComposer> {
                               ? NetworkImage(comm.logoUrl!)
                               : null,
                           child: comm.logoUrl == null || comm.logoUrl!.isEmpty
-                              ? Text(
-                                  comm.name.isNotEmpty ? comm.name[0].toUpperCase() : 'C',
-                                  style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF007AFF)),
-                                )
+                              ? const Icon(Icons.person, color: Color(0xFF007AFF), size: 22)
                               : null,
                         ),
                         title: Text(
@@ -709,10 +703,7 @@ class _PostComposerState extends ConsumerState<_PostComposer> {
                           ? NetworkImage(user.avatarUrl!)
                           : null,
                       child: user?.avatarUrl == null || user!.avatarUrl!.isEmpty
-                          ? Text(
-                              user?.name.isNotEmpty == true ? user!.name[0].toUpperCase() : 'U',
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF007AFF)),
-                            )
+                          ? const Icon(Icons.person, color: Color(0xFF007AFF), size: 24)
                           : null,
                     ),
                     const SizedBox(width: 12),

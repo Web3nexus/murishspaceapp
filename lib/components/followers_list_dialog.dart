@@ -169,10 +169,7 @@ class _FollowersListDialogState extends ConsumerState<FollowersListDialog> {
                                 backgroundImage: user.avatarUrl.isNotEmpty ? NetworkImage(user.avatarUrl) : null,
                                 backgroundColor: const Color(0xFF007AFF).withOpacity(0.15),
                                 child: user.avatarUrl.isEmpty
-                                    ? Text(
-                                        user.name.isNotEmpty ? user.name.substring(0, 1).toUpperCase() : 'U',
-                                        style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF007AFF)),
-                                      )
+                                    ? const Icon(Icons.person, color: Color(0xFF007AFF), size: 22)
                                     : null,
                               ),
                               title: Row(

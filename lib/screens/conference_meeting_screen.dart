@@ -139,10 +139,7 @@ class _ConferenceMeetingScreenState extends ConsumerState<ConferenceMeetingScree
                               CircleAvatar(
                                 radius: 28,
                                 backgroundColor: const Color(0xFF007AFF).withValues(alpha: 0.2),
-                                child: Text(
-                                  (p['name'] as String)[0],
-                                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF007AFF)),
-                                ),
+                                child: Icon(Icons.person, color: const Color(0xFF007AFF), size: 32),
                               ),
                               const SizedBox(height: 8),
                               Text(p['name'] as String, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),

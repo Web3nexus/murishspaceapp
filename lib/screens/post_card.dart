@@ -412,10 +412,7 @@ class _Header extends ConsumerWidget {
           backgroundColor: const Color(0xFF007AFF).withValues(alpha: 0.15),
           backgroundImage: photo != null && photo.isNotEmpty ? NetworkImage(photo) : null,
           child: photo == null || photo.isEmpty
-              ? Text(
-                  name.isNotEmpty ? name[0].toUpperCase() : '?',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF007AFF)),
-                )
+              ? const Icon(Icons.person, color: Color(0xFF007AFF), size: 20)
               : null,
         ),
         const SizedBox(width: 10),

@@ -120,10 +120,7 @@ class CallsScreen extends ConsumerWidget {
                                           ? CachedNetworkImageProvider(friend.avatarUrl!)
                                           : null,
                                       child: friend.avatarUrl == null || friend.avatarUrl!.isEmpty
-                                          ? Text(
-                                              friend.name.isNotEmpty ? friend.name[0].toUpperCase() : 'U',
-                                              style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF007AFF)),
-                                            )
+                                          ? Icon(Icons.person, color: const Color(0xFF007AFF), size: 26)
                                           : null,
                                     ),
                                     if (friend.isOnline)
@@ -204,10 +201,7 @@ class CallsScreen extends ConsumerWidget {
                     ? CachedNetworkImageProvider(friend.avatarUrl!)
                     : null,
                 child: friend.avatarUrl == null || friend.avatarUrl!.isEmpty
-                    ? Text(
-                        friend.name.isNotEmpty ? friend.name[0].toUpperCase() : 'U',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 22, color: Color(0xFF007AFF)),
-                      )
+                    ? Icon(Icons.person, color: const Color(0xFF007AFF), size: 34)
                     : null,
               ),
               const SizedBox(height: 10),

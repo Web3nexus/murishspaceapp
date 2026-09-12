@@ -197,14 +197,7 @@ class YouScreen extends ConsumerWidget {
                                         ? NetworkImage(user.avatarUrl!)
                                         : null,
                                     child: user?.avatarUrl == null || user!.avatarUrl!.isEmpty
-                                        ? Text(
-                                            _initials(user?.name ?? '?'),
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 24,
-                                              fontWeight: FontWeight.w900,
-                                            ),
-                                          )
+                                        ? const Icon(Icons.person, color: Colors.white, size: 34)
                                         : null,
                                   ),
                                 ),
@@ -605,10 +598,7 @@ class YouScreen extends ConsumerWidget {
                                       : null,
                                   backgroundColor: const Color(0xFF007AFF),
                                   child: friend.avatarUrl == null || friend.avatarUrl!.isEmpty
-                                      ? Text(
-                                          _initials(name),
-                                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
-                                        )
+                                      ? const Icon(Icons.person, color: Colors.white, size: 24)
                                       : null,
                                 ),
                                 const SizedBox(height: 6),
@@ -807,14 +797,6 @@ class YouScreen extends ConsumerWidget {
         );
       },
     );
-  }
-
-  String _initials(String name) {
-    final parts = name.trim().split(RegExp(r'\s+'));
-    if (parts.isEmpty) return '?';
-    final first = parts.first.isNotEmpty ? parts.first[0] : '';
-    final last = parts.length > 1 ? parts.last[0] : '';
-    return (first + last).toUpperCase();
   }
 
   void _showAccountSwitcherSheet(BuildContext context, WidgetRef ref, bool isDark, UserRole role) {

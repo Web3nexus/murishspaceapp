@@ -641,7 +641,7 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> with SingleTi
                           CircleAvatar(
                             radius: 36,
                             backgroundColor: Colors.white,
-                            child: Text(name.isNotEmpty ? name[0].toUpperCase() : 'C', style: TextStyle(fontSize: 30, fontWeight: FontWeight.w900, color: _selectedTheme.accent)),
+                            child: Icon(Icons.person, color: _selectedTheme.accent, size: 40),
                           ),
                           const SizedBox(height: 10),
                           Text(name, style: TextStyle(color: _selectedTheme.textPrimary, fontWeight: FontWeight.w900, fontSize: 18)),

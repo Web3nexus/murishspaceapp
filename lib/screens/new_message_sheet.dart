@@ -221,10 +221,7 @@ class _NewMessageSheetState extends ConsumerState<_NewMessageSheet> {
                 ? NetworkImage(user.avatarUrl!)
                 : null,
             child: user.avatarUrl == null || user.avatarUrl!.isEmpty
-                ? Text(
-                    user.name.isNotEmpty ? user.name.substring(0, 1).toUpperCase() : '?',
-                    style: const TextStyle(color: DesignTokens.primaryDark, fontWeight: FontWeight.w700),
-                  )
+                ? Icon(Icons.person, color: DesignTokens.primaryDark, size: 22)
                 : null,
           ),
           title: Text(user.name, style: const TextStyle(fontWeight: FontWeight.w600)),

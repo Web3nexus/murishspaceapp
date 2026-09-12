@@ -513,7 +513,7 @@ class _AdminModerationScreenState extends ConsumerState<AdminModerationScreen>
               CircleAvatar(
                 radius: 20,
                 backgroundColor: const Color(0xFFFF3B30),
-                child: Text(v.userName[0], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                child: Icon(Icons.person, color: Colors.white, size: 22),
               ),
               const SizedBox(width: 10),
               Expanded(

@@ -195,15 +195,7 @@ class _CommunityPickerSheet extends StatelessWidget {
                           ? CachedNetworkImageProvider(c.logoUrl!)
                           : null,
                       child: c.logoUrl == null || c.logoUrl!.isEmpty
-                          ? Text(
-                              c.name == null || c.name!.isEmpty
-                                  ? '?'
-                                  : c.name!.substring(0, 1).toUpperCase(),
-                              style: const TextStyle(
-                                color: DesignTokens.primaryDark,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            )
+                          ? const Icon(Icons.person, color: DesignTokens.primaryDark, size: 20)
                           : null,
                     ),
                     title: Text(c.name ?? 'Community'),
@@ -852,13 +844,10 @@ class _Avatar extends StatelessWidget {
                 ? CachedNetworkImageProvider(avatarUrl)
                 : null,
             child: avatarUrl == null || avatarUrl.isEmpty
-                ? Text(
-                    conversation.initials,
-                    style: TextStyle(
-                      color: unread ? Colors.white : DesignTokens.primaryDark,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 18,
-                    ),
+                ? Icon(
+                    Icons.person,
+                    color: unread ? Colors.white : DesignTokens.primaryDark,
+                    size: 28,
                   )
                 : null,
           ),
@@ -1048,14 +1037,7 @@ class _ActiveFriendsRow extends ConsumerWidget {
                           backgroundColor: color.withOpacity(0.18),
                           backgroundImage: avatarUrl != null ? NetworkImage(avatarUrl) : null,
                           child: avatarUrl == null
-                              ? Text(
-                                  name.isNotEmpty ? name[0].toUpperCase() : 'F',
-                                  style: TextStyle(
-                                    color: color,
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: 18,
-                                  ),
-                                )
+                              ? Icon(Icons.person, color: color, size: 28)
                               : null,
                         ),
                         if (isOnline)

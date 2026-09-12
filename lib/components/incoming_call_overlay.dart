@@ -122,16 +122,7 @@ class _IncomingCallOverlayState extends ConsumerState<IncomingCallOverlay>
                             ? CachedNetworkImageProvider(activeCall.callerAvatar)
                             : null,
                         child: activeCall.callerAvatar.isEmpty
-                            ? Text(
-                                activeCall.callerName.isNotEmpty
-                                    ? activeCall.callerName[0].toUpperCase()
-                                    : '?',
-                                style: const TextStyle(
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
-                              )
+                            ? const Icon(Icons.person, color: Colors.white, size: 28)
                             : null,
                       ),
                     ),

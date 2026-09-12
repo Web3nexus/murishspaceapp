@@ -357,14 +357,7 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
                           backgroundImage: hasAvatar ? NetworkImage(widget.avatarUrl!) : null,
                           backgroundColor: const Color(0xFF007AFF),
                           child: !hasAvatar
-                              ? Text(
-                                  widget.contactName.isNotEmpty ? widget.contactName[0].toUpperCase() : '?',
-                                  style: TextStyle(
-                                    fontSize: (widget.isVideo && _status == CallStatus.connected) ? 22 : (widget.isVideo ? 36 : 44),
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
-                                  ),
-                                )
+                              ? Icon(Icons.person, color: Colors.white, size: 22)
                               : null,
                         ),
                       ),

@@ -399,10 +399,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       ? NetworkImage(currentUser.avatarUrl!)
                       : null,
                   child: currentUser?.avatarUrl == null || currentUser!.avatarUrl!.isEmpty
-                      ? Text(
-                          _initials(currentUser?.name ?? _firstNameController.text),
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                        )
+                      ? Icon(Icons.person, color: Colors.white, size: 22)
                       : null,
                 ),
                 title: Text(
@@ -422,7 +419,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     contentPadding: EdgeInsets.zero,
                     leading: CircleAvatar(
                       backgroundColor: Colors.grey[700],
-                      child: Text(_initials(name), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      child: Icon(Icons.person, color: Colors.white, size: 22),
                     ),
                     title: Text(name, style: const TextStyle(fontWeight: FontWeight.w600)),
                     subtitle: Text(emailOrPhone),

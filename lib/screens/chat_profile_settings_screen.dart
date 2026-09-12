@@ -666,10 +666,7 @@ class _ChatProfileSettingsScreenState extends ConsumerState<ChatProfileSettingsS
                         return ListTile(
                           leading: CircleAvatar(
                             backgroundColor: DesignTokens.primarySoft,
-                            child: Text(
-                              cName.isNotEmpty ? cName[0].toUpperCase() : '?',
-                              style: const TextStyle(color: DesignTokens.primary, fontWeight: FontWeight.bold),
-                            ),
+                            child: const Icon(Icons.person, color: DesignTokens.primary, size: 22),
                           ),
                           title: Text(cName, style: const TextStyle(fontWeight: FontWeight.w600)),
                           subtitle: tag.isNotEmpty
@@ -879,10 +876,7 @@ class _ChatProfileSettingsScreenState extends ConsumerState<ChatProfileSettingsS
                       backgroundColor: DesignTokens.primarySoft,
                       backgroundImage: avatar.isNotEmpty ? CachedNetworkImageProvider(avatar) : null,
                       child: avatar.isEmpty
-                          ? Text(
-                              title.isNotEmpty ? title.substring(0, 1).toUpperCase() : '?',
-                              style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: DesignTokens.primaryDark),
-                            )
+                          ? const Icon(Icons.person, color: DesignTokens.primaryDark, size: 50)
                           : null,
                     ),
                   ),
