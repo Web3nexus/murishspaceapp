@@ -449,13 +449,21 @@ class _MetaRow extends StatelessWidget {
           if (mine) ...[
             const SizedBox(width: 4),
             if (message.status == 'sending')
-              const Icon(Icons.schedule, size: 12, color: Colors.white70)
+              const Icon(Icons.access_time_rounded, size: 12, color: Colors.white60)
             else if (message.status == 'failed')
-              Icon(Icons.error_outline, size: 13, color: mine ? const Color(0xFFFFB4B4) : Theme.of(context).colorScheme.error)
-            else if (message.read)
-              const Icon(Icons.done_all, size: 13, color: Color(0xFF9BE0FF))
+              GestureDetector(
+                onTap: onRetry,
+                child: const Icon(Icons.error_outline_rounded, size: 13, color: Color(0xFFFF453A)),
+              )
+            else if (message.status == 'read' || message.read)
+              // Double green tick — delivered AND read
+              const Icon(Icons.done_all_rounded, size: 14, color: Color(0xFF34C759))
+            else if (message.status == 'delivered')
+              // Double grey tick — delivered but not yet read
+              const Icon(Icons.done_all_rounded, size: 14, color: Colors.white70)
             else
-              const Icon(Icons.done, size: 13, color: Colors.white70),
+              // Single grey tick — sent to server, not yet delivered
+              const Icon(Icons.done_rounded, size: 14, color: Colors.white70),
           ],
         ],
       ),

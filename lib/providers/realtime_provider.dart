@@ -122,6 +122,27 @@ class RealtimeService {
           _ref.read(notificationsProvider.notifier).refresh();
         } catch (_) {}
       }
+
+      // Handle incoming MessageSent on user personal channel — this is what delivers
+      // messages to recipients who are NOT currently inside the conversation screen.
+      if (event.event == 'App\\Events\\MessageSent' || event.event.endsWith('.MessageSent')) {
+        try {
+          final msg = Message.fromJson(data['message'] ?? data);
+          final convId = msg.conversationId;
+          if (convId > 0) {
+            // Push message into that conversation's state (creates provider lazily)
+            _ref.read(conversationMessagesProvider(convId).notifier).applyRealtime(msg);
+            // Refresh chat list so the last-message preview updates
+            _ref.read(chatProvider.notifier).refresh();
+            // Show banner if user is not actively viewing this conversation
+            final currentUserId = _ref.read(authProvider).user?.id;
+            if (convId != _activeConversationId && msg.userId != currentUserId) {
+              _ref.read(inAppNotificationProvider.notifier).showFromMessage(msg);
+            }
+          }
+        } catch (_) {}
+      }
+
       return;
     }
 
@@ -184,6 +205,15 @@ class RealtimeService {
             ? raw.map(ReactionSummary.fromJson).toList()
             : <ReactionSummary>[];
         if (messageId > 0) notifier.applyRealtimeReaction(messageId, reactions);
+      case 'App\\Events\\MessageDelivered':
+        final data = event.data is Map ? Map<String, dynamic>.from(event.data as Map) : <String, dynamic>{};
+        final rawIds = data['message_ids'];
+        final ids = rawIds is List ? rawIds.map<int>((e) => (e as num).toInt()).toList() : <int>[];
+        if (ids.isNotEmpty) notifier.applyRealtimeDelivered(ids);
+      case 'App\\Events\\MessageRead':
+        final data = event.data is Map ? Map<String, dynamic>.from(event.data as Map) : <String, dynamic>{};
+        final readerId = (data['reader_id'] as num?)?.toInt() ?? 0;
+        if (readerId > 0) notifier.applyRealtimeRead(readerId);
       case 'typing':
         final data = event.data is Map ? (event.data as Map) : const {};
         final userId = (data['user_id'] as num?)?.toInt() ?? 0;
