@@ -1427,7 +1427,7 @@ class _SystemBroadcastTile extends ConsumerWidget {
               Container(
                 padding: const EdgeInsets.all(6),
                 decoration: const BoxDecoration(
-                  color: Color(0xFFFF3B30),
+                  color: DesignTokens.primary,
                   shape: BoxShape.circle,
                 ),
                 child: Text(

@@ -45,10 +45,29 @@ class AppNotification {
     if (json is! Map<String, dynamic>) {
       return const AppNotification(id: '', type: '');
     }
+    // Database notifications keep their payload under `data`; live Reverb
+    // broadcasts (NotificationBroadcast / Laravel broadcast notifications) put
+    // the payload keys at the top level, so merge the relevant ones.
+    final data = (json['data'] as Map<String, dynamic>?)?.cast<String, dynamic>() ?? <String, dynamic>{};
+    final merged = <String, dynamic>{
+      ...data,
+      if (json['type'] != null) 'type': json['type'],
+      if (json['title'] != null) 'title': json['title'],
+      if (json['message'] != null) 'message': json['message'],
+      if (json['body'] != null) 'body': json['body'],
+      if (json['route'] != null) 'route': json['route'],
+      if (json['action_url'] != null) 'action_url': json['action_url'],
+      if (json['sender_name'] != null) 'sender_name': json['sender_name'],
+      if (json['sender_id'] != null) 'sender_id': json['sender_id'],
+      if (json['conversation_id'] != null) 'conversation_id': json['conversation_id'],
+      if (json['message_preview'] != null) 'message_preview': json['message_preview'],
+      if (json['is_official'] != null) 'is_official': json['is_official'],
+      if (json['is_verified'] != null) 'is_verified': json['is_verified'],
+    };
     return AppNotification(
       id: json['id']?.toString() ?? '',
       type: json['type']?.toString() ?? '',
-      data: (json['data'] as Map<String, dynamic>?)?.cast<String, dynamic>() ?? const {},
+      data: merged,
       read: json['read_at'] != null,
       createdAt: DateTime.tryParse(json['created_at']?.toString() ?? ''),
     );

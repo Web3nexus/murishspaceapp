@@ -12,10 +12,15 @@ class ConversationsState {
   final String? error;
   final List<Conversation> conversations;
 
+  /// Authoritative admin-configurable max pinned chats (from /chat/config).
+  /// Null until fetched; callers fall back to the verified heuristic.
+  final int? maxPinnedChats;
+
   const ConversationsState({
     this.loading = false,
     this.error,
     this.conversations = const [],
+    this.maxPinnedChats,
   });
 
   int get unreadTotal => conversations.fold(0, (sum, c) => sum + c.unreadCount);
@@ -25,11 +30,14 @@ class ConversationsState {
     String? error,
     List<Conversation>? conversations,
     bool clearError = false,
+    int? maxPinnedChats,
+    bool clearMaxPinnedChats = false,
   }) {
     return ConversationsState(
       loading: loading ?? this.loading,
       error: clearError ? null : (error ?? this.error),
       conversations: conversations ?? this.conversations,
+      maxPinnedChats: clearMaxPinnedChats ? null : (maxPinnedChats ?? this.maxPinnedChats),
     );
   }
 }
@@ -39,8 +47,27 @@ class ConversationsNotifier extends Notifier<ConversationsState> {
 
   @override
   ConversationsState build() {
+    _loadConfig();
     _load();
     return const ConversationsState(loading: true);
+  }
+
+  /// Best-effort fetch of the admin-configurable pin cap so a raised limit
+  /// takes effect without a client release. Falls back to the verified heuristic.
+  Future<void> _loadConfig() async {
+    try {
+      final response = await _dio.get('/chat/config');
+      final data = response.data;
+      final raw = data is Map<String, dynamic> ? data : (data is Map ? Map<String, dynamic>.from(data) : null);
+      final maxPinned = raw?['data'] is Map<String, dynamic>
+          ? (raw!['data'] as Map<String, dynamic>)['max_pinned_chats']
+          : raw?['max_pinned_chats'];
+      if (maxPinned is int && maxPinned > 0) {
+        state = state.copyWith(maxPinnedChats: maxPinned);
+      }
+    } catch (_) {
+      // Offline/failed: keep the fallback heuristic so pinning still works.
+    }
   }
 
   Future<void> _load({bool showLoading = false}) async {

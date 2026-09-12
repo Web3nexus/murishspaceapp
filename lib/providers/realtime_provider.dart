@@ -115,7 +115,10 @@ class RealtimeService {
         return;
       }
 
-      if (event.event == 'notification' || event.event.contains('NotificationBroadcast')) {
+      if (event.event == 'notification' ||
+          event.event == '.notification' ||
+          event.event.contains('NotificationBroadcast') ||
+          event.event.contains('Notifications\\')) {
         try {
           final notif = AppNotification.fromJson(data);
           _ref.read(inAppNotificationProvider.notifier).showFromAppNotification(notif);
@@ -133,7 +136,7 @@ class RealtimeService {
             // Push message into that conversation's state (creates provider lazily)
             _ref.read(conversationMessagesProvider(convId).notifier).applyRealtime(msg);
             // Refresh chat list so the last-message preview updates
-            _ref.read(chatProvider.notifier).refresh();
+            _ref.read(conversationsProvider.notifier).refresh();
             // Show banner if user is not actively viewing this conversation
             final currentUserId = _ref.read(authProvider).user?.id;
             if (convId != _activeConversationId && msg.userId != currentUserId) {

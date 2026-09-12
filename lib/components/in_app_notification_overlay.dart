@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../models/chat_models.dart';
 import '../models/notification_models.dart';
-import '../providers/notifications_provider.dart';
 
 class InAppNotificationItem {
   final String id;
@@ -62,11 +61,11 @@ class InAppNotificationNotifier extends Notifier<InAppNotificationItem?> {
     if (type.contains('role_upgrade_approved') || type.contains('creator') || type.contains('vendor')) {
       icon = Icons.workspace_premium_rounded;
       color = const Color(0xFFFF9500);
-      route = route ?? '/upgrade';
+      route = route ?? '/upgrade-account';
     } else if (type.contains('kyc_approved') || type.contains('verified')) {
       icon = Icons.verified_user_rounded;
       color = const Color(0xFF34C759);
-      route = route ?? '/you';
+      route = route ?? '/app/profile';
     } else if (type.contains('kyc_requested') || type.contains('kyc')) {
       icon = Icons.shield_rounded;
       color = const Color(0xFF007AFF);
@@ -84,7 +83,7 @@ class InAppNotificationNotifier extends Notifier<InAppNotificationItem?> {
       color = const Color(0xFF3B82F6);
       final convId = notif.data['conversation_id'];
       if (convId != null) {
-        route = '/chats/$convId';
+        route = '/app/conversation/$convId';
       }
     } else if (type.contains('order') || type.contains('Order')) {
       icon = Icons.shopping_bag_rounded;
@@ -116,7 +115,7 @@ class InAppNotificationNotifier extends Notifier<InAppNotificationItem?> {
       title: sender,
       body: msg.content.isNotEmpty ? msg.content : (msg.attachmentType != null ? 'Sent an attachment' : 'Sent a message'),
       subtitle: msg.user?.username != null && msg.user!.username.isNotEmpty ? '@${msg.user!.username}' : null,
-      route: '/chats/${msg.conversationId}',
+      route: '/app/conversation/${msg.conversationId}',
       icon: Icons.chat_bubble_rounded,
       accentColor: const Color(0xFF007AFF),
     ));
@@ -165,7 +164,7 @@ class InAppNotificationOverlay extends ConsumerWidget {
                     if (route != null && route.isNotEmpty) {
                       context.push(route);
                     } else {
-                      context.push('/notifications');
+                      context.push('/app/notifications');
                     }
                   },
                   child: Container(

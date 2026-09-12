@@ -68,6 +68,11 @@ class ReverbClient {
   StreamSubscription<dynamic>? _sub;
   String? _socketId;
   bool _disposed = false;
+  bool _connecting = false;
+  Timer? _reconnectTimer;
+
+  /// Backoff base for auto-reconnect attempts.
+  static const _reconnectInterval = Duration(seconds: 5);
 
   /// Stream of broadcast events. Never throws; connection drops are silent.
   Stream<RealtimeEvent> get events => _events.stream;
@@ -75,8 +80,10 @@ class ReverbClient {
   bool get isConnected => _socket != null;
 
   /// Connects (idempotent) and subscribes to any channels requested earlier.
+  /// Drops are auto-recovered by reconnecting and re-subscribing.
   Future<void> connect() async {
-    if (_socket != null) return;
+    if (_socket != null || _disposed || _connecting) return;
+    _connecting = true;
     final uri = Uri.parse(
       '${Env.reverbScheme}://${Env.reverbHost}:${Env.reverbPort}/app/${Env.reverbAppKey}',
     );
@@ -84,6 +91,7 @@ class ReverbClient {
     try {
       socket = _openSocket(uri);
     } catch (_) {
+      _connecting = false;
       return;
     }
     _socket = socket;
@@ -93,15 +101,13 @@ class ReverbClient {
       onError: (_) => _onDone(),
       cancelOnError: true,
     );
+    _connecting = false;
   }
 
   Future<void> subscribe(String channel) async {
     if (_pendingChannels.contains(channel)) return;
-    if (_socket == null) {
-      _pendingChannels.add(channel);
-      return;
-    }
     _pendingChannels.add(channel);
+    if (_socket == null || _socketId == null) return;
     final auth = await _authorize(channel);
     if (auth == null) return;
     _send('pusher:subscribe', {'channel': channel, 'auth': auth});
@@ -179,12 +185,17 @@ class ReverbClient {
 
   void _onDone() {
     _teardown();
+    final hadSocket = _socket != null;
     _socketId = null;
     _socket = null;
-    // Keep pending channels so a later connect() re-subscribes.
-    if (!_disposed) {
-      _pendingChannels.clear();
-    }
+    // Keep the desired channel list so a reconnect re-subscribes everything.
+    if (_disposed || !hadSocket) return;
+    _reconnectTimer ??= Timer(_reconnectInterval, () {
+      _reconnectTimer = null;
+      if (!_disposed) {
+        connect();
+      }
+    });
   }
 
   void _teardown() {
@@ -194,6 +205,8 @@ class ReverbClient {
 
   void dispose() {
     _disposed = true;
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
     _teardown();
     try {
       _socket?.close();
