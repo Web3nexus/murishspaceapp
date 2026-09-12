@@ -187,7 +187,7 @@ class Message {
       user: ChatUser.fromJson(json['user']),
       reactions: _reactionsFrom(json['reactions']),
       deleted: (json['deleted'] as bool?) ?? false,
-      read: (json['read'] as bool?) ?? false,
+      read: (json['read'] as bool?) ?? (json['status'] == 'read'),
     );
   }
 

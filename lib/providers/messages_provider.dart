@@ -156,9 +156,12 @@ class ConversationMessagesNotifier extends Notifier<ConversationMessagesState> {
             _resolvedConversationId = realConv.id;
             targetConversationId = realConv.id;
             ref.read(conversationsProvider.notifier).upsert(realConv);
+            ref.read(realtimeProvider).enterConversation(realConv.id);
           }
         }
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('[messages_provider] Failed resolving synthetic conversation: $e');
+      }
     }
 
     final optimistic = Message(
@@ -201,11 +204,14 @@ class ConversationMessagesNotifier extends Notifier<ConversationMessagesState> {
       );
       _appendOrReplace(confirmed, byUuid: clientUuid);
       ref.read(conversationsProvider.notifier).applyMessage(confirmed, currentUserId: me?.id ?? 0);
-    } on DioException {
+    } on DioException catch (e) {
+      debugPrint('[messages_provider] sendMessage DioException: ${e.response?.statusCode} -> ${e.response?.data}');
       _markFailed(clientUuid);
-    } on ApiException {
+    } on ApiException catch (e) {
+      debugPrint('[messages_provider] sendMessage ApiException: ${e.message} -> ${e.errors}');
       _markFailed(clientUuid);
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[messages_provider] sendMessage error: $e');
       _markFailed(clientUuid);
     }
   }
@@ -242,6 +248,45 @@ class ConversationMessagesNotifier extends Notifier<ConversationMessagesState> {
     } catch (_) {
       // Non-fatal.
     }
+  }
+
+  /// Tells the backend that message(s) were received and rendered on this device.
+  Future<void> markDelivered(List<int> messageIds) async {
+    if (messageIds.isEmpty) return;
+    try {
+      await _dio.post(
+        '/conversations/$_effectiveConversationId/delivered',
+        data: {'message_ids': messageIds},
+      );
+    } catch (_) {
+      // Non-fatal.
+    }
+  }
+
+  /// Real-time handler: transitions my sent messages to 'delivered' (double grey tick).
+  void applyRealtimeDelivered(List<int> messageIds) {
+    if (messageIds.isEmpty) return;
+    final set = messageIds.toSet();
+    final updated = state.messages.map((m) {
+      if (set.contains(m.id) && m.status == 'sent') {
+        return m.copyWith(status: 'delivered');
+      }
+      return m;
+    }).toList();
+    state = state.copyWith(messages: updated);
+  }
+
+  /// Real-time handler: transitions my sent/delivered messages to 'read' (double green tick).
+  void applyRealtimeRead(int readerUserId) {
+    final me = ref.read(authProvider).user;
+    if (me == null || readerUserId == me.id) return;
+    final updated = state.messages.map((m) {
+      if (m.userId == me.id && m.status != 'read') {
+        return m.copyWith(status: 'read', read: true);
+      }
+      return m;
+    }).toList();
+    state = state.copyWith(messages: updated);
   }
 
   /// Throttled on the caller side; the backend broadcasts the event to others.
@@ -310,6 +355,11 @@ class ConversationMessagesNotifier extends Notifier<ConversationMessagesState> {
     final me = ref.read(authProvider).user;
     ref.read(conversationsProvider.notifier).applyMessage(message, currentUserId: me?.id ?? 0);
     _checkTriggerAutoGreeting(message);
+
+    // If incoming message is from the other user, automatically acknowledge delivery
+    if (me != null && message.userId != me.id && message.id > 0) {
+      markDelivered([message.id]);
+    }
   }
 
   bool _hasAutoReplied = false;
