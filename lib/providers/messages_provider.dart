@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/api_client.dart';
@@ -7,6 +8,7 @@ import '../models/chat_models.dart';
 import 'auth_provider.dart';
 import 'chat_provider.dart';
 import 'greeting_provider.dart';
+import 'realtime_provider.dart';
 
 /// State of a single conversation's message history.
 class ConversationMessagesState {

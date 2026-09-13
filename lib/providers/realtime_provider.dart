@@ -157,6 +157,8 @@ class RealtimeService {
 
     switch (event.event) {
       case 'App\\Events\\MessageSent':
+      case 'MessageSent':
+      case '.MessageSent':
         final msg = Message.fromJson(event.data);
         notifier.applyRealtime(msg);
 

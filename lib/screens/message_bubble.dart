@@ -50,7 +50,7 @@ class MessageBubble extends StatelessWidget {
           GestureDetector(
             onLongPress: () => _showActions(context),
             onTap: () => _showReactions(context),
-            child: _BubbleContent(message: message, mine: mine),
+            child: _BubbleContent(message: message, mine: mine, onRetry: onRetry),
           ),
           if (message.reactions.isNotEmpty)
             _ReactionChips(reactions: message.reactions, onToggle: onReact),
@@ -280,8 +280,9 @@ class _SenderName extends StatelessWidget {
 class _BubbleContent extends StatelessWidget {
   final Message message;
   final bool mine;
+  final VoidCallback? onRetry;
 
-  const _BubbleContent({required this.message, required this.mine});
+  const _BubbleContent({required this.message, required this.mine, this.onRetry});
 
   @override
   Widget build(BuildContext context) {
@@ -371,7 +372,7 @@ class _BubbleContent extends StatelessWidget {
               'This message was deleted',
               style: TextStyle(color: textColor.withOpacity(0.8), fontStyle: FontStyle.italic),
             ),
-          _MetaRow(message: message, mine: mine),
+          _MetaRow(message: message, mine: mine, onRetry: onRetry),
         ],
       ),
     );
@@ -422,8 +423,9 @@ class _ReplyPreview extends StatelessWidget {
 class _MetaRow extends StatelessWidget {
   final Message message;
   final bool mine;
+  final VoidCallback? onRetry;
 
-  const _MetaRow({required this.message, required this.mine});
+  const _MetaRow({required this.message, required this.mine, this.onRetry});
 
   @override
   Widget build(BuildContext context) {
