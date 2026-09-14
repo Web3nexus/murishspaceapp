@@ -51,7 +51,8 @@ class ConversationMessagesNotifier extends Notifier<ConversationMessagesState> {
   int _page = 1;
 
   int? _resolvedConversationId;
-  int get _effectiveConversationId => _resolvedConversationId ?? conversationId;
+  int get effectiveConversationId => _resolvedConversationId ?? conversationId;
+  int get _effectiveConversationId => effectiveConversationId;
 
   Dio get _dio => ApiClient.instance.dio;
 
@@ -72,6 +73,7 @@ class ConversationMessagesNotifier extends Notifier<ConversationMessagesState> {
           final realConv = Conversation.fromJson(p);
           if (realConv.id > 0) {
             _resolvedConversationId = realConv.id;
+            ref.read(realtimeProvider).enterConversation(realConv.id);
             if (realConv.id != conversationId) {
               ref.read(conversationsProvider.notifier).upsert(realConv);
             }

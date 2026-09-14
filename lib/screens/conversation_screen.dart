@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
@@ -49,28 +50,52 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
     });
   }
 
+  DateTime? _lastTypingSent;
+  Timer? _stopTypingTimer;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (!_subscribed) {
       _subscribed = true;
       ref.read(realtimeProvider).enterConversation(widget.conversationId);
+      final effectiveId = ref.read(conversationMessagesProvider(widget.conversationId).notifier).effectiveConversationId;
+      if (effectiveId != widget.conversationId) {
+        ref.read(realtimeProvider).enterConversation(effectiveId);
+      }
     }
   }
 
-  /// Rebuilds the composer (send button enabled state) and fires the typing
-  /// event only when starting/stopping a message.
+  /// Rebuilds the composer and sends throttled typing events while composing.
   void _handleComposerChange() {
     final composing = _controller.text.trim().isNotEmpty;
-    if (composing != _wasComposing) {
-      _wasComposing = composing;
-      ref.read(conversationMessagesProvider(widget.conversationId).notifier).sendTyping(composing);
+    final notifier = ref.read(conversationMessagesProvider(widget.conversationId).notifier);
+
+    if (composing) {
+      final now = DateTime.now();
+      if (_lastTypingSent == null || now.difference(_lastTypingSent!) > const Duration(seconds: 2)) {
+        _lastTypingSent = now;
+        notifier.sendTyping(true);
+      }
+      _stopTypingTimer?.cancel();
+      _stopTypingTimer = Timer(const Duration(milliseconds: 2500), () {
+        _lastTypingSent = null;
+        notifier.sendTyping(false);
+      });
+    } else {
+      if (_wasComposing) {
+        _stopTypingTimer?.cancel();
+        _lastTypingSent = null;
+        notifier.sendTyping(false);
+      }
     }
+    _wasComposing = composing;
     if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
+    _stopTypingTimer?.cancel();
     _controller.removeListener(_handleComposerChange);
     _controller.dispose();
     _scroll.dispose();
@@ -117,6 +142,8 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
 
     final notifier = ref.read(conversationMessagesProvider(widget.conversationId).notifier);
     notifier.sendTyping(false);
+    _stopTypingTimer?.cancel();
+    _lastTypingSent = null;
 
     if (image != null) {
       setState(() => _uploading = true);
@@ -228,7 +255,10 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(conversationMessagesProvider(widget.conversationId));
-    final typing = ref.watch(typingProvider)[widget.conversationId] ?? const {};
+    final effectiveId = ref.watch(conversationMessagesProvider(widget.conversationId).notifier).effectiveConversationId;
+    final typing = ref.watch(typingProvider)[effectiveId] ??
+        ref.watch(typingProvider)[widget.conversationId] ??
+        const {};
 
     final conversation = ref
         .watch(conversationsProvider)
@@ -374,27 +404,47 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       itemCount: itemCount,
       itemBuilder: (_, i) {
-        // With `reverse`, index 0 is the newest message at the bottom.
-        // Layout bottom→top: [typer?, messages…, topLoader?]
-        if (i == messages.length && typer != null) {
-          return _TypingBubble(name: typer.userName);
-        }
-        if (i == messages.length + (typer != null ? 1 : 0)) {
+        // With `reverse: true`, index 0 is at the bottom (closest to composer).
+        // If someone is typing, show the typing bubble at index 0 (bottom).
+        if (typer != null) {
+          if (i == 0) {
+            return _TypingBubble(name: typer.userName);
+          }
+          final msgIndex = i - 1;
+          if (msgIndex < messages.length) {
+            return MessageBubble(
+              message: messages[msgIndex],
+              myId: ref.watch(authProvider).user?.id,
+              showSenderName: isGroup,
+              onReact: (emoji) => _toggleReaction(messages[msgIndex], emoji),
+              onReply: () => setState(() => _replyTo = messages[msgIndex]),
+              onDelete: (forEveryone) => _deleteMessage(messages[msgIndex], forEveryone),
+              onForward: () => _forwardMessage(messages[msgIndex]),
+              onRetry: messages[msgIndex].status == 'failed'
+                  ? () => ref.read(conversationMessagesProvider(widget.conversationId).notifier)
+                        .retrySending(messages[msgIndex])
+                  : null,
+            );
+          }
           return _topLoader(state);
         }
-        return MessageBubble(
-          message: messages[i],
-          myId: ref.watch(authProvider).user?.id,
-          showSenderName: isGroup,
-          onReact: (emoji) => _toggleReaction(messages[i], emoji),
-          onReply: () => setState(() => _replyTo = messages[i]),
-          onDelete: (forEveryone) => _deleteMessage(messages[i], forEveryone),
-          onForward: () => _forwardMessage(messages[i]),
-          onRetry: messages[i].status == 'failed'
-              ? () => ref.read(conversationMessagesProvider(widget.conversationId).notifier)
-                    .retrySending(messages[i])
-              : null,
-        );
+
+        if (i < messages.length) {
+          return MessageBubble(
+            message: messages[i],
+            myId: ref.watch(authProvider).user?.id,
+            showSenderName: isGroup,
+            onReact: (emoji) => _toggleReaction(messages[i], emoji),
+            onReply: () => setState(() => _replyTo = messages[i]),
+            onDelete: (forEveryone) => _deleteMessage(messages[i], forEveryone),
+            onForward: () => _forwardMessage(messages[i]),
+            onRetry: messages[i].status == 'failed'
+                ? () => ref.read(conversationMessagesProvider(widget.conversationId).notifier)
+                      .retrySending(messages[i])
+                : null,
+          );
+        }
+        return _topLoader(state);
       },
     );
   }
@@ -639,25 +689,47 @@ class _TypingBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final label = name.trim().isNotEmpty ? '${name.trim()} is typing…' : 'typing…';
+
     return Align(
       alignment: Alignment.centerLeft,
       child: Container(
-        margin: const EdgeInsets.only(top: 4, right: 60),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        margin: const EdgeInsets.only(top: 4, bottom: 6, right: 60),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: DesignTokens.border),
+          color: isDark ? const Color(0xFF2C2C2E) : Colors.white,
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(16),
+            topRight: Radius.circular(16),
+            bottomRight: Radius.circular(16),
+            bottomLeft: Radius.circular(4),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.06),
+              blurRadius: 4,
+              offset: const Offset(0, 1),
+            ),
+          ],
+          border: Border.all(
+            color: isDark ? const Color(0xFF3A3B3C) : const Color(0xFFE4E6EB),
+            width: 0.8,
+          ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
-          children: const [
-            _TypingDots(),
-            SizedBox(width: 8),
+          children: [
+            const _TypingDots(),
+            const SizedBox(width: 8),
             Flexible(
               child: Text(
-                'typing…',
-                style: TextStyle(fontSize: 12, color: DesignTokens.textSecondary),
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontStyle: FontStyle.italic,
+                  color: isDark ? Colors.grey[400] : DesignTokens.textSecondary,
+                ),
               ),
             ),
           ],
@@ -667,40 +739,66 @@ class _TypingBubble extends StatelessWidget {
   }
 }
 
-class _TypingDots extends StatelessWidget {
+class _TypingDots extends StatefulWidget {
   const _TypingDots();
 
   @override
-  Widget build(BuildContext context) {
-    return const SizedBox(
-      width: 24,
-      height: 8,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          _Dot(size: 6),
-          _Dot(size: 6),
-          _Dot(size: 6),
-        ],
-      ),
-    );
-  }
+  State<_TypingDots> createState() => _TypingDotsState();
 }
 
-class _Dot extends StatelessWidget {
-  final double size;
+class _TypingDotsState extends State<_TypingDots> with SingleTickerProviderStateMixin {
+  late AnimationController _anim;
 
-  const _Dot({required this.size});
+  @override
+  void initState() {
+    super.initState();
+    _anim = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _anim.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: const BoxDecoration(
-        shape: BoxShape.circle,
-        color: DesignTokens.textSecondary,
-      ),
+    return AnimatedBuilder(
+      animation: _anim,
+      builder: (context, _) {
+        return SizedBox(
+          width: 24,
+          height: 12,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: List.generate(3, (index) {
+              final delay = index * 0.2;
+              final t = (_anim.value - delay) % 1.0;
+              final offset = (t > 0 && t < 0.5) ? -4.0 * (1.0 - (2.0 * t - 0.5).abs() * 2) : 0.0;
+              final opacity = (t > 0 && t < 0.5) ? 1.0 : 0.4;
+
+              return Transform.translate(
+                offset: Offset(0, offset.clamp(-4.0, 0.0)),
+                child: Opacity(
+                  opacity: opacity.clamp(0.3, 1.0),
+                  child: Container(
+                    width: 5.5,
+                    height: 5.5,
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Color(0xFF007AFF),
+                    ),
+                  ),
+                ),
+              );
+            }),
+          ),
+        );
+      },
     );
   }
 }

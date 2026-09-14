@@ -863,7 +863,7 @@ class _Avatar extends StatelessWidget {
   }
 }
 
-class _PreviewLine extends StatelessWidget {
+class _PreviewLine extends ConsumerWidget {
   final Conversation conversation;
   final bool unread;
   final int? myId;
@@ -871,7 +871,26 @@ class _PreviewLine extends StatelessWidget {
   const _PreviewLine({required this.conversation, required this.unread, this.myId});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final typingMap = ref.watch(typingProvider)[conversation.id];
+    if (typingMap != null && typingMap.isNotEmpty) {
+      final typer = typingMap.values.first;
+      final prefix = conversation.type == 'community' && typer.userName.isNotEmpty
+          ? '${typer.userName} is '
+          : '';
+      return Text(
+        '${prefix}typing…',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(
+          color: Color(0xFF34C759),
+          fontWeight: FontWeight.w600,
+          fontSize: 14,
+          fontStyle: FontStyle.italic,
+        ),
+      );
+    }
+
     final message = conversation.latestMessage;
     if (message == null) {
       return Text(
@@ -899,8 +918,6 @@ class _PreviewLine extends StatelessWidget {
 
 class _ActiveFriendsRow extends ConsumerWidget {
   const _ActiveFriendsRow();
-
-  static const List<Map<String, dynamic>> _fallbackActiveFriends = [];
 
   Future<void> _openChatForFriend(
     BuildContext context,

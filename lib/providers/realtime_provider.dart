@@ -169,6 +169,27 @@ class RealtimeService {
         return;
       }
 
+      if (event.event == 'typing' ||
+          event.event == '.typing' ||
+          event.event.endsWith('.typing') ||
+          event.event.contains('TypingIndicator')) {
+        try {
+          final convId = (data['conversation_id'] as num?)?.toInt() ?? 0;
+          final userId = (data['user_id'] as num?)?.toInt() ?? 0;
+          final isTyping = data['is_typing'] as bool? ?? false;
+          final currentUserId = _ref.read(authProvider).user?.id;
+          if (convId > 0 && userId > 0 && userId != currentUserId) {
+            final typing = _ref.read(typingProvider.notifier);
+            if (isTyping) {
+              typing.setTyping(convId, userId, data['user_name'] as String? ?? '');
+            } else {
+              typing.clearTyping(convId, userId);
+            }
+          }
+        } catch (_) {}
+        return;
+      }
+
       return;
     }
 
@@ -261,7 +282,8 @@ class RealtimeService {
         final data = event.data is Map ? (event.data as Map) : const {};
         final userId = (data['user_id'] as num?)?.toInt() ?? 0;
         final isTyping = data['is_typing'] as bool? ?? false;
-        if (userId == 0) return;
+        final currentUserId = _ref.read(authProvider).user?.id;
+        if (userId == 0 || userId == currentUserId) return;
         final typing = _ref.read(typingProvider.notifier);
         if (isTyping) {
           typing.setTyping(conversationId, userId, data['user_name'] as String? ?? '');
