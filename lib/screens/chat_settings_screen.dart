@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../components/app_toast.dart';
 import '../core/api_client.dart';
 import '../services/sound_service.dart';
 
@@ -93,7 +92,9 @@ class _ChatSettingsScreenState extends ConsumerState<ChatSettingsScreen> {
       );
     } catch (e) {
       if (mounted) {
-        AppToast.show(context, 'Failed to save setting. Please retry.');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to save setting. Please retry.')),
+        );
       }
     } finally {
       if (mounted) {
@@ -343,3 +344,4 @@ class _ChatSettingsScreenState extends ConsumerState<ChatSettingsScreen> {
     );
   }
 }
+

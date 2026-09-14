@@ -111,7 +111,7 @@ class Message {
     required this.userId,
     required this.content,
     required this.type,
-    required this.status,
+    this.status = 'sent',
     this.clientUuid,
     this.replyToId,
     this.replyTo,
