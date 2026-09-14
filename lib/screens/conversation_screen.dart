@@ -252,6 +252,28 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
     });
   }
 
+  void _startCall(bool isVideo) {
+    final conversation = ref
+        .read(conversationsProvider)
+        .conversations
+        .where((c) => c.id == widget.conversationId)
+        .firstOrNull;
+    final title = conversation?.otherUser?.name ?? (conversation?.title.isNotEmpty == true ? conversation!.title : 'Contact');
+    final avatar = conversation?.otherUser?.avatarUrl ?? '';
+    final recipientId = conversation?.otherUser?.id;
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => CallScreen(
+          contactName: title,
+          phoneNumber: '+234 812 000 1122',
+          avatarUrl: avatar,
+          isVideo: isVideo,
+          recipientId: recipientId,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(conversationMessagesProvider(widget.conversationId));
@@ -275,42 +297,12 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
         title: _ConversationTitle(conversationId: widget.conversationId),
         actions: [
           IconButton(
-            onPressed: () {
-              final title = conversation?.otherUser?.name ?? (conversation?.title.isNotEmpty == true ? conversation!.title : 'Contact');
-              final avatar = conversation?.otherUser?.avatarUrl ?? '';
-              final recipientId = conversation?.otherUser?.id;
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => CallScreen(
-                    contactName: title,
-                    phoneNumber: '+234 812 000 1122',
-                    avatarUrl: avatar,
-                    isVideo: false,
-                    recipientId: recipientId,
-                  ),
-                ),
-              );
-            },
+            onPressed: () => _startCall(false),
             icon: const Icon(Icons.call_rounded, color: Color(0xFF34C759)),
             tooltip: 'Voice Call',
           ),
           IconButton(
-            onPressed: () {
-              final title = conversation?.otherUser?.name ?? (conversation?.title.isNotEmpty == true ? conversation!.title : 'Contact');
-              final avatar = conversation?.otherUser?.avatarUrl ?? '';
-              final recipientId = conversation?.otherUser?.id;
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => CallScreen(
-                    contactName: title,
-                    phoneNumber: '+234 812 000 1122',
-                    avatarUrl: avatar,
-                    isVideo: true,
-                    recipientId: recipientId,
-                  ),
-                ),
-              );
-            },
+            onPressed: () => _startCall(true),
             icon: const Icon(Icons.videocam_rounded, color: Color(0xFF007AFF)),
             tooltip: 'Video Call',
           ),
@@ -424,6 +416,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                   ? () => ref.read(conversationMessagesProvider(widget.conversationId).notifier)
                         .retrySending(messages[msgIndex])
                   : null,
+              onCall: _startCall,
             );
           }
           return _topLoader(state);
@@ -442,6 +435,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                 ? () => ref.read(conversationMessagesProvider(widget.conversationId).notifier)
                       .retrySending(messages[i])
                 : null,
+            onCall: _startCall,
           );
         }
         return _topLoader(state);

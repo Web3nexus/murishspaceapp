@@ -10,6 +10,7 @@ import '../services/sound_service.dart';
 enum CallStatus {
   connecting,
   ringing,
+  incoming, // full-screen incoming ringing (before accept/decline)
   connected,
   declined,
   ended,
@@ -26,6 +27,7 @@ class CallScreen extends ConsumerStatefulWidget {
   final int? recipientId;
   final int? callId;
   final bool isIncoming;
+  final bool isAccepted;
 
   const CallScreen({
     super.key,
@@ -36,6 +38,7 @@ class CallScreen extends ConsumerStatefulWidget {
     this.recipientId,
     this.callId,
     this.isIncoming = false,
+    this.isAccepted = false,
   });
 
   @override
@@ -80,10 +83,15 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
     );
 
     if (widget.isIncoming) {
-      _status = CallStatus.connected;
-      _callSeconds = 0;
-      _startDurationTimer();
-      _connectLiveKit();
+      if (widget.isAccepted) {
+        _status = CallStatus.connected;
+        _callSeconds = 0;
+        _startDurationTimer();
+        _connectLiveKit();
+      } else {
+        _status = CallStatus.incoming;
+        SoundService.instance.startIncomingRingtone();
+      }
     } else {
       _status = CallStatus.connecting;
 
@@ -284,12 +292,44 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
         return 'Connecting…';
       case CallStatus.ringing:
         return 'Ringing…';
+      case CallStatus.incoming:
+        return widget.isVideo ? 'Incoming Video Call…' : 'Incoming Voice Call…';
       case CallStatus.connected:
         return widget.isVideo ? 'Video Call · ${_formatDuration(_callSeconds)}' : _formatDuration(_callSeconds);
       case CallStatus.declined:
         return 'Call Declined';
       case CallStatus.ended:
         return 'Call Ended';
+    }
+  }
+
+  Future<void> _acceptIncomingCall() async {
+    HapticFeedback.heavyImpact();
+    SoundService.instance.stopRinging();
+    if (_activeCallId != null && _activeCallId! > 0) {
+      await ref.read(callsProvider.notifier).acceptCall(_activeCallId!);
+    }
+    if (mounted) {
+      setState(() {
+        _status = CallStatus.connected;
+        _callSeconds = 0;
+      });
+      _startDurationTimer();
+      _connectLiveKit();
+    }
+  }
+
+  void _declineIncomingCall() {
+    HapticFeedback.mediumImpact();
+    SoundService.instance.stopRinging();
+    if (_activeCallId != null && _activeCallId! > 0) {
+      ref.read(callsProvider.notifier).declineCall(_activeCallId!);
+    }
+    if (mounted) {
+      setState(() => _status = CallStatus.declined);
+      Future.delayed(const Duration(milliseconds: 600), () {
+        if (mounted) Navigator.of(context).maybePop();
+      });
     }
   }
 
@@ -323,7 +363,7 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
     ref.listen<CallsState>(callsProvider, (prev, next) {
       final active = next.activeCall;
       if (active == null) {
-        if (_status == CallStatus.connected || _status == CallStatus.ringing) {
+        if (_status == CallStatus.connected || _status == CallStatus.ringing || _status == CallStatus.incoming) {
           _onRemoteParticipantLeft();
         }
       } else if (active.status == 'connected' && _status != CallStatus.connected) {
@@ -401,20 +441,20 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   ScaleTransition(
-                    scale: _status == CallStatus.ringing ? _pulseAnimation : const AlwaysStoppedAnimation(1.0),
+                    scale: (_status == CallStatus.ringing || _status == CallStatus.incoming) ? _pulseAnimation : const AlwaysStoppedAnimation(1.0),
                     child: Container(
                       padding: const EdgeInsets.all(4),
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: _status == CallStatus.ringing
+                          color: (_status == CallStatus.ringing || _status == CallStatus.incoming)
                               ? const Color(0xFF34C759)
                               : (_status == CallStatus.connected
                                   ? const Color(0xFF007AFF)
                                   : Colors.white24),
                           width: 3,
                         ),
-                        boxShadow: _status == CallStatus.ringing
+                        boxShadow: (_status == CallStatus.ringing || _status == CallStatus.incoming)
                             ? [
                                 const BoxShadow(
                                   color: Color(0x6634C759),
@@ -458,7 +498,7 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
                         fontWeight: FontWeight.w600,
                         color: _status == CallStatus.connected
                             ? const Color(0xFF34C759)
-                            : (_status == CallStatus.ringing ? const Color(0xFFFFD60A) : Colors.white70),
+                            : ((_status == CallStatus.ringing || _status == CallStatus.incoming) ? const Color(0xFFFFD60A) : Colors.white70),
                       ),
                     ),
                   ),
@@ -500,7 +540,7 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 IconButton(
-                  onPressed: _endCall,
+                  onPressed: _status == CallStatus.incoming ? _declineIncomingCall : _endCall,
                   icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
                 ),
                 Container(
@@ -516,7 +556,7 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
                         widget.isVideo ? Icons.videocam_rounded : Icons.call_rounded,
                         color: _status == CallStatus.connected
                             ? const Color(0xFF34C759)
-                            : (_status == CallStatus.ringing ? const Color(0xFFFFD60A) : Colors.white70),
+                            : ((_status == CallStatus.ringing || _status == CallStatus.incoming) ? const Color(0xFFFFD60A) : Colors.white70),
                         size: 15,
                       ),
                       const SizedBox(width: 6),
@@ -544,86 +584,157 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
             bottom: MediaQuery.of(context).padding.bottom + 24,
             left: 20,
             right: 20,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              decoration: BoxDecoration(
-                color: const Color(0xFF1E293B).withValues(alpha: 0.9),
-                borderRadius: BorderRadius.circular(28),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.4),
-                    blurRadius: 20,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  // Mute Mic Toggle
-                  _CallActionButton(
-                    icon: _isMuted ? Icons.mic_off_rounded : Icons.mic_rounded,
-                    isActive: _isMuted,
-                    activeColor: const Color(0xFFFF3B30),
-                    label: _isMuted ? 'Muted' : 'Mute',
-                    onTap: () async {
-                      HapticFeedback.selectionClick();
-                      final next = !_isMuted;
-                      await _room?.localParticipant?.setMicrophoneEnabled(!next);
-                      setState(() => _isMuted = next);
-                    },
-                  ),
-
-                  // Camera Toggle (If Video Call)
-                  if (widget.isVideo)
-                    _CallActionButton(
-                      icon: _isCameraOff ? Icons.videocam_off_rounded : Icons.videocam_rounded,
-                      isActive: _isCameraOff,
-                      activeColor: const Color(0xFFFF3B30),
-                      label: _isCameraOff ? 'Camera Off' : 'Camera',
-                      onTap: () async {
-                        HapticFeedback.selectionClick();
-                        final next = !_isCameraOff;
-                        await _room?.localParticipant?.setCameraEnabled(!next);
-                        setState(() => _isCameraOff = next);
-                      },
+            child: _status == CallStatus.incoming
+                ? Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        // Decline Call
+                        Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: _declineIncomingCall,
+                              child: Container(
+                                width: 68,
+                                height: 68,
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFFFF3B30),
+                                  shape: BoxShape.circle,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Color(0x66FF3B30),
+                                      blurRadius: 16,
+                                      offset: Offset(0, 4),
+                                    ),
+                                  ],
+                                ),
+                                child: const Icon(Icons.call_end_rounded, color: Colors.white, size: 32),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            const Text(
+                              'Decline',
+                              style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ),
+                        // Accept Call
+                        Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: _acceptIncomingCall,
+                              child: Container(
+                                width: 68,
+                                height: 68,
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFF34C759),
+                                  shape: BoxShape.circle,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Color(0x6634C759),
+                                      blurRadius: 16,
+                                      offset: Offset(0, 4),
+                                    ),
+                                  ],
+                                ),
+                                child: const Icon(Icons.call_rounded, color: Colors.white, size: 32),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            const Text(
+                              'Accept',
+                              style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
+                  )
+                : Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1E293B).withValues(alpha: 0.9),
+                      borderRadius: BorderRadius.circular(28),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.4),
+                          blurRadius: 20,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        // Mute Mic Toggle
+                        _CallActionButton(
+                          icon: _isMuted ? Icons.mic_off_rounded : Icons.mic_rounded,
+                          isActive: _isMuted,
+                          activeColor: const Color(0xFFFF3B30),
+                          label: _isMuted ? 'Muted' : 'Mute',
+                          onTap: () async {
+                            HapticFeedback.selectionClick();
+                            final next = !_isMuted;
+                            await _room?.localParticipant?.setMicrophoneEnabled(!next);
+                            setState(() => _isMuted = next);
+                          },
+                        ),
 
-                  // Speakerphone Toggle
-                  _CallActionButton(
-                    icon: _isSpeakerOn ? Icons.volume_up_rounded : Icons.volume_down_rounded,
-                    isActive: _isSpeakerOn,
-                    activeColor: const Color(0xFF007AFF),
-                    label: _isSpeakerOn ? 'Speaker' : 'Earpiece',
-                    onTap: () {
-                      HapticFeedback.selectionClick();
-                      setState(() => _isSpeakerOn = !_isSpeakerOn);
-                    },
-                  ),
-
-                  // End Call Button
-                  GestureDetector(
-                    onTap: _endCall,
-                    child: Container(
-                      width: 56,
-                      height: 56,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFFF3B30),
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Color(0x66FF3B30),
-                            blurRadius: 12,
-                            offset: Offset(0, 4),
+                        // Camera Toggle (If Video Call)
+                        if (widget.isVideo)
+                          _CallActionButton(
+                            icon: _isCameraOff ? Icons.videocam_off_rounded : Icons.videocam_rounded,
+                            isActive: _isCameraOff,
+                            activeColor: const Color(0xFFFF3B30),
+                            label: _isCameraOff ? 'Camera Off' : 'Camera',
+                            onTap: () async {
+                              HapticFeedback.selectionClick();
+                              final next = !_isCameraOff;
+                              await _room?.localParticipant?.setCameraEnabled(!next);
+                              setState(() => _isCameraOff = next);
+                            },
                           ),
-                        ],
-                      ),
-                      child: const Icon(Icons.call_end_rounded, color: Colors.white, size: 28),
+
+                        // Speakerphone Toggle
+                        _CallActionButton(
+                          icon: _isSpeakerOn ? Icons.volume_up_rounded : Icons.volume_down_rounded,
+                          isActive: _isSpeakerOn,
+                          activeColor: const Color(0xFF007AFF),
+                          label: _isSpeakerOn ? 'Speaker' : 'Earpiece',
+                          onTap: () {
+                            HapticFeedback.selectionClick();
+                            setState(() => _isSpeakerOn = !_isSpeakerOn);
+                          },
+                        ),
+
+                        // End Call Button
+                        GestureDetector(
+                          onTap: _endCall,
+                          child: Container(
+                            width: 56,
+                            height: 56,
+                            decoration: const BoxDecoration(
+                              color: Color(0xFFFF3B30),
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Color(0x66FF3B30),
+                                  blurRadius: 12,
+                                  offset: Offset(0, 4),
+                                ],
+                              ),
+                            ),
+                            child: const Icon(Icons.call_end_rounded, color: Colors.white, size: 28),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ],
-              ),
-            ),
           ),
         ],
       ),

@@ -54,6 +54,10 @@ class _RouterRefresh extends ChangeNotifier {
   void refresh() => notifyListeners();
 }
 
+/// Global navigator key to allow reliable navigation from outside the GoRouter context
+/// (e.g. background call banners, in-app overlays, push notification handlers).
+final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
+
 final appRouterProvider = Provider<GoRouter>((ref) {
   final refreshNotifier = _RouterRefresh();
   ref.onDispose(refreshNotifier.dispose);
@@ -61,6 +65,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   ref.listen(authProvider, (_, __) => refreshNotifier.refresh());
 
   final router = GoRouter(
+    navigatorKey: rootNavigatorKey,
     initialLocation: '/splash',
     refreshListenable: refreshNotifier,
     redirect: (context, state) {

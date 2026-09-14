@@ -8,8 +8,9 @@ import '../components/gift_animation_overlay.dart';
 import '../core/design_tokens.dart';
 import '../models/chat_models.dart';
 import '../utils/format.dart';
+import 'call_screen.dart';
 
-/// One chat bubble with reactions, status and long-press actions.
+/// One chat bubble with reactions, status, swipe-to-reply, and long-press actions.
 class MessageBubble extends StatelessWidget {
   final Message message;
   final int? myId;
@@ -19,6 +20,7 @@ class MessageBubble extends StatelessWidget {
   final ValueChanged<bool> onDelete;
   final VoidCallback onForward;
   final VoidCallback? onRetry;
+  final ValueChanged<bool>? onCall;
 
   const MessageBubble({
     super.key,
@@ -30,6 +32,7 @@ class MessageBubble extends StatelessWidget {
     required this.onDelete,
     required this.onForward,
     this.onRetry,
+    this.onCall,
   });
 
   bool get _mine => message.userId == myId;
@@ -41,20 +44,28 @@ class MessageBubble extends StatelessWidget {
     final mine = _mine;
     final showName = !mine && showSenderName && message.user?.name != null && message.user!.name.isNotEmpty;
 
-    return Align(
-      alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
-      child: Column(
-        crossAxisAlignment: mine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-        children: [
-          if (showName) _SenderName(name: message.user!.name),
-          GestureDetector(
-            onLongPress: () => _showActions(context),
-            onTap: () => _showReactions(context),
-            child: _BubbleContent(message: message, mine: mine, onRetry: onRetry),
-          ),
-          if (message.reactions.isNotEmpty)
-            _ReactionChips(reactions: message.reactions, onToggle: onReact),
-        ],
+    return _SwipeToReplyWrapper(
+      onReply: onReply,
+      child: Align(
+        alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
+        child: Column(
+          crossAxisAlignment: mine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          children: [
+            if (showName) _SenderName(name: message.user!.name),
+            GestureDetector(
+              onLongPress: () => _showActions(context),
+              onTap: () => _showReactions(context),
+              child: _BubbleContent(
+                message: message,
+                mine: mine,
+                onRetry: onRetry,
+                onCall: onCall,
+              ),
+            ),
+            if (message.reactions.isNotEmpty)
+              _ReactionChips(reactions: message.reactions, onToggle: onReact),
+          ],
+        ),
       ),
     );
   }
@@ -281,8 +292,14 @@ class _BubbleContent extends StatelessWidget {
   final Message message;
   final bool mine;
   final VoidCallback? onRetry;
+  final ValueChanged<bool>? onCall;
 
-  const _BubbleContent({required this.message, required this.mine, this.onRetry});
+  const _BubbleContent({
+    required this.message,
+    required this.mine,
+    this.onRetry,
+    this.onCall,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -350,6 +367,13 @@ class _BubbleContent extends StatelessWidget {
                 Text('Voice message', style: TextStyle(color: textColor)),
               ],
             )
+          else if (message.type == 'call')
+            _CallMessageWidget(
+              message: message,
+              mine: mine,
+              isDark: isDark,
+              onCall: onCall,
+            )
           else if (message.attachmentType == 'poll' || message.content.startsWith('[POLL]'))
             _ChatPollWidget(
               content: message.content,
@@ -367,7 +391,7 @@ class _BubbleContent extends StatelessWidget {
               message.content,
               style: TextStyle(color: textColor, fontSize: 15, height: 1.35),
             ),
-          if (message.deleted)
+          if (message.deleted && message.type != 'call')
             Text(
               'This message was deleted',
               style: TextStyle(color: textColor.withOpacity(0.8), fontStyle: FontStyle.italic),
@@ -970,3 +994,268 @@ class _ChatGiftWidget extends StatelessWidget {
     );
   }
 }
+
+class _SwipeToReplyWrapper extends StatefulWidget {
+  final Widget child;
+  final VoidCallback onReply;
+
+  const _SwipeToReplyWrapper({
+    required this.child,
+    required this.onReply,
+  });
+
+  @override
+  State<_SwipeToReplyWrapper> createState() => _SwipeToReplyWrapperState();
+}
+
+class _SwipeToReplyWrapperState extends State<_SwipeToReplyWrapper>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+  double _dragOffset = 0.0;
+  bool _thresholdReached = false;
+  static const double _threshold = 48.0;
+  static const double _maxDrag = 80.0;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 200),
+    );
+    _animation = Tween<double>(begin: 0, end: 0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
+    )..addListener(() {
+        setState(() {
+          _dragOffset = _animation.value;
+        });
+      });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _onDragUpdate(DragUpdateDetails details) {
+    if (_controller.isAnimating) _controller.stop();
+
+    setState(() {
+      _dragOffset += details.primaryDelta ?? 0;
+      if (_dragOffset > _maxDrag) _dragOffset = _maxDrag;
+      if (_dragOffset < -_maxDrag) _dragOffset = -_maxDrag;
+
+      final reached = _dragOffset.abs() >= _threshold;
+      if (reached && !_thresholdReached) {
+        HapticFeedback.lightImpact();
+        _thresholdReached = true;
+      } else if (!reached && _thresholdReached) {
+        _thresholdReached = false;
+      }
+    });
+  }
+
+  void _onDragEnd(DragEndDetails details) {
+    if (_thresholdReached) {
+      widget.onReply();
+    }
+    _reset();
+  }
+
+  void _onDragCancel() {
+    _reset();
+  }
+
+  void _reset() {
+    _thresholdReached = false;
+    _animation = Tween<double>(begin: _dragOffset, end: 0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
+    );
+    _controller.forward(from: 0);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isSwiping = _dragOffset != 0;
+    final isRight = _dragOffset > 0;
+    final progress = (_dragOffset.abs() / _threshold).clamp(0.0, 1.0);
+
+    return GestureDetector(
+      onHorizontalDragUpdate: _onDragUpdate,
+      onHorizontalDragEnd: _onDragEnd,
+      onHorizontalDragCancel: _onDragCancel,
+      behavior: HitTestBehavior.translucent,
+      child: Stack(
+        alignment: isRight ? Alignment.centerLeft : Alignment.centerRight,
+        children: [
+          if (isSwiping)
+            Positioned(
+              left: isRight ? 12 : null,
+              right: !isRight ? 12 : null,
+              child: Opacity(
+                opacity: progress,
+                child: Transform.scale(
+                  scale: 0.6 + (0.4 * progress),
+                  child: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: _thresholdReached
+                          ? const Color(0xFF007AFF)
+                          : Colors.grey.withValues(alpha: 0.3),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.reply_rounded,
+                      size: 18,
+                      color: _thresholdReached ? Colors.white : Colors.grey[400],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          Transform.translate(
+            offset: Offset(_dragOffset, 0),
+            child: widget.child,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CallMessageWidget extends StatelessWidget {
+  final Message message;
+  final bool mine;
+  final bool isDark;
+  final ValueChanged<bool>? onCall;
+
+  const _CallMessageWidget({
+    required this.message,
+    required this.mine,
+    required this.isDark,
+    this.onCall,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    Map<String, dynamic> data = {};
+    try {
+      if (message.content.trim().startsWith('{')) {
+        data = jsonDecode(message.content) as Map<String, dynamic>;
+      }
+    } catch (_) {}
+
+    final isVideo = data['call_type'] == 'video';
+    final status = (data['status'] ?? 'ended').toString();
+    final isMissed = status == 'missed' || status == 'declined';
+    final duration = (data['duration'] as num?)?.toInt() ?? 0;
+
+    String durStr;
+    if (duration > 0) {
+      final mins = duration ~/ 60;
+      final secs = duration % 60;
+      durStr = mins > 0 ? '${mins}m ${secs}s' : '${secs}s';
+    } else {
+      durStr = status == 'declined' ? 'Call declined' : (isMissed ? 'Missed call' : 'Call ended');
+    }
+
+    final title = isMissed
+        ? (isVideo ? 'Missed Video Call' : 'Missed Voice Call')
+        : (isVideo ? 'Video Call' : 'Voice Call');
+
+    return Container(
+      constraints: const BoxConstraints(minWidth: 210),
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: isMissed
+                  ? const Color(0xFFFF3B30).withValues(alpha: 0.18)
+                  : const Color(0xFF34C759).withValues(alpha: 0.18),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              isVideo ? Icons.videocam_rounded : (isMissed ? Icons.phone_missed_rounded : Icons.phone_rounded),
+              color: isMissed ? const Color(0xFFFF3B30) : const Color(0xFF34C759),
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: isMissed
+                        ? const Color(0xFFFF453A)
+                        : (mine ? Colors.white : (isDark ? Colors.white : Colors.black87)),
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  durStr,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: mine ? Colors.white.withValues(alpha: 0.75) : (isDark ? Colors.white54 : Colors.black54),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () {
+              HapticFeedback.lightImpact();
+              if (onCall != null) {
+                onCall!(isVideo);
+              } else {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => CallScreen(
+                      contactName: message.user?.name ?? 'Contact',
+                      avatarUrl: message.user?.avatarUrl ?? '',
+                      isVideo: isVideo,
+                      recipientId: message.userId,
+                    ),
+                  ),
+                );
+              }
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: mine
+                    ? Colors.white.withValues(alpha: 0.22)
+                    : const Color(0xFF007AFF),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const Text(
+                'Call',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+

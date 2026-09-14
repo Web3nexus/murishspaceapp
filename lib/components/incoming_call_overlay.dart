@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../config/router.dart';
 import '../providers/calls_provider.dart';
 import '../screens/call_screen.dart';
 import '../services/sound_service.dart';
@@ -88,7 +89,24 @@ class _IncomingCallOverlayState extends ConsumerState<IncomingCallOverlay>
             right: 16,
             child: Material(
               color: Colors.transparent,
-              child: Container(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  rootNavigatorKey.currentState?.push(
+                    MaterialPageRoute(
+                      builder: (_) => CallScreen(
+                        contactName: activeCall.callerName,
+                        avatarUrl: activeCall.callerAvatar,
+                        isVideo: activeCall.callType == 'video',
+                        callId: activeCall.callId,
+                        isIncoming: true,
+                        isAccepted: false,
+                      ),
+                    ),
+                  );
+                },
+                child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 decoration: BoxDecoration(
                   color: const Color(0xFF1E293B),
@@ -189,12 +207,12 @@ class _IncomingCallOverlayState extends ConsumerState<IncomingCallOverlay>
                     const SizedBox(width: 10),
                     // Accept Call Button
                     GestureDetector(
+                      behavior: HitTestBehavior.opaque,
                       onTap: () async {
                         HapticFeedback.heavyImpact();
                         _stopRingingFeedback();
                         await ref.read(callsProvider.notifier).acceptCall(activeCall.callId);
-                        if (!context.mounted) return;
-                        Navigator.of(context).push(
+                        rootNavigatorKey.currentState?.push(
                           MaterialPageRoute(
                             builder: (_) => CallScreen(
                               contactName: activeCall.callerName,
@@ -202,6 +220,7 @@ class _IncomingCallOverlayState extends ConsumerState<IncomingCallOverlay>
                               isVideo: activeCall.callType == 'video',
                               callId: activeCall.callId,
                               isIncoming: true,
+                              isAccepted: true,
                             ),
                           ),
                         );
@@ -221,6 +240,7 @@ class _IncomingCallOverlayState extends ConsumerState<IncomingCallOverlay>
               ),
             ),
           ),
+        ),
       ],
     );
   }
