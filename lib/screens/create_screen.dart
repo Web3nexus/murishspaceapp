@@ -8,13 +8,13 @@ import 'package:image_picker/image_picker.dart';
 import '../components/brand.dart';
 import '../core/api_client.dart';
 import '../core/roles.dart';
-import '../models/marketplace_models.dart';
 import '../providers/auth_provider.dart';
 import '../providers/marketplace_provider.dart';
 import 'community_create_dialog.dart';
 import 'post_composer_sheet.dart';
 import 'story_composer_sheet.dart';
 import 'automated_greeting_sheet.dart';
+import '../components/go_live_setup_dialog.dart';
 
 /// Full Publish & Creation Hub Screen (replaces empty create screen).
 class CreateScreen extends ConsumerStatefulWidget {
@@ -970,6 +970,22 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
                   isDark: isDark,
                   onTap: () => _showAddProductModal(!isVendor),
                 ),
+                _createGridCard(
+                  icon: Icons.sensors_rounded,
+                  iconColor: const Color(0xFFFF2D55),
+                  title: isVendor ? 'Live Shopping' : 'Go Live Stream',
+                  subtitle: isVendor ? 'Sell live with products' : 'Stream, chat & gifts',
+                  isDark: isDark,
+                  onTap: () => GoLiveSetupDialog.show(context),
+                ),
+                _createGridCard(
+                  icon: Icons.video_camera_front_rounded,
+                  iconColor: const Color(0xFF5856D6),
+                  title: 'Video Meeting',
+                  subtitle: 'Conference & audio room',
+                  isDark: isDark,
+                  onTap: () => context.push('/app/conference'),
+                ),
                 if (isCreator)
                   _createGridCard(
                     icon: Icons.handshake_rounded,
@@ -1052,6 +1068,22 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
                     ),
                   ],
                   if (isCreator || isVendor) ...[
+                    Divider(height: 1, color: isDark ? const Color(0xFF3A3B3C) : const Color(0xFFE4E6EB)),
+                    ListTile(
+                      leading: const Icon(Icons.sensors_rounded, color: Color(0xFFFF2D55)),
+                      title: Text(isVendor ? 'Host Live Shopping Stream' : 'Live Broadcast Studio', style: TextStyle(fontWeight: FontWeight.w700, color: textPrimary)),
+                      subtitle: Text(isVendor ? 'Showcase & sell products in live stream' : 'Host stream with real-time chat, reactions & gifts', style: TextStyle(fontSize: 12, color: textSecondary)),
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                      onTap: () => GoLiveSetupDialog.show(context),
+                    ),
+                    Divider(height: 1, color: isDark ? const Color(0xFF3A3B3C) : const Color(0xFFE4E6EB)),
+                    ListTile(
+                      leading: const Icon(Icons.video_camera_front_rounded, color: Color(0xFF5856D6)),
+                      title: Text('Conference & Meeting Room', style: TextStyle(fontWeight: FontWeight.w700, color: textPrimary)),
+                      subtitle: Text('Start instant video meeting or schedule conference', style: TextStyle(fontSize: 12, color: textSecondary)),
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                      onTap: () => context.push('/app/conference'),
+                    ),
                     Divider(height: 1, color: isDark ? const Color(0xFF3A3B3C) : const Color(0xFFE4E6EB)),
                     ListTile(
                       leading: const Icon(Icons.groups_rounded, color: Color(0xFF5856D6)),
@@ -1152,6 +1184,55 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
                       style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
                     ),
                   ),
+                ),
+                const SizedBox(height: 20),
+                Divider(color: isDark ? Colors.white10 : Colors.black12),
+                const SizedBox(height: 12),
+                Text(
+                  'Looking to join existing events?',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? Colors.grey[400] : Colors.grey[600],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFFFF2D55),
+                          side: const BorderSide(color: Color(0xFFFF2D55), width: 1.2),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        onPressed: () => context.push('/app/live'),
+                        icon: const Icon(Icons.live_tv_rounded, size: 18),
+                        label: const Text(
+                          'Live Streams',
+                          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF5856D6),
+                          side: const BorderSide(color: Color(0xFF5856D6), width: 1.2),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        onPressed: () => context.push('/app/conference'),
+                        icon: const Icon(Icons.video_camera_front_rounded, size: 18),
+                        label: const Text(
+                          'Join Meeting',
+                          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),

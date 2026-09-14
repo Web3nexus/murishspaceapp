@@ -11,6 +11,7 @@ import '../components/kyc_live_gate_dialog.dart';
 import '../components/send_gift_dialog.dart';
 import '../core/api_client.dart';
 import '../core/camera_service.dart';
+import '../core/roles.dart';
 import '../providers/auth_provider.dart';
 
 /// Full Interactive Live Streaming Stage with Native Hardware Camera Preview,
@@ -90,7 +91,9 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
     if (widget.isHost) {
       final user = ref.read(authProvider).user;
       final kycStatus = user?.kycStatus.toLowerCase() ?? 'unsubmitted';
-      if (kycStatus != 'verified' && kycStatus != 'approved') {
+      final role = user?.role ?? UserRole.member;
+      final isPrivileged = role == UserRole.creator || role == UserRole.vendor || role == UserRole.admin;
+      if (!isPrivileged && kycStatus != 'verified' && kycStatus != 'approved') {
         if (mounted) {
           Navigator.of(context).pop();
           showKycRequiredLiveModal(context);

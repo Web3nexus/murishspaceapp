@@ -81,11 +81,15 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
 
     if (widget.isIncoming) {
       _status = CallStatus.connected;
+      _callSeconds = 0;
       _startDurationTimer();
       _connectLiveKit();
     } else {
       _status = CallStatus.connecting;
-      SoundService.instance.startOutgoingRingback();
+
+      if (widget.isVideo) {
+        _initLocalCameraPreview();
+      }
 
       // Initiate call on backend
       if (widget.recipientId != null && widget.recipientId! > 0) {
@@ -99,9 +103,23 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
             final call = res['call'] is Map ? res['call'] : res;
             _activeCallId = (call['id'] as num?)?.toInt();
             setState(() => _status = CallStatus.ringing);
+            SoundService.instance.startOutgoingRingback();
           }
         });
       }
+    }
+  }
+
+  Future<void> _initLocalCameraPreview() async {
+    try {
+      final track = await LocalVideoTrack.createCameraTrack();
+      if (mounted) {
+        setState(() {
+          _localVideoTrack = track;
+        });
+      }
+    } catch (e) {
+      debugPrint('[Camera] Error creating local camera track: $e');
     }
   }
 
@@ -172,12 +190,16 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
 
       // Publish local camera if video call
       if (widget.isVideo) {
-        await room.localParticipant?.setCameraEnabled(!_isCameraOff);
-        final pubs = room.localParticipant?.videoTrackPublications;
-        if (pubs != null && pubs.isNotEmpty) {
-          setState(() {
-            _localVideoTrack = pubs.first.track as VideoTrack?;
-          });
+        if (_localVideoTrack is LocalVideoTrack) {
+          await room.localParticipant?.publishVideoTrack(_localVideoTrack as LocalVideoTrack);
+        } else {
+          await room.localParticipant?.setCameraEnabled(!_isCameraOff);
+          final pubs = room.localParticipant?.videoTrackPublications;
+          if (pubs != null && pubs.isNotEmpty) {
+            setState(() {
+              _localVideoTrack = pubs.first.track as VideoTrack?;
+            });
+          }
         }
       }
 
@@ -242,6 +264,11 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
     _pulseController.dispose();
     _listener?.dispose();
     _room?.dispose();
+    if (_localVideoTrack is LocalVideoTrack) {
+      try {
+        (_localVideoTrack as LocalVideoTrack).stop();
+      } catch (_) {}
+    }
     super.dispose();
   }
 
@@ -301,6 +328,8 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
         }
       } else if (active.status == 'connected' && _status != CallStatus.connected) {
         SoundService.instance.stopRinging();
+        _callSeconds = 0;
+        _startDurationTimer();
         setState(() => _status = CallStatus.connected);
         _connectLiveKit();
       } else if (active.status == 'declined' && _status != CallStatus.declined) {
@@ -321,11 +350,18 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // Background Canvas: Remote Video stream or Dark Gradient
+          // Background Canvas: Remote Video stream OR Local Camera Preview while connecting/ringing OR Dark Gradient
           if (hasRemoteVideo)
             SizedBox.expand(
               child: VideoTrackRenderer(
                 _remoteVideoTrack!,
+                fit: VideoViewFit.cover,
+              ),
+            )
+          else if (widget.isVideo && _localVideoTrack != null && !_isCameraOff)
+            SizedBox.expand(
+              child: VideoTrackRenderer(
+                _localVideoTrack!,
                 fit: VideoViewFit.cover,
               ),
             )
@@ -341,12 +377,12 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
             ),
 
           // Dark overlay gradient for contrast
-          if (hasRemoteVideo)
+          if (hasRemoteVideo || (widget.isVideo && _localVideoTrack != null && !_isCameraOff))
             Container(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
-                    Colors.black.withValues(alpha: 0.5),
+                    Colors.black.withValues(alpha: 0.4),
                     Colors.transparent,
                     Colors.black.withValues(alpha: 0.75),
                   ],
@@ -430,8 +466,8 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
               ),
             ),
 
-          // Inset PIP Self Video Preview (video call connected)
-          if (widget.isVideo && _status == CallStatus.connected && _localVideoTrack != null && !_isCameraOff)
+          // Inset PIP Self Video Preview (video call connected with remote video active)
+          if (hasRemoteVideo && _localVideoTrack != null && !_isCameraOff)
             Positioned(
               top: MediaQuery.of(context).padding.top + 58,
               right: 16,
