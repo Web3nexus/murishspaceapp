@@ -115,12 +115,15 @@ class ConversationsNotifier extends Notifier<ConversationsState> {
     state = state.copyWith(conversations: list, clearError: true);
   }
 
-  void markRead(int conversationId, int currentUserId) {
+  Future<void> markRead(int conversationId, int currentUserId) async {
     state = state.copyWith(
       conversations: state.conversations
           .map((c) => c.id == conversationId ? c.copyWith(unreadCount: 0) : c)
           .toList(),
     );
+    try {
+      await _dio.post('/conversations/$conversationId/read');
+    } catch (_) {}
   }
 
   /// Fetches or creates a community's general chat and adds it to the list.

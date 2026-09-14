@@ -86,6 +86,16 @@ class ConversationMessagesNotifier extends Notifier<ConversationMessagesState> {
       final (list, hasMore) = _messagesFromPayload(payload);
       state = ConversationMessagesState(messages: list, hasMore: hasMore);
       await markRead();
+      final me = ref.read(authProvider).user;
+      if (me != null) {
+        final toAcknowledge = list
+            .where((m) => m.userId != me.id && m.status == 'sent' && m.id > 0)
+            .map((m) => m.id)
+            .toList();
+        if (toAcknowledge.isNotEmpty) {
+          markDelivered(toAcknowledge);
+        }
+      }
     } on DioException catch (e) {
       if (e.response?.statusCode == 404) {
         state = const ConversationMessagesState(messages: [], hasMore: false);
@@ -366,9 +376,10 @@ class ConversationMessagesNotifier extends Notifier<ConversationMessagesState> {
     ref.read(conversationsProvider.notifier).applyMessage(message, currentUserId: me?.id ?? 0);
     _checkTriggerAutoGreeting(message);
 
-    // If incoming message is from the other user, automatically acknowledge delivery
+    // If incoming message is from the other user, acknowledge delivery and mark read
     if (me != null && message.userId != me.id && message.id > 0) {
       markDelivered([message.id]);
+      markRead();
     }
   }
 

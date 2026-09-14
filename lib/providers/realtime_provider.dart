@@ -146,6 +146,28 @@ class RealtimeService {
           }
         } catch (_) {}
       }
+      if (event.event == 'App\\Events\\MessageDelivered' || event.event.endsWith('.MessageDelivered') || event.event == 'MessageDelivered') {
+        try {
+          final convId = (data['conversation_id'] as num?)?.toInt() ?? 0;
+          final rawIds = data['message_ids'];
+          final ids = rawIds is List ? rawIds.map<int>((e) => (e as num).toInt()).toList() : <int>[];
+          if (convId > 0 && ids.isNotEmpty) {
+            _ref.read(conversationMessagesProvider(convId).notifier).applyRealtimeDelivered(ids);
+          }
+        } catch (_) {}
+        return;
+      }
+
+      if (event.event == 'App\\Events\\MessageRead' || event.event.endsWith('.MessageRead') || event.event == 'MessageRead') {
+        try {
+          final convId = (data['conversation_id'] as num?)?.toInt() ?? 0;
+          final readerId = (data['reader_id'] as num?)?.toInt() ?? 0;
+          if (convId > 0 && readerId > 0) {
+            _ref.read(conversationMessagesProvider(convId).notifier).applyRealtimeRead(readerId);
+          }
+        } catch (_) {}
+        return;
+      }
 
       return;
     }

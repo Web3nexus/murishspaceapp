@@ -44,6 +44,9 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
   void initState() {
     super.initState();
     _controller.addListener(_handleComposerChange);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(conversationMessagesProvider(widget.conversationId).notifier).markRead();
+    });
   }
 
   @override
