@@ -199,10 +199,14 @@ class RealtimeService {
           _ref.read(inAppNotificationProvider.notifier).showFromMessage(msg);
         }
       case 'MessageDeleted':
+      case '.MessageDeleted':
+      case 'App\\Events\\MessageDeleted':
         final data = event.data is Map ? (event.data as Map) : const {};
         final messageId = (data['id'] as num?)?.toInt() ?? 0;
         if (messageId > 0) notifier.applyRealtimeDeleted(messageId);
       case 'App\\Events\\MessageReacted':
+      case 'MessageReacted':
+      case '.MessageReacted':
         final data = event.data is Map ? (event.data as Map) : const {};
         final messageId = (data['message_id'] as num?)?.toInt() ?? 0;
         final raw = data['reactions'];
@@ -211,15 +215,21 @@ class RealtimeService {
             : <ReactionSummary>[];
         if (messageId > 0) notifier.applyRealtimeReaction(messageId, reactions);
       case 'App\\Events\\MessageDelivered':
+      case 'MessageDelivered':
+      case '.MessageDelivered':
         final data = event.data is Map ? Map<String, dynamic>.from(event.data as Map) : <String, dynamic>{};
         final rawIds = data['message_ids'];
         final ids = rawIds is List ? rawIds.map<int>((e) => (e as num).toInt()).toList() : <int>[];
         if (ids.isNotEmpty) notifier.applyRealtimeDelivered(ids);
       case 'App\\Events\\MessageRead':
+      case 'MessageRead':
+      case '.MessageRead':
         final data = event.data is Map ? Map<String, dynamic>.from(event.data as Map) : <String, dynamic>{};
         final readerId = (data['reader_id'] as num?)?.toInt() ?? 0;
         if (readerId > 0) notifier.applyRealtimeRead(readerId);
       case 'typing':
+      case '.typing':
+      case 'App\\Events\\TypingIndicator':
         final data = event.data is Map ? (event.data as Map) : const {};
         final userId = (data['user_id'] as num?)?.toInt() ?? 0;
         final isTyping = data['is_typing'] as bool? ?? false;
