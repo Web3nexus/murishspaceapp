@@ -247,6 +247,14 @@ class ConversationMessagesNotifier extends Notifier<ConversationMessagesState> {
   Future<void> markRead() async {
     try {
       await _dio.post('/conversations/$_effectiveConversationId/read');
+      // Immediately clear the unread badge in the conversation list so that
+      // going back from the conversation screen shows 0 unread straight away.
+      final auth = ref.read(authProvider);
+      final me = auth.user;
+      ref.read(conversationsProvider.notifier).markRead(
+        _effectiveConversationId,
+        me?.id ?? 0,
+      );
     } catch (_) {
       // Non-fatal.
     }
