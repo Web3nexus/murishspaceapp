@@ -3,7 +3,6 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../components/app_bottom_sheet.dart';
 import '../components/gift_animation_overlay.dart';
 import '../core/design_tokens.dart';
 import '../models/chat_models.dart';
