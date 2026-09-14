@@ -242,7 +242,10 @@ class ApiClient {
         'channel_name': channelName,
       });
       final data = response.data;
-      if (data is Map<String, dynamic>) return data['auth'] as String?;
+      if (data is Map) {
+        final map = Map<String, dynamic>.from(data);
+        return map['auth'] as String?;
+      }
     } catch (_) {
       // Authorization failures are non-fatal: the UI keeps working via REST.
     }

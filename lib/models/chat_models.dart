@@ -22,14 +22,15 @@ class ChatUser {
   });
 
   factory ChatUser.fromJson(dynamic json) {
-    if (json is! Map<String, dynamic>) return const ChatUser(id: 0, name: '', username: '');
+    if (json is! Map) return const ChatUser(id: 0, name: '', username: '');
+    final map = Map<String, dynamic>.from(json);
     return ChatUser(
-      id: (json['id'] as num?)?.toInt() ?? 0,
-      name: json['name']?.toString() ?? '',
-      username: json['username']?.toString() ?? '',
-      avatarUrl: (json['avatar_url'] ?? json['avatar'])?.toString(),
-      isOnline: (json['is_online'] as bool?) ?? (json['isOnline'] as bool?) ?? true,
-      lastSeen: json['last_seen']?.toString() ?? json['lastSeen']?.toString() ?? 'online',
+      id: (map['id'] as num?)?.toInt() ?? 0,
+      name: map['name']?.toString() ?? '',
+      username: map['username']?.toString() ?? '',
+      avatarUrl: (map['avatar_url'] ?? map['avatar'])?.toString(),
+      isOnline: (map['is_online'] as bool?) ?? (map['isOnline'] as bool?) ?? true,
+      lastSeen: map['last_seen']?.toString() ?? map['lastSeen']?.toString() ?? 'online',
     );
   }
 }
@@ -43,12 +44,13 @@ class CommunityRef {
   const CommunityRef({this.id, this.name, this.slug, this.logoUrl});
 
   factory CommunityRef.fromJson(dynamic json) {
-    if (json is! Map<String, dynamic>) return const CommunityRef();
+    if (json is! Map) return const CommunityRef();
+    final map = Map<String, dynamic>.from(json);
     return CommunityRef(
-      id: (json['id'] as num?)?.toInt(),
-      name: json['name']?.toString(),
-      slug: json['slug']?.toString(),
-      logoUrl: json['logo_url']?.toString(),
+      id: (map['id'] as num?)?.toInt(),
+      name: map['name']?.toString(),
+      slug: map['slug']?.toString(),
+      logoUrl: map['logo_url']?.toString(),
     );
   }
 }
@@ -66,15 +68,16 @@ class ReactionSummary {
     this.users = const [],
   });
 
-  factory ReactionSummary.fromJson(dynamic json) {
-    if (json is! Map<String, dynamic>) {
+  factory ReactionSummary.fromJson(dynamic raw) {
+    if (raw is! Map) {
       return const ReactionSummary(emoji: '', count: 0, byMe: false);
     }
+    final json = Map<String, dynamic>.from(raw);
     final rawUsers = json['users'];
     return ReactionSummary(
       emoji: json['emoji'] as String? ?? '',
       count: (json['count'] as num?)?.toInt() ?? 0,
-      byMe: json['by_me'] as bool? ?? false,
+      byMe: (json['by_me'] as bool?) ?? (json['byMe'] as bool?) ?? false,
       users: rawUsers is List
           ? rawUsers.whereType<num>().map((e) => e.toInt()).toList()
           : const [],
@@ -162,12 +165,13 @@ class Message {
   /// Parses both the REST payload (`{id, conversation_id, user, ...}`) and the
   /// broadcast payload from `App\Events\MessageSent` (same shape, flat).
   factory Message.fromJson(dynamic rawJson) {
-    if (rawJson is! Map<String, dynamic>) {
+    if (rawJson is! Map) {
       return const Message(id: 0, conversationId: 0, userId: 0, content: '', type: 'text', status: 'sent');
     }
-    final json = (rawJson['data'] is Map<String, dynamic> && !rawJson.containsKey('content') && !rawJson.containsKey('type'))
-        ? rawJson['data'] as Map<String, dynamic>
-        : rawJson;
+    final rawMap = Map<String, dynamic>.from(rawJson);
+    final json = (rawMap['data'] is Map && !rawMap.containsKey('content') && !rawMap.containsKey('type'))
+        ? Map<String, dynamic>.from(rawMap['data'] as Map)
+        : rawMap;
     final replyToRaw = json['reply_to'];
     return Message(
       id: (json['id'] as num?)?.toInt() ?? 0,
@@ -178,7 +182,7 @@ class Message {
       status: json['status']?.toString() ?? 'sent',
       clientUuid: json['client_uuid']?.toString(),
       replyToId: (json['reply_to_id'] as num?)?.toInt(),
-      replyTo: replyToRaw is Map<String, dynamic> ? Message.fromReplyTo(replyToRaw) : null,
+      replyTo: replyToRaw is Map ? Message.fromReplyTo(replyToRaw) : null,
       forwardedFromMessageId: (json['forwarded_from_message_id'] as num?)?.toInt(),
       attachmentUrl: json['attachment_url']?.toString(),
       attachmentType: json['attachment_type']?.toString(),
@@ -191,7 +195,9 @@ class Message {
     );
   }
 
-  static Message fromReplyTo(Map<String, dynamic> json) {
+  static Message fromReplyTo(dynamic raw) {
+    if (raw is! Map) return const Message(id: 0, conversationId: 0, userId: 0, content: '', type: 'text');
+    final json = Map<String, dynamic>.from(raw);
     return Message(
       id: (json['id'] as num?)?.toInt() ?? 0,
       conversationId: 0,
@@ -293,12 +299,16 @@ class Conversation {
   }
 
   factory Conversation.fromJson(dynamic raw) {
+    if (raw is! Map) {
+      return const Conversation(id: 0, type: 'direct', title: 'Direct Message');
+    }
+    final rawMap = Map<String, dynamic>.from(raw);
     // Unwrap nested 'data' envelope if middleware double-wrapped the response
-    final json = (raw is Map<String, dynamic> && raw.containsKey('data') && raw['id'] == null)
-        ? raw['data'] as Map<String, dynamic>? ?? raw
-        : raw;
+    final json = (rawMap.containsKey('data') && rawMap['data'] is Map && rawMap['id'] == null)
+        ? Map<String, dynamic>.from(rawMap['data'] as Map)
+        : rawMap;
 
-    if (json is! Map<String, dynamic>) {
+    if (json.isEmpty) {
       return const Conversation(id: 0, type: 'direct', title: 'Direct Message');
     }
     final other = ChatUser.fromJson(json['other_user']);
