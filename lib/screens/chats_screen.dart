@@ -832,7 +832,7 @@ class _Avatar extends StatelessWidget {
     final isDirectChat = conversation.type != 'community';
 
     return OnlineAvatarBadge(
-      isOnline: isDirectChat,
+      isOnline: isDirectChat && (conversation.otherUser?.isOnline ?? false),
       badgeSize: 12,
       child: Stack(
         clipBehavior: Clip.none,

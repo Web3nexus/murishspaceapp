@@ -7,6 +7,7 @@ import '../core/api_client.dart';
 import '../core/realtime_client.dart';
 import '../models/chat_models.dart';
 import '../models/notification_models.dart';
+import '../services/sound_service.dart';
 import 'auth_provider.dart';
 import 'calls_provider.dart';
 import 'chat_provider.dart';
@@ -163,6 +164,11 @@ class RealtimeService {
         notifier.applyRealtime(msg);
 
         final currentUserId = _ref.read(authProvider).user?.id;
+
+        // Play chime for messages from others
+        if (msg.userId != currentUserId) {
+          SoundService.instance.playMessageReceived();
+        }
 
         // If incoming message is a gift, trigger celebration animation
         if (msg.userId != currentUserId &&

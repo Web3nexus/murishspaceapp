@@ -551,6 +551,9 @@ class _ConversationTitle extends ConsumerWidget {
     final isCommunity = conversation?.type == 'community';
     final memberCount = conversation?.memberCount;
 
+    final isOnline = !isCommunity && (conversation?.otherUser?.isOnline ?? false);
+    final lastSeen = conversation?.otherUser?.lastSeen;
+
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () {
@@ -567,7 +570,7 @@ class _ConversationTitle extends ConsumerWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           OnlineAvatarBadge(
-            isOnline: !isCommunity,
+            isOnline: isOnline,
             badgeSize: 10,
             child: CircleAvatar(
               radius: 16,
@@ -606,8 +609,17 @@ class _ConversationTitle extends ConsumerWidget {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(fontSize: 11, color: DesignTokens.textSecondary),
                   )
+                else if (isOnline)
+                  OnlineStatusBadge(isOnline: true, showLabel: true, dotSize: 6)
+                else if (lastSeen != null && lastSeen.isNotEmpty && lastSeen != 'online')
+                  Text(
+                    lastSeen,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 11, color: DesignTokens.textSecondary),
+                  )
                 else
-                  const OnlineStatusBadge(isOnline: true, showLabel: true, dotSize: 6),
+                  const SizedBox.shrink(),
               ],
             ),
           ),

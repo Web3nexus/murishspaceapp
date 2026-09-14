@@ -10,6 +10,7 @@ import '../screens/brand_deals_screen.dart';
 import '../screens/calls_screen.dart';
 import '../screens/chat_backup_screen.dart';
 import '../screens/chat_folders_screen.dart';
+import '../screens/chat_settings_screen.dart';
 import '../screens/devices_screen.dart';
 import '../screens/friends_screen.dart';
 import '../screens/home_screen.dart';
@@ -220,6 +221,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/profile/chat-folders',
         builder: (_, _) => const ChatFoldersScreen(),
+      ),
+      GoRoute(
+        path: '/profile/chat-settings',
+        builder: (_, _) => const ChatSettingsScreen(),
       ),
       GoRoute(
         path: '/profile/chat-backup',

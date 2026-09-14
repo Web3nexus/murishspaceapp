@@ -1,5 +1,6 @@
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class SoundService {
   SoundService._();
@@ -7,6 +8,56 @@ class SoundService {
 
   AudioPlayer? _ringingPlayer;
   AudioPlayer? _previewPlayer;
+  AudioPlayer? _notifyPlayer;
+
+  static const _soundsPrefKey = 'murihspace_chat_sounds';
+
+  /// Returns true if the user has chat sounds enabled (default: true).
+  Future<bool> isSoundEnabled() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_soundsPrefKey) ?? true;
+  }
+
+  Future<void> setSoundEnabled(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_soundsPrefKey, value);
+  }
+
+  /// Plays a short incoming-message chime.
+  Future<void> playMessageReceived() async {
+    try {
+      if (!(await isSoundEnabled())) return;
+      if (_notifyPlayer != null) {
+        await _notifyPlayer!.stop();
+        await _notifyPlayer!.dispose();
+        _notifyPlayer = null;
+      }
+      _notifyPlayer = AudioPlayer();
+      await _notifyPlayer!.setReleaseMode(ReleaseMode.stop);
+      await _notifyPlayer!.play(AssetSource('sounds/sound_default.wav'));
+      HapticFeedback.lightImpact();
+    } catch (_) {
+      HapticFeedback.selectionClick();
+    }
+  }
+
+  /// Plays a notification alert sound.
+  Future<void> playNotification() async {
+    try {
+      if (!(await isSoundEnabled())) return;
+      if (_notifyPlayer != null) {
+        await _notifyPlayer!.stop();
+        await _notifyPlayer!.dispose();
+        _notifyPlayer = null;
+      }
+      _notifyPlayer = AudioPlayer();
+      await _notifyPlayer!.setReleaseMode(ReleaseMode.stop);
+      await _notifyPlayer!.play(AssetSource('sounds/sound_chime.wav'));
+      HapticFeedback.lightImpact();
+    } catch (_) {
+      HapticFeedback.selectionClick();
+    }
+  }
 
   /// Starts the outgoing telecom ringback tone (when calling someone).
   Future<void> startOutgoingRingback() async {
@@ -16,7 +67,6 @@ class SoundService {
       await _ringingPlayer!.setReleaseMode(ReleaseMode.loop);
       await _ringingPlayer!.play(AssetSource('sounds/outgoing_ringback.wav'));
     } catch (_) {
-      // Fallback to system haptic/sound
       HapticFeedback.lightImpact();
       SystemSound.play(SystemSoundType.click);
     }
@@ -74,3 +124,4 @@ class SoundService {
     }
   }
 }
+
