@@ -81,7 +81,7 @@ class _IncomingCallOverlayState extends ConsumerState<IncomingCallOverlay>
     return Stack(
       children: [
         widget.child,
-        if (isIncoming && activeCall != null)
+        if (isIncoming)
           Positioned(
             top: MediaQuery.of(context).padding.top + 12,
             left: 16,
@@ -95,19 +95,19 @@ class _IncomingCallOverlayState extends ConsumerState<IncomingCallOverlay>
                   borderRadius: BorderRadius.circular(24),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF34C759).withOpacity(0.25),
+                      color: const Color(0xFF34C759).withValues(alpha: 0.25),
                       blurRadius: 24,
                       spreadRadius: 2,
                       offset: const Offset(0, 8),
                     ),
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.4),
+                      color: Colors.black.withValues(alpha: 0.4),
                       blurRadius: 16,
                       offset: const Offset(0, 4),
                     ),
                   ],
                   border: Border.all(
-                    color: const Color(0xFF34C759).withOpacity(0.6),
+                    color: const Color(0xFF34C759).withValues(alpha: 0.6),
                     width: 1.5,
                   ),
                 ),

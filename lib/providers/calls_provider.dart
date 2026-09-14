@@ -95,6 +95,7 @@ class ActiveCallSession {
   final int callId;
   final String roomName;
   final String? token;
+  final String? host;
   final int callerId;
   final String callerName;
   final String callerAvatar;
@@ -109,6 +110,7 @@ class ActiveCallSession {
     required this.callId,
     required this.roomName,
     this.token,
+    this.host,
     required this.callerId,
     required this.callerName,
     this.callerAvatar = '',
@@ -124,6 +126,7 @@ class ActiveCallSession {
     int? callId,
     String? roomName,
     String? token,
+    String? host,
     int? callerId,
     String? callerName,
     String? callerAvatar,
@@ -138,6 +141,7 @@ class ActiveCallSession {
       callId: callId ?? this.callId,
       roomName: roomName ?? this.roomName,
       token: token ?? this.token,
+      host: host ?? this.host,
       callerId: callerId ?? this.callerId,
       callerName: callerName ?? this.callerName,
       callerAvatar: callerAvatar ?? this.callerAvatar,
@@ -269,12 +273,14 @@ class CallsNotifier extends Notifier<CallsState> {
       final callData = data['call'] is Map<String, dynamic> ? data['call'] as Map<String, dynamic> : data;
       final callId = (callData['id'] as num?)?.toInt() ?? 0;
       final roomName = (data['room_name'] ?? callData['room_name'])?.toString() ?? 'call_$callId';
-      final token = data['token']?.toString();
+      final token = (data['livekit_token'] ?? data['token'])?.toString();
+      final host = (data['livekit_host'] ?? data['host'])?.toString();
 
       final active = ActiveCallSession(
         callId: callId,
         roomName: roomName,
         token: token,
+        host: host,
         callerId: ref.read(authProvider).user?.id ?? 0,
         callerName: ref.read(authProvider).user?.name ?? 'Me',
         callerAvatar: avatarUrl ?? '',
@@ -299,17 +305,42 @@ class CallsNotifier extends Notifier<CallsState> {
       final res = await ApiClient.instance.dio.post('/calls/$callId/accept');
       final unwrapped = ApiClient.instance.unwrap(res);
       final data = unwrapped is Map<String, dynamic> ? unwrapped : <String, dynamic>{};
+      final token = (data['livekit_token'] ?? data['token'])?.toString();
+      final host = (data['livekit_host'] ?? data['host'])?.toString();
       if (state.activeCall != null) {
         state = state.copyWith(
           activeCall: state.activeCall!.copyWith(
             status: 'connected',
-            token: data['token']?.toString(),
+            token: token ?? state.activeCall!.token,
+            host: host ?? state.activeCall!.host,
           ),
         );
       }
       return data;
     } catch (e) {
       debugPrint('Error accepting call: $e');
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>?> fetchCallToken(int callId) async {
+    try {
+      final res = await ApiClient.instance.dio.get('/calls/$callId/token');
+      final unwrapped = ApiClient.instance.unwrap(res);
+      final data = unwrapped is Map<String, dynamic> ? unwrapped : <String, dynamic>{};
+      final token = (data['livekit_token'] ?? data['token'])?.toString();
+      final host = (data['livekit_host'] ?? data['host'])?.toString();
+      if (state.activeCall != null) {
+        state = state.copyWith(
+          activeCall: state.activeCall!.copyWith(
+            token: token ?? state.activeCall!.token,
+            host: host ?? state.activeCall!.host,
+          ),
+        );
+      }
+      return data;
+    } catch (e) {
+      debugPrint('Error fetching call token: $e');
       return null;
     }
   }
@@ -357,11 +388,15 @@ class CallsNotifier extends Notifier<CallsState> {
     final callerName = (caller['name'] ?? callData['caller_name'])?.toString() ?? 'Incoming Caller';
     final callerAvatar = (caller['avatar'] ?? callData['caller_avatar'])?.toString() ?? '';
     final callType = callData['type']?.toString() ?? 'audio';
+    final token = (data['livekit_token'] ?? data['token'])?.toString();
+    final host = (data['livekit_host'] ?? data['host'])?.toString();
 
     state = state.copyWith(
       activeCall: ActiveCallSession(
         callId: callId,
         roomName: roomName,
+        token: token,
+        host: host,
         callerId: callerId,
         callerName: callerName,
         callerAvatar: callerAvatar,
@@ -376,10 +411,13 @@ class CallsNotifier extends Notifier<CallsState> {
 
   void handleCallAccepted(Map<String, dynamic> data) {
     if (state.activeCall != null) {
+      final token = (data['livekit_token'] ?? data['token'])?.toString();
+      final host = (data['livekit_host'] ?? data['host'])?.toString();
       state = state.copyWith(
         activeCall: state.activeCall!.copyWith(
           status: 'connected',
-          token: data['token']?.toString(),
+          token: token ?? state.activeCall!.token,
+          host: host ?? state.activeCall!.host,
         ),
       );
     }

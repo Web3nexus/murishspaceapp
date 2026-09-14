@@ -1,8 +1,8 @@
 import 'dart:async';
-import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:livekit_client/livekit_client.dart';
 
 import '../providers/calls_provider.dart';
 import '../services/sound_service.dart';
@@ -11,12 +11,13 @@ enum CallStatus {
   connecting,
   ringing,
   connected,
+  declined,
   ended,
 }
 
-/// Interactive Real-Time Voice & Video Call Screen with Mute, Camera Toggles,
-/// Speakerphone, Camera Switch, realistic Connecting -> Ringing -> Connected flow,
-/// telecom ringing sounds, animated Video PIP thumbnail, and live Camera Preview.
+/// Real-Time Voice & Video Call Screen powered by LiveKit WebRTC SFU.
+/// Handles WebRTC signaling, remote/local audio and video streams,
+/// microphone mute, camera toggles, and duration tracking.
 class CallScreen extends ConsumerStatefulWidget {
   final String contactName;
   final String? phoneNumber;
@@ -51,12 +52,13 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
 
   int _callSeconds = 0;
   Timer? _callTimer;
-  Timer? _statusTransitionTimer;
-  Timer? _ringingHapticTimer;
 
-  CameraController? _cameraController;
-  List<CameraDescription> _availableCameras = [];
-  bool _cameraReady = false;
+  // LiveKit WebRTC state
+  Room? _room;
+  EventsListener<RoomEvent>? _listener;
+  VideoTrack? _remoteVideoTrack;
+  VideoTrack? _localVideoTrack;
+  bool _isConnectingRoom = false;
 
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
@@ -77,15 +79,15 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
 
-    if (widget.isVideo) {
-      _initCamera();
-    }
-
     if (widget.isIncoming) {
       _status = CallStatus.connected;
       _startDurationTimer();
+      _connectLiveKit();
     } else {
-      _startCallProgression();
+      _status = CallStatus.connecting;
+      SoundService.instance.startOutgoingRingback();
+
+      // Initiate call on backend
       if (widget.recipientId != null && widget.recipientId! > 0) {
         ref.read(callsProvider.notifier).initiateCall(
           recipientId: widget.recipientId!,
@@ -96,88 +98,131 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
           if (res != null && mounted) {
             final call = res['call'] is Map ? res['call'] : res;
             _activeCallId = (call['id'] as num?)?.toInt();
+            setState(() => _status = CallStatus.ringing);
           }
         });
       }
     }
   }
 
-  Future<void> _initCamera() async {
+  /// Connect to LiveKit Room using active session credentials
+  Future<void> _connectLiveKit() async {
+    if (_isConnectingRoom || _room != null) return;
+    _isConnectingRoom = true;
+
     try {
-      _availableCameras = await availableCameras();
-      if (_availableCameras.isNotEmpty) {
-        final front = _availableCameras.firstWhere(
-          (c) => c.lensDirection == CameraLensDirection.front,
-          orElse: () => _availableCameras.first,
-        );
-        _cameraController = CameraController(
-          front,
-          ResolutionPreset.medium,
-          enableAudio: true,
-        );
-        await _cameraController!.initialize();
-        if (mounted) {
-          setState(() => _cameraReady = true);
+      final active = ref.read(callsProvider).activeCall;
+      String? token = active?.token;
+      String? host = active?.host;
+
+      // If token not present yet, fetch from backend
+      if ((token == null || host == null) && _activeCallId != null) {
+        final res = await ref.read(callsProvider.notifier).fetchCallToken(_activeCallId!);
+        if (res != null) {
+          token = (res['livekit_token'] ?? res['token'])?.toString();
+          host = (res['livekit_host'] ?? res['host'])?.toString();
         }
       }
-    } catch (e) {
-      debugPrint('Call camera initialization error: $e');
-    }
-  }
 
-  Future<void> _flipCamera() async {
-    if (_availableCameras.length < 2) return;
-    _isFrontCamera = !_isFrontCamera;
-    final targetDirection = _isFrontCamera ? CameraLensDirection.front : CameraLensDirection.back;
-    final target = _availableCameras.firstWhere(
-      (c) => c.lensDirection == targetDirection,
-      orElse: () => _availableCameras.first,
-    );
-    try {
-      await _cameraController?.dispose();
-      _cameraController = CameraController(target, ResolutionPreset.medium, enableAudio: true);
-      await _cameraController!.initialize();
-      if (mounted) setState(() {});
-    } catch (e) {
-      debugPrint('Error flipping camera: $e');
-    }
-  }
+      if (token == null || token.isEmpty) {
+        debugPrint('[LiveKit] No token available for call $_activeCallId');
+        _isConnectingRoom = false;
+        return;
+      }
 
-  void _startCallProgression() {
-    // Start telecom outgoing ring tone immediately
-    SoundService.instance.startOutgoingRingback();
+      host ??= 'wss://live-staging.murihspace.com';
+      var wsHost = host.trim();
+      if (wsHost.startsWith('https://')) {
+        wsHost = 'wss://${wsHost.substring(8)}';
+      } else if (wsHost.startsWith('http://')) {
+        wsHost = 'ws://${wsHost.substring(7)}';
+      }
+      wsHost = wsHost.replaceAll(RegExp(r'/+$'), '');
 
-    // Step 1: Connecting (1.5s)
-    _statusTransitionTimer = Timer(const Duration(milliseconds: 1500), () {
-      if (!mounted) return;
-      setState(() => _status = CallStatus.ringing);
-      HapticFeedback.lightImpact();
+      final room = Room();
+      _room = room;
+      final listener = room.createListener();
+      _listener = listener;
 
-      // Soft vibration every 2.5s while ringing
-      _ringingHapticTimer = Timer.periodic(const Duration(milliseconds: 2500), (timer) {
-        if (!mounted || _status != CallStatus.ringing) {
-          timer.cancel();
-          return;
+      listener
+        ..on<TrackSubscribedEvent>((event) {
+          if (event.track is VideoTrack) {
+            setState(() {
+              _remoteVideoTrack = event.track as VideoTrack;
+            });
+          }
+        })
+        ..on<TrackUnsubscribedEvent>((event) {
+          if (event.track is VideoTrack) {
+            setState(() {
+              if (_remoteVideoTrack == event.track) _remoteVideoTrack = null;
+            });
+          }
+        })
+        ..on<ParticipantDisconnectedEvent>((event) {
+          if (mounted) {
+            _onRemoteParticipantLeft();
+          }
+        });
+
+      await room.connect(wsHost, token);
+
+      // Publish local mic
+      await room.localParticipant?.setMicrophoneEnabled(!_isMuted);
+
+      // Publish local camera if video call
+      if (widget.isVideo) {
+        await room.localParticipant?.setCameraEnabled(!_isCameraOff);
+        final pubs = room.localParticipant?.videoTrackPublications;
+        if (pubs != null && pubs.isNotEmpty) {
+          setState(() {
+            _localVideoTrack = pubs.first.track as VideoTrack?;
+          });
         }
-        HapticFeedback.selectionClick();
-      });
+      }
 
-      // Step 2: Ringing for 4.5s -> Connected
-      _statusTransitionTimer = Timer(const Duration(milliseconds: 4500), () {
-        if (!mounted) return;
-        _connectCall();
-      });
+      if (mounted) {
+        setState(() {
+          _status = CallStatus.connected;
+          _isConnectingRoom = false;
+        });
+        SoundService.instance.stopRinging();
+        _startDurationTimer();
+      }
+    } catch (e) {
+      debugPrint('[LiveKit] Error connecting to room: $e');
+      _isConnectingRoom = false;
+    }
+  }
+
+  void _onRemoteParticipantLeft() {
+    SoundService.instance.stopRinging();
+    if (mounted) {
+      setState(() => _status = CallStatus.ended);
+    }
+    Future.delayed(const Duration(milliseconds: 1200), () {
+      if (mounted) {
+        Navigator.of(context).maybePop();
+      }
     });
   }
 
-  void _connectCall() {
-    _statusTransitionTimer?.cancel();
-    _ringingHapticTimer?.cancel();
-    SoundService.instance.stopRinging();
-    if (mounted) {
-      setState(() => _status = CallStatus.connected);
-      HapticFeedback.mediumImpact();
-      _startDurationTimer();
+  Future<void> _flipCamera() async {
+    if (_room?.localParticipant == null) return;
+    _isFrontCamera = !_isFrontCamera;
+    final track = _room!.localParticipant?.videoTrackPublications.firstOrNull?.track;
+    if (track is LocalVideoTrack) {
+      final options = track.currentOptions;
+      if (options is CameraCaptureOptions) {
+        try {
+          await track.restartTrack(options.copyWith(
+            cameraPosition: _isFrontCamera ? CameraPosition.front : CameraPosition.back,
+          ));
+          if (mounted) setState(() {});
+        } catch (e) {
+          debugPrint('[LiveKit] Error flipping camera: $e');
+        }
+      }
     }
   }
 
@@ -193,11 +238,10 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
   @override
   void dispose() {
     SoundService.instance.stopRinging();
-    _statusTransitionTimer?.cancel();
-    _ringingHapticTimer?.cancel();
     _callTimer?.cancel();
     _pulseController.dispose();
-    _cameraController?.dispose();
+    _listener?.dispose();
+    _room?.dispose();
     super.dispose();
   }
 
@@ -215,6 +259,8 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
         return 'Ringing…';
       case CallStatus.connected:
         return widget.isVideo ? 'Video Call · ${_formatDuration(_callSeconds)}' : _formatDuration(_callSeconds);
+      case CallStatus.declined:
+        return 'Call Declined';
       case CallStatus.ended:
         return 'Call Ended';
     }
@@ -223,6 +269,10 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
   void _endCall() {
     HapticFeedback.mediumImpact();
     SoundService.instance.stopRinging();
+    _room?.disconnect();
+    _room?.dispose();
+    _room = null;
+
     setState(() => _status = CallStatus.ended);
 
     if (_activeCallId != null && _activeCallId! > 0) {
@@ -237,29 +287,46 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
             avatarUrl: widget.avatarUrl ?? '',
           );
     }
-    Navigator.of(context).pop();
+    Navigator.of(context).maybePop();
   }
 
   @override
   Widget build(BuildContext context) {
+    // Listen for real-time call acceptance or decline from backend events
+    ref.listen<CallsState>(callsProvider, (prev, next) {
+      final active = next.activeCall;
+      if (active == null) {
+        if (_status == CallStatus.connected || _status == CallStatus.ringing) {
+          _onRemoteParticipantLeft();
+        }
+      } else if (active.status == 'connected' && _status != CallStatus.connected) {
+        SoundService.instance.stopRinging();
+        setState(() => _status = CallStatus.connected);
+        _connectLiveKit();
+      } else if (active.status == 'declined' && _status != CallStatus.declined) {
+        SoundService.instance.stopRinging();
+        setState(() => _status = CallStatus.declined);
+        final nav = Navigator.of(context);
+        Future.delayed(const Duration(milliseconds: 1200), () {
+          if (mounted) nav.maybePop();
+        });
+      }
+    });
+
     final hasAvatar = widget.avatarUrl != null && widget.avatarUrl!.isNotEmpty;
-    final isCameraActive = widget.isVideo && !_isCameraOff && _cameraReady && _cameraController != null && _cameraController!.value.isInitialized;
+    final hasRemoteVideo = widget.isVideo && _status == CallStatus.connected && _remoteVideoTrack != null;
 
     return Scaffold(
       backgroundColor: const Color(0xFF0F141C),
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // Background Canvas: Real Camera Preview when active, or Dark Gradient
-          if (isCameraActive)
+          // Background Canvas: Remote Video stream or Dark Gradient
+          if (hasRemoteVideo)
             SizedBox.expand(
-              child: FittedBox(
-                fit: BoxFit.cover,
-                child: SizedBox(
-                  width: _cameraController!.value.previewSize?.height ?? 1,
-                  height: _cameraController!.value.previewSize?.width ?? 1,
-                  child: CameraPreview(_cameraController!),
-                ),
+              child: VideoTrackRenderer(
+                _remoteVideoTrack!,
+                fit: VideoViewFit.cover,
               ),
             )
           else
@@ -274,12 +341,12 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
             ),
 
           // Dark overlay gradient for contrast
-          if (isCameraActive)
+          if (hasRemoteVideo)
             Container(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
-                    Colors.black.withValues(alpha: 0.6),
+                    Colors.black.withValues(alpha: 0.5),
                     Colors.transparent,
                     Colors.black.withValues(alpha: 0.75),
                   ],
@@ -289,119 +356,104 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
               ),
             ),
 
-          // Profile Avatar & Info:
-          // Centered during audio call or while ringing/connecting,
-          // smoothly animates to top-right PIP corner once video call is connected!
-          AnimatedPositioned(
-            duration: const Duration(milliseconds: 600),
-            curve: Curves.easeInOutCubic,
-            top: (widget.isVideo && _status == CallStatus.connected)
-                ? (MediaQuery.of(context).padding.top + 58)
-                : (MediaQuery.of(context).size.height * 0.28),
-            right: (widget.isVideo && _status == CallStatus.connected) ? 16 : 0,
-            left: (widget.isVideo && _status == CallStatus.connected) ? null : 0,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 600),
-              curve: Curves.easeInOutCubic,
-              padding: (widget.isVideo && _status == CallStatus.connected)
-                  ? const EdgeInsets.all(6)
-                  : EdgeInsets.zero,
-              decoration: (widget.isVideo && _status == CallStatus.connected)
-                  ? BoxDecoration(
-                      color: const Color(0xFF1E293B).withOpacity(0.85),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.white24, width: 1.5),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.35),
-                          blurRadius: 12,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    )
-                  : null,
+          // Profile Avatar & Info
+          // In audio calls or while ringing, centered in middle
+          // In video calls when connected, moves to compact top corner
+          if (!hasRemoteVideo)
+            Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   ScaleTransition(
                     scale: _status == CallStatus.ringing ? _pulseAnimation : const AlwaysStoppedAnimation(1.0),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 600),
-                      curve: Curves.easeInOutCubic,
-                      padding: const EdgeInsets.all(3),
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         border: Border.all(
                           color: _status == CallStatus.ringing
-                              ? const Color(0xFF34C759).withValues(alpha: 0.8)
+                              ? const Color(0xFF34C759)
                               : (_status == CallStatus.connected
-                                  ? const Color(0xFF007AFF).withValues(alpha: 0.6)
+                                  ? const Color(0xFF007AFF)
                                   : Colors.white24),
-                          width: (widget.isVideo && _status == CallStatus.connected) ? 2 : 3,
+                          width: 3,
                         ),
                         boxShadow: _status == CallStatus.ringing
                             ? [
-                                BoxShadow(
-                                  color: const Color(0xFF34C759).withValues(alpha: 0.35),
+                                const BoxShadow(
+                                  color: Color(0x6634C759),
                                   blurRadius: 28,
                                   spreadRadius: 6,
                                 ),
                               ]
                             : null,
                       ),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 600),
-                        width: (widget.isVideo && _status == CallStatus.connected) ? 54 : (widget.isVideo ? 96 : 116),
-                        height: (widget.isVideo && _status == CallStatus.connected) ? 54 : (widget.isVideo ? 96 : 116),
-                        child: CircleAvatar(
-                          backgroundImage: hasAvatar ? NetworkImage(widget.avatarUrl!) : null,
-                          backgroundColor: const Color(0xFF007AFF),
-                          child: !hasAvatar
-                              ? Icon(Icons.person, color: Colors.white, size: 22)
-                              : null,
-                        ),
+                      child: CircleAvatar(
+                        radius: 56,
+                        backgroundImage: hasAvatar ? NetworkImage(widget.avatarUrl!) : null,
+                        backgroundColor: const Color(0xFF007AFF),
+                        child: !hasAvatar
+                            ? const Icon(Icons.person, color: Colors.white, size: 48)
+                            : null,
                       ),
                     ),
                   ),
-                  if (!(widget.isVideo && _status == CallStatus.connected)) ...[
-                    const SizedBox(height: 18),
-                    Text(
-                      widget.contactName,
-                      style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: Colors.white),
+                  const SizedBox(height: 20),
+                  Text(
+                    widget.contactName,
+                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: Colors.black45,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.white10),
                     ),
-                    const SizedBox(height: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.black38,
-                        borderRadius: BorderRadius.circular(12),
+                    child: Text(
+                      widget.isVideo
+                          ? (_status == CallStatus.connected
+                              ? 'Video Call · ${_formatDuration(_callSeconds)}'
+                              : 'Video Call · $_statusLabel')
+                          : _statusLabel,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: _status == CallStatus.connected
+                            ? const Color(0xFF34C759)
+                            : (_status == CallStatus.ringing ? const Color(0xFFFFD60A) : Colors.white70),
                       ),
-                      child: Text(
-                        widget.isVideo
-                            ? (_status == CallStatus.connected
-                                ? 'Video Call · ${_formatDuration(_callSeconds)}'
-                                : 'Video Call · $_statusLabel')
-                            : _statusLabel,
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: _status == CallStatus.connected
-                              ? const Color(0xFF34C759)
-                              : (_status == CallStatus.ringing ? const Color(0xFFFFD60A) : Colors.white70),
-                        ),
-                      ),
                     ),
-                  ] else ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      widget.contactName.split(' ').first,
-                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white),
-                    ),
-                  ],
+                  ),
                 ],
               ),
             ),
-          ),
+
+          // Inset PIP Self Video Preview (video call connected)
+          if (widget.isVideo && _status == CallStatus.connected && _localVideoTrack != null && !_isCameraOff)
+            Positioned(
+              top: MediaQuery.of(context).padding.top + 58,
+              right: 16,
+              child: Container(
+                width: 90,
+                height: 130,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.white38, width: 1.5),
+                  boxShadow: const [
+                    BoxShadow(color: Colors.black54, blurRadius: 10, offset: Offset(0, 4)),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: VideoTrackRenderer(
+                    _localVideoTrack!,
+                    fit: VideoViewFit.cover,
+                  ),
+                ),
+              ),
+            ),
 
           // Top App Bar
           Positioned(
@@ -459,11 +511,11 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               decoration: BoxDecoration(
-                color: const Color(0xFF1E293B).withOpacity(0.9),
+                color: const Color(0xFF1E293B).withValues(alpha: 0.9),
                 borderRadius: BorderRadius.circular(28),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.4),
+                    color: Colors.black.withValues(alpha: 0.4),
                     blurRadius: 20,
                     offset: const Offset(0, 4),
                   ),
@@ -478,9 +530,11 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
                     isActive: _isMuted,
                     activeColor: const Color(0xFFFF3B30),
                     label: _isMuted ? 'Muted' : 'Mute',
-                    onTap: () {
+                    onTap: () async {
                       HapticFeedback.selectionClick();
-                      setState(() => _isMuted = !_isMuted);
+                      final next = !_isMuted;
+                      await _room?.localParticipant?.setMicrophoneEnabled(!next);
+                      setState(() => _isMuted = next);
                     },
                   ),
 
@@ -491,12 +545,11 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
                       isActive: _isCameraOff,
                       activeColor: const Color(0xFFFF3B30),
                       label: _isCameraOff ? 'Camera Off' : 'Camera',
-                      onTap: () {
+                      onTap: () async {
                         HapticFeedback.selectionClick();
-                        setState(() => _isCameraOff = !_isCameraOff);
-                        if (!_isCameraOff && (_cameraController == null || !_cameraController!.value.isInitialized)) {
-                          _initCamera();
-                        }
+                        final next = !_isCameraOff;
+                        await _room?.localParticipant?.setCameraEnabled(!next);
+                        setState(() => _isCameraOff = next);
                       },
                     ),
 
@@ -568,7 +621,7 @@ class _CallActionButton extends StatelessWidget {
             width: 48,
             height: 48,
             decoration: BoxDecoration(
-              color: isActive ? activeColor : Colors.white.withOpacity(0.15),
+              color: isActive ? activeColor : Colors.white.withValues(alpha: 0.15),
               shape: BoxShape.circle,
             ),
             child: Icon(icon, color: Colors.white, size: 22),
