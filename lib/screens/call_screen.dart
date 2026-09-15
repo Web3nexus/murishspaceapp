@@ -194,7 +194,6 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
           }
         } else if (status == 'accepted' && _status != CallStatus.connected) {
           _connectingTimeoutTimer?.cancel();
-          timer.cancel();
           SoundService.instance.stopRinging();
           final token = (data['livekit_token'] ?? call['livekit_token'])?.toString();
           final host = (data['livekit_host'] ?? call['livekit_host'])?.toString();
@@ -316,6 +315,11 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
           if (mounted) {
             _onRemoteParticipantLeft();
           }
+        })
+        ..on<RoomDisconnectedEvent>((event) {
+          if (mounted) {
+            _onRemoteParticipantLeft();
+          }
         });
 
       await room.connect(wsHost, token);
@@ -368,6 +372,8 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
   void _onRemoteParticipantLeft() {
     SoundService.instance.stopRinging();
     _ringingTimeoutTimer?.cancel();
+    _callTimer?.cancel();
+    _statusPollTimer?.cancel();
     if (mounted) {
       setState(() => _status = CallStatus.ended);
     }
@@ -520,6 +526,8 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
   void _endCall() {
     HapticFeedback.mediumImpact();
     SoundService.instance.stopRinging();
+    _callTimer?.cancel();
+    _statusPollTimer?.cancel();
     _room?.disconnect();
     _room?.dispose();
     _room = null;
