@@ -3,8 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/api_client.dart';
-import '../core/roles.dart';
-import 'auth_provider.dart';
 
 enum BroadcastType { securityAlert, transactionOtp, announcement, systemUpdate }
 
@@ -152,6 +150,14 @@ class BroadcastNotifier extends Notifier<BroadcastState> {
             final typeStr = (item['type'] as String? ?? '').toLowerCase();
             final metaMap = dataMap['metadata'] as Map<String, dynamic>? ?? {};
 
+            // Skip non-official user-to-user notifications (chat messages, calls, etc.)
+            if (typeStr == 'new_message' ||
+                typeStr.contains('message') ||
+                typeStr.contains('call') ||
+                typeStr.contains('chat')) {
+              continue;
+            }
+
             String? code = dataMap['code']?.toString() ?? metaMap['code']?.toString();
             if (code == null) {
               final text = (dataMap['message'] ?? dataMap['body'] ?? '').toString();
@@ -159,6 +165,21 @@ class BroadcastNotifier extends Notifier<BroadcastState> {
               if (match != null) {
                 code = match.group(0);
               }
+            }
+
+            final isOfficial = dataMap['is_official'] == true ||
+                dataMap['sender_name'] == 'Murih Notifications Official' ||
+                typeStr.contains('otp') ||
+                typeStr.contains('code') ||
+                typeStr.contains('system') ||
+                typeStr.contains('security') ||
+                typeStr.contains('broadcast') ||
+                typeStr.contains('kyc') ||
+                typeStr.contains('upgrade') ||
+                code != null;
+
+            if (!isOfficial) {
+              continue;
             }
 
             BroadcastType bType = BroadcastType.announcement;
@@ -173,10 +194,19 @@ class BroadcastNotifier extends Notifier<BroadcastState> {
             final createdAtStr = item['created_at'] as String?;
             final date = createdAtStr != null ? DateTime.tryParse(createdAtStr) ?? DateTime.now() : DateTime.now();
 
+            final resolvedTitle = dataMap['title'] as String? ??
+                (code != null
+                    ? '🔐 Login Verification Code'
+                    : (typeStr.contains('kyc')
+                        ? 'KYC Verification Update'
+                        : (typeStr.contains('security')
+                            ? 'Security Alert'
+                            : 'Official Announcement')));
+
             fetched.add(
               BroadcastMessage(
                 id: item['id']?.toString() ?? DateTime.now().millisecondsSinceEpoch.toString(),
-                title: dataMap['title'] as String? ?? (code != null ? '🔐 Login Verification Code' : 'System Alert'),
+                title: resolvedTitle,
                 body: dataMap['message'] as String? ?? dataMap['body'] as String? ?? 'Official platform notification.',
                 timestamp: date,
                 type: bType,

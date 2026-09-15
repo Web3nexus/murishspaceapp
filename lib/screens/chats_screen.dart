@@ -1347,7 +1347,7 @@ class _SystemBroadcastTile extends ConsumerWidget {
                 color: const Color(0xFF007AFF),
               ),
               title: Text(
-                bState.isPinned ? 'Unpin System Alert thread' : 'Pin System Alert thread to top',
+                bState.isPinned ? 'Unpin Official Broadcast thread' : 'Pin Official Broadcast thread to top',
                 style: const TextStyle(fontWeight: FontWeight.w600),
               ),
               onTap: () {
