@@ -81,6 +81,10 @@ class RealtimeService {
         _ref.read(callsProvider.notifier).handleIncomingCall(data);
         return;
       }
+      if (event.event == 'call.ringing' || event.event.contains('CallRinging')) {
+        _ref.read(callsProvider.notifier).handleCallRinging(data);
+        return;
+      }
       if (event.event == 'call.accepted' || event.event.contains('CallAccepted')) {
         _ref.read(callsProvider.notifier).handleCallAccepted(data);
         return;

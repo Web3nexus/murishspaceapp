@@ -229,7 +229,7 @@ class _SendGiftDialogState extends ConsumerState<SendGiftDialog> {
                 width: 54,
                 height: 54,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFF9500).withOpacity(0.15),
+                  color: const Color(0xFFFF9500).withValues(alpha: 0.15),
                   shape: BoxShape.circle,
                 ),
                 child: const Center(
@@ -405,7 +405,7 @@ class _SendGiftDialogState extends ConsumerState<SendGiftDialog> {
             children: [
               CircleAvatar(
                 radius: 20,
-                backgroundColor: const Color(0xFFFF9500).withOpacity(0.15),
+                backgroundColor: const Color(0xFFFF9500).withValues(alpha: 0.15),
                 backgroundImage: widget.recipientAvatar != null && widget.recipientAvatar!.isNotEmpty
                     ? NetworkImage(widget.recipientAvatar!)
                     : null,
@@ -435,9 +435,9 @@ class _SendGiftDialogState extends ConsumerState<SendGiftDialog> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFF9500).withOpacity(0.15),
+                    color: const Color(0xFFFF9500).withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: const Color(0xFFFF9500).withOpacity(0.3)),
+                    border: Border.all(color: const Color(0xFFFF9500).withValues(alpha: 0.3)),
                   ),
                   child: Row(
                     children: [
@@ -483,7 +483,7 @@ class _SendGiftDialogState extends ConsumerState<SendGiftDialog> {
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
                     itemCount: _systemGifts.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 10),
+                    separatorBuilder: (_, _) => const SizedBox(width: 10),
                     itemBuilder: (ctx, idx) {
                       final gift = _systemGifts[idx];
                       final isSelected = _selectedGift?.id == gift.id;
@@ -500,7 +500,7 @@ class _SendGiftDialogState extends ConsumerState<SendGiftDialog> {
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
                             color: isSelected
-                                ? gift.color.withOpacity(0.15)
+                                ? gift.color.withValues(alpha: 0.15)
                                 : (isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF2F4F7)),
                             borderRadius: BorderRadius.circular(16),
                             border: Border.all(
@@ -517,12 +517,12 @@ class _SendGiftDialogState extends ConsumerState<SendGiftDialog> {
                                   width: 38,
                                   height: 38,
                                   fit: BoxFit.contain,
-                                  placeholder: (_, __) => const SizedBox(
+                                  placeholder: (_, _) => const SizedBox(
                                     width: 20,
                                     height: 20,
                                     child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFFF9500)),
                                   ),
-                                  errorWidget: (_, __, ___) => Text(gift.icon, style: const TextStyle(fontSize: 26)),
+                                  errorWidget: (_, _, _) => Text(gift.icon, style: const TextStyle(fontSize: 26)),
                                 )
                               else
                                 Text(gift.icon, style: const TextStyle(fontSize: 28)),

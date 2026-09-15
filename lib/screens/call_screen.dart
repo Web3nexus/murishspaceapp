@@ -60,6 +60,7 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
   Timer? _callTimer;
   Timer? _statusPollTimer;
   Timer? _ringingTimeoutTimer;
+  Timer? _connectingTimeoutTimer;
 
   // LiveKit WebRTC state
   Room? _room;
@@ -115,6 +116,7 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
 
       // Initiate call on backend
       if (widget.recipientId != null && widget.recipientId! > 0) {
+        _startConnectingTimeout();
         ref.read(callsProvider.notifier).initiateCall(
           recipientId: widget.recipientId!,
           type: widget.isVideo ? 'video' : 'audio',
@@ -124,13 +126,35 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
           if (res != null && mounted) {
             final call = res['call'] is Map ? res['call'] : res;
             _activeCallId = (call['id'] as num?)?.toInt();
-            setState(() => _status = CallStatus.ringing);
-            SoundService.instance.startOutgoingRingback();
+            // Stay in CallStatus.connecting; ringback sound will play once callee receives signal and sends ringing ACK
             _startStatusPolling();
           }
         });
       }
     }
+  }
+
+  void _startConnectingTimeout() {
+    _connectingTimeoutTimer?.cancel();
+    _connectingTimeoutTimer = Timer(const Duration(seconds: 15), () {
+      if (!mounted) return;
+      if (_status == CallStatus.connecting) {
+        SoundService.instance.stopRinging();
+        _statusPollTimer?.cancel();
+        setState(() => _status = CallStatus.ended);
+        if (_activeCallId != null) {
+          try {
+            ApiClient.instance.dio.post('/calls/$_activeCallId/end', data: {'duration': 0});
+          } catch (_) {}
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Contact is unavailable or offline'), duration: Duration(seconds: 3)),
+        );
+        Future.delayed(const Duration(milliseconds: 1500), () {
+          if (mounted) Navigator.of(context).maybePop();
+        });
+      }
+    });
   }
 
   Future<void> _requestPermissions() async {
@@ -160,7 +184,14 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
         final call = data['call'] is Map<String, dynamic> ? data['call'] as Map<String, dynamic> : data;
         final status = call['status']?.toString();
 
-        if (status == 'accepted' && _status != CallStatus.connected) {
+        if (status == 'ringing' && _status == CallStatus.connecting) {
+          _connectingTimeoutTimer?.cancel();
+          if (mounted) {
+            setState(() => _status = CallStatus.ringing);
+            SoundService.instance.startOutgoingRingback();
+          }
+        } else if (status == 'accepted' && _status != CallStatus.connected) {
+          _connectingTimeoutTimer?.cancel();
           timer.cancel();
           SoundService.instance.stopRinging();
           final token = (data['livekit_token'] ?? call['livekit_token'])?.toString();
@@ -221,7 +252,8 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
       String? host = active?.host;
 
       // If token not present yet, fetch from backend
-      if ((token == null || host == null) && _activeCallId != null) {
+      if ((token == null || token.isEmpty) && _activeCallId != null) {
+        debugPrint('[LiveKit] No token in state, fetching from /calls/$_activeCallId/token');
         final res = await ref.read(callsProvider.notifier).fetchCallToken(_activeCallId!);
         if (res != null) {
           token = (res['livekit_token'] ?? res['token'])?.toString();
@@ -230,8 +262,16 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
       }
 
       if (token == null || token.isEmpty) {
-        debugPrint('[LiveKit] No token available for call $_activeCallId');
+        debugPrint('[LiveKit] ❌ No token available for call $_activeCallId — LiveKit not configured on server?');
         _isConnectingRoom = false;
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Could not connect call — server configuration issue.'),
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
         return;
       }
 
@@ -243,6 +283,8 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
         wsHost = 'ws://${wsHost.substring(7)}';
       }
       wsHost = wsHost.replaceAll(RegExp(r'/+$'), '');
+
+      debugPrint('[LiveKit] Connecting to $wsHost for room ${active?.roomName}');
 
       final room = Room();
       _room = room;
@@ -271,6 +313,7 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
         });
 
       await room.connect(wsHost, token);
+      debugPrint('[LiveKit] ✅ Connected to room');
 
       try {
         await Hardware.instance.setSpeakerphoneOn(_isSpeakerOn);
@@ -306,7 +349,7 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
         _startDurationTimer();
       }
     } catch (e) {
-      debugPrint('[LiveKit] Error connecting to room: $e');
+      debugPrint('[LiveKit] ❌ Error connecting to room: $e');
       _isConnectingRoom = false;
     }
   }
@@ -377,6 +420,7 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
 
   @override
   void dispose() {
+    _connectingTimeoutTimer?.cancel();
     _ringingTimeoutTimer?.cancel();
     _statusPollTimer?.cancel();
     SoundService.instance.stopRinging();
@@ -420,7 +464,12 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
     HapticFeedback.heavyImpact();
     SoundService.instance.stopRinging();
     if (_activeCallId != null && _activeCallId! > 0) {
-      await ref.read(callsProvider.notifier).acceptCall(_activeCallId!);
+      final data = await ref.read(callsProvider.notifier).acceptCall(_activeCallId!);
+      // acceptCall() already saves token into state via copyWith.
+      // If for some reason it returned a token directly, it is already stored.
+      if (data != null) {
+        debugPrint('[CallScreen] accept response — livekit_token: ${(data['livekit_token'] ?? data['token']) != null ? 'present' : 'null'}');
+      }
     }
     if (mounted) {
       setState(() {
@@ -476,16 +525,25 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
     ref.listen<CallsState>(callsProvider, (prev, next) {
       final active = next.activeCall;
       if (active == null) {
-        if (_status == CallStatus.connected || _status == CallStatus.ringing || _status == CallStatus.incoming) {
+        if (_status == CallStatus.connected || _status == CallStatus.ringing || _status == CallStatus.incoming || _status == CallStatus.connecting) {
+          _connectingTimeoutTimer?.cancel();
           _onRemoteParticipantLeft();
         }
+      } else if (active.status == 'ringing' && _status == CallStatus.connecting) {
+        _connectingTimeoutTimer?.cancel();
+        if (mounted) {
+          setState(() => _status = CallStatus.ringing);
+          SoundService.instance.startOutgoingRingback();
+        }
       } else if (active.status == 'connected' && _status != CallStatus.connected) {
+        _connectingTimeoutTimer?.cancel();
         SoundService.instance.stopRinging();
         _callSeconds = 0;
         _startDurationTimer();
         setState(() => _status = CallStatus.connected);
         _connectLiveKit();
       } else if (active.status == 'declined' && _status != CallStatus.declined) {
+        _connectingTimeoutTimer?.cancel();
         SoundService.instance.stopRinging();
         setState(() => _status = CallStatus.declined);
         final nav = Navigator.of(context);

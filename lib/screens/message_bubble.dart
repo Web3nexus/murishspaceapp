@@ -348,13 +348,13 @@ class _BubbleContent extends StatelessWidget {
                 imageUrl: message.attachmentUrl!,
                 width: maxWidth - 8,
                 fit: BoxFit.cover,
-                errorWidget: (_, __, ___) => Container(
+                errorWidget: (_, _, _) => Container(
                   width: 220,
                   height: 160,
                   color: mine ? const Color(0xFF2E5A78) : const Color(0xFFF2F5F8),
                   child: const Icon(Icons.broken_image_outlined, color: Colors.white70),
                 ),
-                placeholder: (_, __) => Container(
+                placeholder: (_, _) => Container(
                   width: 220,
                   height: 160,
                   color: mine ? const Color(0xFF2E5A78) : const Color(0xFFF2F5F8),
@@ -406,7 +406,7 @@ class _BubbleContent extends StatelessWidget {
           if (message.deleted && message.type != 'call')
             Text(
               'This message was deleted',
-              style: TextStyle(color: textColor.withOpacity(0.8), fontStyle: FontStyle.italic),
+              style: TextStyle(color: textColor.withValues(alpha: 0.8), fontStyle: FontStyle.italic),
             ),
           _MetaRow(message: message, mine: mine, onRetry: onRetry),
         ],
@@ -531,7 +531,7 @@ class _ReactionChips extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
                   color: r.byMe
-                      ? const Color(0xFF007AFF).withOpacity(0.15)
+                      ? const Color(0xFF007AFF).withValues(alpha: 0.15)
                       : (isDark ? const Color(0xFF2C2C2E) : Colors.white),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
@@ -1090,7 +1090,7 @@ class _VoiceWaveformBars extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final activeColor = mine ? Colors.white : const Color(0xFF007AFF);
-    final inactiveColor = mine ? Colors.white.withOpacity(0.35) : (isDark ? Colors.grey[700]! : Colors.grey[350]!);
+    final inactiveColor = mine ? Colors.white.withValues(alpha: 0.35) : (isDark ? Colors.grey[700]! : Colors.grey[350]!);
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -1438,11 +1438,11 @@ class _ChatGiftWidget extends StatelessWidget {
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: mine
-              ? const Color(0xFF0055B3).withOpacity(0.4)
+              ? const Color(0xFF0055B3).withValues(alpha: 0.4)
               : (isDark ? const Color(0xFF262C38) : const Color(0xFFFFF8E7)),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: const Color(0xFFFF9500).withOpacity(0.6),
+            color: const Color(0xFFFF9500).withValues(alpha: 0.6),
             width: 1.5,
           ),
         ),
@@ -1453,10 +1453,10 @@ class _ChatGiftWidget extends StatelessWidget {
               width: 48,
               height: 48,
               decoration: BoxDecoration(
-                color: const Color(0xFFFF9500).withOpacity(0.15),
+                color: const Color(0xFFFF9500).withValues(alpha: 0.15),
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: const Color(0xFFFFD700).withOpacity(0.6),
+                  color: const Color(0xFFFFD700).withValues(alpha: 0.6),
                   width: 1.5,
                 ),
               ),
@@ -1467,7 +1467,7 @@ class _ChatGiftWidget extends StatelessWidget {
                         width: 32,
                         height: 32,
                         fit: BoxFit.contain,
-                        errorWidget: (_, __, ___) => Text(
+                        errorWidget: (_, _, _) => Text(
                           giftEmoji,
                           style: const TextStyle(fontSize: 24),
                         ),

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../core/api_client.dart';
+import '../services/sound_service.dart';
 import 'auth_provider.dart';
 
 enum CallDirection { incoming, outgoing, missed }
@@ -287,7 +288,7 @@ class CallsNotifier extends Notifier<CallsState> {
         recipientId: recipientId,
         recipientName: contactName,
         callType: type,
-        status: 'ringing',
+        status: 'connecting',
         isIncoming: false,
         conversationId: conversationId,
       );
@@ -391,6 +392,11 @@ class CallsNotifier extends Notifier<CallsState> {
     final token = (data['livekit_token'] ?? data['token'])?.toString();
     final host = (data['livekit_host'] ?? data['host'])?.toString();
 
+    // Acknowledge receipt to backend immediately so caller knows recipient is ringing
+    if (callId > 0) {
+      ApiClient.instance.dio.post('/calls/$callId/ringing').ignore();
+    }
+
     state = state.copyWith(
       activeCall: ActiveCallSession(
         callId: callId,
@@ -409,6 +415,14 @@ class CallsNotifier extends Notifier<CallsState> {
     );
   }
 
+  void handleCallRinging(Map<String, dynamic> data) {
+    if (state.activeCall != null && state.activeCall!.status == 'connecting') {
+      state = state.copyWith(
+        activeCall: state.activeCall!.copyWith(status: 'ringing'),
+      );
+    }
+  }
+
   void handleCallAccepted(Map<String, dynamic> data) {
     if (state.activeCall != null) {
       final token = (data['livekit_token'] ?? data['token'])?.toString();
@@ -424,6 +438,7 @@ class CallsNotifier extends Notifier<CallsState> {
   }
 
   void handleCallDeclined(Map<String, dynamic> data) {
+    SoundService.instance.stopRinging();
     if (state.activeCall != null) {
       state = state.copyWith(
         activeCall: state.activeCall!.copyWith(status: 'declined'),
@@ -432,6 +447,7 @@ class CallsNotifier extends Notifier<CallsState> {
   }
 
   void handleCallEnded(Map<String, dynamic> data) {
+    SoundService.instance.stopRinging();
     state = state.copyWith(clearActiveCall: true);
   }
 }

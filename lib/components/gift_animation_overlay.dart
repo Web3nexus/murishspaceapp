@@ -292,7 +292,7 @@ class _GiftOverlayViewState extends State<_GiftOverlayView> with TickerProviderS
                   child: BackdropFilter(
                     filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
                     child: Container(
-                      color: Colors.black.withOpacity(isFullScreen ? 0.72 : 0.50),
+                      color: Colors.black.withValues(alpha: isFullScreen ? 0.72 : 0.50),
                     ),
                   ),
                 ),
@@ -344,14 +344,17 @@ class _GiftOverlayViewState extends State<_GiftOverlayView> with TickerProviderS
                         return Positioned(
                           left: dx,
                           top: dy,
-                          child: Transform(
-                            transform: Matrix4.identity()
-                              ..scale(scaleX, 1.0, 1.0)
-                              ..rotateZ(rotZ),
+                          child: Transform.scale(
+                            scaleX: scaleX,
+                            scaleY: 1.0,
                             alignment: Alignment.center,
-                            child: Opacity(
-                              opacity: (sin(t * pi) * 0.95).clamp(0.0, 1.0),
-                              child: _PetalWidget(size: p.size, color: p.color),
+                            child: Transform.rotate(
+                              angle: rotZ,
+                              alignment: Alignment.center,
+                              child: Opacity(
+                                opacity: (sin(t * pi) * 0.95).clamp(0.0, 1.0),
+                                child: _PetalWidget(size: p.size, color: p.color),
+                              ),
                             ),
                           ),
                         );
@@ -420,7 +423,7 @@ class _GiftOverlayViewState extends State<_GiftOverlayView> with TickerProviderS
                                         ),
                                         boxShadow: [
                                           BoxShadow(
-                                            color: _getPrimaryColor(_kind).withOpacity(0.65),
+                                            color: _getPrimaryColor(_kind).withValues(alpha: 0.65),
                                             blurRadius: 32,
                                             spreadRadius: 6,
                                           ),
@@ -463,15 +466,15 @@ class _GiftOverlayViewState extends State<_GiftOverlayView> with TickerProviderS
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF141822).withOpacity(0.96),
+                              color: const Color(0xFF141822).withValues(alpha: 0.96),
                               borderRadius: BorderRadius.circular(20),
                               border: Border.all(
-                                color: _getPrimaryColor(_kind).withOpacity(0.7),
+                                color: _getPrimaryColor(_kind).withValues(alpha: 0.7),
                                 width: 1.5,
                               ),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withOpacity(0.6),
+                                  color: Colors.black.withValues(alpha: 0.6),
                                   blurRadius: 28,
                                   offset: const Offset(0, 10),
                                 ),
@@ -516,7 +519,7 @@ class _GiftOverlayViewState extends State<_GiftOverlayView> with TickerProviderS
                                   Text(
                                     'to ${widget.data.recipientName}',
                                     style: TextStyle(
-                                      color: Colors.white.withOpacity(0.75),
+                                      color: Colors.white.withValues(alpha: 0.75),
                                       fontSize: 13,
                                       fontWeight: FontWeight.w600,
                                     ),
@@ -526,10 +529,10 @@ class _GiftOverlayViewState extends State<_GiftOverlayView> with TickerProviderS
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFFFF9500).withOpacity(0.18),
+                                    color: const Color(0xFFFF9500).withValues(alpha: 0.18),
                                     borderRadius: BorderRadius.circular(20),
                                     border: Border.all(
-                                      color: const Color(0xFFFF9500).withOpacity(0.4),
+                                      color: const Color(0xFFFF9500).withValues(alpha: 0.4),
                                       width: 1,
                                     ),
                                   ),
@@ -575,12 +578,12 @@ class _GiftOverlayViewState extends State<_GiftOverlayView> with TickerProviderS
         width: 90,
         height: 90,
         fit: BoxFit.contain,
-        placeholder: (_, __) => const SizedBox(
+        placeholder: (_, _) => const SizedBox(
           width: 32,
           height: 32,
           child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFFFD700)),
         ),
-        errorWidget: (_, __, ___) => Text(
+        errorWidget: (_, _, _) => Text(
           widget.data.iconEmoji,
           style: const TextStyle(fontSize: 66),
         ),
@@ -609,39 +612,39 @@ class _GiftOverlayViewState extends State<_GiftOverlayView> with TickerProviderS
   List<Color> _getGlowColors(_GiftKind kind) {
     return switch (kind) {
       _GiftKind.lion => [
-          const Color(0xFFFF9500).withOpacity(0.40),
-          const Color(0xFFFFD700).withOpacity(0.25),
-          const Color(0xFFFF3B30).withOpacity(0.15),
+          const Color(0xFFFF9500).withValues(alpha: 0.40),
+          const Color(0xFFFFD700).withValues(alpha: 0.25),
+          const Color(0xFFFF3B30).withValues(alpha: 0.15),
           Colors.transparent,
         ],
       _GiftKind.flower => [
-          const Color(0xFFFF2D55).withOpacity(0.42),
-          const Color(0xFFFF3B30).withOpacity(0.24),
-          const Color(0xFFAF52DE).withOpacity(0.12),
+          const Color(0xFFFF2D55).withValues(alpha: 0.42),
+          const Color(0xFFFF3B30).withValues(alpha: 0.24),
+          const Color(0xFFAF52DE).withValues(alpha: 0.12),
           Colors.transparent,
         ],
       _GiftKind.rocket => [
-          const Color(0xFFFF9500).withOpacity(0.40),
-          const Color(0xFFAF52DE).withOpacity(0.25),
-          const Color(0xFF007AFF).withOpacity(0.15),
+          const Color(0xFFFF9500).withValues(alpha: 0.40),
+          const Color(0xFFAF52DE).withValues(alpha: 0.25),
+          const Color(0xFF007AFF).withValues(alpha: 0.15),
           Colors.transparent,
         ],
       _GiftKind.diamond => [
-          const Color(0xFF00C7BE).withOpacity(0.40),
-          const Color(0xFF007AFF).withOpacity(0.28),
-          const Color(0xFFE5E5EA).withOpacity(0.15),
+          const Color(0xFF00C7BE).withValues(alpha: 0.40),
+          const Color(0xFF007AFF).withValues(alpha: 0.28),
+          const Color(0xFFE5E5EA).withValues(alpha: 0.15),
           Colors.transparent,
         ],
       _GiftKind.crown => [
-          const Color(0xFFFFD700).withOpacity(0.45),
-          const Color(0xFFFF9500).withOpacity(0.25),
-          const Color(0xFFAF52DE).withOpacity(0.15),
+          const Color(0xFFFFD700).withValues(alpha: 0.45),
+          const Color(0xFFFF9500).withValues(alpha: 0.25),
+          const Color(0xFFAF52DE).withValues(alpha: 0.15),
           Colors.transparent,
         ],
       _ => [
-          const Color(0xFFFFD700).withOpacity(0.28),
-          const Color(0xFFFF2D55).withOpacity(0.18),
-          const Color(0xFFAF52DE).withOpacity(0.10),
+          const Color(0xFFFFD700).withValues(alpha: 0.28),
+          const Color(0xFFFF2D55).withValues(alpha: 0.18),
+          const Color(0xFFAF52DE).withValues(alpha: 0.10),
           Colors.transparent,
         ],
     };
@@ -731,7 +734,7 @@ class _GiftOverlayViewState extends State<_GiftOverlayView> with TickerProviderS
         borderRadius: p.isCircle ? null : BorderRadius.circular(2),
         boxShadow: [
           BoxShadow(
-            color: p.color.withOpacity(0.6),
+            color: p.color.withValues(alpha: 0.6),
             blurRadius: 6,
             spreadRadius: 1,
           ),
@@ -825,7 +828,7 @@ class _PetalWidget extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: color.withOpacity(0.4),
+            color: color.withValues(alpha: 0.4),
             blurRadius: 4,
             offset: const Offset(0, 2),
           ),

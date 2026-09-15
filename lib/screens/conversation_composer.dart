@@ -378,7 +378,7 @@ class _ComposerState extends State<Composer> with SingleTickerProviderStateMixin
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF222630) : const Color(0xFFF1F5F9),
         borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: const Color(0xFFFF3B30).withOpacity(0.5)),
+        border: Border.all(color: const Color(0xFFFF3B30).withValues(alpha: 0.5)),
       ),
       child: Row(
         children: [
@@ -422,7 +422,7 @@ class _ComposerState extends State<Composer> with SingleTickerProviderStateMixin
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
               decoration: BoxDecoration(
-                color: const Color(0xFFFF3B30).withOpacity(0.12),
+                color: const Color(0xFFFF3B30).withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: const Row(
@@ -790,7 +790,7 @@ class _AudioRecordingWaveform extends StatelessWidget {
               width: 2.8,
               height: dynamicHeight,
               decoration: BoxDecoration(
-                color: const Color(0xFF007AFF).withOpacity(0.7 + 0.3 * (dynamicHeight / 22.0)),
+                color: const Color(0xFF007AFF).withValues(alpha: 0.7 + 0.3 * (dynamicHeight / 22.0)),
                 borderRadius: BorderRadius.circular(2),
               ),
             );

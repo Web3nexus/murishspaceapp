@@ -45,6 +45,11 @@ class _IncomingCallOverlayState extends ConsumerState<IncomingCallOverlay>
     HapticFeedback.heavyImpact();
     SoundService.instance.startIncomingRingtone();
 
+    final activeCall = ref.read(callsProvider).activeCall;
+    if (activeCall != null && activeCall.callId > 0) {
+      ApiClient.instance.dio.post('/calls/${activeCall.callId}/ringing').ignore();
+    }
+
     _ringTimeoutTimer = Timer(const Duration(seconds: 45), () {
       _stopRingingFeedback();
       if (mounted) {
@@ -71,7 +76,7 @@ class _IncomingCallOverlayState extends ConsumerState<IncomingCallOverlay>
         if (data is Map<String, dynamic>) {
           final call = data['call'] is Map<String, dynamic> ? data['call'] as Map<String, dynamic> : data;
           final status = call['status']?.toString();
-          if (status != null && status != 'ringing') {
+          if (status != null && status != 'ringing' && status != 'connecting') {
             timer.cancel();
             _stopRingingFeedback();
             ref.read(callsProvider.notifier).handleCallEnded({});

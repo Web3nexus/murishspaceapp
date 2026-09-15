@@ -342,12 +342,12 @@ class _GiftCard extends StatelessWidget {
                 width: 36,
                 height: 36,
                 fit: BoxFit.contain,
-                placeholder: (_, __) => const SizedBox(
+                placeholder: (_, _) => const SizedBox(
                   width: 20,
                   height: 20,
                   child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFFF9500)),
                 ),
-                errorWidget: (_, __, ___) => Icon(
+                errorWidget: (_, _, _) => Icon(
                   Icons.card_giftcard,
                   size: 32,
                   color: Colors.pink.shade400,

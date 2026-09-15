@@ -59,39 +59,75 @@ class SoundService {
     }
   }
 
+  bool _isRinging = false;
+
   /// Starts the outgoing telecom ringback tone (when calling someone).
   Future<void> startOutgoingRingback() async {
+    _isRinging = true;
     try {
       await stopRinging();
-      _ringingPlayer = AudioPlayer();
-      await _ringingPlayer!.setReleaseMode(ReleaseMode.loop);
-      await _ringingPlayer!.play(AssetSource('sounds/outgoing_ringback.wav'));
+      if (!_isRinging) return;
+      final player = AudioPlayer();
+      _ringingPlayer = player;
+      await player.setReleaseMode(ReleaseMode.loop);
+      if (!_isRinging) {
+        await player.stop();
+        await player.dispose();
+        if (_ringingPlayer == player) _ringingPlayer = null;
+        return;
+      }
+      await player.play(AssetSource('sounds/outgoing_ringback.wav'));
+      if (!_isRinging) {
+        await player.stop();
+        await player.dispose();
+        if (_ringingPlayer == player) _ringingPlayer = null;
+      }
     } catch (_) {
-      HapticFeedback.lightImpact();
-      SystemSound.play(SystemSoundType.click);
+      if (_isRinging) {
+        HapticFeedback.lightImpact();
+        SystemSound.play(SystemSoundType.click);
+      }
     }
   }
 
   /// Starts the incoming phone ringtone (when someone calls you).
   Future<void> startIncomingRingtone() async {
+    _isRinging = true;
     try {
       await stopRinging();
-      _ringingPlayer = AudioPlayer();
-      await _ringingPlayer!.setReleaseMode(ReleaseMode.loop);
-      await _ringingPlayer!.play(AssetSource('sounds/incoming_ringtone.wav'));
+      if (!_isRinging) return;
+      final player = AudioPlayer();
+      _ringingPlayer = player;
+      await player.setReleaseMode(ReleaseMode.loop);
+      if (!_isRinging) {
+        await player.stop();
+        await player.dispose();
+        if (_ringingPlayer == player) _ringingPlayer = null;
+        return;
+      }
+      await player.play(AssetSource('sounds/incoming_ringtone.wav'));
+      if (!_isRinging) {
+        await player.stop();
+        await player.dispose();
+        if (_ringingPlayer == player) _ringingPlayer = null;
+      }
     } catch (_) {
-      HapticFeedback.heavyImpact();
-      SystemSound.play(SystemSoundType.alert);
+      if (_isRinging) {
+        HapticFeedback.heavyImpact();
+        SystemSound.play(SystemSoundType.alert);
+      }
     }
   }
 
   /// Stops any active ringing/dialing sound immediately.
   Future<void> stopRinging() async {
+    _isRinging = false;
     try {
       if (_ringingPlayer != null) {
-        await _ringingPlayer!.stop();
-        await _ringingPlayer!.dispose();
+        final p = _ringingPlayer!;
         _ringingPlayer = null;
+        await p.stop();
+        await p.dispose();
       }
     } catch (_) {}
   }
