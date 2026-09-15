@@ -278,6 +278,9 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
             ),
           );
         }
+        return;
+      }
+
       // Ensure microphone permissions are explicitly requested
       final micPerm = await Permission.microphone.request();
       if (!micPerm.isGranted) {
