@@ -298,14 +298,14 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
 
       listener
         ..on<TrackSubscribedEvent>((event) {
-          if (event.track is VideoTrack) {
+          if (mounted && event.track is VideoTrack) {
             setState(() {
               _remoteVideoTrack = event.track as VideoTrack;
             });
           }
         })
         ..on<TrackUnsubscribedEvent>((event) {
-          if (event.track is VideoTrack) {
+          if (mounted && event.track is VideoTrack) {
             setState(() {
               if (_remoteVideoTrack == event.track) _remoteVideoTrack = null;
             });
@@ -346,7 +346,7 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
         } else {
           await room.localParticipant?.setCameraEnabled(!_isCameraOff);
           final pubs = room.localParticipant?.videoTrackPublications;
-          if (pubs != null && pubs.isNotEmpty) {
+          if (mounted && pubs != null && pubs.isNotEmpty) {
             setState(() {
               _localVideoTrack = pubs.first.track as VideoTrack?;
             });
@@ -374,14 +374,16 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
     _ringingTimeoutTimer?.cancel();
     _callTimer?.cancel();
     _statusPollTimer?.cancel();
+    _listener?.dispose();
+    _listener = null;
     if (mounted) {
       setState(() => _status = CallStatus.ended);
+      Future.delayed(const Duration(milliseconds: 1200), () {
+        if (mounted) {
+          Navigator.of(context).maybePop();
+        }
+      });
     }
-    Future.delayed(const Duration(milliseconds: 1200), () {
-      if (mounted) {
-        Navigator.of(context).maybePop();
-      }
-    });
   }
 
   Future<void> _flipCamera() async {
@@ -414,6 +416,7 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
   }
 
   void _updateCallSeconds() {
+    if (!mounted) return;
     if (_startedAt != null) {
       final diff = DateTime.now().toUtc().difference(_startedAt!.toUtc()).inSeconds;
       setState(() => _callSeconds = diff > 0 ? diff : 0);
@@ -454,8 +457,10 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
     _callTimer?.cancel();
     _pulseController.dispose();
     _listener?.dispose();
+    _listener = null;
     _room?.disconnect();
     _room?.dispose();
+    _room = null;
     if (_localVideoTrack is LocalVideoTrack) {
       try {
         (_localVideoTrack as LocalVideoTrack).stop();
@@ -528,11 +533,15 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
     SoundService.instance.stopRinging();
     _callTimer?.cancel();
     _statusPollTimer?.cancel();
+    _listener?.dispose();
+    _listener = null;
     _room?.disconnect();
     _room?.dispose();
     _room = null;
 
-    setState(() => _status = CallStatus.ended);
+    if (mounted) {
+      setState(() => _status = CallStatus.ended);
+    }
 
     if (_activeCallId != null && _activeCallId! > 0) {
       ref.read(callsProvider.notifier).endCall(_activeCallId!, durationSeconds: _callSeconds);
@@ -546,13 +555,16 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
             avatarUrl: widget.avatarUrl ?? '',
           );
     }
-    Navigator.of(context).maybePop();
+    if (mounted) {
+      Navigator.of(context).maybePop();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     // Listen for real-time call acceptance or decline from backend events
     ref.listen<CallsState>(callsProvider, (prev, next) {
+      if (!mounted) return;
       final active = next.activeCall;
       if (active == null) {
         if (_status == CallStatus.connected || _status == CallStatus.ringing || _status == CallStatus.incoming || _status == CallStatus.connecting) {
@@ -572,16 +584,20 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
           _startedAt = active.startedAt;
         }
         _startDurationTimer();
-        setState(() => _status = CallStatus.connected);
+        if (mounted) {
+          setState(() => _status = CallStatus.connected);
+        }
         _connectLiveKit();
       } else if (active.status == 'declined' && _status != CallStatus.declined) {
         _connectingTimeoutTimer?.cancel();
         SoundService.instance.stopRinging();
-        setState(() => _status = CallStatus.declined);
-        final nav = Navigator.of(context);
-        Future.delayed(const Duration(milliseconds: 1200), () {
-          if (mounted) nav.maybePop();
-        });
+        if (mounted) {
+          setState(() => _status = CallStatus.declined);
+          final nav = Navigator.of(context);
+          Future.delayed(const Duration(milliseconds: 1200), () {
+            if (mounted) nav.maybePop();
+          });
+        }
       }
     });
 
@@ -884,7 +900,7 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
                             HapticFeedback.selectionClick();
                             final next = !_isMuted;
                             await _room?.localParticipant?.setMicrophoneEnabled(!next);
-                            setState(() => _isMuted = next);
+                            if (mounted) setState(() => _isMuted = next);
                           },
                         ),
 
@@ -899,7 +915,7 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
                               HapticFeedback.selectionClick();
                               final next = !_isCameraOff;
                               await _room?.localParticipant?.setCameraEnabled(!next);
-                              setState(() => _isCameraOff = next);
+                              if (mounted) setState(() => _isCameraOff = next);
                             },
                           ),
 
@@ -915,7 +931,7 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
                             try {
                               await Hardware.instance.setSpeakerphoneOn(next);
                             } catch (_) {}
-                            setState(() => _isSpeakerOn = next);
+                            if (mounted) setState(() => _isSpeakerOn = next);
                           },
                         ),
 
