@@ -278,8 +278,14 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
             ),
           );
         }
-        return;
+      // Ensure microphone permissions are explicitly requested
+      final micPerm = await Permission.microphone.request();
+      if (!micPerm.isGranted) {
+        debugPrint('[LiveKit] ⚠️ Microphone permission not granted: $micPerm');
       }
+
+      // Ensure ringing sound player is stopped to avoid audio focus competition
+      await SoundService.instance.stopRinging();
 
       host ??= 'wss://live-staging.murihspace.com';
       var wsHost = host.trim();
@@ -342,11 +348,16 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
         })
         ..on<ParticipantDisconnectedEvent>((event) {
           if (mounted) {
-            _onRemoteParticipantLeft();
+            // Apply 4s grace period before ending call in case of quick network reconnection
+            Future.delayed(const Duration(milliseconds: 4000), () {
+              if (mounted && (_room?.remoteParticipants.isEmpty ?? true)) {
+                _onRemoteParticipantLeft();
+              }
+            });
           }
         })
         ..on<RoomDisconnectedEvent>((event) {
-          if (mounted) {
+          if (mounted && _status == CallStatus.connected) {
             _onRemoteParticipantLeft();
           }
         });
@@ -370,17 +381,20 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
 
       // Configure speakerphone
       try {
+        await Hardware.instance.setSpeakerphoneOn(_isSpeakerOn);
+      } catch (_) {}
+      try {
         await AudioManager.instance.setSpeakerOutputPreferred(_isSpeakerOn);
       } catch (e) {
         debugPrint('[Audio] Error setting speakerOutputPreferred: $e');
-        try {
-          await Hardware.instance.setSpeakerphoneOn(_isSpeakerOn);
-        } catch (_) {}
       }
 
       // Publish local mic
       debugPrint('[LiveKit] Enabling local microphone...');
-      await room.localParticipant?.setMicrophoneEnabled(!_isMuted);
+      await room.localParticipant?.setMicrophoneEnabled(true);
+      if (_isMuted) {
+        await room.localParticipant?.setMicrophoneEnabled(false);
+      }
       debugPrint('[LiveKit] ✅ Local microphone enabled (muted: $_isMuted)');
 
       // Publish local camera if video call
