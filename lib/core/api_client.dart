@@ -209,6 +209,19 @@ class ApiClient {
 
   // ── Helpers ───────────────────────────────────────────────────
 
+  /// Resolves relative paths (e.g. '/gifts/anpu.png') to a fully qualified URL.
+  static String? resolveUrl(String? path) {
+    if (path == null || path.isEmpty) return null;
+    if (path.startsWith('http://') || path.startsWith('https://')) return path;
+    final base = Env.apiBaseUrl;
+    final origin = base.endsWith('/api/v1')
+        ? base.substring(0, base.length - '/api/v1'.length)
+        : (base.endsWith('/api') ? base.substring(0, base.length - '/api'.length) : base);
+    final cleanOrigin = origin.replaceAll(RegExp(r'/+$'), '');
+    final cleanPath = path.replaceAll(RegExp(r'^/+'), '');
+    return '$cleanOrigin/$cleanPath';
+  }
+
   /// Short-lived UUID-ish idempotency key (no extra dependency).
   static String generateIdempotencyKey() {
     final micros = DateTime.now().microsecondsSinceEpoch;

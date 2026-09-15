@@ -1,7 +1,9 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../components/gift_animation_overlay.dart';
 import '../components/ui_states.dart';
+import '../core/api_client.dart';
 import '../providers/gifts_provider.dart';
 
 /// TikTok-style gift screen with a gift tray, category pills, and send flow.
@@ -334,11 +336,29 @@ class _GiftCard extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.card_giftcard,
-              size: 32,
-              color: Colors.pink.shade400,
-            ),
+            if (gift.iconUrl != null && gift.iconUrl!.isNotEmpty)
+              CachedNetworkImage(
+                imageUrl: ApiClient.resolveUrl(gift.iconUrl)!,
+                width: 36,
+                height: 36,
+                fit: BoxFit.contain,
+                placeholder: (_, __) => const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFFF9500)),
+                ),
+                errorWidget: (_, __, ___) => Icon(
+                  Icons.card_giftcard,
+                  size: 32,
+                  color: Colors.pink.shade400,
+                ),
+              )
+            else
+              Icon(
+                Icons.card_giftcard,
+                size: 32,
+                color: Colors.pink.shade400,
+              ),
             const SizedBox(height: 6),
             Text(
               gift.name,

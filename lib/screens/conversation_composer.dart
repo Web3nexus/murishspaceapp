@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -348,9 +349,9 @@ class _ComposerState extends State<Composer> with SingleTickerProviderStateMixin
                             : Container(
                                 width: 44,
                                 height: 44,
-                                decoration: BoxDecoration(
+                                decoration: const BoxDecoration(
                                   shape: BoxShape.circle,
-                                  color: widget.canSend ? const Color(0xFF007AFF) : const Color(0xFF34C759),
+                                  color: Color(0xFF007AFF),
                                 ),
                                 child: IconButton(
                                   onPressed: widget.canSend ? widget.onSend : _startRecording,
@@ -373,11 +374,11 @@ class _ComposerState extends State<Composer> with SingleTickerProviderStateMixin
 
   Widget _buildRecordingBar(bool isDark) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF222630) : const Color(0xFFF1F5F9),
         borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: const Color(0xFFFF3B30).withValues(alpha: 0.5)),
+        border: Border.all(color: const Color(0xFFFF3B30).withOpacity(0.5)),
       ),
       child: Row(
         children: [
@@ -385,49 +386,74 @@ class _ComposerState extends State<Composer> with SingleTickerProviderStateMixin
           FadeTransition(
             opacity: _pulseController,
             child: Container(
-              width: 12,
-              height: 12,
+              width: 10,
+              height: 10,
               decoration: const BoxDecoration(
                 color: Color(0xFFFF3B30),
                 shape: BoxShape.circle,
               ),
             ),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 8),
           // Timer
           Text(
             _formatRecordTime(_recordSeconds),
             style: TextStyle(
-              fontSize: 16,
+              fontSize: 15,
               fontWeight: FontWeight.w800,
               color: isDark ? Colors.white : Colors.black87,
               fontFeatures: const [FontFeature.tabularFigures()],
             ),
           ),
-          const SizedBox(width: 12),
-          Text(
-            'Recording voice…',
-            style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+          const SizedBox(width: 8),
+          // Integrated live Sound Waveform equalizer
+          Expanded(
+            child: Center(
+              child: _AudioRecordingWaveform(
+                animation: _pulseController,
+                isDark: isDark,
+              ),
+            ),
           ),
-          const Spacer(),
-          // Cancel / Delete
-          IconButton(
-            onPressed: _cancelRecording,
-            icon: const Icon(Icons.delete_outline_rounded, color: Color(0xFFFF3B30), size: 22),
-            tooltip: 'Cancel recording',
+          // Explicit Cancel / Discard button
+          InkWell(
+            onTap: _cancelRecording,
+            borderRadius: BorderRadius.circular(14),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFF3B30).withOpacity(0.12),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.delete_outline_rounded, color: Color(0xFFFF3B30), size: 16),
+                  SizedBox(width: 3),
+                  Text(
+                    'Cancel',
+                    style: TextStyle(
+                      color: Color(0xFFFF3B30),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
           const SizedBox(width: 6),
           // Stop & Send
           Container(
-            width: 38,
-            height: 38,
+            width: 36,
+            height: 36,
             decoration: const BoxDecoration(
               color: Color(0xFF007AFF),
               shape: BoxShape.circle,
             ),
             child: IconButton(
               onPressed: _stopAndSendRecording,
-              icon: const Icon(Icons.send_rounded, color: Colors.white, size: 18),
+              icon: const Icon(Icons.send_rounded, color: Colors.white, size: 17),
               tooltip: 'Send voice message',
               padding: EdgeInsets.zero,
             ),
@@ -738,3 +764,40 @@ class _ImagePreview extends StatelessWidget {
     );
   }
 }
+
+class _AudioRecordingWaveform extends StatelessWidget {
+  final AnimationController animation;
+  final bool isDark;
+
+  const _AudioRecordingWaveform({
+    required this.animation,
+    required this.isDark,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: animation,
+      builder: (context, _) {
+        final val = animation.value;
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: List.generate(12, (index) {
+            final offset = index * 0.35;
+            final dynamicHeight = (6.0 + 16.0 * (sin(val * 2 * pi + offset).abs())).clamp(4.0, 22.0);
+            return Container(
+              margin: const EdgeInsets.symmetric(horizontal: 1.5),
+              width: 2.8,
+              height: dynamicHeight,
+              decoration: BoxDecoration(
+                color: const Color(0xFF007AFF).withOpacity(0.7 + 0.3 * (dynamicHeight / 22.0)),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            );
+          }),
+        );
+      },
+    );
+  }
+}
+

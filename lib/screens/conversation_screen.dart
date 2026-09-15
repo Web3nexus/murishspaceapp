@@ -219,6 +219,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
         final giftPayload = '[GIFT]${jsonEncode({
           'name': gift.name,
           'icon': gift.icon,
+          'icon_url': gift.iconUrl,
           'coins': amount,
           'animation_type': gift.animationType,
         })}[/GIFT]';

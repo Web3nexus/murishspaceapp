@@ -303,10 +303,12 @@ class _ShareLocationSheetState extends State<ShareLocationSheet> {
                   Row(
                     children: [
                       _durationPill(label: '15 Mins', minutes: 15, isDark: isDark),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 6),
                       _durationPill(label: '1 Hour', minutes: 60, isDark: isDark),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 6),
                       _durationPill(label: '8 Hours', minutes: 480, isDark: isDark),
+                      const SizedBox(width: 6),
+                      _durationPill(label: '24 Hours', minutes: 1440, isDark: isDark),
                     ],
                   ),
                   const SizedBox(height: 14),

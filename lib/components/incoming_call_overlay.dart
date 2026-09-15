@@ -22,6 +22,7 @@ class IncomingCallOverlay extends ConsumerStatefulWidget {
 class _IncomingCallOverlayState extends ConsumerState<IncomingCallOverlay>
     with SingleTickerProviderStateMixin {
   Timer? _vibrationTimer;
+  Timer? _ringTimeoutTimer;
   late AnimationController _pulseController;
   late Animation<double> _pulseScale;
 
@@ -40,8 +41,17 @@ class _IncomingCallOverlayState extends ConsumerState<IncomingCallOverlay>
 
   void _startRingingFeedback() {
     _vibrationTimer?.cancel();
+    _ringTimeoutTimer?.cancel();
     HapticFeedback.heavyImpact();
     SoundService.instance.startIncomingRingtone();
+
+    _ringTimeoutTimer = Timer(const Duration(seconds: 45), () {
+      _stopRingingFeedback();
+      if (mounted) {
+        ref.read(callsProvider.notifier).handleCallEnded({});
+      }
+    });
+
     _vibrationTimer = Timer.periodic(const Duration(milliseconds: 1800), (timer) async {
       if (!mounted) {
         timer.cancel();
@@ -74,6 +84,8 @@ class _IncomingCallOverlayState extends ConsumerState<IncomingCallOverlay>
   void _stopRingingFeedback() {
     _vibrationTimer?.cancel();
     _vibrationTimer = null;
+    _ringTimeoutTimer?.cancel();
+    _ringTimeoutTimer = null;
     SoundService.instance.stopRinging();
   }
 

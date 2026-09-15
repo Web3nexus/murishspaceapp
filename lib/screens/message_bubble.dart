@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../components/gift_animation_overlay.dart';
+import '../core/api_client.dart';
 import '../core/design_tokens.dart';
 import '../models/chat_models.dart';
 import '../utils/format.dart';
@@ -1026,22 +1027,14 @@ class _VoicePlayerWidgetState extends State<_VoicePlayerWidget> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                SliderTheme(
-                  data: SliderTheme.of(context).copyWith(
-                    trackHeight: 3,
-                    thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
-                    overlayShape: const RoundSliderOverlayShape(overlayRadius: 10),
-                    activeTrackColor: widget.mine ? Colors.white : const Color(0xFF007AFF),
-                    inactiveTrackColor: (widget.mine ? Colors.white30 : Colors.grey[400]),
-                    thumbColor: widget.mine ? Colors.white : const Color(0xFF007AFF),
-                  ),
-                  child: Slider(
-                    value: current,
-                    max: total,
-                    onChanged: (val) {
-                      _player.seek(Duration(milliseconds: val.toInt()));
-                    },
-                  ),
+                _VoiceWaveformBars(
+                  progress: total > 0 ? (current / total) : 0.0,
+                  mine: widget.mine,
+                  isDark: widget.isDark,
+                  onSeek: (ratio) {
+                    final targetMs = (ratio * total).toInt();
+                    _player.seek(Duration(milliseconds: targetMs));
+                  },
                 ),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 6),
@@ -1072,6 +1065,68 @@ class _VoicePlayerWidgetState extends State<_VoicePlayerWidget> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _VoiceWaveformBars extends StatelessWidget {
+  final double progress;
+  final bool mine;
+  final bool isDark;
+  final ValueChanged<double> onSeek;
+
+  const _VoiceWaveformBars({
+    required this.progress,
+    required this.mine,
+    required this.isDark,
+    required this.onSeek,
+  });
+
+  static const List<double> _barHeights = [
+    0.35, 0.6, 0.85, 0.45, 0.75, 1.0, 0.65, 0.35, 0.55, 0.9, 0.75, 0.45,
+    0.85, 0.65, 0.95, 0.55, 0.35, 0.7, 0.85, 0.45, 0.75, 0.55, 0.4, 0.25,
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final activeColor = mine ? Colors.white : const Color(0xFF007AFF);
+    final inactiveColor = mine ? Colors.white.withOpacity(0.35) : (isDark ? Colors.grey[700]! : Colors.grey[350]!);
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onHorizontalDragUpdate: (details) {
+            final localX = details.localPosition.dx.clamp(0.0, constraints.maxWidth);
+            onSeek(localX / constraints.maxWidth);
+          },
+          onTapDown: (details) {
+            final localX = details.localPosition.dx.clamp(0.0, constraints.maxWidth);
+            onSeek(localX / constraints.maxWidth);
+          },
+          child: Container(
+            height: 28,
+            padding: const EdgeInsets.symmetric(vertical: 3),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: List.generate(_barHeights.length, (i) {
+                final barRatio = (i + 1) / _barHeights.length;
+                final isActive = progress >= barRatio;
+                final h = (6.0 + _barHeights[i] * 16.0);
+                return Container(
+                  width: 2.8,
+                  height: h,
+                  decoration: BoxDecoration(
+                    color: isActive ? activeColor : inactiveColor,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                );
+              }),
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -1346,6 +1401,7 @@ class _ChatGiftWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     String giftName = 'Virtual Gift';
     String giftEmoji = '🎁';
+    String? giftIconUrl;
     int coins = 100;
     String animType = 'standard';
 
@@ -1356,6 +1412,7 @@ class _ChatGiftWidget extends StatelessWidget {
         final map = jsonDecode(jsonStr) as Map<String, dynamic>;
         giftName = map['name']?.toString() ?? giftName;
         giftEmoji = map['icon']?.toString() ?? giftEmoji;
+        giftIconUrl = map['icon_url']?.toString();
         coins = (map['coins'] as num?)?.toInt() ?? coins;
         animType = map['animation_type']?.toString() ?? animType;
       } catch (_) {}
@@ -1368,6 +1425,7 @@ class _ChatGiftWidget extends StatelessWidget {
         GiftAnimationOverlay.show(
           context,
           giftName: giftName,
+          iconUrl: ApiClient.resolveUrl(giftIconUrl),
           iconEmoji: giftEmoji,
           coinPrice: coins,
           senderName: mine ? 'You' : (message.user?.name ?? 'Friend'),
@@ -1403,10 +1461,21 @@ class _ChatGiftWidget extends StatelessWidget {
                 ),
               ),
               child: Center(
-                child: Text(
-                  giftEmoji,
-                  style: const TextStyle(fontSize: 24),
-                ),
+                child: giftIconUrl != null && giftIconUrl.isNotEmpty
+                    ? CachedNetworkImage(
+                        imageUrl: ApiClient.resolveUrl(giftIconUrl)!,
+                        width: 32,
+                        height: 32,
+                        fit: BoxFit.contain,
+                        errorWidget: (_, __, ___) => Text(
+                          giftEmoji,
+                          style: const TextStyle(fontSize: 24),
+                        ),
+                      )
+                    : Text(
+                        giftEmoji,
+                        style: const TextStyle(fontSize: 24),
+                      ),
               ),
             ),
             const SizedBox(width: 12),

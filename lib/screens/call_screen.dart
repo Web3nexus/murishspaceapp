@@ -59,6 +59,7 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
   int _callSeconds = 0;
   Timer? _callTimer;
   Timer? _statusPollTimer;
+  Timer? _ringingTimeoutTimer;
 
   // LiveKit WebRTC state
   Room? _room;
@@ -102,9 +103,11 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
         _status = CallStatus.incoming;
         SoundService.instance.startIncomingRingtone();
         _startStatusPolling();
+        _startRingingTimeout();
       }
     } else {
       _status = CallStatus.connecting;
+      _startRingingTimeout();
 
       if (widget.isVideo) {
         _initLocalCameraPreview();
@@ -299,6 +302,7 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
           _isConnectingRoom = false;
         });
         SoundService.instance.stopRinging();
+        _ringingTimeoutTimer?.cancel();
         _startDurationTimer();
       }
     } catch (e) {
@@ -309,6 +313,7 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
 
   void _onRemoteParticipantLeft() {
     SoundService.instance.stopRinging();
+    _ringingTimeoutTimer?.cancel();
     if (mounted) {
       setState(() => _status = CallStatus.ended);
     }
@@ -347,8 +352,32 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
     });
   }
 
+  void _startRingingTimeout() {
+    _ringingTimeoutTimer?.cancel();
+    _ringingTimeoutTimer = Timer(const Duration(seconds: 45), () {
+      if (!mounted) return;
+      if (_status == CallStatus.ringing || _status == CallStatus.connecting || _status == CallStatus.incoming) {
+        SoundService.instance.stopRinging();
+        _statusPollTimer?.cancel();
+        setState(() => _status = CallStatus.ended);
+        if (_activeCallId != null) {
+          try {
+            ApiClient.instance.dio.post('/calls/$_activeCallId/end', data: {'duration': 0});
+          } catch (_) {}
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No answer (call timed out)'), duration: Duration(seconds: 2)),
+        );
+        Future.delayed(const Duration(milliseconds: 1500), () {
+          if (mounted) Navigator.of(context).maybePop();
+        });
+      }
+    });
+  }
+
   @override
   void dispose() {
+    _ringingTimeoutTimer?.cancel();
     _statusPollTimer?.cancel();
     SoundService.instance.stopRinging();
     _callTimer?.cancel();

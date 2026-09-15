@@ -1,10 +1,15 @@
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../core/api_client.dart';
+import '../providers/auth_provider.dart';
 import '../providers/wallet_provider.dart';
 import 'gift_animation_overlay.dart';
+import 'wallet_sheet.dart';
 
 class GiftOption {
   final int id;
@@ -37,22 +42,31 @@ class GiftOption {
     Color col = const Color(0xFFFF9500);
     final lower = name.toLowerCase();
 
-    if (lower.contains('rose') || lower.contains('flower')) {
+    if (lower.contains('lion') || lower.contains('anpu')) {
+      emoji = '🦁';
+      col = const Color(0xFFFF9500);
+    } else if (lower.contains('rose') || lower.contains('flower')) {
       emoji = '🌹';
       col = const Color(0xFFFF3B30);
-    } else if (lower.contains('diamond') || lower.contains('gem')) {
+    } else if (lower.contains('diamond') || lower.contains('gem') || lower.contains('ring')) {
       emoji = '💎';
       col = const Color(0xFF007AFF);
     } else if (lower.contains('crown') || lower.contains('king') || lower.contains('gold')) {
       emoji = '👑';
       col = const Color(0xFFFFD700);
-    } else if (lower.contains('rocket') || lower.contains('super')) {
+    } else if (lower.contains('rocket') || lower.contains('cruise')) {
       emoji = '🚀';
       col = const Color(0xFFAF52DE);
     } else if (lower.contains('heart') || lower.contains('love')) {
       emoji = '💖';
       col = const Color(0xFFFF2D55);
-    } else if (lower.contains('coin')) {
+    } else if (lower.contains('lambo') || lower.contains('car') || lower.contains('mansion')) {
+      emoji = '🏎️';
+      col = const Color(0xFF34C759);
+    } else if (lower.contains('wine') || lower.contains('champagne')) {
+      emoji = '🍷';
+      col = const Color(0xFF9C27B0);
+    } else if (lower.contains('coin') || lower.contains('legit')) {
       emoji = '🪙';
       col = const Color(0xFFFF9500);
     }
@@ -128,12 +142,15 @@ class SendGiftDialog extends ConsumerStatefulWidget {
 
 class _SendGiftDialogState extends ConsumerState<SendGiftDialog> {
   static const _defaultGifts = [
-    GiftOption(id: 1, name: 'Gold Coin', icon: '🪙', coinCost: 10, color: Color(0xFFFF9500), animationType: 'micro'),
-    GiftOption(id: 2, name: 'Magic Rose', icon: '🌹', coinCost: 50, color: Color(0xFFFF3B30), animationType: 'standard'),
-    GiftOption(id: 3, name: 'Sparkle Diamond', icon: '💎', coinCost: 200, color: Color(0xFF007AFF), animationType: 'standard'),
-    GiftOption(id: 4, name: 'Royalty Crown', icon: '👑', coinCost: 500, color: Color(0xFFFFD700), animationType: 'premium'),
-    GiftOption(id: 5, name: 'Super Rocket', icon: '🚀', coinCost: 1000, color: Color(0xFFAF52DE), animationType: 'full_screen'),
-    GiftOption(id: 6, name: 'Love Heart', icon: '💖', coinCost: 100, color: Color(0xFFFF2D55), animationType: 'standard'),
+    GiftOption(id: 1, name: 'Lion', icon: '🦁', iconUrl: '/gifts/anpu.png', coinCost: 100, color: Color(0xFFFF9500), animationType: 'premium'),
+    GiftOption(id: 2, name: 'Magic Rose', icon: '🌹', iconUrl: '/gifts/love.png', coinCost: 50, color: Color(0xFFFF3B30), animationType: 'standard'),
+    GiftOption(id: 3, name: 'Sparkle Diamond', icon: '💎', iconUrl: '/gifts/master.png', coinCost: 200, color: Color(0xFF007AFF), animationType: 'standard'),
+    GiftOption(id: 4, name: 'Royalty Crown', icon: '👑', iconUrl: '/gifts/king.png', coinCost: 500, color: Color(0xFFFFD700), animationType: 'premium'),
+    GiftOption(id: 5, name: 'Super Rocket', icon: '🚀', iconUrl: '/gifts/cruise.png', coinCost: 1000, color: Color(0xFFAF52DE), animationType: 'full_screen'),
+    GiftOption(id: 6, name: 'Pure Love', icon: '💖', iconUrl: '/gifts/love.png', coinCost: 10, color: Color(0xFFFF2D55), animationType: 'micro'),
+    GiftOption(id: 7, name: 'Lamborghini', icon: '🏎️', iconUrl: '/gifts/mansion.png', coinCost: 500, color: Color(0xFF34C759), animationType: 'exclusive'),
+    GiftOption(id: 8, name: 'Fine Wine', icon: '🍷', iconUrl: '/gifts/wine.png', coinCost: 25, color: Color(0xFF9C27B0), animationType: 'standard'),
+    GiftOption(id: 9, name: 'Gold Coin', icon: '🪙', iconUrl: '/gifts/legit.png', coinCost: 10, color: Color(0xFFFF9500), animationType: 'micro'),
   ];
 
   List<GiftOption> _systemGifts = _defaultGifts;
@@ -144,8 +161,12 @@ class _SendGiftDialogState extends ConsumerState<SendGiftDialog> {
   @override
   void initState() {
     super.initState();
-    _selectedGift = _defaultGifts[1];
+    _selectedGift = _defaultGifts[0]; // Lion by default!
     _fetchSystemGifts();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(walletProvider.notifier).refresh();
+      ref.read(authProvider.notifier).refreshProfile();
+    });
   }
 
   Future<void> _fetchSystemGifts() async {
@@ -174,9 +195,98 @@ class _SendGiftDialogState extends ConsumerState<SendGiftDialog> {
     if (mounted) setState(() => _loadingGifts = false);
   }
 
+  int _getUserCoinBalance() {
+    final walletState = ref.watch(walletProvider);
+    final authState = ref.watch(authProvider);
+    if (walletState.wallets.isNotEmpty) {
+      return walletState.coinsBalance;
+    }
+    return authState.user?.coins ?? 0;
+  }
+
+  void _showInsufficientCoinsSheet(GiftOption gift, int currentCoins) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        final bg = isDark ? const Color(0xFF1E222D) : Colors.white;
+        final textPrimary = isDark ? Colors.white : const Color(0xFF0F172A);
+        final textSecondary = isDark ? Colors.grey[400] : Colors.grey[600];
+
+        final deficit = gift.coinCost - currentCoins;
+
+        return Container(
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 54,
+                height: 54,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFF9500).withOpacity(0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: const Center(
+                  child: Icon(Icons.account_balance_wallet_rounded, color: Color(0xFFFF9500), size: 28),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Insufficient Coins',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: textPrimary),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'You need ${gift.coinCost} Coins to send ${gift.name}, but you currently have $currentCoins Coins (need $deficit more Coins).\n\nTop up your System Wallet to purchase coins and send your gift.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 13, height: 1.4, color: textSecondary),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF007AFF),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    Navigator.pop(context);
+                    WalletSheet.show(context);
+                  },
+                  icon: const Icon(Icons.credit_card_rounded, size: 18),
+                  label: const Text('Go to Wallet & Deposit', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: Text('Cancel', style: TextStyle(color: textSecondary, fontWeight: FontWeight.w600)),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> _sendGift() async {
     final gift = _selectedGift;
     if (gift == null) return;
+
+    final currentCoins = _getUserCoinBalance();
+    if (currentCoins < gift.coinCost) {
+      _showInsufficientCoinsSheet(gift, currentCoins);
+      return;
+    }
 
     setState(() => _sending = true);
     HapticFeedback.mediumImpact();
@@ -188,36 +298,68 @@ class _SendGiftDialogState extends ConsumerState<SendGiftDialog> {
           'recipient_id': widget.recipientId,
           if (widget.communityId != null) 'community_id': widget.communityId,
           'wallet_type': 'system',
+          'idempotency_key': ApiClient.generateIdempotencyKey(),
         });
       }
-    } catch (_) {
-      // If offline or simulated, proceed gracefully
-    }
 
-    if (mounted) {
-      setState(() => _sending = false);
-      
-      // Trigger full celebration animation across the screen
-      ref.read(giftAnimationProvider.notifier).play(
-        GiftAnimationData(
-          giftName: gift.name,
-          iconUrl: gift.iconUrl,
-          iconEmoji: gift.icon,
-          coinPrice: gift.coinCost,
-          senderName: 'You',
-          recipientName: widget.recipientName,
-          animationType: gift.animationType,
-        ),
-      );
+      // Refresh wallet & auth after sending
+      ref.read(walletProvider.notifier).refresh();
+      ref.read(authProvider.notifier).refreshProfile();
 
-      widget.onGiftSent?.call(gift, gift.coinCost);
-      Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('${gift.icon} ${gift.name} sent to ${widget.recipientName}!'),
-          backgroundColor: gift.color,
-        ),
-      );
+      if (mounted) {
+        setState(() => _sending = false);
+
+        // Trigger full celebration animation across the screen
+        ref.read(giftAnimationProvider.notifier).play(
+          GiftAnimationData(
+            giftName: gift.name,
+            iconUrl: ApiClient.resolveUrl(gift.iconUrl),
+            iconEmoji: gift.icon,
+            coinPrice: gift.coinCost,
+            senderName: 'You',
+            recipientName: widget.recipientName,
+            animationType: gift.animationType,
+          ),
+        );
+
+        widget.onGiftSent?.call(gift, gift.coinCost);
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${gift.icon} ${gift.name} sent to ${widget.recipientName}!'),
+            backgroundColor: gift.color,
+          ),
+        );
+      }
+    } on DioException catch (e) {
+      if (mounted) {
+        setState(() => _sending = false);
+        final data = e.response?.data;
+        final msg = (data is Map<String, dynamic>)
+            ? (data['message'] as String? ?? 'Could not send gift.')
+            : 'Could not send gift.';
+
+        if (e.response?.statusCode == 422 || msg.toLowerCase().contains('insufficient')) {
+          _showInsufficientCoinsSheet(gift, currentCoins);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(msg),
+              backgroundColor: const Color(0xFFFF3B30),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _sending = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: const Color(0xFFFF3B30),
+          ),
+        );
+      }
     }
   }
 
@@ -227,6 +369,9 @@ class _SendGiftDialogState extends ConsumerState<SendGiftDialog> {
     final textPrimary = isDark ? Colors.white : Colors.black;
     final textSecondary = isDark ? Colors.grey[400] : Colors.grey[600];
     final sheetBg = isDark ? const Color(0xFF1C1C1E) : Colors.white;
+
+    final currentCoins = _getUserCoinBalance();
+    final hasEnoughCoins = _selectedGift == null || currentCoins >= _selectedGift!.coinCost;
 
     return Container(
       decoration: BoxDecoration(
@@ -281,32 +426,60 @@ class _SendGiftDialogState extends ConsumerState<SendGiftDialog> {
                   ],
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFF9500).withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Row(
-                  children: [
-                    Icon(Icons.monetization_on_rounded, color: Color(0xFFFF9500), size: 14),
-                    SizedBox(width: 4),
-                    Text('Gift Packs', style: TextStyle(color: Color(0xFFFF9500), fontWeight: FontWeight.w900, fontSize: 12)),
-                  ],
+              // Live Coin Balance & Quick Top Up
+              GestureDetector(
+                onTap: () {
+                  Navigator.pop(context);
+                  WalletSheet.show(context);
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFF9500).withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: const Color(0xFFFF9500).withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.monetization_on_rounded, color: Color(0xFFFF9500), size: 15),
+                      const SizedBox(width: 4),
+                      Text(
+                        '$currentCoins',
+                        style: const TextStyle(color: Color(0xFFFF9500), fontWeight: FontWeight.w900, fontSize: 13),
+                      ),
+                      const SizedBox(width: 4),
+                      const Icon(Icons.add_circle_rounded, color: Color(0xFF007AFF), size: 14),
+                    ],
+                  ),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 16),
 
-          Text('Select Built-in Gift Pack', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textPrimary)),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Select Gift Pack', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textPrimary)),
+              GestureDetector(
+                onTap: () {
+                  Navigator.pop(context);
+                  context.push('/wallet');
+                },
+                child: const Text(
+                  'Manage Wallet →',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF007AFF)),
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 10),
 
-          // Gift Packs Grid
+          // Gift Packs Horizontal Tray with Real Images
           _loadingGifts
               ? const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator()))
               : SizedBox(
-                  height: 110,
+                  height: 116,
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
                     itemCount: _systemGifts.length,
@@ -314,6 +487,7 @@ class _SendGiftDialogState extends ConsumerState<SendGiftDialog> {
                     itemBuilder: (ctx, idx) {
                       final gift = _systemGifts[idx];
                       final isSelected = _selectedGift?.id == gift.id;
+                      final resolvedUrl = ApiClient.resolveUrl(gift.iconUrl);
 
                       return GestureDetector(
                         onTap: () {
@@ -322,13 +496,13 @@ class _SendGiftDialogState extends ConsumerState<SendGiftDialog> {
                         },
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 200),
-                          width: 86,
+                          width: 88,
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
                             color: isSelected
                                 ? gift.color.withOpacity(0.15)
                                 : (isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF2F4F7)),
-                            borderRadius: BorderRadius.circular(14),
+                            borderRadius: BorderRadius.circular(16),
                             border: Border.all(
                               color: isSelected ? gift.color : Colors.transparent,
                               width: 2,
@@ -337,17 +511,32 @@ class _SendGiftDialogState extends ConsumerState<SendGiftDialog> {
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              if (gift.iconUrl != null && gift.iconUrl!.isNotEmpty)
-                                Image.network(gift.iconUrl!, width: 28, height: 28, errorBuilder: (_, __, ___) => Text(gift.icon, style: const TextStyle(fontSize: 26)))
+                              if (resolvedUrl != null && resolvedUrl.isNotEmpty)
+                                CachedNetworkImage(
+                                  imageUrl: resolvedUrl,
+                                  width: 38,
+                                  height: 38,
+                                  fit: BoxFit.contain,
+                                  placeholder: (_, __) => const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFFF9500)),
+                                  ),
+                                  errorWidget: (_, __, ___) => Text(gift.icon, style: const TextStyle(fontSize: 26)),
+                                )
                               else
-                                Text(gift.icon, style: const TextStyle(fontSize: 26)),
-                              const SizedBox(height: 4),
-                              Text(gift.name,
-                                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: textPrimary),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis),
-                              Text('${gift.coinCost} coins',
-                                  style: TextStyle(fontSize: 10, color: gift.color, fontWeight: FontWeight.w900)),
+                                Text(gift.icon, style: const TextStyle(fontSize: 28)),
+                              const SizedBox(height: 6),
+                              Text(
+                                gift.name,
+                                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: textPrimary),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              Text(
+                                '${gift.coinCost} coins',
+                                style: TextStyle(fontSize: 10, color: gift.color, fontWeight: FontWeight.w900),
+                              ),
                             ],
                           ),
                         ),
@@ -357,13 +546,15 @@ class _SendGiftDialogState extends ConsumerState<SendGiftDialog> {
                 ),
           const SizedBox(height: 20),
 
-          // Send Gift Action Button
+          // Send / Top-Up Action Button
           SizedBox(
             width: double.infinity,
             height: 50,
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: _selectedGift?.color ?? const Color(0xFFFF9500),
+                backgroundColor: hasEnoughCoins
+                    ? (_selectedGift?.color ?? const Color(0xFFFF9500))
+                    : const Color(0xFF007AFF),
                 foregroundColor: Colors.white,
                 elevation: 0,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -374,10 +565,12 @@ class _SendGiftDialogState extends ConsumerState<SendGiftDialog> {
                   : Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text(_selectedGift?.icon ?? '🎁', style: const TextStyle(fontSize: 16)),
+                        Text(hasEnoughCoins ? (_selectedGift?.icon ?? '🎁') : '💳', style: const TextStyle(fontSize: 16)),
                         const SizedBox(width: 8),
                         Text(
-                          'Send ${_selectedGift?.name ?? 'Gift'} (${_selectedGift?.coinCost ?? 0} Coins)',
+                          hasEnoughCoins
+                              ? 'Send ${_selectedGift?.name ?? 'Gift'} (${_selectedGift?.coinCost ?? 0} Coins)'
+                              : 'Top Up Wallet to Send (${_selectedGift?.coinCost ?? 0} Coins)',
                           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                         ),
                       ],

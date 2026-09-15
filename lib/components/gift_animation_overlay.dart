@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:math';
 import 'dart:ui';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/api_client.dart';
 import '../services/sound_service.dart';
 
 /// Data payload required to render a high-impact celebration gift animation.
@@ -44,10 +46,10 @@ class GiftAnimationNotifier extends Notifier<GiftAnimationData?> {
     SoundService.instance.playNotificationPreview('chime');
 
     final durationMs = switch (data.animationType.toLowerCase()) {
-      'full_screen' => 5200,
-      'premium' => 4500,
-      'micro' => 2600,
-      _ => 3600,
+      'full_screen' => 5400,
+      'premium' => 4800,
+      'micro' => 3000,
+      _ => 4000,
     };
 
     _dismissTimer = Timer(Duration(milliseconds: durationMs), () {
@@ -66,18 +68,15 @@ final giftAnimationProvider = NotifierProvider<GiftAnimationNotifier, GiftAnimat
 );
 
 /// Root-level celebration overlay widget that reacts to [giftAnimationProvider].
-/// Wraps application screens in [MaterialApp.builder].
 class GiftAnimationOverlay extends ConsumerWidget {
   final Widget child;
 
   const GiftAnimationOverlay({super.key, required this.child});
 
-  /// Static helper to trigger from anywhere with [WidgetRef].
   static void trigger(WidgetRef ref, GiftAnimationData data) {
     ref.read(giftAnimationProvider.notifier).play(data);
   }
 
-  /// Static helper for contexts without a direct [WidgetRef] (falls back to OverlayEntry).
   static void show(
     BuildContext context, {
     required String giftName,
@@ -134,6 +133,34 @@ class GiftAnimationOverlay extends ConsumerWidget {
   }
 }
 
+enum _GiftKind { lion, flower, rocket, diamond, crown, car, coins, standard }
+
+_GiftKind _detectKind(String name, String emoji) {
+  final s = '$name $emoji'.toLowerCase();
+  if (s.contains('lion') || s.contains('anpu') || s.contains('🦁') || s.contains('roar')) {
+    return _GiftKind.lion;
+  }
+  if (s.contains('rose') || s.contains('flower') || s.contains('petal') || s.contains('🌹') || s.contains('🌸') || s.contains('love') || s.contains('heart') || s.contains('💖')) {
+    return _GiftKind.flower;
+  }
+  if (s.contains('rocket') || s.contains('cruise') || s.contains('🚀') || s.contains('space') || s.contains('blast')) {
+    return _GiftKind.rocket;
+  }
+  if (s.contains('diamond') || s.contains('gem') || s.contains('ring') || s.contains('💎') || s.contains('master')) {
+    return _GiftKind.diamond;
+  }
+  if (s.contains('crown') || s.contains('king') || s.contains('queen') || s.contains('royal') || s.contains('👑')) {
+    return _GiftKind.crown;
+  }
+  if (s.contains('lambo') || s.contains('car') || s.contains('mansion') || s.contains('🏎️')) {
+    return _GiftKind.car;
+  }
+  if (s.contains('coin') || s.contains('gold') || s.contains('money') || s.contains('cash') || s.contains('🪙') || s.contains('legit')) {
+    return _GiftKind.coins;
+  }
+  return _GiftKind.standard;
+}
+
 class _GiftOverlayView extends StatefulWidget {
   final GiftAnimationData data;
   final VoidCallback onDismiss;
@@ -154,15 +181,19 @@ class _GiftOverlayViewState extends State<_GiftOverlayView> with TickerProviderS
 
   late final AnimationController _auraCtrl;
   late final AnimationController _particleCtrl;
+  late final AnimationController _shakeCtrl;
 
   late final List<_Particle> _particles;
+  late final List<_PetalParticle> _petals;
+  late final _GiftKind _kind;
   final Random _rng = Random();
 
   @override
   void initState() {
     super.initState();
 
-    final isFullScreen = widget.data.animationType == 'full_screen';
+    _kind = _detectKind(widget.data.giftName, widget.data.iconEmoji);
+    final isFullScreen = widget.data.animationType == 'full_screen' || _kind == _GiftKind.lion;
     final isPremium = widget.data.animationType == 'premium' || isFullScreen;
 
     _entryCtrl = AnimationController(
@@ -190,10 +221,24 @@ class _GiftOverlayViewState extends State<_GiftOverlayView> with TickerProviderS
       duration: const Duration(milliseconds: 2400),
     )..repeat();
 
-    final particleCount = isFullScreen ? 36 : (isPremium ? 26 : 16);
-    _particles = List.generate(particleCount, (i) => _Particle.random(_rng));
+    _shakeCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    );
+
+    final particleCount = isFullScreen ? 40 : (isPremium ? 28 : 16);
+    _particles = List.generate(particleCount, (i) => _Particle.random(_rng, _kind));
+    _petals = List.generate(36, (i) => _PetalParticle.random(_rng));
 
     _entryCtrl.forward();
+
+    // Trigger Lion Roar effects: screen shake & haptic roar burst sequence
+    if (_kind == _GiftKind.lion) {
+      _shakeCtrl.forward();
+      Future.delayed(const Duration(milliseconds: 150), () => HapticFeedback.heavyImpact());
+      Future.delayed(const Duration(milliseconds: 350), () => HapticFeedback.heavyImpact());
+      Future.delayed(const Duration(milliseconds: 600), () => HapticFeedback.mediumImpact());
+    }
   }
 
   @override
@@ -201,6 +246,7 @@ class _GiftOverlayViewState extends State<_GiftOverlayView> with TickerProviderS
     _entryCtrl.dispose();
     _auraCtrl.dispose();
     _particleCtrl.dispose();
+    _shakeCtrl.dispose();
     super.dispose();
   }
 
@@ -211,7 +257,7 @@ class _GiftOverlayViewState extends State<_GiftOverlayView> with TickerProviderS
 
   @override
   Widget build(BuildContext context) {
-    final isFullScreen = widget.data.animationType == 'full_screen';
+    final isFullScreen = widget.data.animationType == 'full_screen' || _kind == _GiftKind.lion;
     final isPremium = widget.data.animationType == 'premium' || isFullScreen;
 
     return GestureDetector(
@@ -219,281 +265,571 @@ class _GiftOverlayViewState extends State<_GiftOverlayView> with TickerProviderS
       onTap: _handleDismiss,
       child: Material(
         color: Colors.transparent,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            // Darkened blur backdrop for premium & full_screen tiers
-            if (isPremium)
+        child: AnimatedBuilder(
+          animation: _shakeCtrl,
+          builder: (context, child) {
+            // Apply camera shake if Lion Roar is active
+            double shakeX = 0;
+            double shakeY = 0;
+            if (_kind == _GiftKind.lion && _shakeCtrl.isAnimating) {
+              final t = 1.0 - _shakeCtrl.value;
+              final mag = t * 14.0;
+              shakeX = sin(_shakeCtrl.value * 28 * pi) * mag;
+              shakeY = cos(_shakeCtrl.value * 24 * pi) * (mag * 0.7);
+            }
+            return Transform.translate(
+              offset: Offset(shakeX, shakeY),
+              child: child,
+            );
+          },
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              // Darkened blur backdrop for premium & full_screen tiers
+              if (isPremium)
+                FadeTransition(
+                  opacity: _fadeAnim,
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+                    child: Container(
+                      color: Colors.black.withOpacity(isFullScreen ? 0.72 : 0.50),
+                    ),
+                  ),
+                ),
+
+              // Ambient backdrop glow rays
               FadeTransition(
                 opacity: _fadeAnim,
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
-                  child: Container(
-                    color: Colors.black.withOpacity(isFullScreen ? 0.65 : 0.45),
-                  ),
-                ),
-              ),
-
-            // Ambient background radial light rays
-            FadeTransition(
-              opacity: _fadeAnim,
-              child: Container(
-                width: 380,
-                height: 380,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [
-                      const Color(0xFFFFD700).withOpacity(0.28),
-                      const Color(0xFFFF2D55).withOpacity(0.18),
-                      const Color(0xFFAF52DE).withOpacity(0.10),
-                      Colors.transparent,
-                    ],
-                    stops: const [0.0, 0.4, 0.7, 1.0],
-                  ),
-                ),
-              ),
-            ),
-
-            // Floating celebration confetti / sparkles
-            AnimatedBuilder(
-              animation: _particleCtrl,
-              builder: (context, _) {
-                final progress = _particleCtrl.value;
-                return Stack(
-                  alignment: Alignment.center,
-                  children: _particles.map((p) {
-                    final t = (progress + p.phase) % 1.0;
-                    final dx = p.xOffset + sin(t * pi * 2 + p.wobblePhase) * 35;
-                    final dy = p.startY - (t * p.travelDistance);
-                    final alpha = (sin(t * pi) * 255).clamp(0, 255).toInt();
-
-                    return Transform.translate(
-                      offset: Offset(dx, dy),
-                      child: Transform.rotate(
-                        angle: t * pi * 2 * (p.isStar ? 1 : 0.5),
-                        child: Opacity(
-                          opacity: alpha / 255.0,
-                          child: p.isStar
-                              ? Icon(
-                                  Icons.star_rounded,
-                                  size: p.size,
-                                  color: p.color,
-                                )
-                              : Container(
-                                  width: p.size,
-                                  height: p.size,
-                                  decoration: BoxDecoration(
-                                    color: p.color,
-                                    shape: p.isCircle ? BoxShape.circle : BoxShape.rectangle,
-                                    borderRadius: p.isCircle ? null : BorderRadius.circular(2),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: p.color.withOpacity(0.6),
-                                        blurRadius: 6,
-                                        spreadRadius: 1,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                );
-              },
-            ),
-
-            // Main Animated Gift Celebration Card
-            ScaleTransition(
-              scale: _scaleAnim,
-              child: FadeTransition(
-                opacity: _fadeAnim,
-                child: Center(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Spinning Aura & Large Icon Card
-                        Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            // Spinning Rainbow / Gold Glow Ring
-                            AnimatedBuilder(
-                              animation: _auraCtrl,
-                              builder: (context, _) {
-                                return Transform.rotate(
-                                  angle: _auraCtrl.value * 2 * pi,
-                                  child: Container(
-                                    width: 170,
-                                    height: 170,
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      gradient: SweepGradient(
-                                        colors: [
-                                          const Color(0xFFFFD700).withOpacity(0.85),
-                                          const Color(0xFFFF2D55).withOpacity(0.85),
-                                          const Color(0xFFAF52DE).withOpacity(0.85),
-                                          const Color(0xFF007AFF).withOpacity(0.85),
-                                          const Color(0xFFFFD700).withOpacity(0.85),
-                                        ],
-                                      ),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: const Color(0xFFFF9500).withOpacity(0.6),
-                                          blurRadius: 28,
-                                          spreadRadius: 4,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-
-                            // Elevated Center Gift Pod
-                            Container(
-                              width: 140,
-                              height: 140,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF1E222D),
-                                borderRadius: BorderRadius.circular(28),
-                                border: Border.all(
-                                  color: const Color(0xFFFFD700),
-                                  width: 2.5,
-                                ),
-                                boxShadow: const [
-                                  BoxShadow(
-                                    color: Colors.black45,
-                                    blurRadius: 20,
-                                    offset: Offset(0, 10),
-                                  ),
-                                ],
-                              ),
-                              child: Center(
-                                child: widget.data.iconUrl != null && widget.data.iconUrl!.isNotEmpty
-                                    ? Image.network(
-                                        widget.data.iconUrl!,
-                                        width: 86,
-                                        height: 86,
-                                        fit: BoxFit.contain,
-                                        errorBuilder: (_, __, ___) => Text(
-                                          widget.data.iconEmoji,
-                                          style: const TextStyle(fontSize: 60),
-                                        ),
-                                      )
-                                    : Text(
-                                        widget.data.iconEmoji,
-                                        style: const TextStyle(fontSize: 64),
-                                      ),
-                              ),
-                            ),
-                          ],
-                        ),
-
-                        const SizedBox(height: 20),
-
-                        // Banner Badge
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF161A22).withOpacity(0.94),
-                            borderRadius: BorderRadius.circular(18),
-                            border: Border.all(
-                              color: const Color(0xFFFF9500).withOpacity(0.6),
-                              width: 1.2,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.5),
-                                blurRadius: 22,
-                                offset: const Offset(0, 8),
-                              ),
-                            ],
-                          ),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(Icons.auto_awesome, color: Color(0xFFFFD700), size: 14),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    widget.data.senderName == 'You' ? 'GIFT SENT!' : 'GIFT RECEIVED!',
-                                    style: const TextStyle(
-                                      color: Color(0xFFFFD700),
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w900,
-                                      letterSpacing: 1.2,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 6),
-                                  const Icon(Icons.auto_awesome, color: Color(0xFFFFD700), size: 14),
-                                ],
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                widget.data.senderName != null && widget.data.senderName!.isNotEmpty
-                                    ? '${widget.data.senderName} sent ${widget.data.giftName}'
-                                    : widget.data.giftName,
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                              ),
-                              if (widget.data.recipientName != null && widget.data.recipientName!.isNotEmpty) ...[
-                                const SizedBox(height: 2),
-                                Text(
-                                  'to ${widget.data.recipientName}',
-                                  style: TextStyle(
-                                    color: Colors.white.withOpacity(0.7),
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                              const SizedBox(height: 10),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFFF9500).withOpacity(0.18),
-                                  borderRadius: BorderRadius.circular(20),
-                                  border: Border.all(
-                                    color: const Color(0xFFFF9500).withOpacity(0.4),
-                                    width: 1,
-                                  ),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Text('🪙', style: TextStyle(fontSize: 13)),
-                                    const SizedBox(width: 5),
-                                    Text(
-                                      '${widget.data.coinPrice} Coins',
-                                      style: const TextStyle(
-                                        color: Color(0xFFFFB340),
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w900,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
+                child: Container(
+                  width: 420,
+                  height: 420,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: _getGlowColors(_kind),
+                      stops: const [0.0, 0.4, 0.75, 1.0],
                     ),
                   ),
                 ),
               ),
-            ),
+
+              // Lion sonic roar shockwave rings
+              if (_kind == _GiftKind.lion)
+                AnimatedBuilder(
+                  animation: _auraCtrl,
+                  builder: (context, _) {
+                    return CustomPaint(
+                      size: const Size(400, 400),
+                      painter: _SonicRoarRingsPainter(progress: _auraCtrl.value),
+                    );
+                  },
+                ),
+
+              // Flower/Rose: cascading swirling 3D rose petals
+              if (_kind == _GiftKind.flower)
+                AnimatedBuilder(
+                  animation: _particleCtrl,
+                  builder: (context, _) {
+                    final progress = _particleCtrl.value;
+                    return Stack(
+                      children: _petals.map((p) {
+                        final t = (progress + p.phase) % 1.0;
+                        final screenW = MediaQuery.of(context).size.width;
+                        final screenH = MediaQuery.of(context).size.height;
+                        final dx = p.xRatio * screenW + sin(t * pi * 3 + p.wobblePhase) * 45;
+                        final dy = t * (screenH + 100) - 50;
+                        final rotZ = t * pi * 4 + p.spinPhase;
+                        final scaleX = cos(t * pi * 5 + p.wobblePhase).abs().clamp(0.25, 1.0);
+
+                        return Positioned(
+                          left: dx,
+                          top: dy,
+                          child: Transform(
+                            transform: Matrix4.identity()
+                              ..scale(scaleX, 1.0, 1.0)
+                              ..rotateZ(rotZ),
+                            alignment: Alignment.center,
+                            child: Opacity(
+                              opacity: (sin(t * pi) * 0.95).clamp(0.0, 1.0),
+                              child: _PetalWidget(size: p.size, color: p.color),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    );
+                  },
+                ),
+
+              // Confetti / sparkles / diamonds / coins particles
+              if (_kind != _GiftKind.flower)
+                AnimatedBuilder(
+                  animation: _particleCtrl,
+                  builder: (context, _) {
+                    final progress = _particleCtrl.value;
+                    return Stack(
+                      alignment: Alignment.center,
+                      children: _particles.map((p) {
+                        final t = (progress + p.phase) % 1.0;
+                        final dx = p.xOffset + sin(t * pi * 2 + p.wobblePhase) * 40;
+                        final dy = p.startY - (t * p.travelDistance);
+                        final alpha = (sin(t * pi) * 255).clamp(0, 255).toInt();
+
+                        return Transform.translate(
+                          offset: Offset(dx, dy),
+                          child: Transform.rotate(
+                            angle: t * pi * 2 * (p.isStar ? 1.5 : 0.8),
+                            child: Opacity(
+                              opacity: alpha / 255.0,
+                              child: _buildParticleWidget(p, _kind),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    );
+                  },
+                ),
+
+              // Main Animated Gift Celebration Card
+              ScaleTransition(
+                scale: _scaleAnim,
+                child: FadeTransition(
+                  opacity: _fadeAnim,
+                  child: Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Spinning Aura & Large Icon Card
+                          Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              // Spinning Rainbow / Gold Glow Ring
+                              AnimatedBuilder(
+                                animation: _auraCtrl,
+                                builder: (context, _) {
+                                  return Transform.rotate(
+                                    angle: _auraCtrl.value * 2 * pi,
+                                    child: Container(
+                                      width: 176,
+                                      height: 176,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        gradient: SweepGradient(
+                                          colors: _getRingColors(_kind),
+                                        ),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: _getPrimaryColor(_kind).withOpacity(0.65),
+                                            blurRadius: 32,
+                                            spreadRadius: 6,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+
+                              // Elevated Center Gift Pod with real image
+                              Container(
+                                width: 140,
+                                height: 140,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF181B24),
+                                  borderRadius: BorderRadius.circular(30),
+                                  border: Border.all(
+                                    color: _getPrimaryColor(_kind),
+                                    width: 3.0,
+                                  ),
+                                  boxShadow: const [
+                                    BoxShadow(
+                                      color: Colors.black54,
+                                      blurRadius: 24,
+                                      offset: Offset(0, 12),
+                                    ),
+                                  ],
+                                ),
+                                child: Center(
+                                  child: _buildGiftCenterArtwork(),
+                                ),
+                              ),
+                            ],
+                          ),
+
+                          const SizedBox(height: 22),
+
+                          // Banner Badge
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF141822).withOpacity(0.96),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: _getPrimaryColor(_kind).withOpacity(0.7),
+                                width: 1.5,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.6),
+                                  blurRadius: 28,
+                                  offset: const Offset(0, 10),
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                // Top Header Tag
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.auto_awesome, color: _getPrimaryColor(_kind), size: 15),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      _getBannerTitle(_kind, widget.data.senderName),
+                                      style: TextStyle(
+                                        color: _getPrimaryColor(_kind),
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w900,
+                                        letterSpacing: 1.3,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Icon(Icons.auto_awesome, color: _getPrimaryColor(_kind), size: 15),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  widget.data.senderName != null && widget.data.senderName!.isNotEmpty
+                                      ? '${widget.data.senderName} sent ${widget.data.giftName}'
+                                      : widget.data.giftName,
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 19,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                                if (widget.data.recipientName != null && widget.data.recipientName!.isNotEmpty) ...[
+                                  const SizedBox(height: 3),
+                                  Text(
+                                    'to ${widget.data.recipientName}',
+                                    style: TextStyle(
+                                      color: Colors.white.withOpacity(0.75),
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                                const SizedBox(height: 12),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFFF9500).withOpacity(0.18),
+                                    borderRadius: BorderRadius.circular(20),
+                                    border: Border.all(
+                                      color: const Color(0xFFFF9500).withOpacity(0.4),
+                                      width: 1,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Text('🪙', style: TextStyle(fontSize: 14)),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        '${widget.data.coinPrice} Coins',
+                                        style: const TextStyle(
+                                          color: Color(0xFFFFB340),
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w900,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGiftCenterArtwork() {
+    final rawUrl = widget.data.iconUrl;
+    final resolvedUrl = ApiClient.resolveUrl(rawUrl);
+
+    if (resolvedUrl != null && resolvedUrl.isNotEmpty) {
+      return CachedNetworkImage(
+        imageUrl: resolvedUrl,
+        width: 90,
+        height: 90,
+        fit: BoxFit.contain,
+        placeholder: (_, __) => const SizedBox(
+          width: 32,
+          height: 32,
+          child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFFFD700)),
+        ),
+        errorWidget: (_, __, ___) => Text(
+          widget.data.iconEmoji,
+          style: const TextStyle(fontSize: 66),
+        ),
+      );
+    }
+
+    return Text(
+      widget.data.iconEmoji,
+      style: const TextStyle(fontSize: 66),
+    );
+  }
+
+  String _getBannerTitle(_GiftKind kind, String? sender) {
+    return switch (kind) {
+      _GiftKind.lion => '🦁 MIGHTY LION ROAR!',
+      _GiftKind.flower => '🌹 BLOOMING ROSE TRIBUTE!',
+      _GiftKind.rocket => '🚀 SUPER ROCKET LAUNCH!',
+      _GiftKind.diamond => '💎 SPARKLING DIAMOND GLAMOUR!',
+      _GiftKind.crown => '👑 ROYAL CORONATION!',
+      _GiftKind.car => '🏎️ TURBO SUPERCAR BOOST!',
+      _GiftKind.coins => '🪙 GOLD COIN SHOWER!',
+      _ => sender == 'You' ? 'GIFT SENT!' : 'GIFT RECEIVED!',
+    };
+  }
+
+  List<Color> _getGlowColors(_GiftKind kind) {
+    return switch (kind) {
+      _GiftKind.lion => [
+          const Color(0xFFFF9500).withOpacity(0.40),
+          const Color(0xFFFFD700).withOpacity(0.25),
+          const Color(0xFFFF3B30).withOpacity(0.15),
+          Colors.transparent,
+        ],
+      _GiftKind.flower => [
+          const Color(0xFFFF2D55).withOpacity(0.42),
+          const Color(0xFFFF3B30).withOpacity(0.24),
+          const Color(0xFFAF52DE).withOpacity(0.12),
+          Colors.transparent,
+        ],
+      _GiftKind.rocket => [
+          const Color(0xFFFF9500).withOpacity(0.40),
+          const Color(0xFFAF52DE).withOpacity(0.25),
+          const Color(0xFF007AFF).withOpacity(0.15),
+          Colors.transparent,
+        ],
+      _GiftKind.diamond => [
+          const Color(0xFF00C7BE).withOpacity(0.40),
+          const Color(0xFF007AFF).withOpacity(0.28),
+          const Color(0xFFE5E5EA).withOpacity(0.15),
+          Colors.transparent,
+        ],
+      _GiftKind.crown => [
+          const Color(0xFFFFD700).withOpacity(0.45),
+          const Color(0xFFFF9500).withOpacity(0.25),
+          const Color(0xFFAF52DE).withOpacity(0.15),
+          Colors.transparent,
+        ],
+      _ => [
+          const Color(0xFFFFD700).withOpacity(0.28),
+          const Color(0xFFFF2D55).withOpacity(0.18),
+          const Color(0xFFAF52DE).withOpacity(0.10),
+          Colors.transparent,
+        ],
+    };
+  }
+
+  List<Color> _getRingColors(_GiftKind kind) {
+    return switch (kind) {
+      _GiftKind.lion => [
+          const Color(0xFFFF9500),
+          const Color(0xFFFFD700),
+          const Color(0xFFFF3B30),
+          const Color(0xFFFF9500),
+        ],
+      _GiftKind.flower => [
+          const Color(0xFFFF2D55),
+          const Color(0xFFFF3B30),
+          const Color(0xFFFF7597),
+          const Color(0xFFFF2D55),
+        ],
+      _GiftKind.diamond => [
+          const Color(0xFF00C7BE),
+          const Color(0xFF007AFF),
+          const Color(0xFFE5E5EA),
+          const Color(0xFF00C7BE),
+        ],
+      _GiftKind.crown => [
+          const Color(0xFFFFD700),
+          const Color(0xFFFF9500),
+          const Color(0xFFAF52DE),
+          const Color(0xFFFFD700),
+        ],
+      _ => [
+          const Color(0xFFFFD700),
+          const Color(0xFFFF2D55),
+          const Color(0xFFAF52DE),
+          const Color(0xFF007AFF),
+          const Color(0xFFFFD700),
+        ],
+    };
+  }
+
+  Color _getPrimaryColor(_GiftKind kind) {
+    return switch (kind) {
+      _GiftKind.lion => const Color(0xFFFF9500),
+      _GiftKind.flower => const Color(0xFFFF2D55),
+      _GiftKind.rocket => const Color(0xFFAF52DE),
+      _GiftKind.diamond => const Color(0xFF00C7BE),
+      _GiftKind.crown => const Color(0xFFFFD700),
+      _GiftKind.car => const Color(0xFF34C759),
+      _GiftKind.coins => const Color(0xFFFF9500),
+      _ => const Color(0xFFFFD700),
+    };
+  }
+
+  Widget _buildParticleWidget(_Particle p, _GiftKind kind) {
+    if (kind == _GiftKind.coins) {
+      return Container(
+        width: p.size,
+        height: p.size,
+        decoration: const BoxDecoration(
+          color: Color(0xFFFFD700),
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(color: Color(0xFFFF9500), blurRadius: 4),
           ],
         ),
+        child: Center(
+          child: Text('🪙', style: TextStyle(fontSize: p.size * 0.75)),
+        ),
+      );
+    }
+
+    if (kind == _GiftKind.diamond) {
+      return Icon(Icons.diamond_rounded, size: p.size, color: const Color(0xFF00E5FF));
+    }
+
+    if (p.isStar) {
+      return Icon(Icons.star_rounded, size: p.size, color: p.color);
+    }
+
+    return Container(
+      width: p.size,
+      height: p.size,
+      decoration: BoxDecoration(
+        color: p.color,
+        shape: p.isCircle ? BoxShape.circle : BoxShape.rectangle,
+        borderRadius: p.isCircle ? null : BorderRadius.circular(2),
+        boxShadow: [
+          BoxShadow(
+            color: p.color.withOpacity(0.6),
+            blurRadius: 6,
+            spreadRadius: 1,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Custom painter rendering concentric expanding acoustic shockwaves for the Lion roar.
+class _SonicRoarRingsPainter extends CustomPainter {
+  final double progress;
+
+  const _SonicRoarRingsPainter({required this.progress});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final paint = Paint()..style = PaintingStyle.stroke;
+
+    for (int i = 0; i < 4; i++) {
+      final t = (progress + i * 0.25) % 1.0;
+      final radius = 60.0 + t * 130.0;
+      final alpha = ((1.0 - t) * 220).clamp(0, 255).toInt();
+      paint.color = const Color(0xFFFFD700).withAlpha(alpha);
+      paint.strokeWidth = (4.5 * (1.0 - t)).clamp(1.0, 4.5);
+      canvas.drawCircle(center, radius, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _SonicRoarRingsPainter oldDelegate) => oldDelegate.progress != progress;
+}
+
+/// Swirling 3D rose petal representation.
+class _PetalParticle {
+  final double xRatio;
+  final double size;
+  final double phase;
+  final double wobblePhase;
+  final double spinPhase;
+  final Color color;
+
+  _PetalParticle({
+    required this.xRatio,
+    required this.size,
+    required this.phase,
+    required this.wobblePhase,
+    required this.spinPhase,
+    required this.color,
+  });
+
+  factory _PetalParticle.random(Random rng) {
+    const petalColors = [
+      Color(0xFFE50914), // Deep velvet red
+      Color(0xFFFF2D55), // Vibrant rose
+      Color(0xFFC2185B), // Crimson
+      Color(0xFFFF5252), // Scarlet
+      Color(0xFFFF80AB), // Soft petal pink
+    ];
+
+    return _PetalParticle(
+      xRatio: rng.nextDouble(),
+      size: 14 + rng.nextDouble() * 18,
+      phase: rng.nextDouble(),
+      wobblePhase: rng.nextDouble() * pi * 2,
+      spinPhase: rng.nextDouble() * pi * 2,
+      color: petalColors[rng.nextInt(petalColors.length)],
+    );
+  }
+}
+
+class _PetalWidget extends StatelessWidget {
+  final double size;
+  final Color color;
+
+  const _PetalWidget({required this.size, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size * 1.35,
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(size * 0.9),
+          topRight: Radius.circular(size * 0.4),
+          bottomLeft: Radius.circular(size * 0.4),
+          bottomRight: Radius.circular(size * 0.9),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: color.withOpacity(0.4),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
     );
   }
@@ -522,7 +858,7 @@ class _Particle {
     required this.isCircle,
   });
 
-  factory _Particle.random(Random rng) {
+  factory _Particle.random(Random rng, _GiftKind kind) {
     const colors = [
       Color(0xFFFFD700), // Gold
       Color(0xFFFF9500), // Amber
@@ -533,10 +869,10 @@ class _Particle {
     ];
 
     return _Particle(
-      xOffset: (rng.nextDouble() - 0.5) * 340,
-      startY: 120 + rng.nextDouble() * 100,
-      travelDistance: 280 + rng.nextDouble() * 220,
-      size: 7 + rng.nextDouble() * 11,
+      xOffset: (rng.nextDouble() - 0.5) * 360,
+      startY: 130 + rng.nextDouble() * 100,
+      travelDistance: 300 + rng.nextDouble() * 240,
+      size: 7 + rng.nextDouble() * 12,
       phase: rng.nextDouble(),
       wobblePhase: rng.nextDouble() * pi * 2,
       color: colors[rng.nextInt(colors.length)],
@@ -545,4 +881,3 @@ class _Particle {
     );
   }
 }
-
