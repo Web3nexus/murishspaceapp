@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:livekit_client/livekit_client.dart';
 
 import 'config/env.dart';
 import 'config/router.dart';
@@ -15,6 +16,11 @@ import 'providers/realtime_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  try {
+    await LiveKitClient.initialize();
+  } catch (e) {
+    debugPrint('[LiveKitClient] Initialization error: $e');
+  }
   final savedEnv = await ApiClient.readApiEnv();
   if (savedEnv != null && savedEnv.isNotEmpty) {
     Env.setRuntimeEnv(savedEnv);

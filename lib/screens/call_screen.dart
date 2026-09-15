@@ -163,6 +163,7 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
     try {
       await [
         Permission.microphone,
+        Permission.bluetoothConnect,
         if (widget.isVideo) Permission.camera,
       ].request();
     } catch (e) {
@@ -174,7 +175,7 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
     _statusPollTimer?.cancel();
     _statusPollTimer = Timer.periodic(const Duration(milliseconds: 1500), (timer) async {
       if (!mounted || _activeCallId == null) return;
-      if (_status != CallStatus.connecting && _status != CallStatus.ringing && _status != CallStatus.incoming) {
+      if (_status != CallStatus.connecting && _status != CallStatus.ringing && _status != CallStatus.incoming && _status != CallStatus.connected) {
         timer.cancel();
         return;
       }
@@ -194,7 +195,7 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
           }
         } else if (status == 'accepted' && _status != CallStatus.connected) {
           _connectingTimeoutTimer?.cancel();
-          SoundService.instance.stopRinging();
+          await SoundService.instance.stopRinging();
           final token = (data['livekit_token'] ?? call['livekit_token'])?.toString();
           final host = (data['livekit_host'] ?? call['livekit_host'])?.toString();
           final startedAtStr = (data['started_at'] ?? call['started_at'])?.toString();
@@ -291,24 +292,52 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
 
       debugPrint('[LiveKit] Connecting to $wsHost for room ${active?.roomName}');
 
-      final room = Room();
+      final room = Room(
+        roomOptions: const RoomOptions(
+          adaptiveStream: true,
+          dynacast: true,
+          defaultAudioPublishOptions: AudioPublishOptions(
+            name: 'microphone',
+          ),
+          defaultAudioCaptureOptions: AudioCaptureOptions(
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          ),
+        ),
+      );
       _room = room;
       final listener = room.createListener();
       _listener = listener;
 
       listener
-        ..on<TrackSubscribedEvent>((event) {
+        ..on<TrackSubscribedEvent>((event) async {
           if (mounted && event.track is VideoTrack) {
             setState(() {
               _remoteVideoTrack = event.track as VideoTrack;
             });
+          } else if (event.track is AudioTrack) {
+            debugPrint('[LiveKit] 🎙️ Subscribed to remote audio track: ${event.track.sid}');
+            try {
+              await (event.track as AudioTrack).start();
+              debugPrint('[LiveKit] ✅ Started remote audio playback');
+            } catch (e) {
+              debugPrint('[LiveKit] ⚠️ Error starting remote audio track: $e');
+            }
           }
         })
-        ..on<TrackUnsubscribedEvent>((event) {
+        ..on<TrackUnsubscribedEvent>((event) async {
           if (mounted && event.track is VideoTrack) {
             setState(() {
               if (_remoteVideoTrack == event.track) _remoteVideoTrack = null;
             });
+          } else if (event.track is AudioTrack) {
+            debugPrint('[LiveKit] Unsubscribed from remote audio track: ${event.track.sid}');
+            try {
+              await (event.track as AudioTrack).stop();
+            } catch (e) {
+              debugPrint('[LiveKit] ⚠️ Error stopping remote audio track: $e');
+            }
           }
         })
         ..on<ParticipantDisconnectedEvent>((event) {
@@ -325,19 +354,34 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
       await room.connect(wsHost, token);
       debugPrint('[LiveKit] ✅ Connected to room');
 
-      try {
-        await Hardware.instance.setSpeakerphoneOn(_isSpeakerOn);
-      } catch (e) {
-        debugPrint('[Audio] Error setting speakerphone: $e');
+      // Start any existing remote audio tracks already published in the room
+      for (final p in room.remoteParticipants.values) {
+        for (final pub in p.audioTrackPublications) {
+          if (pub.subscribed && pub.track != null) {
+            debugPrint('[LiveKit] 🎙️ Starting existing remote audio track: ${pub.track!.sid}');
+            try {
+              await pub.track!.start();
+            } catch (e) {
+              debugPrint('[LiveKit] ⚠️ Error starting existing audio track: $e');
+            }
+          }
+        }
       }
+
+      // Configure speakerphone
       try {
         await AudioManager.instance.setSpeakerOutputPreferred(_isSpeakerOn);
       } catch (e) {
         debugPrint('[Audio] Error setting speakerOutputPreferred: $e');
+        try {
+          await Hardware.instance.setSpeakerphoneOn(_isSpeakerOn);
+        } catch (_) {}
       }
 
       // Publish local mic
+      debugPrint('[LiveKit] Enabling local microphone...');
       await room.localParticipant?.setMicrophoneEnabled(!_isMuted);
+      debugPrint('[LiveKit] ✅ Local microphone enabled (muted: $_isMuted)');
 
       // Publish local camera if video call
       if (widget.isVideo) {
@@ -494,7 +538,7 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
 
   Future<void> _acceptIncomingCall() async {
     HapticFeedback.heavyImpact();
-    SoundService.instance.stopRinging();
+    await SoundService.instance.stopRinging();
     if (_activeCallId != null && _activeCallId! > 0) {
       final data = await ref.read(callsProvider.notifier).acceptCall(_activeCallId!);
       if (data != null) {
