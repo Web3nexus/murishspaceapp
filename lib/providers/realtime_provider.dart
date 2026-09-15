@@ -9,6 +9,7 @@ import '../models/chat_models.dart';
 import '../models/notification_models.dart';
 import '../services/sound_service.dart';
 import 'auth_provider.dart';
+import 'broadcast_provider.dart';
 import 'calls_provider.dart';
 import 'chat_provider.dart';
 import 'messages_provider.dart';
@@ -124,6 +125,7 @@ class RealtimeService {
           final notif = AppNotification.fromJson(data);
           _ref.read(inAppNotificationProvider.notifier).showFromAppNotification(notif);
           _ref.read(notificationsProvider.notifier).refresh();
+          _ref.read(broadcastProvider.notifier).fetchBackendBroadcasts();
         } catch (_) {}
       }
 

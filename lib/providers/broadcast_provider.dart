@@ -152,16 +152,24 @@ class BroadcastNotifier extends Notifier<BroadcastState> {
             final typeStr = (item['type'] as String? ?? '').toLowerCase();
             final metaMap = dataMap['metadata'] as Map<String, dynamic>? ?? {};
 
+            String? code = dataMap['code']?.toString() ?? metaMap['code']?.toString();
+            if (code == null) {
+              final text = (dataMap['message'] ?? dataMap['body'] ?? '').toString();
+              final match = RegExp(r'\b\d{6}\b').firstMatch(text);
+              if (match != null) {
+                code = match.group(0);
+              }
+            }
+
             BroadcastType bType = BroadcastType.announcement;
-            if (typeStr.contains('security') || typeStr.contains('kyc') || typeStr.contains('device')) {
-              bType = BroadcastType.securityAlert;
-            } else if (typeStr.contains('otp') || typeStr.contains('code') || dataMap.containsKey('code')) {
+            if (code != null || typeStr.contains('otp') || typeStr.contains('code') || dataMap.containsKey('code')) {
               bType = BroadcastType.transactionOtp;
+            } else if (typeStr.contains('security') || typeStr.contains('kyc') || typeStr.contains('device')) {
+              bType = BroadcastType.securityAlert;
             } else if (typeStr.contains('system')) {
               bType = BroadcastType.systemUpdate;
             }
 
-            final code = dataMap['code']?.toString() ?? metaMap['code']?.toString();
             final createdAtStr = item['created_at'] as String?;
             final date = createdAtStr != null ? DateTime.tryParse(createdAtStr) ?? DateTime.now() : DateTime.now();
 

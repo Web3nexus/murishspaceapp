@@ -25,8 +25,13 @@ class _CreatePollSheetState extends State<CreatePollSheet> {
     TextEditingController(),
     TextEditingController(),
   ];
+  bool _showWhoVoted = true;
   bool _isMultipleChoice = false;
-  bool _isAnonymous = true;
+  bool _allowAddingOptions = false;
+  bool _allowRevoting = true;
+  bool _isQuizMode = false;
+  int? _correctOptionIndex;
+  String _durationLimit = 'unlimited';
 
   @override
   void dispose() {
@@ -38,7 +43,7 @@ class _CreatePollSheetState extends State<CreatePollSheet> {
   }
 
   void _addOption() {
-    if (_optionControllers.length < 6) {
+    if (_optionControllers.length < 10) {
       setState(() {
         _optionControllers.add(TextEditingController());
       });
@@ -50,6 +55,11 @@ class _CreatePollSheetState extends State<CreatePollSheet> {
       setState(() {
         final removed = _optionControllers.removeAt(index);
         removed.dispose();
+        if (_correctOptionIndex == index) {
+          _correctOptionIndex = null;
+        } else if (_correctOptionIndex != null && _correctOptionIndex! > index) {
+          _correctOptionIndex = _correctOptionIndex! - 1;
+        }
       });
     }
   }
@@ -75,12 +85,24 @@ class _CreatePollSheetState extends State<CreatePollSheet> {
       return;
     }
 
+    if (_isQuizMode && _correctOptionIndex == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please tap the radio button next to the correct answer for Quiz Mode.')),
+      );
+      return;
+    }
+
     Navigator.of(context).pop();
     widget.onSubmit({
       'question': question,
       'options': validOptions,
+      'show_who_voted': _showWhoVoted,
       'is_multiple': _isMultipleChoice,
-      'is_anonymous': _isAnonymous,
+      'allow_adding_options': _allowAddingOptions,
+      'allow_revoting': _allowRevoting,
+      'is_quiz': _isQuizMode,
+      'correct_option_index': _isQuizMode ? _correctOptionIndex : null,
+      'duration_limit': _durationLimit,
     });
   }
 
@@ -173,9 +195,19 @@ class _CreatePollSheetState extends State<CreatePollSheet> {
             const SizedBox(height: 20),
 
             // Options header
-            Text(
-              'POLL OPTIONS',
-              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: textSecondary, letterSpacing: 0.8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'POLL OPTIONS',
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: textSecondary, letterSpacing: 0.8),
+                ),
+                if (_isQuizMode)
+                  const Text(
+                    'Tap circle to select correct answer',
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF34C759)),
+                  ),
+              ],
             ),
             const SizedBox(height: 8),
 
@@ -185,6 +217,15 @@ class _CreatePollSheetState extends State<CreatePollSheet> {
                 padding: const EdgeInsets.only(bottom: 8),
                 child: Row(
                   children: [
+                    if (_isQuizMode)
+                      IconButton(
+                        icon: Icon(
+                          _correctOptionIndex == i ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
+                          color: _correctOptionIndex == i ? const Color(0xFF34C759) : textSecondary,
+                          size: 22,
+                        ),
+                        onPressed: () => setState(() => _correctOptionIndex = i),
+                      ),
                     Expanded(
                       child: TextField(
                         controller: _optionControllers[i],
@@ -194,7 +235,9 @@ class _CreatePollSheetState extends State<CreatePollSheet> {
                           hintStyle: TextStyle(color: textSecondary, fontSize: 14),
                           filled: true,
                           fillColor: inputBg,
-                          prefixIcon: Icon(Icons.radio_button_unchecked_rounded, size: 16, color: textSecondary),
+                          prefixIcon: !_isQuizMode
+                              ? Icon(Icons.radio_button_unchecked_rounded, size: 16, color: textSecondary)
+                              : null,
                           contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                         ),
@@ -214,7 +257,7 @@ class _CreatePollSheetState extends State<CreatePollSheet> {
             ],
 
             // Add option button
-            if (_optionControllers.length < 6)
+            if (_optionControllers.length < 10)
               TextButton.icon(
                 onPressed: _addOption,
                 icon: const Icon(Icons.add_rounded, size: 18, color: Color(0xFF007AFF)),
@@ -223,22 +266,80 @@ class _CreatePollSheetState extends State<CreatePollSheet> {
             const SizedBox(height: 12),
             const Divider(),
 
-            // Settings toggles
+            // Settings Section
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Text(
+                'SETTINGS & PERMISSIONS',
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: textSecondary, letterSpacing: 0.8),
+              ),
+            ),
+            SwitchListTile.adaptive(
+              contentPadding: EdgeInsets.zero,
+              title: Text('Show Who Voted', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: textPrimary)),
+              subtitle: Text('Voters and choices are visible to group members', style: TextStyle(fontSize: 12, color: textSecondary)),
+              value: _showWhoVoted,
+              activeColor: const Color(0xFF007AFF),
+              onChanged: (val) => setState(() => _showWhoVoted = val),
+            ),
             SwitchListTile.adaptive(
               contentPadding: EdgeInsets.zero,
               title: Text('Multiple Answers', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: textPrimary)),
               subtitle: Text('Allow voters to select more than one option', style: TextStyle(fontSize: 12, color: textSecondary)),
               value: _isMultipleChoice,
               activeColor: const Color(0xFF007AFF),
-              onChanged: (val) => setState(() => _isMultipleChoice = val),
+              onChanged: _isQuizMode ? null : (val) => setState(() => _isMultipleChoice = val),
             ),
             SwitchListTile.adaptive(
               contentPadding: EdgeInsets.zero,
-              title: Text('Anonymous Voting', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: textPrimary)),
-              subtitle: Text('Voters remain anonymous to other members', style: TextStyle(fontSize: 12, color: textSecondary)),
-              value: _isAnonymous,
+              title: Text('Allow Members to Add Options', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: textPrimary)),
+              subtitle: Text('Participants can contribute custom options', style: TextStyle(fontSize: 12, color: textSecondary)),
+              value: _allowAddingOptions,
               activeColor: const Color(0xFF007AFF),
-              onChanged: (val) => setState(() => _isAnonymous = val),
+              onChanged: (val) => setState(() => _allowAddingOptions = val),
+            ),
+            SwitchListTile.adaptive(
+              contentPadding: EdgeInsets.zero,
+              title: Text('Allow Revoting', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: textPrimary)),
+              subtitle: Text('Voters can change their answer after submitting', style: TextStyle(fontSize: 12, color: textSecondary)),
+              value: _allowRevoting,
+              activeColor: const Color(0xFF007AFF),
+              onChanged: (val) => setState(() => _allowRevoting = val),
+            ),
+            SwitchListTile.adaptive(
+              contentPadding: EdgeInsets.zero,
+              title: Text('Quiz Mode', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: textPrimary)),
+              subtitle: Text('Set one correct answer. Feedback is revealed on vote.', style: TextStyle(fontSize: 12, color: textSecondary)),
+              value: _isQuizMode,
+              activeColor: const Color(0xFF34C759),
+              onChanged: (val) => setState(() {
+                _isQuizMode = val;
+                if (val) _isMultipleChoice = false;
+              }),
+            ),
+            const SizedBox(height: 8),
+
+            // Limit Duration Dropdown
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Limit Duration', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: textPrimary)),
+                DropdownButton<String>(
+                  value: _durationLimit,
+                  dropdownColor: inputBg,
+                  underline: const SizedBox.shrink(),
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF007AFF)),
+                  items: const [
+                    DropdownMenuItem(value: '24 hours', child: Text('24 Hours')),
+                    DropdownMenuItem(value: '3 days', child: Text('3 Days')),
+                    DropdownMenuItem(value: '7 days', child: Text('7 Days')),
+                    DropdownMenuItem(value: 'unlimited', child: Text('Unlimited')),
+                  ],
+                  onChanged: (val) {
+                    if (val != null) setState(() => _durationLimit = val);
+                  },
+                ),
+              ],
             ),
             const SizedBox(height: 20),
 

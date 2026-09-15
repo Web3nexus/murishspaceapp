@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../components/ui_states.dart';
-import '../core/design_tokens.dart';
 import '../models/notification_models.dart';
 import '../providers/notifications_provider.dart';
 
@@ -236,6 +236,75 @@ class _NotificationTile extends StatelessWidget {
                       color: isDark ? Colors.grey[400] : Colors.grey[700],
                     ),
                   ),
+
+                  // Prominent Copyable OTP Box if verification code present
+                  () {
+                    String? code = notification.data['code']?.toString() ??
+                        (notification.data['metadata'] is Map ? notification.data['metadata']['code']?.toString() : null);
+                    if (code == null) {
+                      final match = RegExp(r'\b\d{6}\b').firstMatch(body);
+                      if (match != null) code = match.group(0);
+                    }
+                    if (code != null && code.isNotEmpty) {
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: isDark ? const Color(0xFF1C2433) : const Color(0xFFEFF6FF),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: const Color(0xFF007AFF).withValues(alpha: 0.4)),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.key_rounded, size: 16, color: Color(0xFF007AFF)),
+                              const SizedBox(width: 8),
+                              Text(
+                                code,
+                                style: const TextStyle(
+                                  fontFamily: 'monospace',
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 16,
+                                  letterSpacing: 2.0,
+                                  color: Color(0xFF007AFF),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              InkWell(
+                                onTap: () {
+                                  Clipboard.setData(ClipboardData(text: code!));
+                                  HapticFeedback.lightImpact();
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('OTP code copied to clipboard!')),
+                                  );
+                                },
+                                borderRadius: BorderRadius.circular(6),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF007AFF),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: const Row(
+                                    children: [
+                                      Icon(Icons.copy_rounded, color: Colors.white, size: 11),
+                                      SizedBox(width: 4),
+                                      Text(
+                                        'Copy',
+                                        style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  }(),
                 ],
               ),
             ),

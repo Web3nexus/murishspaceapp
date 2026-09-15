@@ -4,7 +4,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:livekit_client/livekit_client.dart';
 
+import 'package:permission_handler/permission_handler.dart';
+
 import '../providers/calls_provider.dart';
+import '../core/api_client.dart';
 import '../services/sound_service.dart';
 
 enum CallStatus {
@@ -55,6 +58,7 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
 
   int _callSeconds = 0;
   Timer? _callTimer;
+  Timer? _statusPollTimer;
 
   // LiveKit WebRTC state
   Room? _room;
@@ -82,6 +86,12 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
 
+    _requestPermissions().then((_) {
+      if (mounted && widget.isVideo && _localVideoTrack == null && !_isCameraOff) {
+        _initLocalCameraPreview();
+      }
+    });
+
     if (widget.isIncoming) {
       if (widget.isAccepted) {
         _status = CallStatus.connected;
@@ -91,6 +101,7 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
       } else {
         _status = CallStatus.incoming;
         SoundService.instance.startIncomingRingtone();
+        _startStatusPolling();
       }
     } else {
       _status = CallStatus.connecting;
@@ -112,10 +123,75 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
             _activeCallId = (call['id'] as num?)?.toInt();
             setState(() => _status = CallStatus.ringing);
             SoundService.instance.startOutgoingRingback();
+            _startStatusPolling();
           }
         });
       }
     }
+  }
+
+  Future<void> _requestPermissions() async {
+    try {
+      await [
+        Permission.microphone,
+        if (widget.isVideo) Permission.camera,
+      ].request();
+    } catch (e) {
+      debugPrint('[Permissions] Error requesting permissions: $e');
+    }
+  }
+
+  void _startStatusPolling() {
+    _statusPollTimer?.cancel();
+    _statusPollTimer = Timer.periodic(const Duration(milliseconds: 1500), (timer) async {
+      if (!mounted || _activeCallId == null) return;
+      if (_status != CallStatus.connecting && _status != CallStatus.ringing && _status != CallStatus.incoming) {
+        timer.cancel();
+        return;
+      }
+
+      try {
+        final res = await ApiClient.instance.dio.get('/calls/$_activeCallId');
+        final data = ApiClient.instance.unwrap(res);
+        if (data is! Map<String, dynamic>) return;
+        final call = data['call'] is Map<String, dynamic> ? data['call'] as Map<String, dynamic> : data;
+        final status = call['status']?.toString();
+
+        if (status == 'accepted' && _status != CallStatus.connected) {
+          timer.cancel();
+          SoundService.instance.stopRinging();
+          final token = (data['livekit_token'] ?? call['livekit_token'])?.toString();
+          final host = (data['livekit_host'] ?? call['livekit_host'])?.toString();
+          if (ref.read(callsProvider).activeCall != null) {
+            ref.read(callsProvider.notifier).handleCallAccepted({
+              'id': _activeCallId,
+              'livekit_token': token,
+              'livekit_host': host,
+            });
+          }
+          if (mounted) {
+            setState(() {
+              _status = CallStatus.connected;
+              _callSeconds = 0;
+            });
+            _startDurationTimer();
+            _connectLiveKit();
+          }
+        } else if (status == 'declined' && _status != CallStatus.declined) {
+          timer.cancel();
+          SoundService.instance.stopRinging();
+          if (mounted) {
+            setState(() => _status = CallStatus.declined);
+            Future.delayed(const Duration(milliseconds: 1200), () {
+              if (mounted) Navigator.of(context).maybePop();
+            });
+          }
+        } else if (status == 'ended' && _status != CallStatus.ended) {
+          timer.cancel();
+          _onRemoteParticipantLeft();
+        }
+      } catch (_) {}
+    });
   }
 
   Future<void> _initLocalCameraPreview() async {
@@ -193,6 +269,12 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
 
       await room.connect(wsHost, token);
 
+      try {
+        await Hardware.instance.setSpeakerphoneOn(_isSpeakerOn);
+      } catch (e) {
+        debugPrint('[Audio] Error setting speakerphone: $e');
+      }
+
       // Publish local mic
       await room.localParticipant?.setMicrophoneEnabled(!_isMuted);
 
@@ -267,10 +349,12 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
 
   @override
   void dispose() {
+    _statusPollTimer?.cancel();
     SoundService.instance.stopRinging();
     _callTimer?.cancel();
     _pulseController.dispose();
     _listener?.dispose();
+    _room?.disconnect();
     _room?.dispose();
     if (_localVideoTrack is LocalVideoTrack) {
       try {
@@ -706,9 +790,13 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
                           isActive: _isSpeakerOn,
                           activeColor: const Color(0xFF007AFF),
                           label: _isSpeakerOn ? 'Speaker' : 'Earpiece',
-                          onTap: () {
+                          onTap: () async {
                             HapticFeedback.selectionClick();
-                            setState(() => _isSpeakerOn = !_isSpeakerOn);
+                            final next = !_isSpeakerOn;
+                            try {
+                              await Hardware.instance.setSpeakerphoneOn(next);
+                            } catch (_) {}
+                            setState(() => _isSpeakerOn = next);
                           },
                         ),
 

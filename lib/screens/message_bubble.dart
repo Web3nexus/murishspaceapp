@@ -1,7 +1,10 @@
 import 'dart:convert';
+import 'package:audioplayers/audioplayers.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../components/gift_animation_overlay.dart';
 import '../core/design_tokens.dart';
@@ -357,14 +360,23 @@ class _BubbleContent extends StatelessWidget {
                 ),
               ),
             )
-          else if (message.isVoice)
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.graphic_eq, color: mine ? Colors.white : const Color(0xFF007AFF)),
-                const SizedBox(width: 8),
-                Text('Voice message', style: TextStyle(color: textColor)),
-              ],
+          else if (message.isVoice || message.attachmentType == 'voice')
+            _VoicePlayerWidget(
+              message: message,
+              mine: mine,
+              isDark: isDark,
+            )
+          else if (message.attachmentType == 'location' || message.content.startsWith('[LOCATION]'))
+            _LocationMessageWidget(
+              content: message.content,
+              mine: mine,
+              isDark: isDark,
+            )
+          else if (message.attachmentType == 'community' || message.content.startsWith('[COMMUNITY]'))
+            _CommunityMessageWidget(
+              content: message.content,
+              mine: mine,
+              isDark: isDark,
             )
           else if (message.type == 'call')
             _CallMessageWidget(
@@ -584,6 +596,11 @@ class _ChatPollWidgetState extends State<_ChatPollWidget> {
   List<String> _options = [];
   bool _isMultiple = false;
   bool _isAnonymous = true;
+  bool _showWhoVoted = true;
+  bool _isQuiz = false;
+  int? _correctOptionIndex;
+  bool _allowRevoting = true;
+  String? _durationLimit;
   final Map<int, int> _voteCounts = {};
   final Set<int> _myVotes = {};
 
@@ -608,7 +625,12 @@ class _ChatPollWidgetState extends State<_ChatPollWidget> {
           _options = rawOptions.map((e) => e.toString()).toList();
         }
         _isMultiple = decoded['is_multiple'] as bool? ?? false;
-        _isAnonymous = decoded['is_anonymous'] as bool? ?? true;
+        _isAnonymous = decoded['is_anonymous'] as bool? ?? false;
+        _showWhoVoted = decoded['show_who_voted'] as bool? ?? (!(_isAnonymous));
+        _isQuiz = decoded['is_quiz'] as bool? ?? false;
+        _correctOptionIndex = (decoded['correct_option_index'] as num?)?.toInt();
+        _allowRevoting = decoded['allow_revoting'] as bool? ?? true;
+        _durationLimit = decoded['duration_limit']?.toString();
 
         final rawVotes = decoded['votes'];
         if (rawVotes is Map<String, dynamic>) {
@@ -621,7 +643,6 @@ class _ChatPollWidgetState extends State<_ChatPollWidget> {
         }
       }
     } catch (_) {
-      // Fallback plain text parse if formatted like "📊 Poll: ..."
       final lines = widget.content.split('\n').where((l) => l.trim().isNotEmpty).toList();
       if (lines.isNotEmpty) {
         _question = lines.first.replaceAll('📊 Poll:', '').replaceAll('📊', '').trim();
@@ -633,13 +654,19 @@ class _ChatPollWidgetState extends State<_ChatPollWidget> {
       _options = ['Option 1', 'Option 2'];
     }
 
-    // Default vote distribution simulation if empty
     for (int i = 0; i < _options.length; i++) {
       _voteCounts.putIfAbsent(i, () => 0);
     }
   }
 
   void _onOptionTap(int index) {
+    if (!_allowRevoting && _myVotes.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Revoting is disabled for this poll.')),
+      );
+      return;
+    }
+
     HapticFeedback.selectionClick();
     setState(() {
       if (_isMultiple) {
@@ -652,8 +679,10 @@ class _ChatPollWidgetState extends State<_ChatPollWidget> {
         }
       } else {
         if (_myVotes.contains(index)) {
-          _myVotes.remove(index);
-          _voteCounts[index] = (_voteCounts[index] ?? 1) - 1;
+          if (_allowRevoting) {
+            _myVotes.remove(index);
+            _voteCounts[index] = (_voteCounts[index] ?? 1) - 1;
+          }
         } else {
           for (final prev in _myVotes) {
             _voteCounts[prev] = (_voteCounts[prev] ?? 1) - 1;
@@ -664,6 +693,14 @@ class _ChatPollWidgetState extends State<_ChatPollWidget> {
         }
       }
     });
+
+    if (_isQuiz && _correctOptionIndex != null) {
+      if (index == _correctOptionIndex) {
+        HapticFeedback.heavyImpact();
+      } else {
+        HapticFeedback.vibrate();
+      }
+    }
   }
 
   @override
@@ -685,18 +722,25 @@ class _ChatPollWidgetState extends State<_ChatPollWidget> {
               Container(
                 padding: const EdgeInsets.all(4),
                 decoration: BoxDecoration(
-                  color: (widget.mine ? Colors.white : const Color(0xFFFF9500)).withValues(alpha: 0.2),
+                  color: (_isQuiz
+                          ? const Color(0xFF34C759)
+                          : (widget.mine ? Colors.white : const Color(0xFFFF9500)))
+                      .withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Icon(
-                  Icons.poll_rounded,
+                  _isQuiz ? Icons.school_rounded : Icons.poll_rounded,
                   size: 14,
-                  color: widget.mine ? Colors.white : const Color(0xFFFF9500),
+                  color: _isQuiz
+                      ? const Color(0xFF34C759)
+                      : (widget.mine ? Colors.white : const Color(0xFFFF9500)),
                 ),
               ),
               const SizedBox(width: 6),
               Text(
-                _isAnonymous ? 'Anonymous Poll' : 'Public Poll',
+                _isQuiz
+                    ? 'Quiz'
+                    : (_showWhoVoted ? 'Public Poll' : 'Anonymous Poll'),
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
@@ -706,6 +750,10 @@ class _ChatPollWidgetState extends State<_ChatPollWidget> {
               if (_isMultiple) ...[
                 const SizedBox(width: 6),
                 Text('· Multi-choice', style: TextStyle(fontSize: 10, color: subtextColor)),
+              ],
+              if (_durationLimit != null && _durationLimit != 'unlimited') ...[
+                const SizedBox(width: 6),
+                Text('· $_durationLimit', style: TextStyle(fontSize: 10, color: subtextColor)),
               ],
             ],
           ),
@@ -749,11 +797,17 @@ class _ChatPollWidgetState extends State<_ChatPollWidget> {
               ),
               if (hasVoted)
                 Text(
-                  'Voted',
+                  _isQuiz
+                      ? (_myVotes.contains(_correctOptionIndex) ? 'Correct ✓' : 'Incorrect ✗')
+                      : 'Voted',
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
-                    color: widget.mine ? Colors.white : const Color(0xFF34C759),
+                    color: _isQuiz
+                        ? (_myVotes.contains(_correctOptionIndex)
+                            ? const Color(0xFF34C759)
+                            : const Color(0xFFFF3B30))
+                        : (widget.mine ? Colors.white : const Color(0xFF34C759)),
                   ),
                 ),
             ],
@@ -776,6 +830,17 @@ class _ChatPollWidgetState extends State<_ChatPollWidget> {
     final percent = totalVotes > 0 ? (votes / totalVotes) : 0.0;
     final percentInt = (percent * 100).round();
 
+    Color borderColor = Colors.transparent;
+    if (_isQuiz && hasVoted) {
+      if (index == _correctOptionIndex) {
+        borderColor = const Color(0xFF34C759);
+      } else if (isSelected && index != _correctOptionIndex) {
+        borderColor = const Color(0xFFFF3B30);
+      }
+    } else if (isSelected) {
+      borderColor = widget.mine ? Colors.white : const Color(0xFF007AFF);
+    }
+
     return GestureDetector(
       onTap: () => _onOptionTap(index),
       child: Container(
@@ -784,12 +849,7 @@ class _ChatPollWidgetState extends State<_ChatPollWidget> {
           color: (widget.mine ? Colors.white : (widget.isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF2F4F7)))
               .withValues(alpha: widget.mine ? 0.15 : 1.0),
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: isSelected
-                ? (widget.mine ? Colors.white : const Color(0xFF007AFF))
-                : Colors.transparent,
-            width: 1.5,
-          ),
+          border: Border.all(color: borderColor, width: 1.5),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -797,13 +857,21 @@ class _ChatPollWidgetState extends State<_ChatPollWidget> {
             Row(
               children: [
                 Icon(
-                  isSelected
-                      ? (_isMultiple ? Icons.check_box_rounded : Icons.check_circle_rounded)
-                      : (_isMultiple ? Icons.check_box_outline_blank_rounded : Icons.radio_button_unchecked_rounded),
+                  _isQuiz && hasVoted
+                      ? (index == _correctOptionIndex
+                          ? Icons.check_circle_rounded
+                          : (isSelected ? Icons.cancel_rounded : Icons.radio_button_unchecked_rounded))
+                      : (isSelected
+                          ? (_isMultiple ? Icons.check_box_rounded : Icons.check_circle_rounded)
+                          : (_isMultiple ? Icons.check_box_outline_blank_rounded : Icons.radio_button_unchecked_rounded)),
                   size: 16,
-                  color: isSelected
-                      ? (widget.mine ? Colors.white : const Color(0xFF007AFF))
-                      : subtextColor,
+                  color: _isQuiz && hasVoted
+                      ? (index == _correctOptionIndex
+                          ? const Color(0xFF34C759)
+                          : (isSelected ? const Color(0xFFFF3B30) : subtextColor))
+                      : (isSelected
+                          ? (widget.mine ? Colors.white : const Color(0xFF007AFF))
+                          : subtextColor),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
@@ -840,15 +908,424 @@ class _ChatPollWidgetState extends State<_ChatPollWidget> {
                   minHeight: 4,
                   backgroundColor: (widget.mine ? Colors.white24 : Colors.grey[300]),
                   valueColor: AlwaysStoppedAnimation<Color>(
-                    isSelected
-                        ? (widget.mine ? Colors.white : const Color(0xFF007AFF))
-                        : (widget.mine ? Colors.white54 : Colors.grey),
+                    _isQuiz
+                        ? (index == _correctOptionIndex ? const Color(0xFF34C759) : Colors.grey)
+                        : (isSelected
+                            ? (widget.mine ? Colors.white : const Color(0xFF007AFF))
+                            : (widget.mine ? Colors.white54 : Colors.grey)),
                   ),
                 ),
               ),
             ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _VoicePlayerWidget extends StatefulWidget {
+  final Message message;
+  final bool mine;
+  final bool isDark;
+
+  const _VoicePlayerWidget({
+    required this.message,
+    required this.mine,
+    required this.isDark,
+  });
+
+  @override
+  State<_VoicePlayerWidget> createState() => _VoicePlayerWidgetState();
+}
+
+class _VoicePlayerWidgetState extends State<_VoicePlayerWidget> {
+  final AudioPlayer _player = AudioPlayer();
+  bool _isPlaying = false;
+  Duration _duration = Duration.zero;
+  Duration _position = Duration.zero;
+
+  @override
+  void initState() {
+    super.initState();
+    _player.onPlayerStateChanged.listen((state) {
+      if (mounted) {
+        setState(() => _isPlaying = state == PlayerState.playing);
+      }
+    });
+    _player.onDurationChanged.listen((d) {
+      if (mounted) setState(() => _duration = d);
+    });
+    _player.onPositionChanged.listen((p) {
+      if (mounted) setState(() => _position = p);
+    });
+    _player.onPlayerComplete.listen((_) {
+      if (mounted) {
+        setState(() {
+          _isPlaying = false;
+          _position = Duration.zero;
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _player.dispose();
+    super.dispose();
+  }
+
+  Future<void> _togglePlay() async {
+    final url = widget.message.attachmentUrl;
+    if (url == null || url.isEmpty) return;
+
+    if (_isPlaying) {
+      await _player.pause();
+    } else {
+      await _player.play(UrlSource(url));
+    }
+  }
+
+  String _formatDuration(Duration d) {
+    final m = d.inMinutes;
+    final s = d.inSeconds % 60;
+    return '${m.toString().padLeft(1, '0')}:${s.toString().padLeft(2, '0')}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final total = _duration.inMilliseconds > 0 ? _duration.inMilliseconds.toDouble() : 1000.0;
+    final current = _position.inMilliseconds.toDouble().clamp(0.0, total);
+
+    return Container(
+      width: 240,
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          GestureDetector(
+            onTap: _togglePlay,
+            child: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: widget.mine
+                    ? Colors.white.withValues(alpha: 0.25)
+                    : const Color(0xFF007AFF),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                _isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                color: Colors.white,
+                size: 24,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SliderTheme(
+                  data: SliderTheme.of(context).copyWith(
+                    trackHeight: 3,
+                    thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                    overlayShape: const RoundSliderOverlayShape(overlayRadius: 10),
+                    activeTrackColor: widget.mine ? Colors.white : const Color(0xFF007AFF),
+                    inactiveTrackColor: (widget.mine ? Colors.white30 : Colors.grey[400]),
+                    thumbColor: widget.mine ? Colors.white : const Color(0xFF007AFF),
+                  ),
+                  child: Slider(
+                    value: current,
+                    max: total,
+                    onChanged: (val) {
+                      _player.seek(Duration(milliseconds: val.toInt()));
+                    },
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        _formatDuration(_position),
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: widget.mine ? Colors.white70 : Colors.grey[600],
+                        ),
+                      ),
+                      Text(
+                        _duration.inSeconds > 0 ? _formatDuration(_duration) : 'Voice note',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: widget.mine ? Colors.white70 : Colors.grey[600],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LocationMessageWidget extends StatelessWidget {
+  final String content;
+  final bool mine;
+  final bool isDark;
+
+  const _LocationMessageWidget({
+    required this.content,
+    required this.mine,
+    required this.isDark,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    double lat = 0.0;
+    double lng = 0.0;
+    bool isLive = false;
+    String title = 'Location';
+
+    if (content.startsWith('[LOCATION]') && content.contains('[/LOCATION]')) {
+      try {
+        final jsonStr = content.substring('[LOCATION]'.length, content.indexOf('[/LOCATION]'));
+        final map = jsonDecode(jsonStr) as Map<String, dynamic>;
+        lat = (map['latitude'] as num?)?.toDouble() ?? 0.0;
+        lng = (map['longitude'] as num?)?.toDouble() ?? 0.0;
+        isLive = map['is_live'] as bool? ?? false;
+        title = map['title']?.toString() ?? (isLive ? 'Live Location' : 'Location');
+      } catch (_) {}
+    }
+
+    final textColor = mine ? Colors.white : (isDark ? Colors.white : Colors.black87);
+
+    return Container(
+      width: 250,
+      margin: const EdgeInsets.symmetric(vertical: 2),
+      decoration: BoxDecoration(
+        color: mine
+            ? const Color(0xFF0055B3).withValues(alpha: 0.3)
+            : (isDark ? const Color(0xFF262C38) : const Color(0xFFF1F5F9)),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isLive ? const Color(0xFF34C759) : const Color(0xFFFFCC00).withValues(alpha: 0.6),
+          width: 1.5,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            height: 100,
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF1E2633) : const Color(0xFFE2E8F0),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+            ),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Icon(
+                  Icons.map_rounded,
+                  size: 50,
+                  color: (isDark ? Colors.white10 : Colors.black12),
+                ),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.location_on_rounded,
+                      size: 36,
+                      color: isLive ? const Color(0xFF34C759) : const Color(0xFFFF3B30),
+                    ),
+                    if (isLive)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF34C759),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Text('LIVE', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w900)),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: textColor),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '${lat.toStringAsFixed(5)}, ${lng.toStringAsFixed(5)}',
+                  style: TextStyle(fontSize: 11, color: mine ? Colors.white70 : Colors.grey),
+                ),
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () async {
+                      final url = Uri.parse('https://www.google.com/maps/search/?api=1&query=$lat,$lng');
+                      if (await canLaunchUrl(url)) {
+                        await launchUrl(url, mode: LaunchMode.externalApplication);
+                      }
+                    },
+                    icon: const Icon(Icons.directions_rounded, size: 16),
+                    label: const Text('Open in Maps', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF007AFF),
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CommunityMessageWidget extends StatelessWidget {
+  final String content;
+  final bool mine;
+  final bool isDark;
+
+  const _CommunityMessageWidget({
+    required this.content,
+    required this.mine,
+    required this.isDark,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    String name = 'Community';
+    String slug = '';
+    String? logoUrl;
+    int members = 0;
+    String? description;
+
+    if (content.startsWith('[COMMUNITY]') && content.contains('[/COMMUNITY]')) {
+      try {
+        final jsonStr = content.substring('[COMMUNITY]'.length, content.indexOf('[/COMMUNITY]'));
+        final map = jsonDecode(jsonStr) as Map<String, dynamic>;
+        name = map['name']?.toString() ?? name;
+        slug = map['slug']?.toString() ?? '';
+        logoUrl = map['logo_url']?.toString();
+        members = (map['members_count'] as num?)?.toInt() ?? 0;
+        description = map['description']?.toString();
+      } catch (_) {}
+    }
+
+    final textColor = mine ? Colors.white : (isDark ? Colors.white : Colors.black87);
+
+    return Container(
+      width: 250,
+      margin: const EdgeInsets.symmetric(vertical: 2),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: mine
+            ? const Color(0xFF0055B3).withValues(alpha: 0.3)
+            : (isDark ? const Color(0xFF262C38) : const Color(0xFFF1F5F9)),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: const Color(0xFF34C759).withValues(alpha: 0.6),
+          width: 1.5,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 20,
+                backgroundColor: const Color(0xFF34C759).withValues(alpha: 0.15),
+                backgroundImage: logoUrl != null && logoUrl.isNotEmpty
+                    ? CachedNetworkImageProvider(logoUrl)
+                    : null,
+                child: logoUrl == null || logoUrl.isEmpty
+                    ? Text(
+                        name.isNotEmpty ? name[0].toUpperCase() : 'C',
+                        style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF34C759)),
+                      )
+                    : null,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            name,
+                            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: textColor),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        const Icon(Icons.verified_rounded, size: 14, color: Color(0xFF34C759)),
+                      ],
+                    ),
+                    Text(
+                      '$members members',
+                      style: TextStyle(fontSize: 11, color: mine ? Colors.white70 : Colors.grey),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          if (description != null && description.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              description,
+              style: TextStyle(fontSize: 12, color: textColor.withValues(alpha: 0.85)),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () {
+                if (slug.isNotEmpty) {
+                  context.push('/communities/$slug');
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF34C759),
+                foregroundColor: Colors.white,
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              child: const Text('View Community', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+            ),
+          ),
+        ],
       ),
     );
   }

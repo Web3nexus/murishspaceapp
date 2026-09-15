@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,6 +8,8 @@ import 'package:image_picker/image_picker.dart';
 
 import '../components/app_bottom_sheet.dart';
 import '../components/online_status_badge.dart';
+import '../components/share_community_sheet.dart';
+import '../components/share_location_sheet.dart';
 import '../components/ui_states.dart';
 import '../core/api_client.dart';
 import '../core/design_tokens.dart';
@@ -229,6 +232,71 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
     );
   }
 
+  Future<void> _sendVoice(File audioFile, int durationSeconds) async {
+    setState(() => _uploading = true);
+    try {
+      final bytes = await audioFile.readAsBytes();
+      final form = FormData.fromMap({
+        'file': MultipartFile.fromBytes(bytes, filename: 'voice_${DateTime.now().millisecondsSinceEpoch}.m4a'),
+        'client_uuid': ApiClient.generateIdempotencyKey(),
+        'attachment_type': 'voice',
+      });
+      final response = await ApiClient.instance.dio.post('/messages/attachments', data: form);
+      final payload = ApiClient.instance.unwrap(response) as Map<String, dynamic>;
+      final mediaId = (payload['media_id'] as num).toInt();
+      final attachmentUrl = payload['attachment_url'] as String;
+
+      await ref.read(conversationMessagesProvider(widget.conversationId).notifier).sendMessage(
+        content: 'Voice message ($durationSeconds s)',
+        mediaId: mediaId,
+        attachmentUrl: attachmentUrl,
+        attachmentType: 'voice',
+        replyToId: _replyTo?.id,
+      );
+      _scrollToBottom();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not send voice message.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _uploading = false);
+    }
+  }
+
+  void _sendCommunity(CommunityShareItem c) {
+    final payload = {
+      'id': c.id,
+      'name': c.name,
+      'slug': c.slug,
+      'logo_url': c.logoUrl,
+      'members_count': c.membersCount,
+      'description': c.description,
+    };
+    ref.read(conversationMessagesProvider(widget.conversationId).notifier).sendMessage(
+      content: '[COMMUNITY]${jsonEncode(payload)}[/COMMUNITY]',
+      attachmentType: 'community',
+    );
+    _scrollToBottom();
+  }
+
+  void _sendLocation(LocationShareData loc) {
+    final payload = {
+      'latitude': loc.latitude,
+      'longitude': loc.longitude,
+      'is_live': loc.isLive,
+      'duration_minutes': loc.durationMinutes,
+      'expires_at': loc.expiresAt?.toIso8601String(),
+      'title': loc.title,
+    };
+    ref.read(conversationMessagesProvider(widget.conversationId).notifier).sendMessage(
+      content: '[LOCATION]${jsonEncode(payload)}[/LOCATION]',
+      attachmentType: 'location',
+    );
+    _scrollToBottom();
+  }
+
   Future<(int, String, String)> _uploadAttachment(XFile file) async {
     final bytes = await file.readAsBytes();
     final form = FormData.fromMap({
@@ -361,6 +429,9 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
             onSend: _send,
             onSendPoll: _sendPoll,
             onSendGift: _openGiftDialog,
+            onSendVoice: _sendVoice,
+            onShareCommunity: _sendCommunity,
+            onShareLocation: _sendLocation,
           ),
         ],
       ),
@@ -404,43 +475,69 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
           }
           final msgIndex = i - 1;
           if (msgIndex < messages.length) {
-            return MessageBubble(
-              message: messages[msgIndex],
-              myId: ref.watch(authProvider).user?.id,
-              showSenderName: isGroup,
-              onReact: (emoji) => _toggleReaction(messages[msgIndex], emoji),
-              onReply: () => setState(() => _replyTo = messages[msgIndex]),
-              onDelete: (forEveryone) => _deleteMessage(messages[msgIndex], forEveryone),
-              onForward: () => _forwardMessage(messages[msgIndex]),
-              onRetry: messages[msgIndex].status == 'failed'
-                  ? () => ref.read(conversationMessagesProvider(widget.conversationId).notifier)
-                        .retrySending(messages[msgIndex])
-                  : null,
-              onCall: _startCall,
+            final msg = messages[msgIndex];
+            final showDateHeader = _isFirstOfDay(msgIndex, messages);
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (showDateHeader) _ChatDateHeader(date: msg.createdAt),
+                MessageBubble(
+                  message: msg,
+                  myId: ref.watch(authProvider).user?.id,
+                  showSenderName: isGroup,
+                  onReact: (emoji) => _toggleReaction(msg, emoji),
+                  onReply: () => setState(() => _replyTo = msg),
+                  onDelete: (forEveryone) => _deleteMessage(msg, forEveryone),
+                  onForward: () => _forwardMessage(msg),
+                  onRetry: msg.status == 'failed'
+                      ? () => ref.read(conversationMessagesProvider(widget.conversationId).notifier)
+                            .retrySending(msg)
+                      : null,
+                  onCall: _startCall,
+                ),
+              ],
             );
           }
           return _topLoader(state);
         }
 
         if (i < messages.length) {
-          return MessageBubble(
-            message: messages[i],
-            myId: ref.watch(authProvider).user?.id,
-            showSenderName: isGroup,
-            onReact: (emoji) => _toggleReaction(messages[i], emoji),
-            onReply: () => setState(() => _replyTo = messages[i]),
-            onDelete: (forEveryone) => _deleteMessage(messages[i], forEveryone),
-            onForward: () => _forwardMessage(messages[i]),
-            onRetry: messages[i].status == 'failed'
-                ? () => ref.read(conversationMessagesProvider(widget.conversationId).notifier)
-                      .retrySending(messages[i])
-                : null,
-            onCall: _startCall,
+          final msg = messages[i];
+          final showDateHeader = _isFirstOfDay(i, messages);
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (showDateHeader) _ChatDateHeader(date: msg.createdAt),
+              MessageBubble(
+                message: msg,
+                myId: ref.watch(authProvider).user?.id,
+                showSenderName: isGroup,
+                onReact: (emoji) => _toggleReaction(msg, emoji),
+                onReply: () => setState(() => _replyTo = msg),
+                onDelete: (forEveryone) => _deleteMessage(msg, forEveryone),
+                onForward: () => _forwardMessage(msg),
+                onRetry: msg.status == 'failed'
+                    ? () => ref.read(conversationMessagesProvider(widget.conversationId).notifier)
+                          .retrySending(msg)
+                    : null,
+                onCall: _startCall,
+              ),
+            ],
           );
         }
         return _topLoader(state);
       },
     );
+  }
+
+  bool _isFirstOfDay(int msgIndex, List<Message> messages) {
+    if (msgIndex >= messages.length) return false;
+    final dt = messages[msgIndex].createdAt;
+    if (dt == null) return false;
+    if (msgIndex == messages.length - 1) return true;
+    final olderDt = messages[msgIndex + 1].createdAt;
+    if (olderDt == null) return true;
+    return dt.year != olderDt.year || dt.month != olderDt.month || dt.day != olderDt.day;
   }
 
   Widget _topLoader(ConversationMessagesState state) {
@@ -845,3 +942,63 @@ class _ForwardSheet extends StatelessWidget {
     );
   }
 }
+
+class _ChatDateHeader extends StatelessWidget {
+  final DateTime? date;
+
+  const _ChatDateHeader({required this.date});
+
+  String _formatDate(DateTime dt) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+    final msgDate = DateTime(dt.year, dt.month, dt.day);
+
+    if (msgDate == today) return 'Today';
+    if (msgDate == yesterday) return 'Yesterday';
+
+    final weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    final months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    final weekday = weekdays[dt.weekday - 1];
+    final month = months[dt.month - 1];
+
+    if (dt.year == now.year) {
+      return '$weekday, $month ${dt.day}';
+    }
+    return '${dt.day} $month ${dt.year}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (date == null) return const SizedBox.shrink();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Center(
+      child: Container(
+        margin: const EdgeInsets.only(top: 14, bottom: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF242C38).withValues(alpha: 0.85) : const Color(0xFFE2E8F0).withValues(alpha: 0.92),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.06),
+              blurRadius: 4,
+              offset: const Offset(0, 1),
+            ),
+          ],
+        ),
+        child: Text(
+          _formatDate(date!),
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            color: isDark ? const Color(0xFFCBD5E1) : const Color(0xFF475569),
+            letterSpacing: 0.2,
+          ),
+        ),
+      ),
+    );
+  }
+}
+

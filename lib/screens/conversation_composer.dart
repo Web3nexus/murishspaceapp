@@ -1,16 +1,23 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:record/record.dart';
 
 import '../components/create_poll_sheet.dart';
 import '../components/emoji_picker_sheet.dart';
+import '../components/share_community_sheet.dart';
+import '../components/share_location_sheet.dart';
+import '../components/wallet_sheet.dart';
 import '../models/chat_models.dart';
-import 'community_create_dialog.dart';
 
-/// Telegram-style capsule message composer with roll-up attachment sheet.
-class Composer extends StatelessWidget {
+/// Telegram-style capsule message composer with roll-up attachment sheet
+/// and WhatsApp-style audio voice recording.
+class Composer extends StatefulWidget {
   final TextEditingController controller;
   final Message? replyTo;
   final XFile? pendingImage;
@@ -23,6 +30,9 @@ class Composer extends StatelessWidget {
   final VoidCallback onSend;
   final ValueChanged<Map<String, dynamic>>? onSendPoll;
   final VoidCallback? onSendGift;
+  final void Function(File audioFile, int durationSeconds)? onSendVoice;
+  final ValueChanged<CommunityShareItem>? onShareCommunity;
+  final ValueChanged<LocationShareData>? onShareLocation;
 
   const Composer({
     super.key,
@@ -38,7 +48,142 @@ class Composer extends StatelessWidget {
     required this.onSend,
     this.onSendPoll,
     this.onSendGift,
+    this.onSendVoice,
+    this.onShareCommunity,
+    this.onShareLocation,
   });
+
+  @override
+  State<Composer> createState() => _ComposerState();
+}
+
+class _ComposerState extends State<Composer> with SingleTickerProviderStateMixin {
+  late final AudioRecorder _audioRecorder;
+  bool _isRecording = false;
+  int _recordSeconds = 0;
+  Timer? _recordTimer;
+  String? _currentRecordingPath;
+  late AnimationController _pulseController;
+
+  @override
+  void initState() {
+    super.initState();
+    _audioRecorder = AudioRecorder();
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _recordTimer?.cancel();
+    _audioRecorder.dispose();
+    _pulseController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _startRecording() async {
+    final status = await Permission.microphone.request();
+    if (status.isDenied || status.isPermanentlyDenied) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Microphone permission is required to record voice messages.')),
+        );
+      }
+      return;
+    }
+
+    try {
+      final tempDir = await getTemporaryDirectory();
+      final path = '${tempDir.path}/voice_${DateTime.now().millisecondsSinceEpoch}.m4a';
+
+      await _audioRecorder.start(
+        const RecordConfig(encoder: AudioEncoder.aacLc, bitRate: 128000),
+        path: path,
+      );
+
+      HapticFeedback.mediumImpact();
+
+      setState(() {
+        _isRecording = true;
+        _recordSeconds = 0;
+        _currentRecordingPath = path;
+      });
+
+      _recordTimer?.cancel();
+      _recordTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+        if (mounted) {
+          setState(() => _recordSeconds++);
+        }
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not start voice recording.')),
+        );
+      }
+    }
+  }
+
+  Future<void> _cancelRecording() async {
+    _recordTimer?.cancel();
+    try {
+      await _audioRecorder.cancel();
+      if (_currentRecordingPath != null) {
+        final f = File(_currentRecordingPath!);
+        if (await f.exists()) await f.delete();
+      }
+    } catch (_) {}
+
+    HapticFeedback.lightImpact();
+
+    if (mounted) {
+      setState(() {
+        _isRecording = false;
+        _recordSeconds = 0;
+        _currentRecordingPath = null;
+      });
+    }
+  }
+
+  Future<void> _stopAndSendRecording() async {
+    _recordTimer?.cancel();
+    final duration = _recordSeconds;
+
+    try {
+      final path = await _audioRecorder.stop();
+      HapticFeedback.mediumImpact();
+
+      if (mounted) {
+        setState(() {
+          _isRecording = false;
+          _recordSeconds = 0;
+          _currentRecordingPath = null;
+        });
+      }
+
+      if (path != null && duration >= 1) {
+        final file = File(path);
+        if (await file.exists() && widget.onSendVoice != null) {
+          widget.onSendVoice!(file, duration);
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Hold to record a voice message.')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isRecording = false;
+          _recordSeconds = 0;
+        });
+      }
+    }
+  }
 
   void _showAttachmentSheet(BuildContext context) {
     showModalBottomSheet<void>(
@@ -53,18 +198,26 @@ class Composer extends StatelessWidget {
       builder: (ctx) => _TelegramAttachmentSheet(
         onPickImage: () {
           Navigator.pop(ctx);
-          onPickImage();
+          widget.onPickImage();
         },
-        onPickCamera: onPickCamera != null
+        onPickCamera: widget.onPickCamera != null
             ? () {
                 Navigator.pop(ctx);
-                onPickCamera!();
+                widget.onPickCamera!();
               }
             : null,
-        onSendPoll: onSendPoll,
-        onSendGift: onSendGift,
+        onSendPoll: widget.onSendPoll,
+        onSendGift: widget.onSendGift,
+        onShareCommunity: widget.onShareCommunity,
+        onShareLocation: widget.onShareLocation,
       ),
     );
+  }
+
+  String _formatRecordTime(int seconds) {
+    final m = seconds ~/ 60;
+    final s = seconds % 60;
+    return '${m.toString().padLeft(1, '0')}:${s.toString().padLeft(2, '0')}';
   }
 
   @override
@@ -79,7 +232,7 @@ class Composer extends StatelessWidget {
         borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.3 : 0.06),
+            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.06),
             blurRadius: 10,
             offset: const Offset(0, -3),
           ),
@@ -90,127 +243,196 @@ class Composer extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (replyTo != null) _ReplyBar(message: replyTo!, onDismiss: onDismissReply),
-            if (pendingImage != null) _ImagePreview(file: pendingImage!, onDismiss: onDismissImage),
+            if (widget.replyTo != null) _ReplyBar(message: widget.replyTo!, onDismiss: widget.onDismissReply),
+            if (widget.pendingImage != null) _ImagePreview(file: widget.pendingImage!, onDismiss: widget.onDismissImage),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  // Telegram attachment paperclip button
-                  IconButton(
-                    onPressed: uploading ? null : () => _showAttachmentSheet(context),
-                    icon: Icon(
-                      Icons.attach_file_rounded,
-                      color: isDark ? const Color(0xFF8E8E93) : const Color(0xFF61758A),
-                      size: 24,
-                    ),
-                    tooltip: 'Attachments',
-                    padding: const EdgeInsets.all(8),
-                    constraints: const BoxConstraints(),
-                  ),
-                  // Quick Camera capture button beside the input field
-                  if (onPickCamera != null)
-                    IconButton(
-                      onPressed: uploading ? null : onPickCamera,
-                      icon: Icon(
-                        Icons.camera_alt_rounded,
-                        color: isDark ? const Color(0xFF8E8E93) : const Color(0xFF61758A),
-                        size: 24,
-                      ),
-                      tooltip: 'Take Photo',
-                      padding: const EdgeInsets.only(left: 4, right: 6, bottom: 8, top: 8),
-                      constraints: const BoxConstraints(),
-                    ),
-                  // Capsule text field with modern curved radius
-                  Expanded(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: inputBg,
-                        borderRadius: BorderRadius.circular(28),
-                        border: Border.all(
-                          color: isDark ? const Color(0xFF323846) : const Color(0xFFE2E8F0),
-                          width: 1.0,
+              child: _isRecording
+                  ? _buildRecordingBar(isDark)
+                  : Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        // Telegram attachment paperclip button
+                        IconButton(
+                          onPressed: widget.uploading ? null : () => _showAttachmentSheet(context),
+                          icon: Icon(
+                            Icons.attach_file_rounded,
+                            color: isDark ? const Color(0xFF8E8E93) : const Color(0xFF61758A),
+                            size: 24,
+                          ),
+                          tooltip: 'Attachments',
+                          padding: const EdgeInsets.all(8),
+                          constraints: const BoxConstraints(),
                         ),
-                      ),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 3),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              controller: controller,
-                              minLines: 1,
-                              maxLines: 5,
-                              style: TextStyle(
-                                color: isDark ? Colors.white : Colors.black,
-                                fontSize: 15,
-                              ),
-                              textInputAction: TextInputAction.newline,
-                              onSubmitted: (_) {
-                                if (canSend) onSend();
-                              },
-                              decoration: InputDecoration(
-                                hintText: 'Message…',
-                                hintStyle: TextStyle(
-                                  color: isDark ? const Color(0xFF8E8E93) : const Color(0xFF8E8E93),
-                                  fontSize: 15,
-                                ),
-                                border: InputBorder.none,
-                                enabledBorder: InputBorder.none,
-                                focusedBorder: InputBorder.none,
-                                isDense: true,
-                                contentPadding: const EdgeInsets.symmetric(vertical: 10),
-                              ),
-                            ),
-                          ),
-                          GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onTap: () => _openEmojiPicker(context),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-                              child: Icon(
-                                Icons.sentiment_satisfied_alt_rounded,
-                                color: isDark ? const Color(0xFF8E8E93) : const Color(0xFF61758A),
-                                size: 22,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  // Dynamic send / voice mic button
-                  uploading
-                      ? const Padding(
-                          padding: EdgeInsets.all(10),
-                          child: SizedBox(
-                            width: 22,
-                            height: 22,
-                            child: CircularProgressIndicator(strokeWidth: 2.5),
-                          ),
-                        )
-                      : Container(
-                          width: 44,
-                          height: 44,
-                          decoration: const BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: Color(0xFF007AFF),
-                          ),
-                          child: IconButton(
-                            onPressed: canSend ? onSend : null,
+                        // Quick Camera capture button beside the input field
+                        if (widget.onPickCamera != null)
+                          IconButton(
+                            onPressed: widget.uploading ? null : widget.onPickCamera,
                             icon: Icon(
-                              canSend ? Icons.send_rounded : Icons.mic_rounded,
-                              color: Colors.white,
-                              size: 20,
+                              Icons.camera_alt_rounded,
+                              color: isDark ? const Color(0xFF8E8E93) : const Color(0xFF61758A),
+                              size: 24,
+                            ),
+                            tooltip: 'Take Photo',
+                            padding: const EdgeInsets.only(left: 4, right: 6, bottom: 8, top: 8),
+                            constraints: const BoxConstraints(),
+                          ),
+                        // Capsule text field with modern curved radius
+                        Expanded(
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: inputBg,
+                              borderRadius: BorderRadius.circular(28),
+                              border: Border.all(
+                                color: isDark ? const Color(0xFF323846) : const Color(0xFFE2E8F0),
+                                width: 1.0,
+                              ),
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 3),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: TextField(
+                                    controller: widget.controller,
+                                    minLines: 1,
+                                    maxLines: 5,
+                                    style: TextStyle(
+                                      color: isDark ? Colors.white : Colors.black,
+                                      fontSize: 15,
+                                    ),
+                                    textInputAction: TextInputAction.newline,
+                                    onSubmitted: (_) {
+                                      if (widget.canSend) widget.onSend();
+                                    },
+                                    decoration: InputDecoration(
+                                      hintText: 'Message…',
+                                      hintStyle: TextStyle(
+                                        color: isDark ? const Color(0xFF8E8E93) : const Color(0xFF8E8E93),
+                                        fontSize: 15,
+                                      ),
+                                      border: InputBorder.none,
+                                      enabledBorder: InputBorder.none,
+                                      focusedBorder: InputBorder.none,
+                                      isDense: true,
+                                      contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                                    ),
+                                  ),
+                                ),
+                                GestureDetector(
+                                  behavior: HitTestBehavior.opaque,
+                                  onTap: () => _openEmojiPicker(context),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                                    child: Icon(
+                                      Icons.sentiment_satisfied_alt_rounded,
+                                      color: isDark ? const Color(0xFF8E8E93) : const Color(0xFF61758A),
+                                      size: 22,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ),
-                ],
-              ),
+                        const SizedBox(width: 8),
+                        // Dynamic send / voice mic button
+                        widget.uploading
+                            ? const Padding(
+                                padding: EdgeInsets.all(10),
+                                child: SizedBox(
+                                  width: 22,
+                                  height: 22,
+                                  child: CircularProgressIndicator(strokeWidth: 2.5),
+                                ),
+                              )
+                            : Container(
+                                width: 44,
+                                height: 44,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: widget.canSend ? const Color(0xFF007AFF) : const Color(0xFF34C759),
+                                ),
+                                child: IconButton(
+                                  onPressed: widget.canSend ? widget.onSend : _startRecording,
+                                  icon: Icon(
+                                    widget.canSend ? Icons.send_rounded : Icons.mic_rounded,
+                                    color: Colors.white,
+                                    size: 20,
+                                  ),
+                                  tooltip: widget.canSend ? 'Send' : 'Hold or Tap to Record',
+                                ),
+                              ),
+                      ],
+                    ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildRecordingBar(bool isDark) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF222630) : const Color(0xFFF1F5F9),
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: const Color(0xFFFF3B30).withValues(alpha: 0.5)),
+      ),
+      child: Row(
+        children: [
+          // Blinking red record dot
+          FadeTransition(
+            opacity: _pulseController,
+            child: Container(
+              width: 12,
+              height: 12,
+              decoration: const BoxDecoration(
+                color: Color(0xFFFF3B30),
+                shape: BoxShape.circle,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          // Timer
+          Text(
+            _formatRecordTime(_recordSeconds),
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              color: isDark ? Colors.white : Colors.black87,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            'Recording voice…',
+            style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+          ),
+          const Spacer(),
+          // Cancel / Delete
+          IconButton(
+            onPressed: _cancelRecording,
+            icon: const Icon(Icons.delete_outline_rounded, color: Color(0xFFFF3B30), size: 22),
+            tooltip: 'Cancel recording',
+          ),
+          const SizedBox(width: 6),
+          // Stop & Send
+          Container(
+            width: 38,
+            height: 38,
+            decoration: const BoxDecoration(
+              color: Color(0xFF007AFF),
+              shape: BoxShape.circle,
+            ),
+            child: IconButton(
+              onPressed: _stopAndSendRecording,
+              icon: const Icon(Icons.send_rounded, color: Colors.white, size: 18),
+              tooltip: 'Send voice message',
+              padding: EdgeInsets.zero,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -219,8 +441,8 @@ class Composer extends StatelessWidget {
     EmojiPickerSheet.show(
       context,
       onEmojiSelected: (emoji) {
-        final text = controller.text;
-        final selection = controller.selection;
+        final text = widget.controller.text;
+        final selection = widget.controller.selection;
         final start = selection.baseOffset >= 0 ? selection.baseOffset : text.length;
         final end = selection.extentOffset >= 0 ? selection.extentOffset : text.length;
         final newText = text.replaceRange(
@@ -228,37 +450,28 @@ class Composer extends StatelessWidget {
           start < end ? end : start,
           emoji,
         );
-        controller.value = TextEditingValue(
+        widget.controller.value = TextEditingValue(
           text: newText,
           selection: TextSelection.collapsed(offset: (start < end ? start : end) + emoji.length),
         );
       },
       onBackspace: () {
-        final text = controller.text;
+        final text = widget.controller.text;
         if (text.isEmpty) return;
-        final selection = controller.selection;
+        final selection = widget.controller.selection;
         final start = selection.baseOffset >= 0 ? selection.baseOffset : text.length;
         final end = selection.extentOffset >= 0 ? selection.extentOffset : text.length;
         if (start != end) {
-          final newText = text.replaceRange(
-            start < end ? start : end,
-            start < end ? end : start,
-            '',
-          );
-          controller.value = TextEditingValue(
-            text: newText,
-            selection: TextSelection.collapsed(offset: start < end ? start : end),
+          widget.controller.value = TextEditingValue(
+            text: text.replaceRange(start, end, ''),
+            selection: TextSelection.collapsed(offset: start),
           );
         } else if (start > 0) {
-          final runes = text.runes.toList();
-          if (runes.isNotEmpty) {
-            runes.removeLast();
-            final newText = String.fromCharCodes(runes);
-            controller.value = TextEditingValue(
-              text: newText,
-              selection: TextSelection.collapsed(offset: newText.length),
-            );
-          }
+          final newText = text.substring(0, start - 1) + text.substring(start);
+          widget.controller.value = TextEditingValue(
+            text: newText,
+            selection: TextSelection.collapsed(offset: start - 1),
+          );
         }
       },
     );
@@ -270,19 +483,22 @@ class _TelegramAttachmentSheet extends StatelessWidget {
   final VoidCallback? onPickCamera;
   final ValueChanged<Map<String, dynamic>>? onSendPoll;
   final VoidCallback? onSendGift;
+  final ValueChanged<CommunityShareItem>? onShareCommunity;
+  final ValueChanged<LocationShareData>? onShareLocation;
 
   const _TelegramAttachmentSheet({
     required this.onPickImage,
     this.onPickCamera,
     this.onSendPoll,
     this.onSendGift,
+    this.onShareCommunity,
+    this.onShareLocation,
   });
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final messenger = ScaffoldMessenger.of(context);
-    final router = GoRouter.of(context);
     final navigator = Navigator.of(context);
 
     final actions = [
@@ -304,27 +520,27 @@ class _TelegramAttachmentSheet extends StatelessWidget {
           );
         }
       }),
-      _AttachmentAction('Community', Icons.group_add_rounded, const Color(0xFF34C759), () {
+      _AttachmentAction('Community', Icons.groups_rounded, const Color(0xFF34C759), () {
         navigator.pop();
-        showCreateCommunityDialog(context);
+        if (onShareCommunity != null) {
+          ShareCommunitySheet.show(context, onSelect: onShareCommunity!);
+        }
       }),
       _AttachmentAction('Gift', Icons.card_giftcard_rounded, const Color(0xFFFF2D55), () {
         navigator.pop();
         if (onSendGift != null) {
           onSendGift!();
-        } else {
-          router.push('/gifts');
         }
       }),
       _AttachmentAction('Wallet', Icons.account_balance_wallet_rounded, const Color(0xFF5856D6), () {
         navigator.pop();
-        router.push('/wallet');
+        WalletSheet.show(context);
       }),
       _AttachmentAction('Location', Icons.location_on_rounded, const Color(0xFFFFCC00), () {
         navigator.pop();
-        messenger.showSnackBar(
-          const SnackBar(content: Text('Location sharing ready')),
-        );
+        if (onShareLocation != null) {
+          ShareLocationSheet.show(context, onShare: onShareLocation!);
+        }
       }),
     ];
 
@@ -357,10 +573,10 @@ class _TelegramAttachmentSheet extends StatelessWidget {
               physics: const NeverScrollableScrollPhysics(),
               itemCount: actions.length,
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 3,
+                crossAxisCount: 4,
                 mainAxisSpacing: 16,
-                crossAxisSpacing: 16,
-                childAspectRatio: 0.9,
+                crossAxisSpacing: 12,
+                childAspectRatio: 0.85,
               ),
               itemBuilder: (ctx, i) {
                 final item = actions[i];
@@ -371,29 +587,31 @@ class _TelegramAttachmentSheet extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Container(
-                        width: 54,
-                        height: 54,
+                        width: 52,
+                        height: 52,
                         decoration: BoxDecoration(
                           color: item.color,
                           shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
-                              color: item.color.withOpacity(0.3),
+                              color: item.color.withValues(alpha: 0.3),
                               blurRadius: 10,
                               offset: const Offset(0, 4),
                             ),
                           ],
                         ),
-                        child: Icon(item.icon, color: Colors.white, size: 26),
+                        child: Icon(item.icon, color: Colors.white, size: 24),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 6),
                       Text(
                         item.title,
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: 11,
                           fontWeight: FontWeight.w600,
                           color: isDark ? Colors.grey[300] : Colors.black87,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ),
@@ -455,8 +673,8 @@ class _ReplyBar extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: 13,
-                    color: isDark ? Colors.grey[400] : const Color(0xFF61758A),
+                    fontSize: 12,
+                    color: isDark ? Colors.grey[400] : Colors.grey[600],
                   ),
                 ),
               ],
@@ -465,7 +683,9 @@ class _ReplyBar extends StatelessWidget {
           IconButton(
             onPressed: onDismiss,
             icon: const Icon(Icons.close, size: 18),
-            visualDensity: VisualDensity.compact,
+            color: isDark ? Colors.grey[400] : Colors.grey[600],
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
           ),
         ],
       ),
@@ -484,39 +704,34 @@ class _ImagePreview extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       color: isDark ? const Color(0xFF1C1C1E) : const Color(0xFFF2F5F8),
-      padding: const EdgeInsets.fromLTRB(16, 8, 8, 4),
-      alignment: Alignment.centerLeft,
+      padding: const EdgeInsets.all(8),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
         children: [
           ClipRRect(
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(8),
             child: Image.file(
               File(file.path),
-              width: 48,
-              height: 48,
+              width: 56,
+              height: 56,
               fit: BoxFit.cover,
-              errorBuilder: (_, _, _) => const SizedBox(
-                width: 48,
-                height: 48,
-                child: Icon(Icons.broken_image_outlined),
-              ),
             ),
           ),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              'Photo',
+              file.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontSize: 13,
-                color: isDark ? Colors.grey[400] : const Color(0xFF61758A),
+                color: isDark ? Colors.white : Colors.black,
               ),
             ),
           ),
           IconButton(
             onPressed: onDismiss,
             icon: const Icon(Icons.close, size: 18),
-            visualDensity: VisualDensity.compact,
+            color: isDark ? Colors.grey[400] : Colors.grey[600],
           ),
         ],
       ),

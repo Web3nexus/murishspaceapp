@@ -1409,11 +1409,11 @@ class _SystemBroadcastTile extends ConsumerWidget {
                   Row(
                     children: [
                       Text(
-                        '📢 MurihSpace System',
+                        'MurihSpace Official',
                         style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: textPrimary),
                       ),
                       const SizedBox(width: 4),
-                      const Icon(Icons.verified_rounded, color: Color(0xFF007AFF), size: 15),
+                      const Icon(Icons.verified_rounded, color: Color(0xFF007AFF), size: 16),
                       if (bState.isPinned) ...[
                         const SizedBox(width: 4),
                         const Icon(Icons.push_pin_rounded, color: Color(0xFF007AFF), size: 13),

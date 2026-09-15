@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../config/router.dart';
 import '../providers/calls_provider.dart';
 import '../screens/call_screen.dart';
+import '../core/api_client.dart';
 import '../services/sound_service.dart';
 
 class IncomingCallOverlay extends ConsumerStatefulWidget {
@@ -41,7 +42,7 @@ class _IncomingCallOverlayState extends ConsumerState<IncomingCallOverlay>
     _vibrationTimer?.cancel();
     HapticFeedback.heavyImpact();
     SoundService.instance.startIncomingRingtone();
-    _vibrationTimer = Timer.periodic(const Duration(milliseconds: 1800), (timer) {
+    _vibrationTimer = Timer.periodic(const Duration(milliseconds: 1800), (timer) async {
       if (!mounted) {
         timer.cancel();
         return;
@@ -52,6 +53,21 @@ class _IncomingCallOverlayState extends ConsumerState<IncomingCallOverlay>
         return;
       }
       HapticFeedback.vibrate();
+
+      // Check if caller already hung up on backend
+      try {
+        final res = await ApiClient.instance.dio.get('/calls/${active.callId}');
+        final data = ApiClient.instance.unwrap(res);
+        if (data is Map<String, dynamic>) {
+          final call = data['call'] is Map<String, dynamic> ? data['call'] as Map<String, dynamic> : data;
+          final status = call['status']?.toString();
+          if (status != null && status != 'ringing') {
+            timer.cancel();
+            _stopRingingFeedback();
+            ref.read(callsProvider.notifier).handleCallEnded({});
+          }
+        }
+      } catch (_) {}
     });
   }
 

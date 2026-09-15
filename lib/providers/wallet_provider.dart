@@ -133,18 +133,110 @@ class FeePreview {
   }
 }
 
+class WalletTransaction {
+  final int id;
+  final String description;
+  final String type;
+  final double amount;
+  final String currency;
+  final String status;
+  final DateTime createdAt;
+
+  const WalletTransaction({
+    required this.id,
+    required this.description,
+    required this.type,
+    required this.amount,
+    required this.currency,
+    required this.status,
+    required this.createdAt,
+  });
+
+  factory WalletTransaction.fromJson(Map<String, dynamic> json) {
+    return WalletTransaction(
+      id: (json['id'] as num?)?.toInt() ?? 0,
+      description: json['description'] as String? ?? json['title'] as String? ?? 'Transaction',
+      type: json['type'] as String? ?? 'credit',
+      amount: (json['amount'] as num?)?.toDouble() ?? 0.0,
+      currency: json['currency'] as String? ?? 'USD',
+      status: json['status'] as String? ?? 'completed',
+      createdAt: json['created_at'] != null
+          ? DateTime.tryParse(json['created_at'].toString()) ?? DateTime.now()
+          : DateTime.now(),
+    );
+  }
+}
+
 class WalletState {
   final bool loading;
   final String? error;
   final List<Wallet> wallets;
+  final List<WalletTransaction> transactions;
   final FeePreview? feePreview;
 
   const WalletState({
     this.loading = false,
     this.error,
     this.wallets = const [],
+    this.transactions = const [],
     this.feePreview,
   });
+
+  double get systemBalance {
+    final sysWallet = wallets.firstWhere(
+      (w) => w.type == WalletType.system,
+      orElse: () => const Wallet(
+        id: 0,
+        type: WalletType.system,
+        available: 0,
+        pending: 0,
+        reserved: 0,
+        escrow: 0,
+        withdrawable: 0,
+        nonWithdrawable: 0,
+        disputed: 0,
+        total: 0,
+        currency: 'USD',
+        amountUsd: 0.0,
+        coins: 0,
+        localCurrency: 'NGN',
+        localRate: 1550.0,
+        localEstimatedAvailable: 0.0,
+        localFormatted: '₦0.00',
+        hasPin: false,
+        status: 'active',
+      ),
+    );
+    return sysWallet.available / 100.0;
+  }
+
+  int get coinsBalance {
+    final sysWallet = wallets.firstWhere(
+      (w) => w.type == WalletType.system,
+      orElse: () => const Wallet(
+        id: 0,
+        type: WalletType.system,
+        available: 0,
+        pending: 0,
+        reserved: 0,
+        escrow: 0,
+        withdrawable: 0,
+        nonWithdrawable: 0,
+        disputed: 0,
+        total: 0,
+        currency: 'USD',
+        amountUsd: 0.0,
+        coins: 0,
+        localCurrency: 'NGN',
+        localRate: 1550.0,
+        localEstimatedAvailable: 0.0,
+        localFormatted: '₦0.00',
+        hasPin: false,
+        status: 'active',
+      ),
+    );
+    return sysWallet.coins;
+  }
 
   double get creatorBalance {
     final creatorWallet = wallets.firstWhere(
@@ -208,6 +300,7 @@ class WalletState {
     bool? loading,
     String? error,
     List<Wallet>? wallets,
+    List<WalletTransaction>? transactions,
     FeePreview? feePreview,
     bool clearError = false,
   }) {
@@ -215,6 +308,7 @@ class WalletState {
       loading: loading ?? this.loading,
       error: clearError ? null : (error ?? this.error),
       wallets: wallets ?? this.wallets,
+      transactions: transactions ?? this.transactions,
       feePreview: feePreview ?? this.feePreview,
     );
   }
@@ -234,7 +328,14 @@ class WalletNotifier extends Notifier<WalletState> {
     try {
       final response = await _dio.get('/wallet');
       final list = ApiClient.instance.unwrapList<Wallet>(response, Wallet.fromJson);
-      state = WalletState(wallets: list);
+
+      List<WalletTransaction> txList = [];
+      try {
+        final txRes = await _dio.get('/wallet/transactions');
+        txList = ApiClient.instance.unwrapList<WalletTransaction>(txRes, WalletTransaction.fromJson);
+      } catch (_) {}
+
+      state = WalletState(wallets: list, transactions: txList);
     } on DioException catch (e) {
       state = state.copyWith(loading: false, error: _errorMessage(e));
     } catch (_) {
