@@ -163,7 +163,6 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
     try {
       await [
         Permission.microphone,
-        Permission.bluetoothConnect,
         if (widget.isVideo) Permission.camera,
       ].request();
     } catch (e) {
