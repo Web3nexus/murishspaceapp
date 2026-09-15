@@ -438,7 +438,7 @@ class CallsNotifier extends Notifier<CallsState> {
       state = state.copyWith(
         activeCall: state.activeCall!.copyWith(
           status: 'connected',
-          token: token ?? state.activeCall!.token,
+          token: state.activeCall!.isIncoming ? state.activeCall!.token : (token ?? state.activeCall!.token),
           host: host ?? state.activeCall!.host,
           startedAt: startedAt ?? state.activeCall!.startedAt ?? DateTime.now().toUtc(),
         ),

@@ -76,7 +76,7 @@ class _IncomingCallOverlayState extends ConsumerState<IncomingCallOverlay>
         if (data is Map<String, dynamic>) {
           final call = data['call'] is Map<String, dynamic> ? data['call'] as Map<String, dynamic> : data;
           final status = call['status']?.toString();
-          if (status != null && status != 'ringing' && status != 'connecting') {
+          if (status == 'ended' || status == 'declined' || status == 'cancelled') {
             timer.cancel();
             _stopRingingFeedback();
             ref.read(callsProvider.notifier).handleCallEnded({});
@@ -126,6 +126,7 @@ class _IncomingCallOverlayState extends ConsumerState<IncomingCallOverlay>
                 behavior: HitTestBehavior.opaque,
                 onTap: () {
                   HapticFeedback.lightImpact();
+                  _stopRingingFeedback();
                   rootNavigatorKey.currentState?.push(
                     MaterialPageRoute(
                       builder: (_) => CallScreen(

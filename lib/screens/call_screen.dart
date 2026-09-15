@@ -218,7 +218,7 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
         } else if (status == 'accepted' && _status != CallStatus.connected) {
           _connectingTimeoutTimer?.cancel();
           await SoundService.instance.stopRinging();
-          final token = (data['livekit_token'] ?? call['livekit_token'])?.toString();
+          final token = widget.isIncoming ? null : (data['livekit_token'] ?? call['livekit_token'])?.toString();
           final host = (data['livekit_host'] ?? call['livekit_host'])?.toString();
           final startedAtStr = (data['started_at'] ?? call['started_at'])?.toString();
           if (startedAtStr != null && startedAtStr.isNotEmpty) {
@@ -227,7 +227,7 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
           if (ref.read(callsProvider).activeCall != null) {
             ref.read(callsProvider.notifier).handleCallAccepted({
               'id': _activeCallId,
-              'livekit_token': token,
+              if (token != null) 'livekit_token': token,
               'livekit_host': host,
               'started_at': startedAtStr,
             });
@@ -271,7 +271,8 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
 
   /// Connect to LiveKit Room using active session credentials
   Future<void> _connectLiveKit() async {
-    if (_isConnectingRoom || _room != null) return;
+    if (_isConnectingRoom) return;
+    if (_room != null && _room!.connectionState == ConnectionState.connected) return;
     _isConnectingRoom = true;
 
     try {
@@ -367,9 +368,10 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
           }
         })
         ..on<ParticipantDisconnectedEvent>((event) {
+          debugPrint('[LiveKit] ⚠️ ParticipantDisconnected: ${event.participant.identity}');
           if (mounted) {
-            // Apply 4s grace period before ending call in case of quick network reconnection
-            Future.delayed(const Duration(milliseconds: 4000), () {
+            // Apply 8s grace period before ending call in case of quick network reconnection
+            Future.delayed(const Duration(milliseconds: 8000), () {
               if (mounted && (_room?.remoteParticipants.isEmpty ?? true)) {
                 _onRemoteParticipantLeft();
               }
@@ -377,6 +379,7 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
           }
         })
         ..on<RoomDisconnectedEvent>((event) {
+          debugPrint('[LiveKit] ⚠️ RoomDisconnectedEvent reason: ${event.reason}');
           if (mounted && _status == CallStatus.connected) {
             _onRemoteParticipantLeft();
           }
@@ -803,6 +806,27 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
                                     : Colors.white70)),
                       ),
                     ),
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.lock_rounded,
+                        size: 13,
+                        color: _status == CallStatus.connected ? const Color(0xFF34C759) : Colors.white54,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'End-to-End Encrypted',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: _status == CallStatus.connected ? const Color(0xFF34C759) : Colors.white54,
+                          letterSpacing: 0.2,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
