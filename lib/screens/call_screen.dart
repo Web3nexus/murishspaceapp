@@ -51,12 +51,13 @@ class CallScreen extends ConsumerStatefulWidget {
 class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProviderStateMixin {
   bool _isMuted = false;
   late bool _isCameraOff;
-  bool _isSpeakerOn = false;
+  bool _isSpeakerOn = true;
   bool _isFrontCamera = true;
   CallStatus _status = CallStatus.connecting;
   int? _activeCallId;
 
   int _callSeconds = 0;
+  DateTime? _startedAt;
   Timer? _callTimer;
   Timer? _statusPollTimer;
   Timer? _ringingTimeoutTimer;
@@ -76,7 +77,7 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
   void initState() {
     super.initState();
     _isCameraOff = !widget.isVideo;
-    _isSpeakerOn = widget.isVideo;
+    _isSpeakerOn = true;
     _activeCallId = widget.callId;
 
     _pulseController = AnimationController(
@@ -109,6 +110,7 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
     } else {
       _status = CallStatus.connecting;
       _startRingingTimeout();
+      SoundService.instance.startOutgoingRingback();
 
       if (widget.isVideo) {
         _initLocalCameraPreview();
@@ -196,17 +198,21 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
           SoundService.instance.stopRinging();
           final token = (data['livekit_token'] ?? call['livekit_token'])?.toString();
           final host = (data['livekit_host'] ?? call['livekit_host'])?.toString();
+          final startedAtStr = (data['started_at'] ?? call['started_at'])?.toString();
+          if (startedAtStr != null && startedAtStr.isNotEmpty) {
+            _startedAt = DateTime.tryParse(startedAtStr);
+          }
           if (ref.read(callsProvider).activeCall != null) {
             ref.read(callsProvider.notifier).handleCallAccepted({
               'id': _activeCallId,
               'livekit_token': token,
               'livekit_host': host,
+              'started_at': startedAtStr,
             });
           }
           if (mounted) {
             setState(() {
               _status = CallStatus.connected;
-              _callSeconds = 0;
             });
             _startDurationTimer();
             _connectLiveKit();
@@ -320,6 +326,11 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
       } catch (e) {
         debugPrint('[Audio] Error setting speakerphone: $e');
       }
+      try {
+        await AudioManager.instance.setSpeakerOutputPreferred(_isSpeakerOn);
+      } catch (e) {
+        debugPrint('[Audio] Error setting speakerOutputPreferred: $e');
+      }
 
       // Publish local mic
       await room.localParticipant?.setMicrophoneEnabled(!_isMuted);
@@ -388,11 +399,21 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
 
   void _startDurationTimer() {
     _callTimer?.cancel();
+    _updateCallSeconds();
     _callTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (mounted && _status == CallStatus.connected) {
-        setState(() => _callSeconds++);
+        _updateCallSeconds();
       }
     });
+  }
+
+  void _updateCallSeconds() {
+    if (_startedAt != null) {
+      final diff = DateTime.now().toUtc().difference(_startedAt!.toUtc()).inSeconds;
+      setState(() => _callSeconds = diff > 0 ? diff : 0);
+    } else {
+      setState(() => _callSeconds++);
+    }
   }
 
   void _startRingingTimeout() {
@@ -465,16 +486,17 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
     SoundService.instance.stopRinging();
     if (_activeCallId != null && _activeCallId! > 0) {
       final data = await ref.read(callsProvider.notifier).acceptCall(_activeCallId!);
-      // acceptCall() already saves token into state via copyWith.
-      // If for some reason it returned a token directly, it is already stored.
       if (data != null) {
-        debugPrint('[CallScreen] accept response — livekit_token: ${(data['livekit_token'] ?? data['token']) != null ? 'present' : 'null'}');
+        final call = data['call'] is Map ? data['call'] as Map : data;
+        final startedAtStr = (call['started_at'] ?? data['started_at'])?.toString();
+        if (startedAtStr != null && startedAtStr.isNotEmpty) {
+          _startedAt = DateTime.tryParse(startedAtStr);
+        }
       }
     }
     if (mounted) {
       setState(() {
         _status = CallStatus.connected;
-        _callSeconds = 0;
       });
       _startDurationTimer();
       _connectLiveKit();
@@ -538,7 +560,9 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
       } else if (active.status == 'connected' && _status != CallStatus.connected) {
         _connectingTimeoutTimer?.cancel();
         SoundService.instance.stopRinging();
-        _callSeconds = 0;
+        if (active.startedAt != null) {
+          _startedAt = active.startedAt;
+        }
         _startDurationTimer();
         setState(() => _status = CallStatus.connected);
         _connectLiveKit();

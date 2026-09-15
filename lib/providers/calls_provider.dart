@@ -106,6 +106,7 @@ class ActiveCallSession {
   final String status; // 'incoming', 'ringing', 'connected', 'declined', 'ended'
   final bool isIncoming;
   final int? conversationId;
+  final DateTime? startedAt;
 
   ActiveCallSession({
     required this.callId,
@@ -121,6 +122,7 @@ class ActiveCallSession {
     this.status = 'ringing',
     this.isIncoming = false,
     this.conversationId,
+    this.startedAt,
   });
 
   ActiveCallSession copyWith({
@@ -137,6 +139,7 @@ class ActiveCallSession {
     String? status,
     bool? isIncoming,
     int? conversationId,
+    DateTime? startedAt,
   }) {
     return ActiveCallSession(
       callId: callId ?? this.callId,
@@ -152,6 +155,7 @@ class ActiveCallSession {
       status: status ?? this.status,
       isIncoming: isIncoming ?? this.isIncoming,
       conversationId: conversationId ?? this.conversationId,
+      startedAt: startedAt ?? this.startedAt,
     );
   }
 }
@@ -427,11 +431,16 @@ class CallsNotifier extends Notifier<CallsState> {
     if (state.activeCall != null) {
       final token = (data['livekit_token'] ?? data['token'])?.toString();
       final host = (data['livekit_host'] ?? data['host'])?.toString();
+      final startedAtStr = (data['started_at'] ?? data['call']?['started_at'])?.toString();
+      final startedAt = startedAtStr != null && startedAtStr.isNotEmpty
+          ? DateTime.tryParse(startedAtStr)
+          : null;
       state = state.copyWith(
         activeCall: state.activeCall!.copyWith(
           status: 'connected',
           token: token ?? state.activeCall!.token,
           host: host ?? state.activeCall!.host,
+          startedAt: startedAt ?? state.activeCall!.startedAt ?? DateTime.now().toUtc(),
         ),
       );
     }
