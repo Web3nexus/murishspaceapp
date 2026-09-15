@@ -16,6 +16,7 @@ enum CallStatus {
   incoming, // full-screen incoming ringing (before accept/decline)
   connected,
   declined,
+  unavailable,
   ended,
 }
 
@@ -54,6 +55,7 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
   bool _isSpeakerOn = true;
   bool _isFrontCamera = true;
   CallStatus _status = CallStatus.connecting;
+  String? _statusMessage;
   int? _activeCallId;
 
   int _callSeconds = 0;
@@ -125,11 +127,18 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
           contactName: widget.contactName,
           avatarUrl: widget.avatarUrl,
         ).then((res) {
-          if (res != null && mounted) {
+          if (!mounted) return;
+          if (res != null) {
             final call = res['call'] is Map ? res['call'] : res;
             _activeCallId = (call['id'] as num?)?.toInt();
             // Stay in CallStatus.connecting; ringback sound will play once callee receives signal and sends ringing ACK
             _startStatusPolling();
+          } else {
+            _handleUnavailable(message: 'Contact is unavailable or offline');
+          }
+        }).catchError((_) {
+          if (mounted) {
+            _handleUnavailable(message: 'Contact is unavailable or offline');
           }
         });
       }
@@ -141,20 +150,34 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
     _connectingTimeoutTimer = Timer(const Duration(seconds: 15), () {
       if (!mounted) return;
       if (_status == CallStatus.connecting) {
-        SoundService.instance.stopRinging();
-        _statusPollTimer?.cancel();
-        setState(() => _status = CallStatus.ended);
-        if (_activeCallId != null) {
-          try {
-            ApiClient.instance.dio.post('/calls/$_activeCallId/end', data: {'duration': 0});
-          } catch (_) {}
-        }
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Contact is unavailable or offline'), duration: Duration(seconds: 3)),
-        );
-        Future.delayed(const Duration(milliseconds: 1500), () {
-          if (mounted) Navigator.of(context).maybePop();
-        });
+        _handleUnavailable(message: 'Contact is unavailable or offline');
+      }
+    });
+  }
+
+  void _handleUnavailable({String message = 'Contact is unavailable or offline'}) {
+    if (!mounted) return;
+    if (_status == CallStatus.unavailable || _status == CallStatus.ended) return;
+
+    SoundService.instance.stopRinging();
+    _connectingTimeoutTimer?.cancel();
+    _ringingTimeoutTimer?.cancel();
+    _statusPollTimer?.cancel();
+
+    if (_activeCallId != null) {
+      try {
+        ApiClient.instance.dio.post('/calls/$_activeCallId/end', data: {'duration': 0});
+      } catch (_) {}
+    }
+
+    setState(() {
+      _status = CallStatus.unavailable;
+      _statusMessage = message;
+    });
+
+    Future.delayed(const Duration(milliseconds: 2500), () {
+      if (mounted) {
+        Navigator.of(context).maybePop();
       }
     });
   }
@@ -270,12 +293,7 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
         debugPrint('[LiveKit] ❌ No token available for call $_activeCallId — LiveKit not configured on server?');
         _isConnectingRoom = false;
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Could not connect call — server configuration issue.'),
-              duration: Duration(seconds: 3),
-            ),
-          );
+          _handleUnavailable(message: 'Could not connect call');
         }
         return;
       }
@@ -490,20 +508,7 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
     _ringingTimeoutTimer = Timer(const Duration(seconds: 45), () {
       if (!mounted) return;
       if (_status == CallStatus.ringing || _status == CallStatus.connecting || _status == CallStatus.incoming) {
-        SoundService.instance.stopRinging();
-        _statusPollTimer?.cancel();
-        setState(() => _status = CallStatus.ended);
-        if (_activeCallId != null) {
-          try {
-            ApiClient.instance.dio.post('/calls/$_activeCallId/end', data: {'duration': 0});
-          } catch (_) {}
-        }
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No answer (call timed out)'), duration: Duration(seconds: 2)),
-        );
-        Future.delayed(const Duration(milliseconds: 1500), () {
-          if (mounted) Navigator.of(context).maybePop();
-        });
+        _handleUnavailable(message: 'No answer');
       }
     });
   }
@@ -536,6 +541,9 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
   }
 
   String get _statusLabel {
+    if (_status == CallStatus.unavailable && _statusMessage != null && _statusMessage!.isNotEmpty) {
+      return _statusMessage!;
+    }
     switch (_status) {
       case CallStatus.connecting:
         return 'Connecting…';
@@ -547,6 +555,8 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
         return widget.isVideo ? 'Video Call · ${_formatDuration(_callSeconds)}' : _formatDuration(_callSeconds);
       case CallStatus.declined:
         return 'Call Declined';
+      case CallStatus.unavailable:
+        return _statusMessage ?? 'Contact is unavailable or offline';
       case CallStatus.ended:
         return 'Call Ended';
     }
@@ -730,7 +740,9 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
                               ? const Color(0xFF34C759)
                               : (_status == CallStatus.connected
                                   ? const Color(0xFF007AFF)
-                                  : Colors.white24),
+                                  : ((_status == CallStatus.unavailable || _status == CallStatus.declined)
+                                      ? const Color(0xFFFF3B30)
+                                      : Colors.white24)),
                           width: 3,
                         ),
                         boxShadow: (_status == CallStatus.ringing || _status == CallStatus.incoming)
@@ -760,24 +772,35 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
                   ),
                   const SizedBox(height: 8),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                     decoration: BoxDecoration(
                       color: Colors.black45,
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.white10),
+                      border: Border.all(
+                        color: (_status == CallStatus.unavailable || _status == CallStatus.declined)
+                            ? const Color(0xFFFF3B30).withValues(alpha: 0.4)
+                            : Colors.white10,
+                      ),
                     ),
                     child: Text(
                       widget.isVideo
                           ? (_status == CallStatus.connected
                               ? 'Video Call · ${_formatDuration(_callSeconds)}'
-                              : 'Video Call · $_statusLabel')
+                              : (_status == CallStatus.unavailable
+                                  ? _statusLabel
+                                  : 'Video Call · $_statusLabel'))
                           : _statusLabel,
+                      textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
                         color: _status == CallStatus.connected
                             ? const Color(0xFF34C759)
-                            : ((_status == CallStatus.ringing || _status == CallStatus.incoming) ? const Color(0xFFFFD60A) : Colors.white70),
+                            : ((_status == CallStatus.ringing || _status == CallStatus.incoming)
+                                ? const Color(0xFFFFD60A)
+                                : ((_status == CallStatus.unavailable || _status == CallStatus.declined)
+                                    ? const Color(0xFFFF453A)
+                                    : Colors.white70)),
                       ),
                     ),
                   ),
@@ -835,12 +858,16 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
                         widget.isVideo ? Icons.videocam_rounded : Icons.call_rounded,
                         color: _status == CallStatus.connected
                             ? const Color(0xFF34C759)
-                            : ((_status == CallStatus.ringing || _status == CallStatus.incoming) ? const Color(0xFFFFD60A) : Colors.white70),
+                            : ((_status == CallStatus.ringing || _status == CallStatus.incoming)
+                                ? const Color(0xFFFFD60A)
+                                : ((_status == CallStatus.unavailable || _status == CallStatus.declined)
+                                    ? const Color(0xFFFF453A)
+                                    : Colors.white70)),
                         size: 15,
                       ),
                       const SizedBox(width: 6),
                       Text(
-                        _statusLabel,
+                        _status == CallStatus.unavailable ? 'Unavailable' : _statusLabel,
                         style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
                       ),
                     ],
