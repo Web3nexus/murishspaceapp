@@ -228,7 +228,9 @@ class _ChatBodyState extends ConsumerState<_ChatBody> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final state = ref.watch(conversationsProvider);
     final all = state.conversations;
-    final base = all.where((c) => !c.isArchived).toList();
+    // Saved-messages conversations are NEVER shown in any filter tab —
+    // they only open via the bookmark icon tap.
+    final base = all.where((c) => !c.isArchived && c.type != 'saved').toList();
 
     final filtered = switch (_filter) {
       // 'App' = personal/direct DMs that are NOT marketplace, community, or group chats
@@ -237,7 +239,6 @@ class _ChatBodyState extends ConsumerState<_ChatBody> {
               (c.type == 'direct' || c.type == 'app') &&
               !c.hasActiveEscrow &&
               c.type != 'marketplace' &&
-              c.type != 'saved' &&
               c.community == null &&
               (c.memberCount == null || c.memberCount! <= 2))
           .toList(),
@@ -263,7 +264,8 @@ class _ChatBodyState extends ConsumerState<_ChatBody> {
               c.title.toLowerCase().contains('seller') ||
               c.title.toLowerCase().contains('buyer'))
           .toList(),
-      'Spam' => all.where((c) => c.isMuted || c.type == 'spam').toList(),
+      // 'Spam' uses `all` so must also exclude saved
+      'Spam' => all.where((c) => c.type != 'saved' && (c.isMuted || c.type == 'spam')).toList(),
       _ => base,
     };
 
