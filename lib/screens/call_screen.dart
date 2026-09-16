@@ -307,6 +307,9 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
 
       // Ensure ringing sound player is stopped to avoid audio focus competition
       await SoundService.instance.stopRinging();
+      // Give the OS audio session time to fully release before LiveKit's WebRTC
+      // engine takes over — prevents audio routing conflicts (especially on iOS).
+      await Future.delayed(const Duration(milliseconds: 250));
 
       host ??= 'wss://live-staging.murihspace.com';
       var wsHost = host.trim();
@@ -696,6 +699,9 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
         }
       } else if (active.status == 'connected' && _status != CallStatus.connected) {
         _connectingTimeoutTimer?.cancel();
+        // NOTE: Do NOT call _connectLiveKit() here — _startStatusPolling() already
+        // triggers it when it detects the accepted/connected status. Calling it
+        // from both places publishes duplicate microphone tracks causing silence.
         SoundService.instance.stopRinging();
         if (active.startedAt != null) {
           _startedAt = active.startedAt;
@@ -704,7 +710,6 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
         if (mounted) {
           setState(() => _status = CallStatus.connected);
         }
-        _connectLiveKit();
       } else if (active.status == 'declined' && _status != CallStatus.declined) {
         _connectingTimeoutTimer?.cancel();
         SoundService.instance.stopRinging();
