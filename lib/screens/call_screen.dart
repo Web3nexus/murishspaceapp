@@ -348,6 +348,10 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
             } catch (_) {}
           }
         })
+        ..on<ParticipantConnectedEvent>((event) {
+          debugPrint('[LiveKit] 👤 ParticipantConnected: ${event.participant.identity}');
+          if (mounted) setState(() {});
+        })
         ..on<TrackSubscribedEvent>((event) async {
           if (mounted && event.track is VideoTrack) {
             setState(() {
@@ -363,6 +367,7 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
               debugPrint('[LiveKit] ⚠️ Error starting remote audio track: $e');
             }
           }
+          if (mounted) setState(() {});
         })
         ..on<TrackUnsubscribedEvent>((event) async {
           if (mounted && event.track is VideoTrack) {
@@ -377,10 +382,12 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
               debugPrint('[LiveKit] ⚠️ Error stopping remote audio track: $e');
             }
           }
+          if (mounted) setState(() {});
         })
         ..on<ParticipantDisconnectedEvent>((event) {
           debugPrint('[LiveKit] ⚠️ ParticipantDisconnected: ${event.participant.identity}');
           if (mounted) {
+            setState(() {});
             // Apply 8s grace period before ending call in case of quick network reconnection
             Future.delayed(const Duration(milliseconds: 8000), () {
               if (mounted && (_room?.remoteParticipants.isEmpty ?? true)) {
@@ -467,6 +474,10 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
   }
 
   void _onRemoteParticipantLeft() {
+    if (_room != null && _room!.remoteParticipants.isNotEmpty) {
+      if (mounted) setState(() {});
+      return;
+    }
     SoundService.instance.stopRinging();
     _ringingTimeoutTimer?.cancel();
     _callTimer?.cancel();
@@ -481,6 +492,28 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
         }
       });
     }
+  }
+
+  void _showAddParticipantSheet() {
+    if (_activeCallId == null) return;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) => _AddParticipantSheet(
+        callId: _activeCallId!,
+        onInvited: (userName) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Invited $userName to call'),
+              behavior: SnackBarBehavior.floating,
+              backgroundColor: const Color(0xFF34C759),
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        },
+      ),
+    );
   }
 
   Future<void> _flipCamera() async {
@@ -690,8 +723,10 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
       }
     });
 
+    final remoteParticipants = _room?.remoteParticipants.values.toList() ?? [];
+    final isMultiParty = _status == CallStatus.connected && remoteParticipants.length > 1;
     final hasAvatar = widget.avatarUrl != null && widget.avatarUrl!.isNotEmpty;
-    final hasRemoteVideo = widget.isVideo && _status == CallStatus.connected && _remoteVideoTrack != null;
+    final hasRemoteVideo = widget.isVideo && _status == CallStatus.connected && _remoteVideoTrack != null && !isMultiParty;
 
     return Scaffold(
       backgroundColor: const Color(0xFF0F141C),
@@ -706,7 +741,7 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
                 fit: VideoViewFit.cover,
               ),
             )
-          else if (widget.isVideo && _localVideoTrack != null && !_isCameraOff)
+          else if (widget.isVideo && _localVideoTrack != null && !_isCameraOff && !isMultiParty)
             SizedBox.expand(
               child: VideoTrackRenderer(
                 _localVideoTrack!,
@@ -724,8 +759,101 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
               ),
             ),
 
+          // Multi-Party Video & Audio Grid
+          if (isMultiParty)
+            Positioned.fill(
+              top: MediaQuery.of(context).padding.top + 70,
+              bottom: MediaQuery.of(context).padding.bottom + 110,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                child: GridView.builder(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 10,
+                    mainAxisSpacing: 10,
+                    childAspectRatio: 0.85,
+                  ),
+                  itemCount: remoteParticipants.length,
+                  itemBuilder: (context, index) {
+                    final p = remoteParticipants[index];
+                    TrackPublication? videoPub;
+                    for (final pub in p.videoTrackPublications) {
+                      if (pub.subscribed && pub.track != null && !pub.muted) {
+                        videoPub = pub;
+                        break;
+                      }
+                    }
+                    bool isMuted = true;
+                    for (final pub in p.audioTrackPublications) {
+                      if (pub.subscribed && pub.track != null && !pub.muted) {
+                        isMuted = false;
+                        break;
+                      }
+                    }
+                    final name = p.name.isNotEmpty ? p.name : (p.identity.isNotEmpty ? p.identity : 'User');
+
+                    return Container(
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1E293B),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.white12),
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          if (videoPub?.track != null)
+                            VideoTrackRenderer(videoPub!.track as VideoTrack, fit: VideoViewFit.cover)
+                          else
+                            Center(
+                              child: CircleAvatar(
+                                radius: 28,
+                                backgroundColor: const Color(0xFF007AFF),
+                                child: Text(
+                                  name.substring(0, name.length >= 2 ? 2 : 1).toUpperCase(),
+                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+                                ),
+                              ),
+                            ),
+                          Positioned(
+                            bottom: 8,
+                            left: 8,
+                            right: 8,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.black54,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      name,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
+                                    ),
+                                  ),
+                                  Icon(
+                                    isMuted ? Icons.mic_off_rounded : Icons.mic_rounded,
+                                    size: 13,
+                                    color: isMuted ? const Color(0xFFFF3B30) : const Color(0xFF34C759),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+
           // Dark overlay gradient for contrast
-          if (hasRemoteVideo || (widget.isVideo && _localVideoTrack != null && !_isCameraOff))
+          if (hasRemoteVideo || (widget.isVideo && _localVideoTrack != null && !_isCameraOff && !isMultiParty))
             Container(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
@@ -743,7 +871,7 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
           // Profile Avatar & Info
           // In audio calls or while ringing, centered in middle
           // In video calls when connected, moves to compact top corner
-          if (!hasRemoteVideo)
+          if (!hasRemoteVideo && !isMultiParty)
             Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -907,7 +1035,11 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
                       ),
                       const SizedBox(width: 6),
                       Text(
-                        _status == CallStatus.unavailable ? 'Unavailable' : _statusLabel,
+                        _status == CallStatus.unavailable
+                            ? 'Unavailable'
+                            : (isMultiParty
+                                ? '${remoteParticipants.length + 1} Participants · ${_formatDuration(_callSeconds)}'
+                                : _statusLabel),
                         style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
                       ),
                     ],
@@ -1063,6 +1195,16 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
                           },
                         ),
 
+                        // Add Participant Button (Only when connected)
+                        if (_status == CallStatus.connected)
+                          _CallActionButton(
+                            icon: Icons.person_add_rounded,
+                            isActive: false,
+                            activeColor: const Color(0xFF007AFF),
+                            label: 'Add',
+                            onTap: _showAddParticipantSheet,
+                          ),
+
                         // End Call Button
                         GestureDetector(
                           onTap: _endCall,
@@ -1134,3 +1276,308 @@ class _CallActionButton extends StatelessWidget {
     );
   }
 }
+
+class _AddParticipantSheet extends ConsumerStatefulWidget {
+  final int callId;
+  final void Function(String userName)? onInvited;
+
+  const _AddParticipantSheet({
+    required this.callId,
+    this.onInvited,
+  });
+
+  @override
+  ConsumerState<_AddParticipantSheet> createState() => _AddParticipantSheetState();
+}
+
+class _AddParticipantSheetState extends ConsumerState<_AddParticipantSheet> {
+  final TextEditingController _searchController = TextEditingController();
+  List<Map<String, dynamic>> _users = [];
+  bool _isLoading = false;
+  final Set<int> _invitingIds = {};
+  final Set<int> _invitedIds = {};
+  Timer? _debounce;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchUsers('');
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _fetchUsers(String query) async {
+    if (!mounted) return;
+    setState(() => _isLoading = true);
+    try {
+      final q = query.trim();
+      final res = q.isEmpty
+          ? await ApiClient.instance.dio.get('/friends')
+          : await ApiClient.instance.dio.get('/friends/search', queryParameters: {'q': q});
+
+      final unwrapped = ApiClient.instance.unwrap(res);
+      final list = unwrapped is List
+          ? unwrapped
+          : (unwrapped is Map && unwrapped['data'] is List ? unwrapped['data'] as List : []);
+
+      final normalized = <Map<String, dynamic>>[];
+      for (final item in list) {
+        if (item is Map) {
+          final u = item['friend'] is Map
+              ? Map<String, dynamic>.from(item['friend'] as Map)
+              : Map<String, dynamic>.from(item);
+          if (u.containsKey('id')) {
+            normalized.add(u);
+          }
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          _users = normalized;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('[AddParticipantSheet] Error fetching contacts: $e');
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  void _onSearchChanged(String val) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 300), () {
+      _fetchUsers(val);
+    });
+  }
+
+  Future<void> _inviteUser(Map<String, dynamic> user) async {
+    final userId = (user['id'] as num?)?.toInt();
+    if (userId == null) return;
+
+    setState(() => _invitingIds.add(userId));
+    final success = await ref.read(callsProvider.notifier).inviteToCall(widget.callId, userId);
+    if (!mounted) return;
+
+    setState(() {
+      _invitingIds.remove(userId);
+      if (success) {
+        _invitedIds.add(userId);
+      }
+    });
+
+    if (success) {
+      widget.onInvited?.call((user['name'] ?? 'User').toString());
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to invite user to call'),
+          backgroundColor: Color(0xFFFF3B30),
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+
+    return Container(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.75,
+      ),
+      padding: EdgeInsets.only(bottom: bottomInset),
+      decoration: const BoxDecoration(
+        color: Color(0xFF131B26),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Drag indicator handle
+          const SizedBox(height: 10),
+          Container(
+            width: 38,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.white24,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Header
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.person_add_rounded, color: Color(0xFF007AFF), size: 22),
+                    SizedBox(width: 8),
+                    Text(
+                      'Add Person to Call',
+                      style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+                IconButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.close_rounded, color: Colors.white70, size: 22),
+                ),
+              ],
+            ),
+          ),
+
+          // Search Field
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E293B),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: Colors.white12),
+              ),
+              child: TextField(
+                controller: _searchController,
+                onChanged: _onSearchChanged,
+                style: const TextStyle(color: Colors.white, fontSize: 14),
+                decoration: InputDecoration(
+                  hintText: 'Search friends by name or username...',
+                  hintStyle: const TextStyle(color: Colors.white38, fontSize: 13),
+                  prefixIcon: const Icon(Icons.search_rounded, color: Colors.white38, size: 20),
+                  suffixIcon: _searchController.text.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear_rounded, color: Colors.white38, size: 18),
+                          onPressed: () {
+                            _searchController.clear();
+                            _fetchUsers('');
+                          },
+                        )
+                      : null,
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+              ),
+            ),
+          ),
+
+          // Contacts List
+          Expanded(
+            child: _isLoading
+                ? const Center(
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF007AFF)),
+                    ),
+                  )
+                : _users.isEmpty
+                    ? const Center(
+                        child: Text(
+                          'No matching contacts found',
+                          style: TextStyle(color: Colors.white54, fontSize: 13),
+                        ),
+                      )
+                    : ListView.separated(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        itemCount: _users.length,
+                        separatorBuilder: (_, _) => const Divider(color: Colors.white10, height: 1),
+                        itemBuilder: (context, index) {
+                          final u = _users[index];
+                          final id = (u['id'] as num?)?.toInt() ?? 0;
+                          final name = (u['name'] ?? 'User').toString();
+                          final username = (u['username'] ?? '').toString();
+                          final avatarUrl = (u['avatar_url'] ?? u['avatar'])?.toString();
+                          final isInviting = _invitingIds.contains(id);
+                          final isInvited = _invitedIds.contains(id);
+
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            child: Row(
+                              children: [
+                                CircleAvatar(
+                                  radius: 20,
+                                  backgroundColor: const Color(0xFF1E293B),
+                                  backgroundImage: (avatarUrl != null && avatarUrl.isNotEmpty)
+                                      ? NetworkImage(avatarUrl)
+                                      : null,
+                                  child: (avatarUrl == null || avatarUrl.isEmpty)
+                                      ? Text(
+                                          name.substring(0, name.length >= 2 ? 2 : 1).toUpperCase(),
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 14,
+                                          ),
+                                        )
+                                      : null,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        name,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      if (username.isNotEmpty)
+                                        Text(
+                                          '@$username',
+                                          style: const TextStyle(color: Colors.white38, fontSize: 12),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                ElevatedButton(
+                                  onPressed: (isInviting || isInvited) ? null : () => _inviteUser(u),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: isInvited
+                                        ? const Color(0xFF34C759).withValues(alpha: 0.2)
+                                        : const Color(0xFF007AFF),
+                                    foregroundColor: isInvited ? const Color(0xFF34C759) : Colors.white,
+                                    elevation: 0,
+                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                  ),
+                                  child: isInviting
+                                      ? const SizedBox(
+                                          width: 14,
+                                          height: 14,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            valueColor: AlwaysStoppedAnimation(Colors.white),
+                                          ),
+                                        )
+                                      : Text(
+                                          isInvited ? 'Invited' : 'Invite',
+                                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                                        ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+

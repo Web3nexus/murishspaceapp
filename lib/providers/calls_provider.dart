@@ -350,6 +350,18 @@ class CallsNotifier extends Notifier<CallsState> {
     }
   }
 
+  Future<bool> inviteToCall(int callId, int userId) async {
+    try {
+      final res = await ApiClient.instance.dio.post('/calls/$callId/invite', data: {
+        'user_id': userId,
+      });
+      return res.statusCode == 200 || res.statusCode == 201;
+    } catch (e) {
+      debugPrint('Error inviting user to call: $e');
+      return false;
+    }
+  }
+
   Future<void> declineCall(int callId) async {
     try {
       await ApiClient.instance.dio.post('/calls/$callId/decline');
