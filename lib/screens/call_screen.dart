@@ -52,7 +52,7 @@ class CallScreen extends ConsumerStatefulWidget {
 class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProviderStateMixin {
   bool _isMuted = false;
   late bool _isCameraOff;
-  bool _isSpeakerOn = true;
+  bool _isSpeakerOn = false;
   bool _isFrontCamera = true;
   CallStatus _status = CallStatus.connecting;
   String? _statusMessage;
@@ -79,7 +79,7 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
   void initState() {
     super.initState();
     _isCameraOff = !widget.isVideo;
-    _isSpeakerOn = true;
+    _isSpeakerOn = widget.isVideo;
     _activeCallId = widget.callId;
 
     _pulseController = AnimationController(
@@ -360,11 +360,10 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
           } else if (event.track is AudioTrack) {
             debugPrint('[LiveKit] 🎙️ Subscribed to remote audio track: ${event.track.sid}');
             try {
-              await (event.track as AudioTrack).start();
               await AudioManager.instance.setSpeakerOutputPreferred(_isSpeakerOn, force: _isSpeakerOn);
-              debugPrint('[LiveKit] ✅ Started remote audio playback & routed audio');
+              debugPrint('[LiveKit] ✅ Configured audio output route (speaker: $_isSpeakerOn)');
             } catch (e) {
-              debugPrint('[LiveKit] ⚠️ Error starting remote audio track: $e');
+              debugPrint('[LiveKit] ⚠️ Error configuring remote audio track route: $e');
             }
           }
           if (mounted) setState(() {});
@@ -376,11 +375,6 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
             });
           } else if (event.track is AudioTrack) {
             debugPrint('[LiveKit] Unsubscribed from remote audio track: ${event.track.sid}');
-            try {
-              await (event.track as AudioTrack).stop();
-            } catch (e) {
-              debugPrint('[LiveKit] ⚠️ Error stopping remote audio track: $e');
-            }
           }
           if (mounted) setState(() {});
         })
@@ -412,25 +406,23 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
         debugPrint('[LiveKit] ⚠️ Error calling startAudio: $e');
       }
 
-      // Start any existing remote audio tracks already published in the room
+      // Configure audio route for any existing remote audio tracks
       for (final p in room.remoteParticipants.values) {
         for (final pub in p.audioTrackPublications) {
           if (pub.subscribed && pub.track != null) {
-            debugPrint('[LiveKit] 🎙️ Starting existing remote audio track: ${pub.track!.sid}');
+            debugPrint('[LiveKit] 🎙️ Existing remote audio track found: ${pub.track!.sid}');
             try {
-              await pub.track!.start();
               await AudioManager.instance.setSpeakerOutputPreferred(_isSpeakerOn, force: _isSpeakerOn);
             } catch (e) {
-              debugPrint('[LiveKit] ⚠️ Error starting existing audio track: $e');
+              debugPrint('[LiveKit] ⚠️ Error routing existing audio track: $e');
             }
           }
         }
       }
 
-      // Configure speakerphone
+      // Configure speakerphone vs earpiece output
       try {
         await AudioManager.instance.setSpeakerOutputPreferred(_isSpeakerOn, force: _isSpeakerOn);
-        await Hardware.instance.setSpeakerphoneOn(_isSpeakerOn);
       } catch (e) {
         debugPrint('[Audio] Error configuring audio output: $e');
       }
@@ -484,6 +476,9 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
     _statusPollTimer?.cancel();
     _listener?.dispose();
     _listener = null;
+    _room?.disconnect();
+    _room?.dispose();
+    _room = null;
     if (mounted) {
       setState(() => _status = CallStatus.ended);
       Future.delayed(const Duration(milliseconds: 1200), () {
@@ -1189,7 +1184,6 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
                             final next = !_isSpeakerOn;
                             try {
                               await AudioManager.instance.setSpeakerOutputPreferred(next, force: next);
-                              await Hardware.instance.setSpeakerphoneOn(next);
                             } catch (_) {}
                             if (mounted) setState(() => _isSpeakerOn = next);
                           },
