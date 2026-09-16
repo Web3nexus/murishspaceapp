@@ -379,7 +379,9 @@ class _BubbleContent extends StatelessWidget {
               mine: mine,
               isDark: isDark,
             )
-          else if (message.type == 'call')
+          else if (message.type == 'call' ||
+              message.content.trim().startsWith('{"call_id"') ||
+              (message.content.trim().startsWith('{') && message.content.contains('"call_id"')))
             _CallMessageWidget(
               message: message,
               mine: mine,

@@ -46,7 +46,11 @@ String formatMessageTime(DateTime? dt) {
 /// Preview text for a message row (emojis/attachments handled).
 String messagePreview(Message message) {
   if (message.deleted) return 'This message was deleted';
-  if (message.type == 'call') {
+  final content = message.content.trim();
+  final isCall = message.type == 'call' ||
+      content.startsWith('{"call_id"') ||
+      (content.startsWith('{') && content.contains('"call_id"'));
+  if (isCall) {
     try {
       final data = jsonDecode(message.content) as Map<String, dynamic>;
       final isVideo = data['call_type'] == 'video';
