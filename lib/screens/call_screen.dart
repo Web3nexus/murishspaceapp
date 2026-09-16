@@ -147,7 +147,7 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
 
   void _startConnectingTimeout() {
     _connectingTimeoutTimer?.cancel();
-    _connectingTimeoutTimer = Timer(const Duration(seconds: 15), () {
+    _connectingTimeoutTimer = Timer(const Duration(seconds: 45), () {
       if (!mounted) return;
       if (_status == CallStatus.connecting) {
         _handleUnavailable(message: 'Contact is unavailable or offline');
