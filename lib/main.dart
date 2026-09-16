@@ -17,7 +17,9 @@ import 'providers/realtime_provider.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   try {
-    await LiveKitClient.initialize();
+    await LiveKitClient.initialize(
+      initialAudioSessionOptions: const AudioSessionOptions.communication(),
+    );
   } catch (e) {
     debugPrint('[LiveKitClient] Initialization error: $e');
   }

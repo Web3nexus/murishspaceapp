@@ -325,6 +325,8 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
           dynacast: true,
           defaultAudioPublishOptions: AudioPublishOptions(
             name: 'microphone',
+            dtx: false,
+            encoding: AudioEncoding.presetSpeech,
           ),
           defaultAudioCaptureOptions: AudioCaptureOptions(
             echoCancellation: true,
@@ -338,6 +340,14 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
       _listener = listener;
 
       listener
+        ..on<AudioPlaybackStatusChanged>((event) async {
+          debugPrint('[LiveKit] 🔊 AudioPlaybackStatusChanged: isPlaying=${event.isPlaying}');
+          if (!event.isPlaying) {
+            try {
+              await _room?.startAudio();
+            } catch (_) {}
+          }
+        })
         ..on<TrackSubscribedEvent>((event) async {
           if (mounted && event.track is VideoTrack) {
             setState(() {
@@ -347,7 +357,8 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
             debugPrint('[LiveKit] 🎙️ Subscribed to remote audio track: ${event.track.sid}');
             try {
               await (event.track as AudioTrack).start();
-              debugPrint('[LiveKit] ✅ Started remote audio playback');
+              await AudioManager.instance.setSpeakerOutputPreferred(_isSpeakerOn, force: _isSpeakerOn);
+              debugPrint('[LiveKit] ✅ Started remote audio playback & routed audio');
             } catch (e) {
               debugPrint('[LiveKit] ⚠️ Error starting remote audio track: $e');
             }
@@ -388,6 +399,12 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
       await room.connect(wsHost, token);
       debugPrint('[LiveKit] ✅ Connected to room');
 
+      try {
+        await room.startAudio();
+      } catch (e) {
+        debugPrint('[LiveKit] ⚠️ Error calling startAudio: $e');
+      }
+
       // Start any existing remote audio tracks already published in the room
       for (final p in room.remoteParticipants.values) {
         for (final pub in p.audioTrackPublications) {
@@ -395,6 +412,7 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
             debugPrint('[LiveKit] 🎙️ Starting existing remote audio track: ${pub.track!.sid}');
             try {
               await pub.track!.start();
+              await AudioManager.instance.setSpeakerOutputPreferred(_isSpeakerOn, force: _isSpeakerOn);
             } catch (e) {
               debugPrint('[LiveKit] ⚠️ Error starting existing audio track: $e');
             }
@@ -404,12 +422,10 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
 
       // Configure speakerphone
       try {
+        await AudioManager.instance.setSpeakerOutputPreferred(_isSpeakerOn, force: _isSpeakerOn);
         await Hardware.instance.setSpeakerphoneOn(_isSpeakerOn);
-      } catch (_) {}
-      try {
-        await AudioManager.instance.setSpeakerOutputPreferred(_isSpeakerOn);
       } catch (e) {
-        debugPrint('[Audio] Error setting speakerOutputPreferred: $e');
+        debugPrint('[Audio] Error configuring audio output: $e');
       }
 
       // Publish local mic
@@ -1040,6 +1056,7 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
                             HapticFeedback.selectionClick();
                             final next = !_isSpeakerOn;
                             try {
+                              await AudioManager.instance.setSpeakerOutputPreferred(next, force: next);
                               await Hardware.instance.setSpeakerphoneOn(next);
                             } catch (_) {}
                             if (mounted) setState(() => _isSpeakerOn = next);
