@@ -386,20 +386,25 @@ class CallsNotifier extends Notifier<CallsState> {
 
   void handleIncomingCall(Map<String, dynamic> data) {
     final callData = data['call'] is Map<String, dynamic> ? data['call'] as Map<String, dynamic> : data;
-    final caller = data['caller'] is Map<String, dynamic> ? data['caller'] as Map<String, dynamic> : {};
+    final caller = data['caller'] is Map<String, dynamic>
+        ? data['caller'] as Map<String, dynamic>
+        : (callData['caller'] is Map<String, dynamic> ? callData['caller'] as Map<String, dynamic> : {});
     final callId = (callData['id'] as num?)?.toInt() ?? 0;
+    if (callId <= 0) return;
+
+    // Do not interrupt if already in this exact call session
+    if (state.activeCall != null && state.activeCall!.callId == callId) return;
+
     final roomName = callData['room_name']?.toString() ?? '';
     final callerId = (callData['caller_id'] as num?)?.toInt() ?? 0;
-    final callerName = (caller['name'] ?? callData['caller_name'])?.toString() ?? 'Incoming Caller';
-    final callerAvatar = (caller['avatar'] ?? callData['caller_avatar'])?.toString() ?? '';
+    final callerName = (caller['name'] ?? callData['caller_name'] ?? caller['username'])?.toString() ?? 'Incoming Caller';
+    final callerAvatar = (caller['avatar_url'] ?? caller['avatar'] ?? callData['caller_avatar'] ?? callData['avatar_url'])?.toString() ?? '';
     final callType = callData['type']?.toString() ?? 'audio';
-    final token = (data['livekit_token'] ?? data['token'])?.toString();
-    final host = (data['livekit_host'] ?? data['host'])?.toString();
+    final token = (data['livekit_token'] ?? data['token'] ?? callData['livekit_token'])?.toString();
+    final host = (data['livekit_host'] ?? data['host'] ?? callData['livekit_host'])?.toString();
 
     // Acknowledge receipt to backend immediately so caller knows recipient is ringing
-    if (callId > 0) {
-      ApiClient.instance.dio.post('/calls/$callId/ringing').ignore();
-    }
+    ApiClient.instance.dio.post('/calls/$callId/ringing').ignore();
 
     state = state.copyWith(
       activeCall: ActiveCallSession(

@@ -71,29 +71,31 @@ class RealtimeService {
 
   void _dispatch(RealtimeEvent event) {
     // 1. Personal user notification & call signaling channels
-    final userMatch = RegExp(r'^private-(?:App\.Models\.User|user)\.(\d+)$').firstMatch(event.channel);
+    final userMatch = RegExp(r'^(?:private-)?(?:App\.Models\.User|user)\.(\d+)$').firstMatch(event.channel);
     if (userMatch != null) {
       final data = event.data is Map
           ? Map<String, dynamic>.from(event.data as Map)
           : <String, dynamic>{};
 
-      if (event.event == 'call.incoming' || event.event.contains('CallIncoming')) {
+      final normalizedEvent = event.event.replaceFirst(RegExp(r'^\.+'), '');
+
+      if (normalizedEvent == 'call.incoming' || event.event.contains('CallIncoming')) {
         _ref.read(callsProvider.notifier).handleIncomingCall(data);
         return;
       }
-      if (event.event == 'call.ringing' || event.event.contains('CallRinging')) {
+      if (normalizedEvent == 'call.ringing' || event.event.contains('CallRinging')) {
         _ref.read(callsProvider.notifier).handleCallRinging(data);
         return;
       }
-      if (event.event == 'call.accepted' || event.event.contains('CallAccepted')) {
+      if (normalizedEvent == 'call.accepted' || event.event.contains('CallAccepted')) {
         _ref.read(callsProvider.notifier).handleCallAccepted(data);
         return;
       }
-      if (event.event == 'call.declined' || event.event.contains('CallDeclined')) {
+      if (normalizedEvent == 'call.declined' || event.event.contains('CallDeclined')) {
         _ref.read(callsProvider.notifier).handleCallDeclined(data);
         return;
       }
-      if (event.event == 'call.ended' || event.event.contains('CallEnded')) {
+      if (normalizedEvent == 'call.ended' || event.event.contains('CallEnded')) {
         _ref.read(callsProvider.notifier).handleCallEnded(data);
         return;
       }
