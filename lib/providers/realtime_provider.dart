@@ -150,6 +150,7 @@ class RealtimeService {
             final currentUserId = _ref.read(authProvider).user?.id;
             if (convId != _activeConversationId && msg.userId != currentUserId) {
               _ref.read(inAppNotificationProvider.notifier).showFromMessage(msg);
+              SoundService.instance.playMessageReceived();
             }
           }
         } catch (_) {}
