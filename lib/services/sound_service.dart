@@ -72,10 +72,10 @@ class SoundService {
       await player.setAudioContext(AudioContext(
         iOS: AudioContextIOS(
           category: AVAudioSessionCategory.playback,
-          options: [
+          options: {
             AVAudioSessionOptions.defaultToSpeaker,
             AVAudioSessionOptions.mixWithOthers,
-          ],
+          },
         ),
         android: AudioContextAndroid(
           isSpeakerphoneOn: false,
@@ -117,10 +117,10 @@ class SoundService {
       await player.setAudioContext(AudioContext(
         iOS: AudioContextIOS(
           category: AVAudioSessionCategory.playback,
-          options: [
+          options: {
             AVAudioSessionOptions.defaultToSpeaker,
             AVAudioSessionOptions.mixWithOthers,
-          ],
+          },
         ),
         android: AudioContextAndroid(
           isSpeakerphoneOn: true,

@@ -4,6 +4,9 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'package:flutter_callkit_incoming/entities/call_event.dart';
 import 'package:flutter_callkit_incoming/entities/call_kit_params.dart';
+import 'package:flutter_callkit_incoming/entities/notification_params.dart';
+import 'package:flutter_callkit_incoming/entities/android_params.dart';
+import 'package:flutter_callkit_incoming/entities/ios_params.dart';
 
 import '../core/api_client.dart';
 import '../config/env.dart';
@@ -44,7 +47,7 @@ class PushService {
   Future<void> _sendTokenToBackend(String token) async {
     debugPrint('[PushService] FCM Token: $token');
     try {
-      await ApiClient.instance.post('/users/fcm-token', data: {'fcm_token': token});
+      await ApiClient.instance.post('/profile/fcm-token', data: {'fcm_token': token});
     } catch (e) {
       debugPrint('[PushService] Failed to send FCM token to backend: $e');
     }
@@ -73,8 +76,6 @@ class PushService {
         avatar: data['caller_avatar'] ?? '',
         handle: 'Murihspace Call',
         type: isVideo ? 1 : 0,
-        textAccept: 'Accept',
-        textDecline: 'Decline',
         missedCallNotification: const NotificationParams(
           showNotification: true,
           isShowCallback: true,
@@ -97,6 +98,8 @@ class PushService {
           textColor: '#ffffff',
           incomingCallNotificationChannelName: 'Incoming Call',
           missedCallNotificationChannelName: 'Missed Call',
+          textAccept: 'Accept',
+          textDecline: 'Decline',
         ),
         ios: const IOSParams(
           iconName: 'CallKitIcon',
@@ -120,34 +123,27 @@ class PushService {
     }
   }
 
-  void _handleCallKitEvent(CallEvent event) async {
-    switch (event.event) {
-      case Event.actionCallAccept:
-        debugPrint('[PushService] Call Accepted: ${event.body}');
-        final callId = event.body['extra']?['call_id'];
+  void _handleCallKitEvent(CallEvent? event) async {
+    if (event == null) return;
+    
+    if (event is CallEventActionCallAccept) {
+        debugPrint('[PushService] Call Accepted: ${event.callKitParams}');
+        final callId = event.callKitParams.extra?['call_id'];
         if (callId != null) {
           try {
-            // Tell the backend we accepted, which will generate our token
-            // The app's realtime provider will also pick up the status change
-            // and navigate to the call screen automatically.
             await ApiClient.instance.post('/calls/$callId/accept');
           } catch (e) {
             debugPrint('[PushService] Failed to accept call: $e');
           }
         }
-        break;
-      case Event.actionCallDecline:
-        debugPrint('[PushService] Call Declined: ${event.body}');
-        // Tell backend we declined the call
-        final callId = event.body['extra']?['call_id'];
+    } else if (event is CallEventActionCallDecline) {
+        debugPrint('[PushService] Call Declined: ${event.callKitParams}');
+        final callId = event.callKitParams.extra?['call_id'];
         if (callId != null) {
           try {
             await ApiClient.instance.post('/calls/$callId/decline');
           } catch (_) {}
         }
-        break;
-      default:
-        break;
     }
   }
 }
