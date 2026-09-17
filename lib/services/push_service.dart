@@ -27,6 +27,13 @@ class PushService {
     if (settings.authorizationStatus == AuthorizationStatus.authorized) {
       debugPrint('[PushService] User granted permission');
       
+      // Tell iOS to display foreground notifications as banners
+      await FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+
       // Get the token and send it to the backend
       String? token = await FirebaseMessaging.instance.getToken();
       if (token != null) {
