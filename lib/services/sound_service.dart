@@ -69,6 +69,22 @@ class SoundService {
       if (!_isRinging) return;
       final player = AudioPlayer();
       _ringingPlayer = player;
+      await player.setAudioContext(AudioContext(
+        iOS: AudioContextIOS(
+          category: AVAudioSessionCategory.playback,
+          options: [
+            AVAudioSessionOptions.defaultToSpeaker,
+            AVAudioSessionOptions.mixWithOthers,
+          ],
+        ),
+        android: AudioContextAndroid(
+          isSpeakerphoneOn: false,
+          stayAwake: true,
+          contentType: AndroidContentType.sonification,
+          usageType: AndroidUsageType.notificationCommunicationRequest,
+          audioFocus: AndroidAudioFocus.gainTransient,
+        ),
+      ));
       await player.setReleaseMode(ReleaseMode.loop);
       if (!_isRinging) {
         await player.stop();
@@ -98,6 +114,22 @@ class SoundService {
       if (!_isRinging) return;
       final player = AudioPlayer();
       _ringingPlayer = player;
+      await player.setAudioContext(AudioContext(
+        iOS: AudioContextIOS(
+          category: AVAudioSessionCategory.playback,
+          options: [
+            AVAudioSessionOptions.defaultToSpeaker,
+            AVAudioSessionOptions.mixWithOthers,
+          ],
+        ),
+        android: AudioContextAndroid(
+          isSpeakerphoneOn: true,
+          stayAwake: true,
+          contentType: AndroidContentType.music,
+          usageType: AndroidUsageType.notificationRingtone,
+          audioFocus: AndroidAudioFocus.gainTransient,
+        ),
+      ));
       await player.setReleaseMode(ReleaseMode.loop);
       if (!_isRinging) {
         await player.stop();
