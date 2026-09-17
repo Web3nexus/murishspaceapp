@@ -709,6 +709,7 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
         _startDurationTimer();
         if (mounted) {
           setState(() => _status = CallStatus.connected);
+          _connectLiveKit();
         }
       } else if (active.status == 'declined' && _status != CallStatus.declined) {
         _connectingTimeoutTimer?.cancel();
