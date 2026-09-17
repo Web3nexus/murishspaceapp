@@ -126,7 +126,7 @@ class ConversationMessagesNotifier extends Notifier<ConversationMessagesState> {
       final (older, hasMore) = _messagesFromPayload(payload);
       _page = nextPage;
       state = ConversationMessagesState(
-        messages: [...older, ...state.messages],
+        messages: [...state.messages, ...older],
         hasMore: hasMore,
       );
     } catch (_) {
@@ -431,7 +431,7 @@ class ConversationMessagesNotifier extends Notifier<ConversationMessagesState> {
     } else if (idxByUuid >= 0) {
       list[idxByUuid] = message;
     } else {
-      list.add(message);
+      list.insert(0, message);
     }
     state = state.copyWith(messages: list, clearError: true);
   }
