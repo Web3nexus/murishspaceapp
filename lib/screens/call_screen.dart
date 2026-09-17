@@ -1169,20 +1169,19 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
                           },
                         ),
 
-                        // Camera Toggle (If Video Call)
-                        if (widget.isVideo)
-                          _CallActionButton(
-                            icon: _isCameraOff ? Icons.videocam_off_rounded : Icons.videocam_rounded,
-                            isActive: _isCameraOff,
-                            activeColor: const Color(0xFFFF3B30),
-                            label: _isCameraOff ? 'Camera Off' : 'Camera',
-                            onTap: () async {
-                              HapticFeedback.selectionClick();
-                              final next = !_isCameraOff;
-                              await _room?.localParticipant?.setCameraEnabled(!next);
-                              if (mounted) setState(() => _isCameraOff = next);
-                            },
-                          ),
+                        // Camera Toggle (Available for all calls now)
+                        _CallActionButton(
+                          icon: _isCameraOff ? Icons.videocam_off_rounded : Icons.videocam_rounded,
+                          isActive: _isCameraOff,
+                          activeColor: const Color(0xFFFF3B30),
+                          label: _isCameraOff ? 'Camera Off' : 'Camera',
+                          onTap: () async {
+                            HapticFeedback.selectionClick();
+                            final next = !_isCameraOff;
+                            await _room?.localParticipant?.setCameraEnabled(!next);
+                            if (mounted) setState(() => _isCameraOff = next);
+                          },
+                        ),
 
                         // Speakerphone Toggle
                         _CallActionButton(
