@@ -691,6 +691,11 @@ class _ConversationTile extends ConsumerWidget {
               title: Text(conversation.isArchived ? 'Unarchive chat' : 'Archive chat'),
               onTap: () => Navigator.pop(ctx, 'archive'),
             ),
+            ListTile(
+              leading: const Icon(Icons.delete_outline, color: Colors.red),
+              title: const Text('Delete chat', style: TextStyle(color: Colors.red)),
+              onTap: () => Navigator.pop(ctx, 'delete'),
+            ),
             const SizedBox(height: 8),
           ],
         ),
@@ -706,6 +711,22 @@ class _ConversationTile extends ConsumerWidget {
         await notifier.setSettings(conversation.id, muted: !conversation.isMuted);
       case 'archive':
         await notifier.setSettings(conversation.id, archived: !conversation.isArchived);
+      case 'delete':
+        if (['business', 'marketplace', 'escrow'].contains(conversation.type)) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Business chats can only be deleted after 6 months of inactivity for transaction security.'),
+              duration: Duration(seconds: 4),
+            ),
+          );
+        } else {
+          final success = await notifier.deleteConversation(conversation.id);
+          if (success && context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Chat deleted.')),
+            );
+          }
+        }
     }
   }
 

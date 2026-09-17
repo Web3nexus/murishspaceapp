@@ -126,7 +126,21 @@ class ConversationsNotifier extends Notifier<ConversationsState> {
     } catch (_) {}
   }
 
+  /// Deletes a conversation for everyone.
+  Future<bool> deleteConversation(int conversationId) async {
+    try {
+      await _dio.delete('/conversations/$conversationId/messages?mode=everyone');
+      state = state.copyWith(
+        conversations: state.conversations.where((c) => c.id != conversationId).toList(),
+      );
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// Fetches or creates a community's general chat and adds it to the list.
+
   Future<Conversation?> openCommunityChat(int communityId) async {
     try {
       final response = await _dio.get('/conversations/community/$communityId');
