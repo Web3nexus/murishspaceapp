@@ -14,8 +14,25 @@ import 'core/api_client.dart';
 import 'providers/auth_provider.dart';
 import 'providers/realtime_provider.dart';
 
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'services/push_service.dart';
+
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp();
+  await PushService.handleBackgroundMessage(message);
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  try {
+    await Firebase.initializeApp();
+    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+    await PushService.instance.initialize();
+  } catch (e) {
+    debugPrint('[Firebase] Initialization error: $e');
+  }
   try {
     await LiveKitClient.initialize(
       initialAudioSessionOptions: const AudioSessionOptions.communication(),
