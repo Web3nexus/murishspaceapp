@@ -739,7 +739,9 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
             SizedBox.expand(
               child: VideoTrackRenderer(
                 _remoteVideoTrack!,
-                fit: VideoViewFit.cover,
+                fit: _remoteVideoTrack!.source == TrackSource.screenShareVideo
+                    ? VideoViewFit.contain
+                    : VideoViewFit.cover,
               ),
             )
           else if (widget.isVideo && _localVideoTrack != null && !_isCameraOff && !isMultiParty)
@@ -804,7 +806,10 @@ class _CallScreenState extends ConsumerState<CallScreen> with SingleTickerProvid
                         fit: StackFit.expand,
                         children: [
                           if (videoPub?.track != null)
-                            VideoTrackRenderer(videoPub!.track as VideoTrack, fit: VideoViewFit.cover)
+                            VideoTrackRenderer(
+                              videoPub!.track as VideoTrack,
+                              fit: videoPub!.track!.source == TrackSource.screenShareVideo ? VideoViewFit.contain : VideoViewFit.cover,
+                            )
                           else
                             Center(
                               child: CircleAvatar(
