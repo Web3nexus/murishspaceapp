@@ -90,6 +90,7 @@ class _MurihSpaceAppState extends ConsumerState<MurihSpaceApp> with WidgetsBindi
       final user = next.user;
       if (user != null) {
         ref.read(realtimeProvider).listenToUser(user.id);
+        PushService.instance.syncToken();
       } else {
         ref.read(realtimeProvider).dispose();
       }
@@ -98,6 +99,7 @@ class _MurihSpaceAppState extends ConsumerState<MurihSpaceApp> with WidgetsBindi
     final currentUser = ref.watch(authProvider).user;
     if (currentUser != null) {
       ref.read(realtimeProvider).listenToUser(currentUser.id);
+      PushService.instance.syncToken();
     }
 
     return MaterialApp.router(

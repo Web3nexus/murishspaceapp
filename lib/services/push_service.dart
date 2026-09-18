@@ -51,10 +51,31 @@ class PushService {
     }
   }
 
+  String? _lastToken;
+
+  /// Public method to sync the device token whenever user logs in or app restores session
+  Future<void> syncToken() async {
+    try {
+      final token = _lastToken ?? await FirebaseMessaging.instance.getToken();
+      if (token != null) {
+        await _sendTokenToBackend(token);
+      }
+    } catch (e) {
+      debugPrint('[PushService] syncToken error: $e');
+    }
+  }
+
   Future<void> _sendTokenToBackend(String token) async {
+    _lastToken = token;
     debugPrint('[PushService] FCM Token: $token');
     try {
+      final authToken = await ApiClient.readToken();
+      if (authToken == null || authToken.isEmpty) {
+        debugPrint('[PushService] User not logged in yet. Token stored, will sync upon login.');
+        return;
+      }
       await ApiClient.instance.post('/profile/fcm-token', data: {'fcm_token': token});
+      debugPrint('[PushService] Successfully registered FCM token with backend.');
     } catch (e) {
       debugPrint('[PushService] Failed to send FCM token to backend: $e');
     }
