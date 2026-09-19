@@ -42,33 +42,75 @@ class GiftOption {
     Color col = const Color(0xFFFF9500);
     final lower = name.toLowerCase();
 
-    if (lower.contains('lion') || lower.contains('anpu')) {
-      emoji = '🦁';
-      col = const Color(0xFFFF9500);
-    } else if (lower.contains('rose') || lower.contains('flower')) {
-      emoji = '🌹';
-      col = const Color(0xFFFF3B30);
-    } else if (lower.contains('diamond') || lower.contains('gem') || lower.contains('ring')) {
-      emoji = '💎';
-      col = const Color(0xFF007AFF);
-    } else if (lower.contains('crown') || lower.contains('king') || lower.contains('gold')) {
-      emoji = '👑';
-      col = const Color(0xFFFFD700);
-    } else if (lower.contains('rocket') || lower.contains('cruise')) {
-      emoji = '🚀';
-      col = const Color(0xFFAF52DE);
-    } else if (lower.contains('heart') || lower.contains('love')) {
+    if (lower.contains('love') || lower.contains('heart')) {
       emoji = '💖';
       col = const Color(0xFFFF2D55);
-    } else if (lower.contains('lambo') || lower.contains('car') || lower.contains('mansion')) {
-      emoji = '🏎️';
-      col = const Color(0xFF34C759);
+    } else if (lower.contains('legit')) {
+      emoji = '🛡️';
+      col = const Color(0xFF00C853);
     } else if (lower.contains('wine') || lower.contains('champagne')) {
       emoji = '🍷';
       col = const Color(0xFF9C27B0);
-    } else if (lower.contains('coin') || lower.contains('legit')) {
-      emoji = '🪙';
+    } else if (lower.contains('hookup')) {
+      emoji = '🔥';
+      col = const Color(0xFFFF3D00);
+    } else if (lower.contains('ankh')) {
+      emoji = '☥';
+      col = const Color(0xFFFFD700);
+    } else if (lower.contains('party')) {
+      emoji = '🎉';
       col = const Color(0xFFFF9500);
+    } else if (lower.contains('fatima')) {
+      emoji = '🪬';
+      col = const Color(0xFF00B0FF);
+    } else if (lower.contains('aries')) {
+      emoji = '♈';
+      col = const Color(0xFFFF5252);
+    } else if (lower.contains('taurus')) {
+      emoji = '♉';
+      col = const Color(0xFFFFB300);
+    } else if (lower.contains('gemini')) {
+      emoji = '♊';
+      col = const Color(0xFFFFEE58);
+    } else if (lower.contains('cancer')) {
+      emoji = '♋';
+      col = const Color(0xFF4FC3F7);
+    } else if (lower.contains('leo')) {
+      emoji = '♌';
+      col = const Color(0xFFFF9800);
+    } else if (lower.contains('virgo')) {
+      emoji = '♍';
+      col = const Color(0xFF81C784);
+    } else if (lower.contains('church')) {
+      emoji = '⛪';
+      col = const Color(0xFF7E57C2);
+    } else if (lower.contains('mosque')) {
+      emoji = '🕌';
+      col = const Color(0xFF26A69A);
+    } else if (lower.contains('mentor')) {
+      emoji = '🎓';
+      col = const Color(0xFF3F51B5);
+    } else if (lower.contains('anpu') || lower.contains('anubis')) {
+      emoji = '🐺';
+      col = const Color(0xFFFF9500);
+    } else if (lower.contains('shrine')) {
+      emoji = '⛩️';
+      col = const Color(0xFFE91E63);
+    } else if (lower.contains('master')) {
+      emoji = '🗝️';
+      col = const Color(0xFFFFD700);
+    } else if (lower.contains('thot') || lower.contains('djehuti')) {
+      emoji = '📜';
+      col = const Color(0xFF00BCD4);
+    } else if (lower.contains('king') || lower.contains('crown')) {
+      emoji = '👑';
+      col = const Color(0xFFFFD700);
+    } else if (lower.contains('cruise') || lower.contains('ship')) {
+      emoji = '🚢';
+      col = const Color(0xFF0288D1);
+    } else if (lower.contains('mansion') || lower.contains('castle')) {
+      emoji = '🏰';
+      col = const Color(0xFFD4AF37);
     }
 
     String animType = json['animation_type']?.toString() ?? '';
@@ -142,15 +184,17 @@ class SendGiftDialog extends ConsumerStatefulWidget {
 
 class _SendGiftDialogState extends ConsumerState<SendGiftDialog> {
   static const _defaultGifts = [
-    GiftOption(id: 1, name: 'Lion', icon: '🦁', iconUrl: '/gifts/anpu.png', coinCost: 100, color: Color(0xFFFF9500), animationType: 'premium'),
-    GiftOption(id: 2, name: 'Magic Rose', icon: '🌹', iconUrl: '/gifts/love.png', coinCost: 50, color: Color(0xFFFF3B30), animationType: 'standard'),
-    GiftOption(id: 3, name: 'Sparkle Diamond', icon: '💎', iconUrl: '/gifts/master.png', coinCost: 200, color: Color(0xFF007AFF), animationType: 'standard'),
-    GiftOption(id: 4, name: 'Royalty Crown', icon: '👑', iconUrl: '/gifts/king.png', coinCost: 500, color: Color(0xFFFFD700), animationType: 'premium'),
-    GiftOption(id: 5, name: 'Super Rocket', icon: '🚀', iconUrl: '/gifts/cruise.png', coinCost: 1000, color: Color(0xFFAF52DE), animationType: 'full_screen'),
-    GiftOption(id: 6, name: 'Pure Love', icon: '💖', iconUrl: '/gifts/love.png', coinCost: 10, color: Color(0xFFFF2D55), animationType: 'micro'),
-    GiftOption(id: 7, name: 'Lamborghini', icon: '🏎️', iconUrl: '/gifts/mansion.png', coinCost: 500, color: Color(0xFF34C759), animationType: 'exclusive'),
-    GiftOption(id: 8, name: 'Fine Wine', icon: '🍷', iconUrl: '/gifts/wine.png', coinCost: 25, color: Color(0xFF9C27B0), animationType: 'standard'),
-    GiftOption(id: 9, name: 'Gold Coin', icon: '🪙', iconUrl: '/gifts/legit.png', coinCost: 10, color: Color(0xFFFF9500), animationType: 'micro'),
+    GiftOption(id: 1, name: 'Love', icon: '💖', iconUrl: '/gifts/love.png', coinCost: 10, color: Color(0xFFFF2D55), animationType: 'micro'),
+    GiftOption(id: 2, name: 'Legit', icon: '🛡️', iconUrl: '/gifts/legit.png', coinCost: 20, color: Color(0xFF00C853), animationType: 'micro'),
+    GiftOption(id: 3, name: 'Wine', icon: '🍷', iconUrl: '/gifts/wine.png', coinCost: 25, color: Color(0xFF9C27B0), animationType: 'standard'),
+    GiftOption(id: 4, name: 'Hookup', icon: '🔥', iconUrl: '/gifts/hookup.png', coinCost: 30, color: Color(0xFFFF3D00), animationType: 'standard'),
+    GiftOption(id: 5, name: 'Ankh of Life', icon: '☥', iconUrl: '/gifts/ankh.png', coinCost: 50, color: Color(0xFFFFD700), animationType: 'standard'),
+    GiftOption(id: 6, name: 'Party Time', icon: '🎉', iconUrl: '/gifts/party.png', coinCost: 50, color: Color(0xFFFF9500), animationType: 'standard'),
+    GiftOption(id: 7, name: 'Anpu', icon: '🐺', iconUrl: '/gifts/anpu.png', coinCost: 250, color: Color(0xFFFF9500), animationType: 'premium'),
+    GiftOption(id: 8, name: 'Master Key', icon: '🗝️', iconUrl: '/gifts/master.png', coinCost: 500, color: Color(0xFFFFD700), animationType: 'premium'),
+    GiftOption(id: 9, name: 'King', icon: '👑', iconUrl: '/gifts/king.png', coinCost: 5000, color: Color(0xFFFFD700), animationType: 'exclusive'),
+    GiftOption(id: 10, name: 'Cruise', icon: '🚢', iconUrl: '/gifts/cruise.png', coinCost: 7500, color: Color(0xFF0288D1), animationType: 'exclusive'),
+    GiftOption(id: 11, name: 'Mansion', icon: '🏰', iconUrl: '/gifts/mansion.png', coinCost: 10000, color: Color(0xFFD4AF37), animationType: 'exclusive'),
   ];
 
   List<GiftOption> _systemGifts = _defaultGifts;
@@ -161,7 +205,7 @@ class _SendGiftDialogState extends ConsumerState<SendGiftDialog> {
   @override
   void initState() {
     super.initState();
-    _selectedGift = _defaultGifts[0]; // Lion by default!
+    _selectedGift = _defaultGifts[0]; // Love by default
     _fetchSystemGifts();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(walletProvider.notifier).refresh();
