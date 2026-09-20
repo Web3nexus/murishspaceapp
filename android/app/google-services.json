@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "555604831104",
+    "project_id": "murihspace-3d513",
+    "storage_bucket": "murihspace-3d513.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:555604831104:android:044ba25c4f4ca09fbcaf65",
+        "android_client_info": {
+          "package_name": "com.murihspace.mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBpGNaOHDEMOcrI_QeYze-w5iqhYZu2NGg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

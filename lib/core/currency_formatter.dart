@@ -39,16 +39,24 @@ class CurrencyFormatter {
     return '$usdFormatted (≈ $localFormatted)';
   }
 
+  /// Standard Peg: 10 Coins = $1.00 USD (driven by server `coin_conversion_rate`).
+  /// Admins can tune the rate; the app overrides this from the catalogue response.
+  static double coinRate = 10.0;
+
+  /// Updates the coins-per-1-USD rate from the server.
+  static void setCoinRate(double rate) {
+    if (rate > 0) coinRate = rate;
+  }
+
   /// Formats system coin balance with standard MSH token notation.
-  /// Standard Peg: 100 Coins = $1.00 USD (1 Coin = 1 Cent).
   static String formatCoins(int coins) {
     return '$coins MSH';
   }
 
   /// Formats coins with USD equivalent value.
-  /// Example: "500 MSH (≈ $5.00)"
+  /// Example: "500 MSH (≈ $50.00)" at the default 10 coins per USD.
   static String formatCoinsWithUsd(int coins) {
-    final usdMajor = coins / 100.0;
+    final usdMajor = coins / coinRate;
     return '$coins MSH (≈ \$${_formatNumber(usdMajor)})';
   }
 

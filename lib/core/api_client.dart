@@ -49,6 +49,9 @@ class ApiClient {
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
+        // Tags native-app traffic so admin toggles like "web purchases off"
+        // keep working inside the app while the dashboard is locked out.
+        'X-Client-Platform': 'app',
       },
     ));
 

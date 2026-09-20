@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
 import '../core/api_client.dart';
+import '../core/currency_formatter.dart';
+import '../services/native_store_service.dart';
 
 class GiftItem {
   final int id;
@@ -122,6 +124,9 @@ class GiftsState {
   final List<CoinPack> packs;
   final List<GiftTransaction> transactions;
   final WalletInfo? wallet;
+  final double coinRate;
+  final double minPurchaseUsd;
+  final double maxPurchaseUsd;
   final String? error;
 
   GiftsState({
@@ -130,6 +135,9 @@ class GiftsState {
     this.packs = const [],
     this.transactions = const [],
     this.wallet,
+    this.coinRate = 10.0,
+    this.minPurchaseUsd = 1.0,
+    this.maxPurchaseUsd = 10000.0,
     this.error,
   });
 
@@ -139,6 +147,9 @@ class GiftsState {
     List<CoinPack>? packs,
     List<GiftTransaction>? transactions,
     WalletInfo? wallet,
+    double? coinRate,
+    double? minPurchaseUsd,
+    double? maxPurchaseUsd,
     String? error,
     bool clearError = false,
   }) {
@@ -148,6 +159,9 @@ class GiftsState {
       packs: packs ?? this.packs,
       transactions: transactions ?? this.transactions,
       wallet: wallet ?? this.wallet,
+      coinRate: coinRate ?? this.coinRate,
+      minPurchaseUsd: minPurchaseUsd ?? this.minPurchaseUsd,
+      maxPurchaseUsd: maxPurchaseUsd ?? this.maxPurchaseUsd,
       error: clearError ? null : (error ?? this.error),
     );
   }
@@ -176,6 +190,18 @@ class GiftsNotifier extends Notifier<GiftsState> {
       final packs = api.unwrapList<CoinPack>(results[1], CoinPack.fromJson);
       final txnList = api.unwrapList<GiftTransaction>(results[2], GiftTransaction.fromJson);
 
+      // The packs catalogue also carries the admin-tunable USD → MSH rate.
+      double coinRate = 10.0;
+      double minPurchaseUsd = 1.0;
+      double maxPurchaseUsd = 10000.0;
+      final packsPayload = api.unwrap(results[1]);
+      if (packsPayload is Map<String, dynamic>) {
+        coinRate = (packsPayload['coin_conversion_rate'] as num?)?.toDouble() ?? 10.0;
+        minPurchaseUsd = (packsPayload['min_purchase_usd'] as num?)?.toDouble() ?? 1.0;
+        maxPurchaseUsd = (packsPayload['max_purchase_usd'] as num?)?.toDouble() ?? 10000.0;
+      }
+      CurrencyFormatter.setCoinRate(coinRate);
+
       // Sprint 9: GET /wallet now returns a LIST of multi-type wallets.
       // Coin balance lives on the system wallet's available balance.
       final wallets = api.unwrapList<dynamic>(results[3], (json) => json);
@@ -196,6 +222,9 @@ class GiftsNotifier extends Notifier<GiftsState> {
         packs: packs,
         transactions: txnList,
         wallet: walletInfo,
+        coinRate: coinRate,
+        minPurchaseUsd: minPurchaseUsd,
+        maxPurchaseUsd: maxPurchaseUsd,
       );
     } on DioException catch (e) {
       state = state.copyWith(
@@ -208,6 +237,25 @@ class GiftsNotifier extends Notifier<GiftsState> {
   }
 
   Future<bool> buyPack(CoinPack pack) async {
+    // Native apps buy coin packs through the App Store / Google Play flow.
+    // Every other runtime (web debug, desktop) keeps the online payment path.
+    final native = NativeStoreService.instance;
+    if (native.isNative) {
+      final outcome = await native.purchase(pack);
+      if (outcome.ok) {
+        await loadAll();
+        return true;
+      }
+      if (!outcome.canFallback) {
+        state = state.copyWith(error: outcome.error ?? 'In-app purchase failed.');
+        return false;
+      }
+    }
+
+    return _buyPackOnline(pack);
+  }
+
+  Future<bool> _buyPackOnline(CoinPack pack) async {
     try {
       final response = await _dio.post(
         '/coins/purchase',
@@ -223,6 +271,35 @@ class GiftsNotifier extends Notifier<GiftsState> {
     } catch (_) {
       state = state.copyWith(error: 'Purchase failed.');
       return false;
+    }
+  }
+
+  /// Purchases MSH coins for a custom manual USD amount ("how much do you want").
+  Future<int?> buyCustom(double usdAmount) async {
+    if (usdAmount <= 0) {
+      state = state.copyWith(error: 'Enter a valid USD amount.');
+      return null;
+    }
+    try {
+      final response = await _dio.post(
+        '/coins/purchase-custom',
+        data: {
+          'amount_usd': usdAmount,
+          'reference': ApiClient.generateIdempotencyKey(),
+        },
+      );
+      final body = response.data;
+      final payload = body is Map<String, dynamic> ? body['data'] : null;
+      final inner = payload is Map<String, dynamic> ? payload['data'] : null;
+      final coins = inner is Map<String, dynamic> ? (inner['coins_added'] as num?)?.toInt() : null;
+      await loadAll();
+      return coins ?? (usdAmount * (state.coinRate > 0 ? state.coinRate : 10)).round();
+    } on DioException catch (e) {
+      state = state.copyWith(error: _dioError(e));
+      return null;
+    } catch (_) {
+      state = state.copyWith(error: 'Purchase failed.');
+      return null;
     }
   }
 

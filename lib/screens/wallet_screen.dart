@@ -23,6 +23,8 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
   bool _hideBalance = false;
   int _activeCardIndex = 0;
   CoinPack? _buying;
+  final TextEditingController _customAmount = TextEditingController();
+  bool _buyingCustom = false;
 
   final List<Map<String, dynamic>> _escrowContracts = [];
 
@@ -38,6 +40,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
   @override
   void dispose() {
     _tab.dispose();
+    _customAmount.dispose();
     super.dispose();
   }
 
@@ -50,6 +53,38 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
       SnackBar(
         content: Text(ok
             ? 'Added ${pack.totalCoins} MSH coins to your wallet!'
+            : ref.read(giftsProvider).error ?? 'Purchase failed.'),
+        backgroundColor: const Color(0xFF34C759),
+      ),
+    );
+  }
+
+  Future<void> _buyCustomAmount() async {
+    final amt = double.tryParse(_customAmount.text.trim());
+    if (amt == null || amt <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter a valid USD amount.'), backgroundColor: Color(0xFFFF9500)),
+      );
+      return;
+    }
+    final gifts = ref.read(giftsProvider);
+    if (amt < gifts.minPurchaseUsd || amt > gifts.maxPurchaseUsd) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Amount must be between \$${gifts.minPurchaseUsd.toStringAsFixed(0)} and \$${gifts.maxPurchaseUsd.toStringAsFixed(0)} USD.'),
+          backgroundColor: const Color(0xFFFF9500),
+        ),
+      );
+      return;
+    }
+    setState(() => _buyingCustom = true);
+    final coins = await ref.read(giftsProvider.notifier).buyCustom(amt);
+    if (!mounted) return;
+    setState(() => _buyingCustom = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(coins != null
+            ? 'Added $coins MSH coins to your wallet!'
             : ref.read(giftsProvider).error ?? 'Purchase failed.'),
         backgroundColor: const Color(0xFF34C759),
       ),
@@ -420,7 +455,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text('Equivalent MSH Coins:', style: TextStyle(fontSize: 13, color: isDark ? Colors.grey[300] : Colors.grey[700])),
-                            Text('${(usdAmount * 100).toInt()} MSH', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFFFF9500))),
+                            Text('${(usdAmount * ref.read(giftsProvider).coinRate).round()} MSH', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFFFF9500))),
                           ],
                         ),
                       ],
@@ -882,6 +917,10 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
               const SizedBox(height: 6),
               Text('Send virtual gifts to live creators, tip videos, and unlock premium features.', style: TextStyle(fontSize: 13, color: textSecondary)),
               const SizedBox(height: 16),
+              _buildCustomAmountCard(isDark, gifts),
+              const SizedBox(height: 16),
+              Text('OR CHOOSE A PACK', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 0.8, color: textSecondary)),
+              const SizedBox(height: 12),
               if (gifts.loading && gifts.packs.isEmpty)
                 const Padding(padding: EdgeInsets.symmetric(vertical: 48), child: LoadingStateWidget(message: 'Loading coin packs…'))
               else
@@ -1223,6 +1262,104 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
               ),
             ],
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCustomAmountCard(bool isDark, GiftsState gifts) {
+    final cardBg = isDark ? const Color(0xFF161F2E) : const Color(0xFFF0F5FF);
+    final rate = gifts.coinRate > 0 ? gifts.coinRate : 10.0;
+    final amt = double.tryParse(_customAmount.text.trim()) ?? 0.0;
+    final coins = amt > 0 ? (amt * rate).round() : 0;
+    final minUsd = gifts.minPurchaseUsd;
+    final maxUsd = gifts.maxPurchaseUsd;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFF007AFF).withValues(alpha: 0.25)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(9),
+                decoration: BoxDecoration(color: const Color(0xFF007AFF).withValues(alpha: 0.15), borderRadius: BorderRadius.circular(12)),
+                child: const Icon(Icons.edit_rounded, color: Color(0xFF007AFF), size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Custom Amount', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: isDark ? Colors.white : Colors.black)),
+                    Text('Type any USD amount · 1 USD = $rate MSH', style: TextStyle(fontSize: 12, color: isDark ? Colors.grey[400] : Colors.grey[600])),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _customAmount,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  onChanged: (_) => setState(() {}),
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: isDark ? Colors.white : Colors.black),
+                  decoration: InputDecoration(
+                    prefixText: r'$ ',
+                    hintText: r'Enter USD amount',
+                    filled: true,
+                    fillColor: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              SizedBox(
+                height: 50,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF007AFF),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    padding: const EdgeInsets.symmetric(horizontal: 18),
+                  ),
+                  onPressed: _buyingCustom ? null : _buyCustomAmount,
+                  child: _buyingCustom
+                      ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Text('Buy', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                ),
+              ),
+            ],
+          ),
+          if (amt > 0) ...[
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFF9500).withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('You will receive:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: isDark ? Colors.white : Colors.black)),
+                  Text('$coins MSH (≈ \$${amt.toStringAsFixed(2)})', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: Color(0xFFFF9500))),
+                ],
+              ),
+            ),
+          ],
+          const SizedBox(height: 10),
+          Text('Min \$${minUsd.toStringAsFixed(2)} · Max \$${maxUsd.toStringAsFixed(0)} per purchase', style: TextStyle(fontSize: 11, color: isDark ? Colors.grey[500] : Colors.grey[600])),
         ],
       ),
     );
