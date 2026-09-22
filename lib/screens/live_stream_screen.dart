@@ -1,9 +1,12 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../components/gift_animation_overlay.dart';
@@ -54,6 +57,9 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
   int _totalGiftsCoins = 0;
   final Set<dynamic> _seenGiftMessageIds = {};
 
+  // Pinned product available for purchase inside the stream.
+  Map<String, dynamic>? _pinnedProduct;
+
   bool _isCameraReady = false;
   late bool _cameraOn;
   bool _isSwitchingCamera = false;
@@ -75,6 +81,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
     super.initState();
     _activeStreamId = widget.streamId;
     _cameraOn = widget.cameraEnabled;
+    _pinnedProduct = widget.pinnedProduct;
 
     _chatCtrl.addListener(() {
       if (mounted) setState(() {});
@@ -121,6 +128,15 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
     });
   }
 
+  void _applyPinnedProduct(dynamic pinnedRaw) {
+    if (!mounted) return;
+    final next = pinnedRaw is Map<String, dynamic> ? pinnedRaw : null;
+    final nextSig = next == null ? null : jsonEncode(next);
+    final oldSig = _pinnedProduct == null ? null : jsonEncode(_pinnedProduct);
+    if (nextSig == oldSig) return;
+    setState(() => _pinnedProduct = next);
+  }
+
   Future<void> _connectToBackendStream() async {
     try {
       final api = ref.read(apiClientProvider);
@@ -130,11 +146,14 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
         final res = await api.post('/live/start', data: {
           'title': widget.streamTitle,
           'stream_mode': widget.streamMode,
-          'background_sound': widget.backgroundSound?['name'],
-          'pinned_product_id': widget.pinnedProduct?['id'],
+          'background_sound': widget.backgroundSound?['title'],
+          'pinned_product_id': widget.pinnedProduct != null
+              ? int.tryParse(widget.pinnedProduct!['id'].toString())
+              : null,
         });
 
         final streamData = res.data['data']?['stream'] ?? res.data['stream'];
+        _applyPinnedProduct(res.data['data']?['pinned_product'] ?? res.data['pinned_product']);
         if (streamData != null && mounted) {
           setState(() {
             _activeStreamId = (streamData['id'] as num?)?.toInt();
@@ -148,6 +167,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
         // Join stream as viewer
         final res = await api.post('/live/$_activeStreamId/join');
         final streamData = res.data['data']?['stream'] ?? res.data['stream'];
+        _applyPinnedProduct(res.data['data']?['pinned_product'] ?? res.data['pinned_product']);
         if (streamData != null && mounted) {
           setState(() {
             _hostUserId = (streamData['user_id'] as num?)?.toInt() ?? (streamData['user']?['id'] as num?)?.toInt();
@@ -183,6 +203,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
       final api = ref.read(apiClientProvider);
       final res = await api.get('/live/$_activeStreamId');
       final streamData = res.data['data']?['stream'] ?? res.data['stream'];
+      _applyPinnedProduct(res.data['data']?['pinned_product'] ?? res.data['pinned_product']);
 
       if (streamData != null && mounted) {
         setState(() {
@@ -371,6 +392,56 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
               });
             } catch (_) {}
           }
+        },
+      ),
+    );
+  }
+
+  String _streamProductPrice(Map<String, dynamic> product) {
+    final symbol = product['symbol']?.toString() ??
+        (product['currency'] == 'NGN' ? '₦' : (product['currency'] == 'EUR' ? '€' : (product['currency'] == 'GBP' ? '£' : '\$')));
+    final raw = product['price'];
+    final price = raw is num ? raw.toDouble() : double.tryParse(raw?.toString() ?? '') ?? 0;
+    return '$symbol${price.toStringAsFixed(2)}';
+  }
+
+  Widget _streamProductImage(Map<String, dynamic> product, double size) {
+    final images = (product['images'] as List?)?.whereType<String>().toList() ?? const <String>[];
+    final cover = product['cover_url']?.toString() ?? (images.isNotEmpty ? images.first : null);
+    final url = ApiClient.resolveUrl(cover);
+    final fallback = Container(
+      width: size,
+      height: size,
+      decoration: const BoxDecoration(color: Color(0xFFFF9500)),
+      child: Icon(Icons.shopping_bag_rounded, color: Colors.white, size: size * 0.5),
+    );
+    if (url == null || url.isEmpty) return fallback;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(10),
+      child: Image.network(
+        url,
+        width: size,
+        height: size,
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) => fallback,
+      ),
+    );
+  }
+
+  void _openProductBuySheet() {
+    final product = _pinnedProduct;
+    final streamId = _activeStreamId;
+    if (product == null || streamId == null) return;
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _LiveProductBuySheet(
+        streamId: streamId,
+        product: product,
+        isHost: widget.isHost,
+        onPurchased: () {
+          ref.read(authProvider.notifier).refreshProfile();
         },
       ),
     );
@@ -702,7 +773,66 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
                   },
                 )),
 
-            // 3. Top Header Bar
+            // 3. Pinned product available for in-stream purchase
+            if (_pinnedProduct != null)
+              Positioned(
+                top: MediaQuery.of(context).padding.top + 58,
+                left: 16,
+                child: GestureDetector(
+                  onTap: _openProductBuySheet,
+                  child: Container(
+                    width: 210,
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF14181F).withValues(alpha: 0.92),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: const Color(0xFFFF9500).withValues(alpha: 0.55)),
+                    ),
+                    child: Row(
+                      children: [
+                        _streamProductImage(_pinnedProduct!, 40),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                _pinnedProduct!['title']?.toString() ?? _pinnedProduct!['name']?.toString() ?? 'Product',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Colors.white),
+                              ),
+                              Text(
+                                _streamProductPrice(_pinnedProduct!),
+                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Color(0xFFFF9500)),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: widget.isHost ? Colors.white24 : const Color(0xFFFF9500),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            widget.isHost ? 'Pinned' : 'Buy',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w900,
+                              color: widget.isHost ? Colors.white : Colors.black,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+
+            // 4. Top Header Bar
             Positioned(
               top: MediaQuery.of(context).padding.top + 8,
               left: 16,
@@ -775,7 +905,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
               ),
             ),
 
-            // 4. Live Chat Feed Overlay (dynamically lifts above keyboard)
+            // 5. Live Chat Feed Overlay (dynamically lifts above keyboard)
             Positioned(
               bottom: viewInsetsBottom + 70,
               left: 16,
@@ -815,7 +945,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
               ),
             ),
 
-            // 5. Facebook-Style Bottom Controls & High-Contrast Chat Input Bar
+            // 6. Facebook-Style Bottom Controls & High-Contrast Chat Input Bar
             Positioned(
               bottom: viewInsetsBottom + (isKeyboardOpen ? 8 : (MediaQuery.of(context).padding.bottom + 12)),
               left: 16,
@@ -1069,6 +1199,403 @@ class _ShareOptionItem extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// In-stream purchase sheet. Funds are processed entirely inside the app via
+/// the backend `POST /live/{id}/purchase` endpoint.
+class _LiveProductBuySheet extends ConsumerStatefulWidget {
+  final int streamId;
+  final Map<String, dynamic> product;
+  final bool isHost;
+  final VoidCallback onPurchased;
+
+  const _LiveProductBuySheet({
+    required this.streamId,
+    required this.product,
+    required this.isHost,
+    required this.onPurchased,
+  });
+
+  @override
+  ConsumerState<_LiveProductBuySheet> createState() => _LiveProductBuySheetState();
+}
+
+class _LiveProductBuySheetState extends ConsumerState<_LiveProductBuySheet> {
+  int _quantity = 1;
+  bool _buying = false;
+  bool _downloading = false;
+  String? _idempotencyKey;
+  Map<String, dynamic>? _result;
+  String? _error;
+
+  int? get _productId => int.tryParse(widget.product['id'].toString());
+  String get _productType => (widget.product['product_type'] ?? widget.product['type'])?.toString() ?? 'physical';
+  bool get _isDigital => _productType == 'digital';
+  bool get _isFree =>
+      widget.product['is_free'] == true || ((widget.product['price'] as num?)?.toDouble() ?? 1) == 0;
+
+  String get _symbol {
+    final currency = widget.product['currency']?.toString();
+    return widget.product['symbol']?.toString() ??
+        (currency == 'NGN' ? '₦' : (currency == 'EUR' ? '€' : (currency == 'GBP' ? '£' : '\$')));
+  }
+
+  String _fmt(num value) => '$_symbol${value.toStringAsFixed(2)}';
+
+  double get _basePrice {
+    final raw = widget.product['price'];
+    return raw is num ? raw.toDouble() : double.tryParse(raw?.toString() ?? '') ?? 0;
+  }
+
+  Future<void> _purchase() async {
+    if (widget.isHost || _buying || _productId == null) return;
+    _idempotencyKey ??= ApiClient.generateIdempotencyKey();
+    setState(() {
+      _buying = true;
+      _error = null;
+    });
+    try {
+      final api = ref.read(apiClientProvider);
+      final res = await api.post('/live/${widget.streamId}/purchase', data: {
+        'product_id': _productId,
+        'product_type': _productType,
+        'quantity': _quantity,
+        'idempotency_key': _idempotencyKey,
+      });
+      final payload = ApiClient.instance.unwrap(res);
+      if (!mounted) return;
+      widget.onPurchased();
+      setState(() {
+        _buying = false;
+        if (payload is Map<String, dynamic>) _result = payload;
+      });
+    } on ApiException catch (e) {
+      if (mounted) {
+        setState(() {
+          _buying = false;
+          _error = e.message;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _buying = false;
+          _error = 'Could not complete your purchase. Please try again.';
+        });
+      }
+    }
+  }
+
+  Future<void> _download() async {
+    final url = _result?['download_url']?.toString();
+    if (url == null || url.isEmpty || _downloading) return;
+    setState(() {
+      _downloading = true;
+      _error = null;
+    });
+    try {
+      final resolved = ApiClient.resolveUrl(url) ?? url;
+      final dir = await getApplicationDocumentsDirectory();
+      final filePath = '${dir.path}/purchase_${DateTime.now().millisecondsSinceEpoch}';
+      final response = await ApiClient.instance.dio.download(resolved, filePath);
+      await SharePlus.instance.share(ShareParams(
+        files: [
+          XFile(
+            filePath,
+            mimeType: response.headers.value('content-type')?.split(';').first.trim(),
+          ),
+        ],
+        text: 'Your purchased file from MurihSpace',
+      ));
+      if (mounted) setState(() => _downloading = false);
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _downloading = false;
+          _error = 'Download failed. Please try again.';
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = isDark ? const Color(0xFF1C1C1E) : Colors.white;
+    final textPrimary = isDark ? Colors.white : Colors.black;
+    final textSecondary = isDark ? Colors.grey[400] : Colors.grey[600];
+    final cardBg = isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF2F4F7);
+
+    final order = _result?['order'];
+    final orderTotal = (order is Map<String, dynamic> ? order['total'] : null) as num?;
+    final orderNumber = (order is Map<String, dynamic> ? order['order_number'] : null)?.toString();
+    final paid = _result != null;
+
+    final images = (widget.product['images'] as List?)?.whereType<String>().toList() ?? const <String>[];
+    final cover = widget.product['cover_url']?.toString() ?? (images.isNotEmpty ? images.first : null);
+    final coverUrl = ApiClient.resolveUrl(cover);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: EdgeInsets.only(
+        left: 20,
+        right: 20,
+        top: 12,
+        bottom: MediaQuery.of(context).padding.bottom + 16,
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.grey[700] : Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                const Icon(Icons.shopping_bag_rounded, color: Color(0xFFFF9500), size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Shop this stream',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: textPrimary),
+                  ),
+                ),
+                IconButton(
+                  icon: Icon(Icons.close_rounded, color: textSecondary, size: 20),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: cardBg,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Row(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: coverUrl != null && coverUrl.isNotEmpty
+                        ? Image.network(coverUrl, width: 64, height: 64, fit: BoxFit.cover,
+                            errorBuilder: (_, _, _) => Container(width: 64, height: 64, color: const Color(0xFFFF9500), child: const Icon(Icons.shopping_bag_rounded, color: Colors.white)))
+                        : Container(width: 64, height: 64, color: const Color(0xFFFF9500), child: const Icon(Icons.shopping_bag_rounded, color: Colors.white)),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.product['title']?.toString() ?? widget.product['name']?.toString() ?? 'Product',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: textPrimary),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _fmt(_basePrice),
+                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Color(0xFFFF9500)),
+                        ),
+                        const SizedBox(height: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: _isDigital ? const Color(0xFF007AFF).withValues(alpha: 0.15) : const Color(0xFF34C759).withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            _isDigital ? 'Digital · Instant delivery' : 'Physical · Escrow protected',
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w700,
+                              color: _isDigital ? const Color(0xFF007AFF) : const Color(0xFF34C759),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            if (!_isDigital) ...[
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  Text('Quantity', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textPrimary)),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.remove_circle_outline_rounded, color: Color(0xFFFF9500)),
+                    onPressed: _quantity > 1
+                        ? () => setState(() {
+                              _quantity -= 1;
+                              _idempotencyKey = null;
+                            })
+                        : null,
+                  ),
+                  Text('$_quantity', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: textPrimary)),
+                  IconButton(
+                    icon: const Icon(Icons.add_circle_rounded, color: Color(0xFFFF9500)),
+                    onPressed: _quantity < 100
+                        ? () => setState(() {
+                              _quantity += 1;
+                              _idempotencyKey = null;
+                            })
+                        : null,
+                  ),
+                ],
+              ),
+            ],
+
+            if (!_isDigital && (widget.product['description']?.toString() ?? '').isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Text(
+                widget.product['description'].toString(),
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 11, color: textSecondary, height: 1.4),
+              ),
+            ],
+
+            if (paid) ...[
+              const SizedBox(height: 16),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF34C759).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFF34C759).withValues(alpha: 0.4)),
+                ),
+                child: Column(
+                  children: [
+                    const Icon(Icons.check_circle_rounded, color: Color(0xFF34C759), size: 28),
+                    const SizedBox(height: 6),
+                    Text(
+                      orderNumber != null ? 'Order $orderNumber confirmed!' : 'Order confirmed!',
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Color(0xFF34C759)),
+                      textAlign: TextAlign.center,
+                    ),
+                    if (orderTotal != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        'Paid ${_fmt(orderTotal)}',
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFF34C759)),
+                      ),
+                    ],
+                    const SizedBox(height: 6),
+                    Text(
+                      _isDigital
+                          ? 'Your download is ready below.'
+                          : 'Funds are held securely in escrow until your order is delivered.',
+                      style: TextStyle(fontSize: 11, color: textSecondary),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+              if (_isDigital) ...[
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF007AFF),
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    ),
+                    onPressed: _download,
+                    icon: _downloading
+                        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        : const Icon(Icons.download_rounded, size: 20),
+                    label: Text(_downloading ? 'Downloading…' : 'Download Product'),
+                  ),
+                ),
+              ],
+            ] else ...[
+              const SizedBox(height: 18),
+              if (_error != null) ...[
+                Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.only(bottom: 10),
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFF3B30).withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    _error!,
+                    style: const TextStyle(color: Color(0xFFFF3B30), fontSize: 12, fontWeight: FontWeight.w600),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ],
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFFF9500),
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                  onPressed: widget.isHost || _buying ? null : _purchase,
+                  child: _buying
+                      ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : Text(
+                          widget.isHost
+                              ? 'Pinned to your stream'
+                              : _isDigital
+                                  ? (_isFree ? 'Claim for Free' : 'Pay ${_fmt(_basePrice)}')
+                                  : 'Pay ${_fmt(_basePrice * _quantity)}',
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                ),
+              ),
+              if (!_isDigital)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    'You\'ll complete shipping after checkout.',
+                    style: TextStyle(fontSize: 10, color: textSecondary, fontStyle: FontStyle.italic),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+            ],
+
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              height: 44,
+              child: TextButton(
+                style: TextButton.styleFrom(foregroundColor: textSecondary),
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Done', style: TextStyle(fontWeight: FontWeight.w700)),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -1,3 +1,4 @@
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -36,11 +37,17 @@ class _GoLiveSetupDialogState extends ConsumerState<GoLiveSetupDialog> {
   bool _cameraEnabled = true;
   bool _micEnabled = true;
   String _streamMode = 'video'; // 'video', 'meeting', 'audio'
+  bool _titleIsDefault = true;
+  bool _settingDefaultTitle = false;
 
   // Dynamic Sound & Music Library
   List<Map<String, dynamic>> _soundTracks = [];
   Map<String, dynamic>? _selectedSound;
   bool _loadingSounds = true;
+
+  // Sound preview playback while picking a track.
+  AudioPlayer? _previewPlayer;
+  dynamic _playingTrackId;
 
   // Dynamic Live Commerce Pinned Products
   List<Map<String, dynamic>> _pinnedProducts = [];
@@ -50,17 +57,45 @@ class _GoLiveSetupDialogState extends ConsumerState<GoLiveSetupDialog> {
   @override
   void initState() {
     super.initState();
-    if (widget.community != null) {
-      _titleCtrl.text = '🔴 Live: ${widget.community!.name} Space';
-    } else {
-      _titleCtrl.text = '🔴 Live Interactive Stream';
-    }
+    _applyDefaultTitle();
     _fetchSoundTracks();
     _fetchProducts();
+
+    _titleCtrl.addListener(() {
+      if (!_settingDefaultTitle && _titleCtrl.text.trim().isNotEmpty) {
+        _titleIsDefault = false;
+      }
+    });
+  }
+
+  void _applyDefaultTitle() {
+    final community = widget.community?.name;
+    final String text;
+    if (_streamMode == 'meeting') {
+      text = community != null ? 'Meeting in $community' : 'Meeting Room';
+    } else if (_streamMode == 'audio') {
+      text = community != null ? 'Audio in $community' : 'Audio Space';
+    } else {
+      text = community != null ? '🔴 Live: $community' : '🔴 Live Interactive Stream';
+    }
+    _settingDefaultTitle = true;
+    _titleCtrl.value = TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(offset: text.length),
+    );
+    _settingDefaultTitle = false;
+    _titleIsDefault = true;
+  }
+
+  void _handleModeChange(String mode) {
+    setState(() => _streamMode = mode);
+    if (mode == 'audio') setState(() => _cameraEnabled = false);
+    if (_titleIsDefault || _titleCtrl.text.trim().isEmpty) _applyDefaultTitle();
   }
 
   @override
   void dispose() {
+    _stopSoundPreview(silent: true);
     _titleCtrl.dispose();
     _descCtrl.dispose();
     super.dispose();
@@ -70,31 +105,17 @@ class _GoLiveSetupDialogState extends ConsumerState<GoLiveSetupDialog> {
     setState(() => _loadingSounds = true);
     try {
       final res = await ApiClient.instance.dio.get('/sound-tracks');
-      final payload = res.data;
-      final rawList = payload is Map<String, dynamic> ? (payload['data'] is List ? payload['data'] : payload['sound_tracks']) : payload;
+      final tracks = ApiClient.instance.unwrapList(res, (m) => m);
       if (mounted) {
         setState(() {
-          if (rawList is List && rawList.isNotEmpty) {
-            _soundTracks = rawList.whereType<Map<String, dynamic>>().toList();
-          } else {
-            _soundTracks = [
-              {'id': 1, 'title': 'Lofi Chill Beats', 'artist': 'Murih Sound', 'category': 'chill', 'duration_seconds': 180},
-              {'id': 2, 'title': 'Synthwave Pulse', 'artist': 'CyberStream', 'category': 'electronic', 'duration_seconds': 210},
-              {'id': 3, 'title': 'Acoustic Morning Breeze', 'artist': 'Sunlight Studio', 'category': 'ambient', 'duration_seconds': 160},
-              {'id': 4, 'title': 'Deep Focus Lounge', 'artist': 'Echo Valley', 'category': 'lofi', 'duration_seconds': 240},
-            ];
-          }
+          _soundTracks = tracks;
           _loadingSounds = false;
         });
       }
     } catch (_) {
       if (mounted) {
         setState(() {
-          _soundTracks = [
-            {'id': 1, 'title': 'Lofi Chill Beats', 'artist': 'Murih Sound', 'category': 'chill', 'duration_seconds': 180},
-            {'id': 2, 'title': 'Synthwave Pulse', 'artist': 'CyberStream', 'category': 'electronic', 'duration_seconds': 210},
-            {'id': 3, 'title': 'Acoustic Morning Breeze', 'artist': 'Sunlight Studio', 'category': 'ambient', 'duration_seconds': 160},
-          ];
+          _soundTracks = [];
           _loadingSounds = false;
         });
       }
@@ -104,53 +125,136 @@ class _GoLiveSetupDialogState extends ConsumerState<GoLiveSetupDialog> {
   Future<void> _fetchProducts() async {
     setState(() => _loadingProducts = true);
     try {
-      final res = await ApiClient.instance.dio.get('/store/products');
-      final payload = res.data;
-      final rawList = payload is Map<String, dynamic> ? (payload['data'] is List ? payload['data'] : payload['products']) : payload;
+      // The creator/vendor's own listed products (physical + digital).
+      final res = await ApiClient.instance.dio.get('/me/products');
+      final products = ApiClient.instance.unwrapList(res, (m) => m);
       if (mounted) {
         setState(() {
-          if (rawList is List && rawList.isNotEmpty) {
-            _pinnedProducts = rawList.whereType<Map<String, dynamic>>().toList();
-          } else {
-            _pinnedProducts = [
-              {
-                'id': 1,
-                'title': 'MurihSpace Creator Masterclass 2026',
-                'price': '120 Coins',
-                'image_url': 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=300',
-              },
-              {
-                'id': 2,
-                'title': 'VIP Community Access Pass',
-                'price': '50 Coins',
-                'image_url': 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=300',
-              }
-            ];
-          }
+          _pinnedProducts = products;
           _loadingProducts = false;
         });
       }
     } catch (_) {
       if (mounted) {
         setState(() {
-          _pinnedProducts = [
-            {
-              'id': 1,
-              'title': 'MurihSpace Creator Masterclass 2026',
-              'price': '120 Coins',
-              'image_url': 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=300',
-            },
-            {
-              'id': 2,
-              'title': 'VIP Community Access Pass',
-              'price': '50 Coins',
-              'image_url': 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=300',
-            }
-          ];
+          _pinnedProducts = [];
           _loadingProducts = false;
         });
       }
     }
+  }
+
+  Future<void> _toggleSoundPreview(Map<String, dynamic> track) async {
+    final audioUrl = ApiClient.resolveUrl(track['audio_url']?.toString());
+    if (audioUrl == null || audioUrl.isEmpty) return;
+    final id = track['id'];
+
+    // Toggle off if this track is already playing.
+    if (_previewPlayer != null && _playingTrackId == id) {
+      await _stopSoundPreview();
+      return;
+    }
+
+    await _stopSoundPreview();
+    final player = AudioPlayer();
+    _previewPlayer = player;
+    try {
+      await player.setReleaseMode(ReleaseMode.stop);
+      await player.play(UrlSource(audioUrl));
+      if (mounted) setState(() => _playingTrackId = id);
+      player.onPlayerComplete.first.then((_) {
+        if (mounted && _playingTrackId == id) {
+          setState(() => _playingTrackId = null);
+        }
+      });
+    } catch (_) {
+      if (mounted) setState(() => _playingTrackId = null);
+    }
+  }
+
+  Future<void> _stopSoundPreview({bool silent = false}) async {
+    final player = _previewPlayer;
+    _previewPlayer = null;
+    if (player != null) {
+      try {
+        await player.stop();
+        await player.dispose();
+      } catch (_) {}
+    }
+    if (!silent && mounted) setState(() => _playingTrackId = null);
+  }
+
+  String get _headerTitle {
+    final community = widget.community?.name;
+    return switch (_streamMode) {
+      'meeting' => community != null ? 'Meeting in $community' : 'Start a Meeting',
+      'audio' => community != null ? 'Audio Space in $community' : 'Start an Audio Space',
+      _ => community != null ? 'Go Live in $community' : 'Go Live',
+    };
+  }
+
+  String get _headerSubtitle {
+    return switch (_streamMode) {
+      'meeting' => 'Set up your meeting room & go live together',
+      'audio' => 'Start a hands-free audio conversation',
+      _ => 'Configure stream parameters & sell products',
+    };
+  }
+
+  String get _modeBadgeLabel {
+    return switch (_streamMode) {
+      'meeting' => 'MEETING SETUP',
+      'audio' => 'AUDIO SETUP',
+      _ => 'LIVE SETUP',
+    };
+  }
+
+  Color get _modeAccentColor {
+    return switch (_streamMode) {
+      'meeting' => const Color(0xFF007AFF),
+      'audio' => const Color(0xFF34C759),
+      _ => const Color(0xFFFF3B30),
+    };
+  }
+
+  String get _ctaLabel {
+    return switch (_streamMode) {
+      'meeting' => 'Start Meeting',
+      'audio' => 'Start Audio',
+      _ => 'Go Live',
+    };
+  }
+
+  IconData get _ctaIcon {
+    return switch (_streamMode) {
+      'meeting' => Icons.groups_rounded,
+      'audio' => Icons.mic_rounded,
+      _ => Icons.videocam_rounded,
+    };
+  }
+
+  String get _titleHint {
+    return switch (_streamMode) {
+      'meeting' => 'e.g. Weekly Team Sync',
+      'audio' => 'e.g. Community Hangout & Q&A',
+      _ => 'e.g. Creator Strategy & Weekly Q&A',
+    };
+  }
+
+  String _formatProductPrice(Map<String, dynamic> prod) {
+    final symbol = prod['symbol']?.toString() ??
+        (prod['currency'] == 'NGN' ? '₦' : (prod['currency'] == 'EUR' ? '€' : (prod['currency'] == 'GBP' ? '£' : '\$')));
+    final price = (prod['price'] as num?)?.toDouble() ?? 0.0;
+    return '$symbol${price.toStringAsFixed(2)}';
+  }
+
+  String _formatDuration(Map<String, dynamic> track) {
+    final raw = track['duration'] ?? track['duration_seconds'];
+    final seconds = raw is num ? raw.toInt() : int.tryParse(raw?.toString() ?? '') ?? 0;
+    if (seconds <= 0) return '';
+    final m = seconds ~/ 60;
+    final s = seconds % 60;
+    return '$m:${s.toString().padLeft(2, '0')}';
   }
 
   Future<void> _startLive() async {
@@ -236,30 +340,42 @@ class _GoLiveSetupDialogState extends ConsumerState<GoLiveSetupDialog> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      widget.community != null ? 'Go Live in ${widget.community!.name}' : 'Start Broadcast',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: textPrimary),
-                    ),
-                    Text(
-                      'Configure stream parameters & sell products',
-                      style: TextStyle(fontSize: 12, color: textSecondary),
-                    ),
-                  ],
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _headerTitle,
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: textPrimary),
+                      ),
+                      Text(
+                        _headerSubtitle,
+                        style: TextStyle(fontSize: 12, color: textSecondary),
+                      ),
+                    ],
+                  ),
                 ),
+                const SizedBox(width: 12),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFF3B30).withOpacity(0.15),
+                    color: _modeAccentColor.withOpacity(0.15),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Row(
+                  child: Row(
                     children: [
-                      Icon(Icons.fiber_manual_record_rounded, color: Color(0xFFFF3B30), size: 10),
-                      SizedBox(width: 4),
-                      Text('LIVE SETUP', style: TextStyle(color: Color(0xFFFF3B30), fontWeight: FontWeight.bold, fontSize: 11)),
+                      Icon(
+                        _streamMode == 'video'
+                            ? Icons.fiber_manual_record_rounded
+                            : (_streamMode == 'meeting' ? Icons.groups_rounded : Icons.mic_rounded),
+                        color: _modeAccentColor,
+                        size: 12,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        _modeBadgeLabel,
+                        style: TextStyle(color: _modeAccentColor, fontWeight: FontWeight.bold, fontSize: 11),
+                      ),
                     ],
                   ),
                 ),
@@ -289,11 +405,11 @@ class _GoLiveSetupDialogState extends ConsumerState<GoLiveSetupDialog> {
               style: TextStyle(color: textPrimary, fontSize: 14, fontWeight: FontWeight.w600),
               cursorColor: const Color(0xFF007AFF),
               decoration: InputDecoration(
-                hintText: 'e.g. Creator Strategy & Weekly Q&A',
+                hintText: _titleHint,
                 hintStyle: TextStyle(color: textSecondary, fontSize: 13),
                 filled: true,
                 fillColor: cardBg,
-                prefixIcon: const Icon(Icons.title_rounded, color: Color(0xFFFF3B30), size: 20),
+                prefixIcon: Icon(Icons.title_rounded, color: _modeAccentColor, size: 20),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
                   borderSide: BorderSide(color: isDark ? const Color(0xFF3A3A3C) : const Color(0xFFE2E8F0)),
@@ -377,48 +493,84 @@ class _GoLiveSetupDialogState extends ConsumerState<GoLiveSetupDialog> {
             const SizedBox(height: 8),
             _loadingSounds
                 ? const Center(child: Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator()))
-                : SizedBox(
-                    height: 60,
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: _soundTracks.length,
-                      separatorBuilder: (_, __) => const SizedBox(width: 8),
-                      itemBuilder: (ctx, idx) {
-                        final track = _soundTracks[idx];
-                        final isSelected = _selectedSound?['id'] == track['id'];
-                        return GestureDetector(
-                          onTap: () {
-                            HapticFeedback.selectionClick();
-                            setState(() => _selectedSound = isSelected ? null : track);
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: isSelected ? const Color(0xFFAF52DE).withOpacity(0.18) : cardBg,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: isSelected ? const Color(0xFFAF52DE) : Colors.transparent, width: 1.5),
+                : _soundTracks.isEmpty
+                    ? Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: cardBg,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: isDark ? const Color(0xFF3A3A3C) : const Color(0xFFE2E8F0)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.library_music_outlined, color: Color(0xFFAF52DE), size: 20),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                'No sound tracks yet. Tracks are managed from the admin sound library.',
+                                style: TextStyle(fontSize: 11, color: textSecondary),
+                              ),
                             ),
-                            child: Row(
-                              children: [
-                                const Icon(Icons.headphones_rounded, size: 16, color: Color(0xFFAF52DE)),
-                                const SizedBox(width: 6),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisAlignment: MainAxisAlignment.center,
+                          ],
+                        ),
+                      )
+                    : SizedBox(
+                        height: 64,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: _soundTracks.length,
+                          separatorBuilder: (_, __) => const SizedBox(width: 8),
+                          itemBuilder: (ctx, idx) {
+                            final track = _soundTracks[idx];
+                            final isSelected = _selectedSound?['id'] == track['id'];
+                            final isPlaying = _playingTrackId == track['id'];
+                            final hasAudio = (track['audio_url']?.toString() ?? '').isNotEmpty;
+                            return GestureDetector(
+                              onTap: () {
+                                HapticFeedback.selectionClick();
+                                setState(() => _selectedSound = isSelected ? null : track);
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: isSelected ? const Color(0xFFAF52DE).withOpacity(0.18) : cardBg,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: isSelected ? const Color(0xFFAF52DE) : Colors.transparent, width: 1.5),
+                                ),
+                                child: Row(
                                   children: [
-                                    Text(track['title']?.toString() ?? 'Track',
-                                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: textPrimary)),
-                                    Text(track['artist']?.toString() ?? 'Soundtrack',
-                                        style: TextStyle(fontSize: 9, color: textSecondary)),
+                                    if (hasAudio) ...[
+                                      GestureDetector(
+                                        onTap: () => _toggleSoundPreview(track),
+                                        child: Container(
+                                          width: 26,
+                                          height: 26,
+                                          decoration: const BoxDecoration(color: Color(0xFFAF52DE), shape: BoxShape.circle),
+                                          child: Icon(isPlaying ? Icons.stop_rounded : Icons.play_arrow_rounded, size: 16, color: Colors.white),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                    ],
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Text(track['title']?.toString() ?? 'Track',
+                                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: textPrimary)),
+                                        Text(
+                                          [track['artist']?.toString(), _formatDuration(track)].where((e) => (e ?? '').isNotEmpty).join(' · '),
+                                          style: TextStyle(fontSize: 9, color: textSecondary),
+                                        ),
+                                      ],
+                                    ),
                                   ],
                                 ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
             const SizedBox(height: 16),
 
             // Live Commerce - Pin Product to Sell
@@ -442,78 +594,101 @@ class _GoLiveSetupDialogState extends ConsumerState<GoLiveSetupDialog> {
             const SizedBox(height: 8),
             _loadingProducts
                 ? const Center(child: Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator()))
-                : SizedBox(
-                    height: 70,
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: _pinnedProducts.length,
-                      separatorBuilder: (_, __) => const SizedBox(width: 8),
-                      itemBuilder: (ctx, idx) {
-                        final prod = _pinnedProducts[idx];
-                        final isSelected = _selectedProduct?['id'] == prod['id'];
-                        final title = prod['title'] ?? prod['name'] ?? 'Product';
-                        final price = prod['price'] ?? '${prod['price_coins'] ?? 50} Coins';
-                        final img = prod['image_url'] ?? prod['cover_image_url'] ?? '';
+                : _pinnedProducts.isEmpty
+                    ? Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: cardBg,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: isDark ? const Color(0xFF3A3A3C) : const Color(0xFFE2E8F0)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.storefront_outlined, color: Color(0xFFFF9500), size: 20),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                'You haven\'t listed any products yet. Add products to your store to pin them to this stream.',
+                                style: TextStyle(fontSize: 11, color: textSecondary),
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    : SizedBox(
+                        height: 70,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: _pinnedProducts.length,
+                          separatorBuilder: (_, __) => const SizedBox(width: 8),
+                          itemBuilder: (ctx, idx) {
+                            final prod = _pinnedProducts[idx];
+                            final isSelected = _selectedProduct?['id'] == prod['id'];
+                            final title = prod['title'] ?? prod['name'] ?? 'Product';
+                            final price = _formatProductPrice(prod);
+                            final images = (prod['images'] as List?)?.whereType<String>().toList() ?? const <String>[];
+                            final img = images.isNotEmpty ? images.first : (prod['cover_url']?.toString() ?? '');
 
-                        return GestureDetector(
-                          onTap: () {
-                            HapticFeedback.selectionClick();
-                            setState(() => _selectedProduct = isSelected ? null : prod);
+                            return GestureDetector(
+                              onTap: () {
+                                HapticFeedback.selectionClick();
+                                setState(() => _selectedProduct = isSelected ? null : prod);
+                              },
+                              child: Container(
+                                width: 190,
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: isSelected ? const Color(0xFFFF9500).withOpacity(0.18) : cardBg,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: isSelected ? const Color(0xFFFF9500) : Colors.transparent, width: 1.5),
+                                ),
+                                child: Row(
+                                  children: [
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: img.isNotEmpty
+                                          ? Image.network(img, width: 44, height: 44, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(color: Colors.grey, width: 44, height: 44, child: const Icon(Icons.shopping_bag, size: 20, color: Colors.white)))
+                                          : Container(color: const Color(0xFFFF9500), width: 44, height: 44, child: const Icon(Icons.shopping_bag, size: 20, color: Colors.white)),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: textPrimary)),
+                                          Text('$price', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 10, color: Color(0xFFFF9500))),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
                           },
-                          child: Container(
-                            width: 190,
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: isSelected ? const Color(0xFFFF9500).withOpacity(0.18) : cardBg,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: isSelected ? const Color(0xFFFF9500) : Colors.transparent, width: 1.5),
-                            ),
-                            child: Row(
-                              children: [
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(8),
-                                  child: img.isNotEmpty
-                                      ? Image.network(img, width: 44, height: 44, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(color: Colors.grey, width: 44, height: 44, child: const Icon(Icons.shopping_bag, size: 20, color: Colors.white)))
-                                      : Container(color: const Color(0xFFFF9500), width: 44, height: 44, child: const Icon(Icons.shopping_bag, size: 20, color: Colors.white)),
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: textPrimary)),
-                                      Text('$price', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 10, color: Color(0xFFFF9500))),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
+                        ),
+                      ),
             const SizedBox(height: 24),
 
-            // Start Live Broadcast Button
+            // Start Live / Meeting / Audio Button
             SizedBox(
               width: double.infinity,
               height: 52,
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFFF3B30),
+                  backgroundColor: _modeAccentColor,
                   foregroundColor: Colors.white,
                   elevation: 0,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                 ),
                 onPressed: _startLive,
-                child: const Row(
+                child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.videocam_rounded, size: 20),
-                    SizedBox(width: 8),
-                    Text('Start Live Stream', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    Icon(_ctaIcon, size: 20),
+                    const SizedBox(width: 8),
+                    Text(_ctaLabel, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                   ],
                 ),
               ),
@@ -528,13 +703,7 @@ class _GoLiveSetupDialogState extends ConsumerState<GoLiveSetupDialog> {
     final isSelected = _streamMode == mode;
     return Expanded(
       child: GestureDetector(
-        onTap: () {
-          HapticFeedback.selectionClick();
-          setState(() {
-            _streamMode = mode;
-            if (mode == 'audio') _cameraEnabled = false;
-          });
-        },
+        onTap: () => _handleModeChange(mode),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.symmetric(vertical: 12),
