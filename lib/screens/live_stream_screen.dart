@@ -12,10 +12,14 @@ import 'package:url_launcher/url_launcher.dart';
 import '../components/gift_animation_overlay.dart';
 import '../components/kyc_live_gate_dialog.dart';
 import '../components/send_gift_dialog.dart';
+import '../config/env.dart';
 import '../core/api_client.dart';
 import '../core/camera_service.dart';
 import '../core/roles.dart';
+import '../models/chat_models.dart';
 import '../providers/auth_provider.dart';
+import '../providers/chat_provider.dart';
+import '../providers/messages_provider.dart';
 
 /// Full Interactive Live Streaming Stage with Native Hardware Camera Preview,
 /// Real-Time LiveKit Session Connection, Authenticated Chat, Likes, and Ledger-Backed Gifting.
@@ -447,10 +451,16 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
     );
   }
 
-  void _openShareModal() {
-    final streamId = _activeStreamId ?? widget.streamId ?? 1;
-    final liveUrl = 'https://web.murihspace.com/live/$streamId';
+  Future<void> _openShareModal() async {
+    // The share link must resolve to the real stream (activity) and its host
+    // (user). Never fabricate an id: wait for the backend to assign one.
+    int? streamId = _activeStreamId ?? widget.streamId;
+    streamId ??= await _waitForStreamId();
+
+    final liveUrl = Env.liveStreamUrl(streamId ?? 0, hostUserId: _hostUserId);
     final shareMessage = '🔴 Watch ${widget.hostName} live on MurihSpace: "${widget.streamTitle}"\n$liveUrl';
+
+    if (!mounted) return;
 
     showModalBottomSheet<void>(
       context: context,
@@ -468,167 +478,284 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
             borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           ),
           padding: EdgeInsets.fromLTRB(20, 12, 20, MediaQuery.of(ctx).padding.bottom + 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Drag handle
-              Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey.withOpacity(0.3),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Title Header
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFF3B30),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.sensors, color: Colors.white, size: 12),
-                        SizedBox(width: 4),
-                        Text('LIVE', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 10)),
-                      ],
-                    ),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Drag handle
+                Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(2),
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Share Live Broadcast',
-                          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: textPrimary),
-                        ),
-                        Text(
-                          'Invite friends to join ${widget.hostName}\'s stream',
-                          style: TextStyle(fontSize: 12, color: textSecondary),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 18),
-
-              // Link Copy Box
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF2F2F7),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: Colors.grey.withOpacity(0.2)),
                 ),
-                child: Row(
+                const SizedBox(height: 16),
+
+                // Title Header
+                Row(
                   children: [
-                    const Icon(Icons.link_rounded, color: Color(0xFF007AFF), size: 20),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFF3B30),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.sensors, color: Colors.white, size: 12),
+                          SizedBox(width: 4),
+                          Text('LIVE', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 10)),
+                        ],
+                      ),
+                    ),
                     const SizedBox(width: 10),
                     Expanded(
-                      child: Text(
-                        liveUrl,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(fontSize: 13, color: textPrimary, fontWeight: FontWeight.w500),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF007AFF),
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      ),
-                      onPressed: () {
-                        Clipboard.setData(ClipboardData(text: liveUrl));
-                        HapticFeedback.mediumImpact();
-                        Navigator.pop(ctx);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('✓ Live stream link copied to clipboard!'),
-                            backgroundColor: Color(0xFF34C759),
-                            duration: Duration(seconds: 2),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Share Live Broadcast',
+                            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: textPrimary),
                           ),
-                        );
-                      },
-                      child: const Text('Copy', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                          Text(
+                            'Invite friends to join ${widget.hostName}\'s stream',
+                            style: TextStyle(fontSize: 12, color: textSecondary),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
-              ),
-              const SizedBox(height: 20),
+                const SizedBox(height: 18),
 
-              // Quick Share Options
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _ShareOptionItem(
-                    icon: Icons.chat_bubble_outline_rounded,
-                    color: const Color(0xFF25D366),
-                    label: 'WhatsApp',
-                    onTap: () async {
-                      Navigator.pop(ctx);
-                      final waUrl = Uri.parse('https://wa.me/?text=${Uri.encodeComponent(shareMessage)}');
-                      if (await canLaunchUrl(waUrl)) {
-                        await launchUrl(waUrl, mode: LaunchMode.externalApplication);
-                      }
-                    },
+                // In-app Sharing: Friends, Groups & Communities
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Send to',
+                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: textSecondary),
                   ),
-                  _ShareOptionItem(
-                    icon: Icons.alternate_email_rounded,
-                    color: const Color(0xFF1DA1F2),
-                    label: 'X (Twitter)',
-                    onTap: () async {
-                      Navigator.pop(ctx);
-                      final xUrl = Uri.parse('https://twitter.com/intent/tweet?text=${Uri.encodeComponent(shareMessage)}');
-                      if (await canLaunchUrl(xUrl)) {
-                        await launchUrl(xUrl, mode: LaunchMode.externalApplication);
-                      }
-                    },
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    _ShareOptionItem(
+                      icon: Icons.person_add_alt_1_rounded,
+                      color: const Color(0xFF007AFF),
+                      label: 'Friends',
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        _openLiveShareRecipientSheet(
+                          title: 'Send to a friend',
+                          conversationTypes: const ['direct'],
+                          allowsUserSearch: true,
+                          shareMessage: shareMessage,
+                        );
+                      },
+                    ),
+                    _ShareOptionItem(
+                      icon: Icons.groups_rounded,
+                      color: const Color(0xFF34C759),
+                      label: 'Groups',
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        _openLiveShareRecipientSheet(
+                          title: 'Share to a group',
+                          conversationTypes: const ['group'],
+                          allowsUserSearch: false,
+                          shareMessage: shareMessage,
+                        );
+                      },
+                    ),
+                    _ShareOptionItem(
+                      icon: Icons.public_rounded,
+                      color: const Color(0xFFFF9500),
+                      label: 'Communities',
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        _openLiveShareRecipientSheet(
+                          title: 'Share to a community',
+                          conversationTypes: const ['community'],
+                          allowsUserSearch: false,
+                          shareMessage: shareMessage,
+                        );
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+
+                // Link Copy Box
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF2F2F7),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
                   ),
-                  _ShareOptionItem(
-                    icon: Icons.sms_outlined,
-                    color: const Color(0xFF34C759),
-                    label: 'Messages',
-                    onTap: () async {
-                      Navigator.pop(ctx);
-                      final smsUrl = Uri.parse('sms:?body=${Uri.encodeComponent(shareMessage)}');
-                      if (await canLaunchUrl(smsUrl)) {
-                        await launchUrl(smsUrl);
-                      }
-                    },
+                  child: Row(
+                    children: [
+                      const Icon(Icons.link_rounded, color: Color(0xFF007AFF), size: 20),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          liveUrl,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: 13, color: textPrimary, fontWeight: FontWeight.w500),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF007AFF),
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        onPressed: () {
+                          Clipboard.setData(ClipboardData(text: liveUrl));
+                          HapticFeedback.mediumImpact();
+                          Navigator.pop(ctx);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('✓ Live stream link copied to clipboard!'),
+                              backgroundColor: Color(0xFF34C759),
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                        },
+                        child: const Text('Copy', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                      ),
+                    ],
                   ),
-                  _ShareOptionItem(
-                    icon: Icons.mail_outline_rounded,
-                    color: const Color(0xFFFF9500),
-                    label: 'Email',
-                    onTap: () async {
-                      Navigator.pop(ctx);
-                      final mailUrl = Uri.parse(
-                        'mailto:?subject=${Uri.encodeComponent('Join ${widget.hostName}\'s Live on MurihSpace')}&body=${Uri.encodeComponent(shareMessage)}',
-                      );
-                      if (await canLaunchUrl(mailUrl)) {
-                        await launchUrl(mailUrl);
-                      }
-                    },
-                  ),
-                ],
-              ),
-            ],
+                ),
+                const SizedBox(height: 20),
+
+                // Quick Share Options
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    _ShareOptionItem(
+                      icon: Icons.chat_bubble_outline_rounded,
+                      color: const Color(0xFF25D366),
+                      label: 'WhatsApp',
+                      onTap: () async {
+                        Navigator.pop(ctx);
+                        final waUrl = Uri.parse('https://wa.me/?text=${Uri.encodeComponent(shareMessage)}');
+                        if (await canLaunchUrl(waUrl)) {
+                          await launchUrl(waUrl, mode: LaunchMode.externalApplication);
+                        }
+                      },
+                    ),
+                    _ShareOptionItem(
+                      icon: Icons.alternate_email_rounded,
+                      color: const Color(0xFF1DA1F2),
+                      label: 'X (Twitter)',
+                      onTap: () async {
+                        Navigator.pop(ctx);
+                        final xUrl = Uri.parse('https://twitter.com/intent/tweet?text=${Uri.encodeComponent(shareMessage)}');
+                        if (await canLaunchUrl(xUrl)) {
+                          await launchUrl(xUrl, mode: LaunchMode.externalApplication);
+                        }
+                      },
+                    ),
+                    _ShareOptionItem(
+                      icon: Icons.sms_outlined,
+                      color: const Color(0xFF34C759),
+                      label: 'Messages',
+                      onTap: () async {
+                        Navigator.pop(ctx);
+                        final smsUrl = Uri.parse('sms:?body=${Uri.encodeComponent(shareMessage)}');
+                        if (await canLaunchUrl(smsUrl)) {
+                          await launchUrl(smsUrl);
+                        }
+                      },
+                    ),
+                    _ShareOptionItem(
+                      icon: Icons.mail_outline_rounded,
+                      color: const Color(0xFFFF9500),
+                      label: 'Email',
+                      onTap: () async {
+                        Navigator.pop(ctx);
+                        final mailUrl = Uri.parse(
+                          'mailto:?subject=${Uri.encodeComponent('Join ${widget.hostName}\'s Live on MurihSpace')}&body=${Uri.encodeComponent(shareMessage)}',
+                        );
+                        if (await canLaunchUrl(mailUrl)) {
+                          await launchUrl(mailUrl);
+                        }
+                      },
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         );
       },
     );
+  }
+
+  /// Waits a short while for the backend to assign the stream id so the share
+  /// link is always tied to the real stream instead of a placeholder id.
+  Future<int?> _waitForStreamId() async {
+    for (var i = 0; i < 10 && _activeStreamId == null && mounted; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+    }
+    return _activeStreamId ?? widget.streamId;
+  }
+
+  void _openLiveShareRecipientSheet({
+    required String title,
+    required List<String> conversationTypes,
+    required bool allowsUserSearch,
+    required String shareMessage,
+  }) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _LiveShareRecipientSheet(
+        title: title,
+        conversationTypes: conversationTypes,
+        allowsUserSearch: allowsUserSearch,
+        shareMessage: shareMessage,
+        onSend: _sendLiveToConversation,
+      ),
+    );
+  }
+
+  /// Sends the live broadcast link as a message into the chosen conversation.
+  Future<void> _sendLiveToConversation(Conversation conversation, String shareMessage) async {
+    if (conversation.id <= 0) return;
+    try {
+      await ref
+          .read(conversationMessagesProvider(conversation.id).notifier)
+          .sendMessage(
+            content: shareMessage,
+            attachmentType: 'live_stream',
+          );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('✓ Live broadcast sent to ${conversation.title}'),
+            backgroundColor: const Color(0xFF34C759),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not send the live broadcast. Please try again.')),
+        );
+      }
+    }
   }
 
   Future<void> _endOrLeaveStream() async {
@@ -1200,6 +1327,374 @@ class _ShareOptionItem extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Recipient picker used to share a live broadcast into a direct chat
+/// (friend), a group, or a community conversation.
+class _LiveShareRecipientSheet extends ConsumerStatefulWidget {
+  final String title;
+  final String shareMessage;
+  final List<String> conversationTypes;
+  final bool allowsUserSearch;
+  final Future<void> Function(Conversation conversation, String shareMessage) onSend;
+
+  const _LiveShareRecipientSheet({
+    required this.title,
+    required this.shareMessage,
+    required this.conversationTypes,
+    required this.allowsUserSearch,
+    required this.onSend,
+  });
+
+  @override
+  ConsumerState<_LiveShareRecipientSheet> createState() => _LiveShareRecipientSheetState();
+}
+
+class _LiveShareRecipientSheetState extends ConsumerState<_LiveShareRecipientSheet> {
+  final _searchCtrl = TextEditingController();
+  Timer? _debounce;
+  List<ChatUser> _userResults = const [];
+  bool _searchingUsers = false;
+  bool _sending = false;
+
+  String get _categoryLabel {
+    if (widget.conversationTypes.contains('direct')) return 'friend';
+    if (widget.conversationTypes.contains('group')) return 'group';
+    return 'community';
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _searchCtrl.addListener(_onSearchChanged);
+    if (ref.read(conversationsProvider).conversations.isEmpty) {
+      ref.read(conversationsProvider.notifier).refresh();
+    }
+  }
+
+  void _onSearchChanged() {
+    _debounce?.cancel();
+    final q = _searchCtrl.text.trim();
+    if (!widget.allowsUserSearch || q.isEmpty) {
+      if (mounted) setState(() {});
+      return;
+    }
+    _debounce = Timer(const Duration(milliseconds: 350), () => _searchUsers(q));
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _searchCtrl.removeListener(_onSearchChanged);
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _searchUsers(String query) async {
+    if (query.isEmpty) return;
+    setState(() => _searchingUsers = true);
+    try {
+      final res = await ApiClient.instance.dio.get(
+        '/search',
+        queryParameters: {'q': query, 'type': 'users', 'per_page': 15},
+      );
+      final payload = ApiClient.instance.unwrap(res);
+      dynamic raw = payload;
+      if (payload is Map<String, dynamic>) {
+        if (payload['users'] is List) {
+          raw = payload['users'];
+        } else if (payload['results'] is Map<String, dynamic> &&
+            (payload['results'] as Map<String, dynamic>)['users'] is List) {
+          raw = (payload['results'] as Map<String, dynamic>)['users'];
+        } else if (payload['data'] is List) {
+          raw = payload['data'];
+        }
+      }
+      final users = raw is List
+          ? raw
+              .map(ChatUser.fromJson)
+              .where((u) => u.id != 0 && u.name.isNotEmpty)
+              .toList()
+          : <ChatUser>[];
+      if (mounted) {
+        setState(() {
+          _userResults = users;
+          _searchingUsers = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _searchingUsers = false);
+    }
+  }
+
+  Future<void> _select(Conversation conversation) async {
+    if (_sending) return;
+    setState(() => _sending = true);
+    Navigator.of(context).pop();
+    await widget.onSend(conversation, widget.shareMessage);
+  }
+
+  Future<void> _sendToNewUser(ChatUser user) async {
+    if (_sending) return;
+    setState(() => _sending = true);
+    final conversation = await ref
+        .read(conversationsProvider.notifier)
+        .openDirectChat(
+          user.id,
+          name: user.name,
+          username: user.username,
+          avatarUrl: user.avatarUrl,
+          allowOfflineFallback: false,
+        );
+    if (!mounted) return;
+    Navigator.of(context).pop();
+    if (conversation != null) {
+      await widget.onSend(conversation, widget.shareMessage);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not start a chat with this user right now.')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = isDark ? const Color(0xFF1C1C1E) : Colors.white;
+    final textPrimary = isDark ? Colors.white : const Color(0xFF0F172A);
+    final textSecondary = isDark ? Colors.grey[400] : Colors.grey[600];
+    final query = _searchCtrl.text.trim().toLowerCase();
+
+    final conversations = ref.watch(conversationsProvider).conversations
+        .where((c) => widget.conversationTypes.contains(c.type))
+        .where((c) => query.isEmpty || c.title.toLowerCase().contains(query))
+        .toList();
+
+    final showUserResults = widget.allowsUserSearch && query.isNotEmpty;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: EdgeInsets.only(
+        top: 12,
+        left: 20,
+        right: 20,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+      ),
+      child: SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Drag handle
+            Center(
+              child: Container(
+                width: 38,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.grey[700] : Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Header
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFF3B30).withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.sensors, color: Color(0xFFFF3B30), size: 20),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.title,
+                        style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w800,
+                          color: textPrimary,
+                        ),
+                      ),
+                      Text(
+                        'Send the live broadcast to a $_categoryLabel',
+                        style: TextStyle(fontSize: 12, color: textSecondary),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: Icon(Icons.close_rounded, color: textSecondary, size: 20),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            // Search (friends only)
+            if (widget.allowsUserSearch)
+              TextField(
+                controller: _searchCtrl,
+                textInputAction: TextInputAction.search,
+                decoration: InputDecoration(
+                  hintText: 'Search friends by name or username',
+                  prefixIcon: const Icon(Icons.search, size: 20),
+                  isDense: true,
+                  filled: true,
+                  fillColor: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF2F2F7),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+              ),
+            const SizedBox(height: 8),
+
+            Flexible(
+              child: ListView(
+                shrinkWrap: true,
+                keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                children: [
+                  if (conversations.isEmpty && (!showUserResults || _userResults.isEmpty))
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 40),
+                      child: Center(
+                        child: Column(
+                          children: [
+                            Icon(Icons.chat_bubble_outline_rounded, size: 42, color: textSecondary),
+                            const SizedBox(height: 10),
+                            Text(
+                              'No ${_categoryLabel}s to send to',
+                              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: textPrimary),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              widget.allowsUserSearch
+                                  ? 'Search for a friend above to get started.'
+                                  : 'You are not part of any $_categoryLabel chats yet.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(fontSize: 12, color: textSecondary),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ...conversations.map((c) => ListTile(
+                        contentPadding: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
+                        leading: _RecipientAvatar(
+                          title: c.title,
+                          avatarUrl: c.avatarUrl,
+                          color: widget.conversationTypes.contains('group')
+                              ? const Color(0xFF34C759)
+                              : widget.conversationTypes.contains('community')
+                                  ? const Color(0xFFFF9500)
+                                  : const Color(0xFF007AFF),
+                        ),
+                        title: Text(
+                          c.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: textPrimary),
+                        ),
+                        subtitle: Text(
+                          widget.conversationTypes.contains('direct')
+                              ? '@${c.otherUser?.username ?? 'friend'}'
+                              : '${c.memberCount ?? 0} members',
+                          style: TextStyle(fontSize: 12, color: textSecondary),
+                        ),
+                        trailing: const Icon(Icons.send_rounded, size: 18, color: Color(0xFF007AFF)),
+                        onTap: () => _select(c),
+                      )),
+                  if (showUserResults) ...[
+                    const SizedBox(height: 4),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: Text(
+                        _searchingUsers ? 'Searching…' : 'People on MurihSpace',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: textSecondary,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    if (_searchingUsers)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 16),
+                        child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                      )
+                    else
+                      ..._userResults.map((u) => ListTile(
+                            contentPadding: const EdgeInsets.symmetric(vertical: 1, horizontal: 4),
+                            leading: CircleAvatar(
+                              radius: 20,
+                              backgroundColor: const Color(0xFF007AFF).withValues(alpha: 0.12),
+                              backgroundImage: u.avatarUrl != null && u.avatarUrl!.isNotEmpty
+                                  ? NetworkImage(u.avatarUrl!)
+                                  : null,
+                              child: u.avatarUrl == null || u.avatarUrl!.isEmpty
+                                  ? const Icon(Icons.person, color: Color(0xFF007AFF), size: 20)
+                                  : null,
+                            ),
+                            title: Text(
+                              u.name,
+                              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: textPrimary),
+                            ),
+                            subtitle: Text(
+                              '@${u.username}',
+                              style: TextStyle(fontSize: 12, color: textSecondary),
+                            ),
+                            trailing: const Icon(Icons.send_rounded, size: 18, color: Color(0xFF007AFF)),
+                            onTap: () => _sendToNewUser(u),
+                          )),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Circular avatar for share recipients with an initials fallback.
+class _RecipientAvatar extends StatelessWidget {
+  final String title;
+  final String? avatarUrl;
+  final Color color;
+
+  const _RecipientAvatar({required this.title, required this.avatarUrl, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    final initials = title.trim().isEmpty
+        ? '?'
+        : title.trim().substring(0, 1).toUpperCase();
+    return CircleAvatar(
+      radius: 22,
+      backgroundColor: color.withValues(alpha: 0.15),
+      backgroundImage: avatarUrl != null && avatarUrl!.isNotEmpty
+          ? NetworkImage(avatarUrl!)
+          : null,
+      child: avatarUrl == null || avatarUrl!.isEmpty
+          ? Text(
+              initials,
+              style: TextStyle(fontWeight: FontWeight.bold, color: color),
+            )
+          : null,
     );
   }
 }

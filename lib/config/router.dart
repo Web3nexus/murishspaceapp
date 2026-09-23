@@ -173,7 +173,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/create-broadcast',
         builder: (context, _) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            showCreateCommunityDialog(context);
+            showCreateBroadcastChannelDialog(context);
           });
           return const Scaffold(backgroundColor: Colors.transparent);
         },
@@ -313,7 +313,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/app/conference',
-        builder: (_, _) => const ConferenceMeetingScreen(),
+        builder: (_, state) => ConferenceMeetingScreen(
+          joinCode: state.uri.queryParameters['code'],
+        ),
+      ),
+      GoRoute(
+        path: '/app/meeting/:code',
+        builder: (_, state) => ConferenceMeetingScreen(
+          joinCode: state.pathParameters['code'],
+        ),
       ),
       GoRoute(
         path: '/app/live',

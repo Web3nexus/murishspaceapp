@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kReleaseMode;
 
@@ -90,6 +91,23 @@ class Env {
   static String linkInBioUrl(String username) {
     final clean = username.trim().replaceFirst(RegExp(r'^@'), '');
     return '$webBaseUrl/l/$clean';
+  }
+
+  /// Builds a shareable, environment-aware deep link to a live stream.
+  ///
+  /// The stream id (the activity) and its host (the user) are packed into an
+  /// opaque base64url token on the path, so the URL stays encoded instead of
+  /// leaking raw identifiers and always targets the environment the app was
+  /// built for (staging vs production).
+  static String liveStreamUrl(int streamId, {int? hostUserId}) {
+    if (streamId <= 0) {
+      return '$webBaseUrl/live';
+    }
+    final payload = hostUserId != null && hostUserId > 0
+        ? '$streamId:$hostUserId'
+        : '$streamId';
+    final token = base64Url.encode(utf8.encode(payload)).replaceAll('=', '');
+    return '$webBaseUrl/live/$token';
   }
 
   /// Whether the app targets a hosted (staging/production) backend.

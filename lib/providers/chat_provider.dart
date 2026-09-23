@@ -152,12 +152,32 @@ class ConversationsNotifier extends Notifier<ConversationsState> {
     }
   }
 
+  /// Fetches or creates a group's conversation and adds it to the list.
+
+  Future<Conversation?> openGroupChat(int groupId) async {
+    try {
+      final response = await _dio.get('/groups/$groupId/chat');
+      final conversation = Conversation.fromJson(ApiClient.instance.unwrap(response));
+      if (conversation.id != 0) upsert(conversation);
+      return conversation.id == 0 ? null : conversation;
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Fetches or creates a direct 1-on-1 chat with a user and adds it to the list.
+  ///
+  /// When [allowOfflineFallback] is true and the backend call fails, a local-only
+  /// conversation with a fabricated id is returned so the user can still chat in
+  /// a degraded mode. Pass false when a fabricated conversation must not be used
+  /// (for example before sending a live link, where a fake id would post into an
+  /// unrelated conversation).
   Future<Conversation?> openDirectChat(
     int userId, {
     String? name,
     String? username,
     String? avatarUrl,
+    bool allowOfflineFallback = true,
   }) async {
     final existing = state.conversations
         .where((c) => c.type == 'direct' && c.otherUser?.id == userId)
@@ -196,6 +216,8 @@ class ConversationsNotifier extends Notifier<ConversationsState> {
     } catch (_) {
       // Fallback
     }
+
+    if (!allowOfflineFallback) return null;
 
     final fallback = Conversation(
       id: userId > 0 ? userId + 9000 : DateTime.now().millisecondsSinceEpoch % 100000,

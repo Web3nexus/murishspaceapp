@@ -195,14 +195,17 @@ class NativeStoreService {
             error: p.error?.message ?? 'Store purchase failed.',
           );
           _completeIfNeeded(p);
+          break;
         case PurchaseStatus.canceled:
-        case PurchaseStatus.unknown:
           _emitFor(p.productID, ok: false, error: 'Purchase canceled.');
           _completeIfNeeded(p);
+          break;
         case PurchaseStatus.purchased:
           _handlePurchased(p);
+          break;
         case PurchaseStatus.restored:
           _completeIfNeeded(p);
+          break;
       }
     }
   }

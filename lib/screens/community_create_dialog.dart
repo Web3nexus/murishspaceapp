@@ -1,10 +1,17 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../core/api_client.dart';
 import '../core/design_tokens.dart';
+import '../models/broadcast_channel_models.dart';
 import '../models/community_models.dart';
+import '../models/group_models.dart';
+import '../providers/auth_provider.dart';
+import '../providers/broadcast_channels_provider.dart';
+import '../providers/community_provider.dart';
+import '../providers/groups_provider.dart';
 
 /// Shows the "Create community" sliding bottom sheet and creates the community.
 /// Returns the created [Community], or null if cancelled or failed.
@@ -422,15 +429,16 @@ class CommunityLogo extends StatelessWidget {
   }
 }
 
-/// Shows the "Create Broadcast Channel" modal sheet and creates the broadcast channel.
-Future<dynamic> showCreateBroadcastChannelDialog(BuildContext context) async {
-  final name = TextEditingController();
-  final description = TextEditingController();
-  final channelHandle = TextEditingController();
-  bool allowReplies = false;
-  bool isCreating = false;
-
-  return showModalBottomSheet<dynamic>(
+/// Shows the "Create Broadcast Channel" modal sheet.
+///
+/// A broadcast channel MUST be linked to an audience source the creator owns:
+/// your Page (friends + followers), a Group you own/admin, or a Community you
+/// own. Recipients are derived from that link server-side — you can never add
+/// arbitrary users to a broadcast.
+///
+/// Returns the created [BroadcastChannel], or null if cancelled/failed.
+Future<BroadcastChannel?> showCreateBroadcastChannelDialog(BuildContext context) {
+  return showModalBottomSheet<BroadcastChannel>(
     context: context,
     isScrollControlled: true,
     backgroundColor: Theme.of(context).brightness == Brightness.dark
@@ -439,168 +447,422 @@ Future<dynamic> showCreateBroadcastChannelDialog(BuildContext context) async {
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
     ),
-    builder: (ctx) {
-      final isDark = Theme.of(ctx).brightness == Brightness.dark;
-      final textPrimary = isDark ? Colors.white : Colors.black;
-      final textSecondary = isDark ? Colors.grey[400] : Colors.grey[600];
+    builder: (ctx) => const _CreateBroadcastSheet(),
+  );
+}
 
-      return StatefulBuilder(
-        builder: (context, setState) {
-          return Padding(
-            padding: EdgeInsets.only(
-              left: 20,
-              right: 20,
-              top: 16,
-              bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
+class _CreateBroadcastSheet extends ConsumerStatefulWidget {
+  const _CreateBroadcastSheet();
+
+  @override
+  ConsumerState<_CreateBroadcastSheet> createState() => _CreateBroadcastSheetState();
+}
+
+class _CreateBroadcastSheetState extends ConsumerState<_CreateBroadcastSheet> {
+  final _name = TextEditingController();
+  final _handle = TextEditingController();
+  final _description = TextEditingController();
+  bool _allowReplies = false;
+  bool _isCreating = false;
+  String? _error;
+
+  BroadcastLinkedType _linkedType = BroadcastLinkedType.page;
+  int? _linkedId;
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _handle.dispose();
+    _description.dispose();
+    super.dispose();
+  }
+
+  List<Group> get _ownedGroups {
+    final myId = ref.read(authProvider).user?.id;
+    return ref.watch(myGroupsProvider).groups.where((g) {
+      return g.isOwner || (g.creator?.id == myId) || (g.creatorId == myId);
+    }).toList();
+  }
+
+  List<Community> get _ownedCommunities {
+    final myId = ref.read(authProvider).user?.id;
+    return ref.watch(myCommunitiesProvider).communities.where((c) {
+      return c.userId == myId || (c.creator?.id == myId);
+    }).toList();
+  }
+
+  Future<void> _create() async {
+    final title = _name.text.trim();
+    if (title.isEmpty) {
+      setState(() => _error = 'Please enter a channel name.');
+      return;
+    }
+    if (_linkedType == BroadcastLinkedType.group && _linkedId == null) {
+      setState(() => _error = 'Choose one of the groups you own.');
+      return;
+    }
+    if (_linkedType == BroadcastLinkedType.community && _linkedId == null) {
+      setState(() => _error = 'Choose one of the communities you own.');
+      return;
+    }
+
+    setState(() {
+      _isCreating = true;
+      _error = null;
+    });
+
+    try {
+      final channel = await ref
+          .read(myBroadcastChannelsProvider.notifier)
+          .create(
+            name: title,
+            handle: _handle.text.trim(),
+            description: _description.text.trim(),
+            allowReplies: _allowReplies,
+            linkedType: _linkedType,
+            linkedId: _linkedId,
+          );
+      if (!mounted) return;
+      Navigator.pop(context, channel);
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isCreating = false;
+        _error = e.message;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _isCreating = false;
+        _error = 'Could not create broadcast channel. Please try again.';
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textPrimary = isDark ? Colors.white : Colors.black;
+    final textSecondary = isDark ? Colors.grey[400] : Colors.grey[600];
+    final cardBg = isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF2F2F7);
+    final ownedGroups = _ownedGroups;
+    final ownedCommunities = _ownedCommunities;
+
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 20,
+        right: 20,
+        top: 16,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 38,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.grey[700] : Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
             ),
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Center(
-                    child: Container(
-                      width: 38,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: isDark ? Colors.grey[700] : Colors.grey[300],
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF007AFF).withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
                   ),
-                  const SizedBox(height: 16),
-                  Row(
+                  child: const Icon(Icons.campaign_rounded, color: Color(0xFF007AFF), size: 24),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF007AFF).withOpacity(0.15),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(Icons.campaign_rounded, color: Color(0xFF007AFF), size: 24),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Create Broadcast Channel',
-                              style: TextStyle(
-                                fontSize: 19,
-                                fontWeight: FontWeight.w800,
-                                color: textPrimary,
-                              ),
-                            ),
-                            Text(
-                              '1-to-many updates for your subscribers & followers.',
-                              style: TextStyle(fontSize: 12, color: textSecondary),
-                            ),
-                          ],
+                      Text(
+                        'Create Broadcast Channel',
+                        style: TextStyle(
+                          fontSize: 19,
+                          fontWeight: FontWeight.w800,
+                          color: textPrimary,
                         ),
                       ),
-                      IconButton(
-                        onPressed: () => Navigator.pop(ctx),
-                        icon: Icon(Icons.close_rounded, color: textSecondary),
+                      Text(
+                        'Linked to an audience you own — no broadcasting to strangers.',
+                        style: TextStyle(fontSize: 12, color: textSecondary),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 18),
+                ),
+                IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: Icon(Icons.close_rounded, color: textSecondary),
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
 
-                  TextField(
-                    controller: name,
-                    style: TextStyle(color: textPrimary),
-                    decoration: InputDecoration(
-                      labelText: 'Channel Name',
-                      hintText: 'e.g., Daily Market Signals & VIP Updates',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  TextField(
-                    controller: channelHandle,
-                    style: TextStyle(color: textPrimary),
-                    decoration: InputDecoration(
-                      labelText: 'Channel Handle',
-                      hintText: 'e.g., vip_signals',
-                      prefixText: '@ ',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  TextField(
-                    controller: description,
-                    maxLines: 2,
-                    style: TextStyle(color: textPrimary),
-                    decoration: InputDecoration(
-                      labelText: 'Description / Purpose',
-                      hintText: 'Share announcements, product drops, and exclusive news...',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: Text('Allow Subscriber Comment Replies', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: textPrimary)),
-                    subtitle: Text('Subscribers can comment on broadcast messages', style: TextStyle(fontSize: 12, color: textSecondary)),
-                    value: allowReplies,
-                    onChanged: (val) => setState(() => allowReplies = val),
-                  ),
-                  const SizedBox(height: 20),
-
-                  SizedBox(
-                    width: double.infinity,
-                    height: 50,
-                    child: ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF007AFF),
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                      ),
-                      onPressed: isCreating
-                          ? null
-                          : () async {
-                              final title = name.text.trim();
-                              if (title.isEmpty) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Please enter a channel name')),
-                                );
-                                return;
-                              }
-                              setState(() => isCreating = true);
-                              try {
-                                await ApiClient.instance.dio.post('/conversations/broadcast', data: {
-                                  'title': title,
-                                  'handle': channelHandle.text.trim(),
-                                  'description': description.text.trim(),
-                                  'allow_replies': allowReplies,
-                                });
-                              } catch (_) {}
-                              if (context.mounted) {
-                                Navigator.pop(ctx, true);
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('Broadcast Channel "$title" created!')),
-                                );
-                              }
-                            },
-                      icon: isCreating
-                          ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                          : const Icon(Icons.campaign_rounded),
-                      label: Text(
-                        isCreating ? 'Creating Broadcast Channel…' : 'Create Broadcast Channel',
-                        style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15),
-                      ),
-                    ),
-                  ),
-                ],
+            TextField(
+              controller: _name,
+              style: TextStyle(color: textPrimary),
+              decoration: InputDecoration(
+                labelText: 'Channel Name',
+                hintText: 'e.g., Daily Market Signals & VIP Updates',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
               ),
             ),
-          );
-        },
-      );
-    },
-  );
+            const SizedBox(height: 12),
+
+            TextField(
+              controller: _handle,
+              style: TextStyle(color: textPrimary),
+              decoration: InputDecoration(
+                labelText: 'Channel Handle (optional)',
+                hintText: 'e.g., vip_signals',
+                prefixText: '@ ',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            TextField(
+              controller: _description,
+              maxLines: 2,
+              style: TextStyle(color: textPrimary),
+              decoration: InputDecoration(
+                labelText: 'Description / Purpose',
+                hintText: 'Share announcements, product drops, and exclusive news...',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            Text(
+              'Who receives it:',
+              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: textPrimary),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Recipients are added automatically from the source you link. You cannot add users who are not your friends, or not in a group/community you own.',
+              style: TextStyle(fontSize: 12, color: textSecondary),
+            ),
+            const SizedBox(height: 12),
+
+            _LinkOptionTile(
+              selected: _linkedType == BroadcastLinkedType.page,
+              icon: Icons.person_rounded,
+              title: 'My Page',
+              subtitle: 'Everyone who follows or is friends with you',
+              onTap: () => setState(() {
+                _linkedType = BroadcastLinkedType.page;
+                _linkedId = null;
+              }),
+            ),
+            const SizedBox(height: 8),
+
+            _LinkOptionTile(
+              selected: _linkedType == BroadcastLinkedType.group,
+              icon: Icons.groups_rounded,
+              title: 'One of my Groups',
+              subtitle: ownedGroups.isEmpty
+                  ? 'You need to own a group first'
+                  : 'Members of a group you own or admin',
+              onTap: ownedGroups.isEmpty
+                  ? null
+                  : () => setState(() {
+                      _linkedType = BroadcastLinkedType.group;
+                      _linkedId = ownedGroups.firstOrNull?.id;
+                    }),
+            ),
+            if (_linkedType == BroadcastLinkedType.group) ...[
+              const SizedBox(height: 10),
+              DropdownButtonFormField<int>(
+                value: _linkedId,
+                decoration: InputDecoration(
+                  labelText: 'Group',
+                  filled: true,
+                  fillColor: cardBg,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                items: ownedGroups
+                    .map((g) => DropdownMenuItem(
+                          value: g.id,
+                          child: Text(
+                            g.name,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(color: textPrimary),
+                          ),
+                        ))
+                    .toList(),
+                onChanged: (v) => setState(() => _linkedId = v),
+              ),
+            ],
+            const SizedBox(height: 8),
+
+            _LinkOptionTile(
+              selected: _linkedType == BroadcastLinkedType.community,
+              icon: Icons.forum_rounded,
+              title: 'One of my Communities',
+              subtitle: ownedCommunities.isEmpty
+                  ? 'You need to create a community first'
+                  : 'Members of a community you own',
+              onTap: ownedCommunities.isEmpty
+                  ? null
+                  : () => setState(() {
+                      _linkedType = BroadcastLinkedType.community;
+                      _linkedId = ownedCommunities.firstOrNull?.id;
+                    }),
+            ),
+            if (_linkedType == BroadcastLinkedType.community) ...[
+              const SizedBox(height: 10),
+              DropdownButtonFormField<int>(
+                value: _linkedId,
+                decoration: InputDecoration(
+                  labelText: 'Community',
+                  filled: true,
+                  fillColor: cardBg,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                items: ownedCommunities
+                    .map((c) => DropdownMenuItem(
+                          value: c.id,
+                          child: Text(
+                            c.name,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(color: textPrimary),
+                          ),
+                        ))
+                    .toList(),
+                onChanged: (v) => setState(() => _linkedId = v),
+              ),
+            ],
+            const SizedBox(height: 14),
+
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text('Allow Subscriber Comment Replies', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: textPrimary)),
+              subtitle: Text('Subscribers can comment on broadcast messages', style: TextStyle(fontSize: 12, color: textSecondary)),
+              value: _allowReplies,
+              onChanged: (val) => setState(() => _allowReplies = val),
+            ),
+
+            if (_error != null) ...[
+              const SizedBox(height: 10),
+              Text(
+                _error!,
+                style: const TextStyle(color: Colors.redAccent, fontSize: 13, fontWeight: FontWeight.w600),
+              ),
+            ],
+            const SizedBox(height: 16),
+
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF007AFF),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+                onPressed: _isCreating ? null : _create,
+                icon: _isCreating
+                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Icon(Icons.campaign_rounded),
+                label: Text(
+                  _isCreating ? 'Creating Broadcast Channel…' : 'Create Broadcast Channel',
+                  style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LinkOptionTile extends StatelessWidget {
+  final bool selected;
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback? onTap;
+
+  const _LinkOptionTile({
+    required this.selected,
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF2F2F7);
+    final textPrimary = isDark ? Colors.white : Colors.black;
+    final textSecondary = isDark ? Colors.grey[400] : Colors.grey[600];
+    final enabled = onTap != null;
+
+    return Material(
+      color: selected ? const Color(0xFF007AFF).withValues(alpha: 0.12) : cardBg,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: selected ? const Color(0xFF007AFF) : Colors.transparent,
+              width: 1.5,
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                icon,
+                color: enabled ? const Color(0xFF007AFF) : Colors.grey,
+                size: 22,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                        color: enabled ? textPrimary : Colors.grey,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: TextStyle(fontSize: 12, color: textSecondary),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                selected ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
+                color: selected ? const Color(0xFF007AFF) : Colors.grey,
+                size: 20,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
