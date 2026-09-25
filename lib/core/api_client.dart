@@ -1,8 +1,11 @@
+import 'dart:math';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../config/env.dart';
+
 const _secureStorage = FlutterSecureStorage();
 
 final apiClientProvider = Provider<ApiClient>((ref) => ApiClient.instance);
@@ -34,6 +37,7 @@ class ApiException implements Exception {
 /// - Normalises failures into [ApiException].
 class ApiClient {
   static const String tokenKey = 'murihspace_token';
+  static const String liveSessionIdKey = 'murihspace_live_session_id';
 
   final Dio dio;
 
@@ -42,28 +46,36 @@ class ApiClient {
   static final ApiClient instance = ApiClient._(_createDio());
 
   static Dio _createDio() {
-    final dio = Dio(BaseOptions(
-      baseUrl: Env.apiBaseUrl,
-      connectTimeout: const Duration(seconds: 15),
-      receiveTimeout: const Duration(seconds: 15),
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        // Tags native-app traffic so admin toggles like "web purchases off"
-        // keep working inside the app while the dashboard is locked out.
-        'X-Client-Platform': 'app',
-      },
-    ));
+    final dio = Dio(
+      BaseOptions(
+        baseUrl: Env.apiBaseUrl,
+        connectTimeout: const Duration(seconds: 15),
+        receiveTimeout: const Duration(seconds: 15),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          // Tags native-app traffic so admin toggles like "web purchases off"
+          // keep working inside the app while the dashboard is locked out.
+          'X-Client-Platform': 'app',
+        },
+      ),
+    );
 
-    dio.interceptors.add(InterceptorsWrapper(
-      onRequest: (options, handler) async {
-        final token = await readToken();
-        if (token != null && token.isNotEmpty) {
-          options.headers['Authorization'] = 'Bearer $token';
-        }
-        handler.next(options);
-      },
-    ));
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) async {
+          final token = await readToken();
+          if (token != null && token.isNotEmpty) {
+            options.headers['Authorization'] = 'Bearer $token';
+          }
+          if (options.path.startsWith('/live')) {
+            options.headers['X-Live-Session-ID'] =
+                await readOrCreateLiveSessionId();
+          }
+          handler.next(options);
+        },
+      ),
+    );
 
     return dio;
   }
@@ -156,28 +168,26 @@ class ApiClient {
     throw ApiException(
       message: data['message']?.toString() ?? 'Request failed.',
       code: data['code']?.toString(),
-      errors: (data['errors'] as Map<String, dynamic>?)?.cast<String, dynamic>(),
+      errors: (data['errors'] as Map<String, dynamic>?)
+          ?.cast<String, dynamic>(),
       status: response.statusCode,
       requestId: data['request_id']?.toString(),
     );
   }
 
   /// Unwraps a list payload, tolerating plain arrays and paginated shapes.
-  List<T> unwrapList<T>(Response<dynamic> response, T Function(Map<String, dynamic>) fromJson) {
+  List<T> unwrapList<T>(
+    Response<dynamic> response,
+    T Function(Map<String, dynamic>) fromJson,
+  ) {
     final payload = unwrap(response);
     if (payload is List) {
-      return payload
-          .whereType<Map<String, dynamic>>()
-          .map(fromJson)
-          .toList();
+      return payload.whereType<Map<String, dynamic>>().map(fromJson).toList();
     }
     if (payload is Map<String, dynamic>) {
       final data = payload['data'];
       if (data is List) {
-        return data
-            .whereType<Map<String, dynamic>>()
-            .map(fromJson)
-            .toList();
+        return data.whereType<Map<String, dynamic>>().map(fromJson).toList();
       }
     }
     return [];
@@ -187,28 +197,53 @@ class ApiClient {
   static const aiOnboardingCompletedKey = 'murihspace_ai_onboarding_completed';
   static const apiEnvKey = 'murihspace_api_env';
   static Future<String?> readToken() => _secureStorage.read(key: tokenKey);
-  static Future<void> saveToken(String token) => _secureStorage.write(key: tokenKey, value: token);
+  static Future<void> saveToken(String token) =>
+      _secureStorage.write(key: tokenKey, value: token);
   static Future<void> clearToken() => _secureStorage.delete(key: tokenKey);
 
+  static Future<String> readOrCreateLiveSessionId() async {
+    final existing = await _secureStorage.read(key: liveSessionIdKey);
+    if (existing != null && RegExp(r'^[a-f0-9]{64}$').hasMatch(existing)) {
+      return existing;
+    }
+
+    final random = Random.secure();
+    final sessionId = List<int>.generate(
+      32,
+      (_) => random.nextInt(256),
+    ).map((byte) => byte.toRadixString(16).padLeft(2, '0')).join();
+    await _secureStorage.write(key: liveSessionIdKey, value: sessionId);
+    return sessionId;
+  }
+
   static Future<String?> readApiEnv() => _secureStorage.read(key: apiEnvKey);
-  static Future<void> saveApiEnv(String env) => _secureStorage.write(key: apiEnvKey, value: env);
+  static Future<void> saveApiEnv(String env) =>
+      _secureStorage.write(key: apiEnvKey, value: env);
   static Future<void> clearApiEnv() => _secureStorage.delete(key: apiEnvKey);
 
-  static Future<String?> readAiOnboardingCompleted() => _secureStorage.read(key: aiOnboardingCompletedKey);
-  static Future<void> saveAiOnboardingCompleted() => _secureStorage.write(key: aiOnboardingCompletedKey, value: 'true');
-  static Future<void> clearAiOnboardingCompleted() => _secureStorage.delete(key: aiOnboardingCompletedKey);
+  static Future<String?> readAiOnboardingCompleted() =>
+      _secureStorage.read(key: aiOnboardingCompletedKey);
+  static Future<void> saveAiOnboardingCompleted() =>
+      _secureStorage.write(key: aiOnboardingCompletedKey, value: 'true');
+  static Future<void> clearAiOnboardingCompleted() =>
+      _secureStorage.delete(key: aiOnboardingCompletedKey);
 
   static const userProfileKey = 'murihspace_user_profile';
   static const savedAccountsKey = 'murihspace_saved_accounts';
 
-  static Future<String?> readUserProfile() => _secureStorage.read(key: userProfileKey);
-  static Future<void> saveUserProfile(String profileJson) => _secureStorage.write(key: userProfileKey, value: profileJson);
-  static Future<void> clearUserProfile() => _secureStorage.delete(key: userProfileKey);
+  static Future<String?> readUserProfile() =>
+      _secureStorage.read(key: userProfileKey);
+  static Future<void> saveUserProfile(String profileJson) =>
+      _secureStorage.write(key: userProfileKey, value: profileJson);
+  static Future<void> clearUserProfile() =>
+      _secureStorage.delete(key: userProfileKey);
 
-  static Future<String?> readSavedAccounts() => _secureStorage.read(key: savedAccountsKey);
-  static Future<void> saveSavedAccounts(String accountsJson) => _secureStorage.write(key: savedAccountsKey, value: accountsJson);
-  static Future<void> clearSavedAccounts() => _secureStorage.delete(key: savedAccountsKey);
-
+  static Future<String?> readSavedAccounts() =>
+      _secureStorage.read(key: savedAccountsKey);
+  static Future<void> saveSavedAccounts(String accountsJson) =>
+      _secureStorage.write(key: savedAccountsKey, value: accountsJson);
+  static Future<void> clearSavedAccounts() =>
+      _secureStorage.delete(key: savedAccountsKey);
 
   // ── Helpers ───────────────────────────────────────────────────
 
@@ -219,7 +254,9 @@ class ApiClient {
     final base = Env.apiBaseUrl;
     final origin = base.endsWith('/api/v1')
         ? base.substring(0, base.length - '/api/v1'.length)
-        : (base.endsWith('/api') ? base.substring(0, base.length - '/api'.length) : base);
+        : (base.endsWith('/api')
+              ? base.substring(0, base.length - '/api'.length)
+              : base);
     final cleanOrigin = origin.replaceAll(RegExp(r'/+$'), '');
     final cleanPath = path.replaceAll(RegExp(r'^/+'), '');
     return '$cleanOrigin/$cleanPath';
@@ -244,19 +281,22 @@ class ApiClient {
         ? base.substring(0, base.length - '/api/v1'.length)
         : base;
     final token = await readToken();
-    final dio = Dio(BaseOptions(
-      baseUrl: origin,
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
-      },
-    ));
+    final dio = Dio(
+      BaseOptions(
+        baseUrl: origin,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          if (token != null && token.isNotEmpty)
+            'Authorization': 'Bearer $token',
+        },
+      ),
+    );
     try {
-      final response = await dio.post('/broadcasting/auth', data: {
-        'socket_id': socketId,
-        'channel_name': channelName,
-      });
+      final response = await dio.post(
+        '/broadcasting/auth',
+        data: {'socket_id': socketId, 'channel_name': channelName},
+      );
       final data = response.data;
       if (data is Map) {
         final map = Map<String, dynamic>.from(data);

@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io' show Platform;
-import 'package:flutter/foundation.dart' show kReleaseMode;
 
 /// Resolves which API backend (and Reverb cluster) the app talks to.
 ///
@@ -25,13 +24,9 @@ class Env {
     defaultValue: 'MurihSpace',
   );
 
-  static const String _explicitBaseUrl = String.fromEnvironment(
-    'API_BASE_URL',
-  );
+  static const String _explicitBaseUrl = String.fromEnvironment('API_BASE_URL');
 
-  static const String _rawApiEnv = String.fromEnvironment(
-    'API_ENV',
-  );
+  static const String _rawApiEnv = String.fromEnvironment('API_ENV');
 
   static String? _runtimeEnvOverride;
 
@@ -81,6 +76,13 @@ class Env {
     }
   }
 
+  static String get livePublicUrl {
+    const explicit = String.fromEnvironment('LIVE_PUBLIC_URL');
+    if (explicit.isNotEmpty) return explicit.replaceAll(RegExp(r'/+$'), '');
+
+    return webBaseUrl.replaceAll(RegExp(r'/+$'), '');
+  }
+
   /// Generates the canonical profile URL for any user handle.
   static String profileUrl(String username) {
     final clean = username.trim().replaceFirst(RegExp(r'^@'), '');
@@ -99,15 +101,23 @@ class Env {
   /// opaque base64url token on the path, so the URL stays encoded instead of
   /// leaking raw identifiers and always targets the environment the app was
   /// built for (staging vs production).
-  static String liveStreamUrl(int streamId, {int? hostUserId}) {
+  static String liveStreamUrl(
+    int streamId, {
+    int? hostUserId,
+    String? trackingId,
+  }) {
+    final tracking = trackingId?.trim();
+    if (tracking != null && tracking.isNotEmpty) {
+      return '$livePublicUrl/live/${Uri.encodeComponent(tracking)}';
+    }
     if (streamId <= 0) {
-      return '$webBaseUrl/live';
+      return '$livePublicUrl/live';
     }
     final payload = hostUserId != null && hostUserId > 0
         ? '$streamId:$hostUserId'
         : '$streamId';
     final token = base64Url.encode(utf8.encode(payload)).replaceAll('=', '');
-    return '$webBaseUrl/live/$token';
+    return '$livePublicUrl/live/$token';
   }
 
   /// Whether the app targets a hosted (staging/production) backend.

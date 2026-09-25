@@ -40,26 +40,86 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   String? _error;
   String? _selectedPhotoPath;
   String? _selectedBannerPath;
+  String? _avatarUrl;
+  String? _bannerUrl;
+  bool _isUploadingPhoto = false;
+  bool _isUploadingBanner = false;
 
   Future<void> _pickBannerPhoto() async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Change Cover Banner', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 12),
+              ListTile(
+                leading: const Icon(Icons.camera_alt_outlined),
+                title: const Text('Take Photo'),
+                onTap: () => Navigator.pop(ctx, ImageSource.camera),
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library_outlined),
+                title: const Text('Choose from Gallery'),
+                onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    if (source == null) return;
+
     try {
       final picker = ImagePicker();
-      final file = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
-      if (file != null && mounted) {
-        setState(() => _selectedBannerPath = file.path);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Profile cover banner updated!'),
-            backgroundColor: _selectedAccentColor,
-          ),
-        );
+      final file = await picker.pickImage(source: source, imageQuality: 85);
+      if (file == null || !mounted) return;
+
+      setState(() {
+        _selectedBannerPath = file.path;
+        _isUploadingBanner = true;
+      });
+
+      final bytes = await file.readAsBytes();
+      final form = FormData.fromMap({
+        'file': MultipartFile.fromBytes(bytes, filename: file.name),
+      });
+
+      final res = await ApiClient.instance.dio.post('/profile/banner', data: form);
+      final payload = ApiClient.instance.unwrap(res);
+      final uploadedUrl = payload is Map<String, dynamic>
+          ? (payload['banner_url'] ?? payload['url'])?.toString()
+          : payload?.toString();
+
+      if (uploadedUrl != null && uploadedUrl.isNotEmpty && mounted) {
+        setState(() {
+          _bannerUrl = uploadedUrl;
+        });
+        await ref.read(authProvider.notifier).refreshProfile();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Profile cover banner updated!'),
+              backgroundColor: _selectedAccentColor,
+            ),
+          );
+        }
       }
-    } catch (_) {
+    } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not access image gallery for banner.')),
+          SnackBar(content: Text('Could not upload banner: $e')),
         );
       }
+    } finally {
+      if (mounted) setState(() => _isUploadingBanner = false);
     }
   }
 
@@ -83,6 +143,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     _bioController = TextEditingController(text: user?.bio ?? '');
     _phoneController = TextEditingController(text: user?.phone ?? '');
     _selectedBirthday = user?.birthday;
+    _avatarUrl = user?.avatarUrl ?? user?.avatar;
+    _bannerUrl = user?.bannerUrl;
   }
 
   @override
@@ -96,24 +158,80 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   Future<void> _pickProfilePhoto() async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Change Profile Photo', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 12),
+              ListTile(
+                leading: const Icon(Icons.camera_alt_outlined),
+                title: const Text('Take Photo'),
+                onTap: () => Navigator.pop(ctx, ImageSource.camera),
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library_outlined),
+                title: const Text('Choose from Gallery'),
+                onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    if (source == null) return;
+
     try {
       final picker = ImagePicker();
-      final file = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
-      if (file != null && mounted) {
-        setState(() => _selectedPhotoPath = file.path);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Profile photo updated successfully!'),
-            backgroundColor: _selectedAccentColor,
-          ),
-        );
+      final file = await picker.pickImage(source: source, imageQuality: 85);
+      if (file == null || !mounted) return;
+
+      setState(() {
+        _selectedPhotoPath = file.path;
+        _isUploadingPhoto = true;
+      });
+
+      final bytes = await file.readAsBytes();
+      final form = FormData.fromMap({
+        'file': MultipartFile.fromBytes(bytes, filename: file.name),
+      });
+
+      final res = await ApiClient.instance.dio.post('/profile/avatar', data: form);
+      final payload = ApiClient.instance.unwrap(res);
+      final uploadedUrl = payload is Map<String, dynamic>
+          ? (payload['avatar_url'] ?? payload['avatar'] ?? payload['url'])?.toString()
+          : payload?.toString();
+
+      if (uploadedUrl != null && uploadedUrl.isNotEmpty && mounted) {
+        setState(() {
+          _avatarUrl = uploadedUrl;
+        });
+        await ref.read(authProvider.notifier).refreshProfile();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Profile photo uploaded and saved!'),
+              backgroundColor: _selectedAccentColor,
+            ),
+          );
+        }
       }
-    } catch (_) {
+    } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not access image gallery.')),
+          SnackBar(content: Text('Could not upload profile photo: $e')),
         );
       }
+    } finally {
+      if (mounted) setState(() => _isUploadingPhoto = false);
     }
   }
 
@@ -659,6 +777,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         'mobile_number': _phoneController.text.trim(),
         'phone': _phoneController.text.trim(),
         'birthday': _selectedBirthday != null ? DateFormat('yyyy-MM-dd').format(_selectedBirthday!) : null,
+        if (_avatarUrl != null) 'avatar': _avatarUrl,
+        if (_avatarUrl != null) 'avatar_url': _avatarUrl,
+        if (_bannerUrl != null) 'banner_url': _bannerUrl,
       });
       final data = ApiClient.instance.unwrap(response) as Map<String, dynamic>;
       final updatedUser = UserProfile.fromJson(data);
@@ -771,7 +892,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       width: double.infinity,
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(20),
-                        color: _selectedBannerPath == null
+                        color: (_selectedBannerPath == null && (_bannerUrl == null || _bannerUrl!.isEmpty))
                             ? (isDark ? const Color(0xFF141720) : const Color(0xFF1E293B))
                             : null,
                         image: _selectedBannerPath != null
@@ -779,7 +900,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                 image: FileImage(File(_selectedBannerPath!)),
                                 fit: BoxFit.cover,
                               )
-                            : null,
+                            : (_bannerUrl != null && _bannerUrl!.isNotEmpty)
+                                ? DecorationImage(
+                                    image: NetworkImage(_bannerUrl!),
+                                    fit: BoxFit.cover,
+                                  )
+                                : null,
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withValues(alpha: 0.15),
@@ -790,6 +916,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       ),
                       child: Stack(
                         children: [
+                          if (_isUploadingBanner)
+                            const Center(
+                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3),
+                            ),
                           Positioned(
                             top: 10,
                             right: 10,
@@ -836,20 +966,42 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                       image: FileImage(File(_selectedPhotoPath!)),
                                       fit: BoxFit.cover,
                                     )
-                                  : null,
+                                  : (_avatarUrl != null && _avatarUrl!.isNotEmpty)
+                                      ? DecorationImage(
+                                          image: NetworkImage(_avatarUrl!),
+                                          fit: BoxFit.cover,
+                                        )
+                                      : null,
                             ),
-                            child: _selectedPhotoPath == null
-                                ? Center(
-                                    child: Text(
-                                      _initials('${_firstNameController.text} ${_lastNameController.text}'),
-                                      style: TextStyle(
-                                        color: _selectedAccentColor,
-                                        fontSize: 30,
-                                        fontWeight: FontWeight.w900,
+                            child: _isUploadingPhoto
+                                ? Container(
+                                    decoration: const BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: Colors.black45,
+                                    ),
+                                    child: const Center(
+                                      child: SizedBox(
+                                        width: 22,
+                                        height: 22,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2.5,
+                                          color: Colors.white,
+                                        ),
                                       ),
                                     ),
                                   )
-                                : null,
+                                : (_selectedPhotoPath == null && (_avatarUrl == null || _avatarUrl!.isEmpty))
+                                    ? Center(
+                                        child: Text(
+                                          _initials('${_firstNameController.text} ${_lastNameController.text}'),
+                                          style: TextStyle(
+                                            color: _selectedAccentColor,
+                                            fontSize: 30,
+                                            fontWeight: FontWeight.w900,
+                                          ),
+                                        ),
+                                      )
+                                    : null,
                           ),
                         ),
                         Positioned(

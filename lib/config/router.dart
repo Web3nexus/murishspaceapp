@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -45,6 +44,7 @@ import '../screens/pin_setup_screen.dart';
 import '../screens/change_phone_screen.dart';
 import '../screens/conference_meeting_screen.dart';
 import '../screens/live_stream_screen.dart';
+import '../screens/live_link_screen.dart';
 import '../screens/link_in_bio_screen.dart';
 import '../screens/user_profile_screen.dart';
 import '../core/roles.dart';
@@ -79,11 +79,21 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       if (auth.loading) return null;
 
       final isAuthEntry = path.startsWith('/auth/');
+      final returnTo = state.uri.queryParameters['returnTo'];
+      if (loggedIn && isAuthEntry && returnTo?.startsWith('/live/') == true) {
+        return null;
+      }
       if (loggedIn && (isAuthEntry || path == '/splash')) {
         return '/app/chats';
       }
       if (loggedIn && path == '/app') return '/app/home';
-      if (!loggedIn && (path.startsWith('/app') || path == '/wallet' || path == '/gifts' || path == '/profile' || path == '/kyc' || path == '/social-accounts')) {
+      if (!loggedIn &&
+          (path.startsWith('/app') ||
+              path == '/wallet' ||
+              path == '/gifts' ||
+              path == '/profile' ||
+              path == '/kyc' ||
+              path == '/social-accounts')) {
         return '/auth/login';
       }
       if (loggedIn && path == '/social-accounts') {
@@ -95,26 +105,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       return null;
     },
     routes: [
-      GoRoute(
-        path: '/',
-        redirect: (_, __) => '/splash',
-      ),
-      GoRoute(
-        path: '/app',
-        redirect: (_, __) => '/app/chats',
-      ),
-      GoRoute(
-        path: '/splash',
-        builder: (_, _) => const SplashScreen(),
-      ),
-      GoRoute(
-        path: '/onboarding',
-        builder: (_, _) => const OnboardingScreen(),
-      ),
-      GoRoute(
-        path: '/auth/login',
-        builder: (_, _) => const LoginScreen(),
-      ),
+      GoRoute(path: '/', redirect: (_, __) => '/splash'),
+      GoRoute(path: '/app', redirect: (_, __) => '/app/chats'),
+      GoRoute(path: '/splash', builder: (_, _) => const SplashScreen()),
+      GoRoute(path: '/onboarding', builder: (_, _) => const OnboardingScreen()),
+      GoRoute(path: '/auth/login', builder: (_, _) => const LoginScreen()),
       GoRoute(
         path: '/auth/register',
         builder: (_, _) => const RegisterScreen(),
@@ -123,10 +118,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/auth/forgot-password',
         builder: (_, _) => const ForgotPasswordScreen(),
       ),
-      GoRoute(
-        path: '/wallet',
-        builder: (_, _) => const WalletScreen(),
-      ),
+      GoRoute(path: '/wallet', builder: (_, _) => const WalletScreen()),
       GoRoute(
         path: '/brand-deals',
         builder: (_, _) => const BrandDealsScreen(),
@@ -139,18 +131,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/app/ads-manager',
         builder: (_, _) => const AdsManagerScreen(),
       ),
-      GoRoute(
-        path: '/ads',
-        builder: (_, _) => const AdsManagerScreen(),
-      ),
-      GoRoute(
-        path: '/app/ads',
-        builder: (_, _) => const AdsManagerScreen(),
-      ),
-      GoRoute(
-        path: '/create',
-        builder: (_, _) => const CreateScreen(),
-      ),
+      GoRoute(path: '/ads', builder: (_, _) => const AdsManagerScreen()),
+      GoRoute(path: '/app/ads', builder: (_, _) => const AdsManagerScreen()),
+      GoRoute(path: '/create', builder: (_, _) => const CreateScreen()),
       GoRoute(
         path: '/create-community',
         builder: (context, _) {
@@ -187,14 +170,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           return const Scaffold(backgroundColor: Colors.transparent);
         },
       ),
-      GoRoute(
-        path: '/gifts',
-        builder: (_, _) => const GiftsScreen(),
-      ),
-      GoRoute(
-        path: '/profile',
-        builder: (_, _) => const ProfileScreen(),
-      ),
+      GoRoute(path: '/gifts', builder: (_, _) => const GiftsScreen()),
+      GoRoute(path: '/profile', builder: (_, _) => const ProfileScreen()),
       GoRoute(
         path: '/admin/moderation',
         builder: (_, _) => const AdminModerationScreen(),
@@ -239,18 +216,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/profile/language',
         builder: (_, _) => const LanguageScreen(),
       ),
-      GoRoute(
-        path: '/app/calls',
-        builder: (_, _) => const CallsScreen(),
-      ),
+      GoRoute(path: '/app/calls', builder: (_, _) => const CallsScreen()),
       GoRoute(
         path: '/profile/notifications',
         builder: (_, _) => const NotificationsScreen(),
       ),
-      GoRoute(
-        path: '/kyc',
-        builder: (_, _) => const KycScreen(),
-      ),
+      GoRoute(path: '/kyc', builder: (_, _) => const KycScreen()),
       GoRoute(
         path: '/upgrade-account',
         builder: (_, _) => const UpgradeAccountScreen(),
@@ -271,21 +242,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/app/community/:slug',
-        builder: (_, state) => CommunityDetailScreen(
-          slug: state.pathParameters['slug']!,
-        ),
+        builder: (_, state) =>
+            CommunityDetailScreen(slug: state.pathParameters['slug']!),
       ),
       GoRoute(
         path: '/c/:slug',
-        builder: (_, state) => CommunityDetailScreen(
-          slug: state.pathParameters['slug']!,
-        ),
+        builder: (_, state) =>
+            CommunityDetailScreen(slug: state.pathParameters['slug']!),
       ),
       GoRoute(
         path: '/communities/:slug',
-        builder: (_, state) => CommunityDetailScreen(
-          slug: state.pathParameters['slug']!,
-        ),
+        builder: (_, state) =>
+            CommunityDetailScreen(slug: state.pathParameters['slug']!),
       ),
       GoRoute(
         path: '/u/:username',
@@ -295,14 +263,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           username: state.pathParameters['username'] ?? 'user',
         ),
       ),
-      GoRoute(
-        path: '/friends',
-        builder: (_, _) => const FriendsScreen(),
-      ),
-      GoRoute(
-        path: '/settings',
-        builder: (_, _) => const SettingsScreen(),
-      ),
+      GoRoute(path: '/friends', builder: (_, _) => const FriendsScreen()),
+      GoRoute(path: '/settings', builder: (_, _) => const SettingsScreen()),
       GoRoute(
         path: '/profile/user/:id',
         builder: (_, state) => UserProfileScreen(
@@ -319,26 +281,43 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/app/meeting/:code',
-        builder: (_, state) => ConferenceMeetingScreen(
-          joinCode: state.pathParameters['code'],
-        ),
+        builder: (_, state) =>
+            ConferenceMeetingScreen(joinCode: state.pathParameters['code']),
       ),
       GoRoute(
         path: '/app/live',
-        builder: (_, _) => const LiveStreamScreen(),
+        builder: (_, state) {
+          final streamId = int.tryParse(
+            state.uri.queryParameters['streamId'] ?? '',
+          );
+          final trackingId = state.uri.queryParameters['trackingId'];
+          final title = state.uri.queryParameters['title'] ?? 'Live Broadcast';
+          final hostName = state.uri.queryParameters['hostName'] ?? 'Creator';
+          final communityName = state.uri.queryParameters['communityName'];
+          final isHost = state.uri.queryParameters['isHost'] != 'false';
+          return LiveStreamScreen(
+            streamId: streamId,
+            trackingId: trackingId,
+            streamTitle: title,
+            hostName: hostName,
+            communityName: communityName,
+            isHost: isHost,
+          );
+        },
       ),
       GoRoute(
-        path: '/link-in-bio',
-        builder: (_, _) => const LinkInBioScreen(),
+        path: '/live/:trackingId',
+        builder: (_, state) => LiveLinkScreen(
+          trackingId: state.pathParameters['trackingId']!,
+          queryParameters: state.uri.queryParameters,
+        ),
       ),
+      GoRoute(path: '/link-in-bio', builder: (_, _) => const LinkInBioScreen()),
       GoRoute(
         path: '/app/notifications',
         builder: (_, _) => const NotificationsScreen(),
       ),
-      GoRoute(
-        path: '/app/saved',
-        builder: (_, _) => const SavedPostsScreen(),
-      ),
+      GoRoute(path: '/app/saved', builder: (_, _) => const SavedPostsScreen()),
       GoRoute(
         path: '/saved-posts',
         builder: (_, _) => const SavedPostsScreen(),
@@ -356,9 +335,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (_, _) => const MarketplaceScreen(),
       ),
       StatefulShellRoute.indexedStack(
-        builder: (context, state, navigationShell) => AppShell(
-          navigationShell: navigationShell,
-        ),
+        builder: (context, state, navigationShell) =>
+            AppShell(navigationShell: navigationShell),
         branches: [
           StatefulShellBranch(
             routes: [

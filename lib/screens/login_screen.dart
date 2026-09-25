@@ -30,7 +30,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _phoneFormKey = GlobalKey<FormState>();
   final _otpFormKey = GlobalKey<FormState>();
   final _otpController = TextEditingController();
-  
+
   bool _otpStep = false;
   String _phoneE164 = '';
   String _maskedPhone = '';
@@ -58,6 +58,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     super.dispose();
   }
 
+  String _postAuthLocation() {
+    final returnTo = GoRouterState.of(context).uri.queryParameters['returnTo'];
+    if (returnTo != null && returnTo.startsWith('/live/')) {
+      return returnTo;
+    }
+    return '/app/home';
+  }
+
   void _startResendCooldown(int seconds) {
     _resendTimer?.cancel();
     setState(() => _resendIn = seconds);
@@ -81,11 +89,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       _noAccount = false;
     });
 
-    final data = await ref.read(authProvider.notifier).requestOtp(
-          intent: 'login',
-          phoneE164: _phoneE164,
-          forceSms: forceSms,
-        );
+    final data = await ref
+        .read(authProvider.notifier)
+        .requestOtp(intent: 'login', phoneE164: _phoneE164, forceSms: forceSms);
 
     if (data != null) {
       setState(() {
@@ -94,7 +100,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         _otpStep = true;
       });
       _otpController.clear();
-      _startResendCooldown((data['resend_after_seconds'] as num?)?.toInt() ?? 60);
+      _startResendCooldown(
+        (data['resend_after_seconds'] as num?)?.toInt() ?? 60,
+      );
     }
   }
 
@@ -110,11 +118,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       _noAccount = false;
     });
 
-    final data = await ref.read(authProvider.notifier).verifyOtp(
-          intent: 'login',
-          phoneE164: _phoneE164,
-          code: code,
-        );
+    final data = await ref
+        .read(authProvider.notifier)
+        .verifyOtp(intent: 'login', phoneE164: _phoneE164, code: code);
 
     if (data != null) {
       if (data['account_exists'] != true) {
@@ -122,7 +128,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         return;
       }
       if (data['token'] != null && mounted) {
-        context.go('/app/home');
+        context.go(_postAuthLocation());
       }
     }
   }
@@ -131,7 +137,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     if (_resendIn > 0) return;
     setState(() => _otpError = null);
     _otpController.clear();
-    final data = await ref.read(authProvider.notifier).requestOtp(
+    final data = await ref
+        .read(authProvider.notifier)
+        .requestOtp(
           intent: 'login',
           phoneE164: _phoneE164,
           forceSms: _otpChannel == 'sms',
@@ -140,7 +148,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       setState(() {
         _otpChannel = data['channel'] as String? ?? _otpChannel;
       });
-      _startResendCooldown((data['resend_after_seconds'] as num?)?.toInt() ?? 60);
+      _startResendCooldown(
+        (data['resend_after_seconds'] as num?)?.toInt() ?? 60,
+      );
     }
   }
 
@@ -152,7 +162,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     });
 
     if (_emailFormKey.currentState?.validate() ?? false) {
-      final result = await ref.read(authProvider.notifier).loginWithDeviceCheck(
+      final result = await ref
+          .read(authProvider.notifier)
+          .loginWithDeviceCheck(
             _emailController.text.trim(),
             _passwordController.text,
           );
@@ -174,13 +186,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           await AppBottomSheet.showNotice(
             context: context,
             title: 'Admin Web Portal Only',
-            message: 'Admin accounts manage ecosystem growth, KYC approvals, fee configurations, and dispute releases exclusively on the Web Admin Dashboard.\n\nPlease log in at https://murihspace.com/admin on a browser.',
+            message:
+                'Admin accounts manage ecosystem growth, KYC approvals, fee configurations, and dispute releases exclusively on the Web Admin Dashboard.\n\nPlease log in at https://murihspace.com/admin on a browser.',
             actionText: 'Understood',
             icon: Icons.admin_panel_settings_rounded,
           );
           return;
         }
-        context.go('/app/home');
+        context.go(_postAuthLocation());
       } else {
         setState(() {
           _passwordError = result['message'] as String? ?? 'Login failed';
@@ -200,7 +213,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       isDismissible: false,
       enableDrag: false,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
       builder: (ctx) {
         final isDark = Theme.of(ctx).brightness == Brightness.dark;
         final textPrimary = DesignTokens.textPrimaryOf(isDark);
@@ -210,11 +225,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         return StatefulBuilder(
           builder: (context, setSheetState) {
             pollTimer ??= Timer.periodic(const Duration(seconds: 2), (t) async {
-              final approved = await ref.read(authProvider.notifier).completeApprovedLogin(requestToken);
+              final approved = await ref
+                  .read(authProvider.notifier)
+                  .completeApprovedLogin(requestToken);
               if (approved && mounted) {
                 t.cancel();
                 if (ctx.mounted) Navigator.of(ctx).pop();
-                context.go('/app/home');
+                context.go(_postAuthLocation());
               }
             });
 
@@ -224,16 +241,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 verifyingCode = true;
                 codeError = null;
               });
-              final res = await ref.read(authProvider.notifier).verifyDeviceLoginCode(requestToken, pin.trim());
+              final res = await ref
+                  .read(authProvider.notifier)
+                  .verifyDeviceLoginCode(requestToken, pin.trim());
               if (res['status'] == 'success' && mounted) {
                 pollTimer?.cancel();
                 if (ctx.mounted) Navigator.of(ctx).pop();
-                context.go('/app/home');
+                context.go(_postAuthLocation());
               } else {
                 if (ctx.mounted) {
                   setSheetState(() {
                     verifyingCode = false;
-                    codeError = res['message'] as String? ?? 'Invalid verification code';
+                    codeError =
+                        res['message'] as String? ??
+                        'Invalid verification code';
                   });
                 }
               }
@@ -256,17 +277,27 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         color: const Color(0xFFFF9500).withValues(alpha: 0.15),
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.security_update_good_rounded, color: Color(0xFFFF9500), size: 36),
+                      child: const Icon(
+                        Icons.security_update_good_rounded,
+                        color: Color(0xFFFF9500),
+                        size: 36,
+                      ),
                     ),
                     const SizedBox(height: 16),
                     const Text(
                       'Verify New Device',
-                      style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
+                      style: TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 18,
+                      ),
                     ),
                     const SizedBox(height: 8),
                     Text(
                       'We sent a 6-digit verification code to your other active device(s). Enter the code below or tap "Approve" on that device to sign in.',
-                      style: TextStyle(fontSize: 13, color: isDark ? Colors.grey[400] : Colors.grey[600]),
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: isDark ? Colors.grey[400] : Colors.grey[600],
+                      ),
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 20),
@@ -276,7 +307,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       defaultPinTheme: PinTheme(
                         width: 44,
                         height: 52,
-                        textStyle: TextStyle(fontSize: 20, color: textPrimary, fontWeight: FontWeight.w600),
+                        textStyle: TextStyle(
+                          fontSize: 20,
+                          color: textPrimary,
+                          fontWeight: FontWeight.w600,
+                        ),
                         decoration: BoxDecoration(
                           border: Border.all(color: border),
                           borderRadius: BorderRadius.circular(12),
@@ -286,15 +321,23 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       focusedPinTheme: PinTheme(
                         width: 44,
                         height: 52,
-                        textStyle: TextStyle(fontSize: 20, color: textPrimary, fontWeight: FontWeight.w600),
+                        textStyle: TextStyle(
+                          fontSize: 20,
+                          color: textPrimary,
+                          fontWeight: FontWeight.w600,
+                        ),
                         decoration: BoxDecoration(
-                          border: Border.all(color: DesignTokens.primary, width: 2),
+                          border: Border.all(
+                            color: DesignTokens.primary,
+                            width: 2,
+                          ),
                           borderRadius: BorderRadius.circular(12),
                           color: surface,
                         ),
                       ),
                       onChanged: (_) {
-                        if (codeError != null) setSheetState(() => codeError = null);
+                        if (codeError != null)
+                          setSheetState(() => codeError = null);
                       },
                       onCompleted: submitCode,
                     ),
@@ -302,16 +345,29 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       const SizedBox(height: 8),
                       Text(
                         codeError!,
-                        style: const TextStyle(color: DesignTokens.danger, fontSize: 12, fontWeight: FontWeight.w500),
+                        style: const TextStyle(
+                          color: DesignTokens.danger,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ],
                     const SizedBox(height: 16),
                     SizedBox(
                       width: double.infinity,
                       child: FilledButton(
-                        onPressed: verifyingCode ? null : () => submitCode(codeController.text),
+                        onPressed: verifyingCode
+                            ? null
+                            : () => submitCode(codeController.text),
                         child: verifyingCode
-                            ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
                             : const Text('Verify Code'),
                       ),
                     ),
@@ -319,11 +375,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const SizedBox(width: 14, height: 14, child: CircularProgressIndicator.adaptive(strokeWidth: 2)),
+                        const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator.adaptive(
+                            strokeWidth: 2,
+                          ),
+                        ),
                         const SizedBox(width: 8),
                         Text(
                           'Waiting for authorization prompt...',
-                          style: TextStyle(fontSize: 12, color: isDark ? Colors.grey[400] : Colors.grey[600]),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: isDark ? Colors.grey[400] : Colors.grey[600],
+                          ),
                         ),
                       ],
                     ),
@@ -373,9 +438,24 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   style: TextStyle(fontSize: 13, color: Colors.grey),
                 ),
                 const SizedBox(height: 16),
-                _envTile('staging', 'Staging Backend (api-staging.murihspace.com)', 'Recommended for testing features', current == 'staging'),
-                _envTile('production', 'Production Backend (api.murihspace.com)', 'Live platform environment', current == 'production' || current == 'prod'),
-                _envTile('local', 'Local Emulator (10.0.2.2:8000)', 'Local development server', current == 'local'),
+                _envTile(
+                  'staging',
+                  'Staging Backend (api-staging.murihspace.com)',
+                  'Recommended for testing features',
+                  current == 'staging',
+                ),
+                _envTile(
+                  'production',
+                  'Production Backend (api.murihspace.com)',
+                  'Live platform environment',
+                  current == 'production' || current == 'prod',
+                ),
+                _envTile(
+                  'local',
+                  'Local Emulator (10.0.2.2:8000)',
+                  'Local development server',
+                  current == 'local',
+                ),
               ],
             ),
           ),
@@ -384,13 +464,24 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     );
   }
 
-  Widget _envTile(String envKey, String title, String subtitle, bool isSelected) {
+  Widget _envTile(
+    String envKey,
+    String title,
+    String subtitle,
+    bool isSelected,
+  ) {
     return ListTile(
       leading: Icon(
         isSelected ? Icons.radio_button_checked : Icons.radio_button_off,
         color: isSelected ? Colors.green : Colors.grey,
       ),
-      title: Text(title, style: TextStyle(fontWeight: isSelected ? FontWeight.bold : FontWeight.normal, fontSize: 14)),
+      title: Text(
+        title,
+        style: TextStyle(
+          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+          fontSize: 14,
+        ),
+      ),
       subtitle: Text(subtitle, style: const TextStyle(fontSize: 12)),
       onTap: () async {
         Navigator.pop(context);
@@ -404,7 +495,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           setState(() {});
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Switched to ${envKey.toUpperCase()} (${Env.apiBaseUrl})'),
+              content: Text(
+                'Switched to ${envKey.toUpperCase()} (${Env.apiBaseUrl})',
+              ),
               backgroundColor: isSelected ? Colors.blueGrey : Colors.teal,
             ),
           );
@@ -419,11 +512,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final platformState = ref.watch(platformProvider);
 
     if (platformState.isLoading && platformState.config == null) {
-      return const Scaffold(
-        body: Center(
-          child: CircularProgressIndicator(),
-        ),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     final config = platformState.config;
@@ -431,7 +520,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final emailEnabled = config?.isLoginEnabled('email_password') ?? true;
     final googleEnabled = config?.isLoginEnabled('google') ?? true;
     final appleEnabled = config?.isLoginEnabled('apple') ?? true;
-    
+
     // Ensure we don't land on a disabled tab
     if (_tabIndex == 0 && !phoneEnabled && emailEnabled) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -465,7 +554,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     onTap: () => _showEnvironmentSwitcher(context),
                     borderRadius: BorderRadius.circular(14),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: Env.apiEnv == 'staging'
                             ? Colors.green.withValues(alpha: 0.12)
@@ -485,7 +577,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             height: 7,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: Env.apiEnv == 'staging' ? Colors.green : Colors.blue,
+                              color: Env.apiEnv == 'staging'
+                                  ? Colors.green
+                                  : Colors.blue,
                             ),
                           ),
                           const SizedBox(width: 6),
@@ -498,7 +592,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             ),
                           ),
                           const SizedBox(width: 4),
-                          Icon(Icons.unfold_more, size: 14, color: textSecondary),
+                          Icon(
+                            Icons.unfold_more,
+                            size: 14,
+                            color: textSecondary,
+                          ),
                         ],
                       ),
                     ),
@@ -516,12 +614,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  _tabIndex == 0 ? 'We\'ll text you a code to verify it\'s you.' : 'Enter your credentials to access your account.',
+                  _tabIndex == 0
+                      ? 'We\'ll text you a code to verify it\'s you.'
+                      : 'Enter your credentials to access your account.',
                   style: TextStyle(color: textSecondary, fontSize: 15),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 32),
-                
+
                 // Tabs
                 if (phoneEnabled && emailEnabled)
                   Container(
@@ -543,7 +643,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               duration: const Duration(milliseconds: 200),
                               padding: const EdgeInsets.symmetric(vertical: 10),
                               decoration: BoxDecoration(
-                                color: _tabIndex == 0 ? DesignTokens.primary : Colors.transparent,
+                                color: _tabIndex == 0
+                                    ? DesignTokens.primary
+                                    : Colors.transparent,
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(
@@ -551,7 +653,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
-                                  color: _tabIndex == 0 ? Colors.white : textSecondary,
+                                  color: _tabIndex == 0
+                                      ? Colors.white
+                                      : textSecondary,
                                 ),
                               ),
                             ),
@@ -567,7 +671,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               duration: const Duration(milliseconds: 200),
                               padding: const EdgeInsets.symmetric(vertical: 10),
                               decoration: BoxDecoration(
-                                color: _tabIndex == 1 ? DesignTokens.primary : Colors.transparent,
+                                color: _tabIndex == 1
+                                    ? DesignTokens.primary
+                                    : Colors.transparent,
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(
@@ -575,7 +681,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
-                                  color: _tabIndex == 1 ? Colors.white : textSecondary,
+                                  color: _tabIndex == 1
+                                      ? Colors.white
+                                      : textSecondary,
                                 ),
                               ),
                             ),
@@ -585,11 +693,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ),
                   )
                 else if (!phoneEnabled && !emailEnabled)
-                  const Text('Login is currently disabled.', textAlign: TextAlign.center, style: TextStyle(color: DesignTokens.danger)),
-                
+                  const Text(
+                    'Login is currently disabled.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: DesignTokens.danger),
+                  ),
+
                 const SizedBox(height: 24),
 
-                if (authState.errorMessage != null && !_noAccount && _otpError == null) ...[
+                if (authState.errorMessage != null &&
+                    !_noAccount &&
+                    _otpError == null) ...[
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
@@ -606,11 +720,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 ],
 
                 // Flow Forms
-                if (_tabIndex == 0 && phoneEnabled) 
-                  _otpStep ? _buildOtpForm(authState.loading) : _buildPhoneForm(authState.loading)
+                if (_tabIndex == 0 && phoneEnabled)
+                  _otpStep
+                      ? _buildOtpForm(authState.loading)
+                      : _buildPhoneForm(authState.loading)
                 else if (_tabIndex == 1 && emailEnabled)
                   _buildEmailForm(authState.loading),
-                
+
                 if (googleEnabled || appleEnabled) ...[
                   const SizedBox(height: 24),
                   const Row(
@@ -618,7 +734,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       Expanded(child: Divider()),
                       Padding(
                         padding: EdgeInsets.symmetric(horizontal: 16),
-                        child: Text('OR', style: TextStyle(color: DesignTokens.textSecondary, fontSize: 12, fontWeight: FontWeight.bold)),
+                        child: Text(
+                          'OR',
+                          style: TextStyle(
+                            color: DesignTokens.textSecondary,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
                       Expanded(child: Divider()),
                     ],
@@ -630,39 +753,59 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         Expanded(
                           child: OutlinedButton.icon(
                             onPressed: () async {
-                              final success = await ref.read(authProvider.notifier).loginWithGoogle();
+                              final success = await ref
+                                  .read(authProvider.notifier)
+                                  .loginWithGoogle();
                               if (success && mounted) {
-                                context.go('/app/home');
+                                context.go(_postAuthLocation());
                               }
                             },
-                            icon: const Text('G', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                            icon: const Text(
+                              'G',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 18,
+                              ),
+                            ),
                             label: const Text('Google'),
                           ),
                         ),
-                      if (googleEnabled && appleEnabled) const SizedBox(width: 12),
+                      if (googleEnabled && appleEnabled)
+                        const SizedBox(width: 12),
                       if (appleEnabled)
                         Expanded(
                           child: OutlinedButton.icon(
                             onPressed: () async {
-                              final success = await ref.read(authProvider.notifier).loginWithApple();
+                              final success = await ref
+                                  .read(authProvider.notifier)
+                                  .loginWithApple();
                               if (success && mounted) {
-                                context.go('/app/home');
+                                context.go(_postAuthLocation());
                               }
                             },
-                            icon: const Text('A', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                            icon: const Text(
+                              'A',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 18,
+                              ),
+                            ),
                             label: const Text('Apple'),
                           ),
                         ),
                     ],
                   ),
                 ],
-                
+
                 const SizedBox(height: 24),
                 OutlinedButton(
                   onPressed: () => context.go('/auth/register'),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: DesignTokens.primary,
-                    side: const BorderSide(color: DesignTokens.primary, width: 2),
+                    side: const BorderSide(
+                      color: DesignTokens.primary,
+                      width: 2,
+                    ),
                   ),
                   child: const Text('Create new account'),
                 ),
@@ -698,7 +841,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           FilledButton(
             onPressed: loading || _phoneE164.isEmpty ? null : _requestPhoneOtp,
             child: loading
-                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
                 : const Text('Continue'),
           ),
         ],
@@ -737,7 +887,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               children: [
                 Icon(
                   isInApp ? Icons.devices_rounded : Icons.check_circle,
-                  color: isInApp ? const Color(0xFFFF9500) : DesignTokens.primary,
+                  color: isInApp
+                      ? const Color(0xFFFF9500)
+                      : DesignTokens.primary,
                   size: 22,
                 ),
                 const SizedBox(width: 10),
@@ -750,7 +902,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.bold,
-                          color: isInApp ? const Color(0xFFFF9500) : DesignTokens.primary,
+                          color: isInApp
+                              ? const Color(0xFFFF9500)
+                              : DesignTokens.primary,
                         ),
                       ),
                       const SizedBox(height: 2),
@@ -775,9 +929,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             Align(
               alignment: Alignment.centerRight,
               child: TextButton.icon(
-                onPressed: loading ? null : () => _requestPhoneOtp(forceSms: true),
+                onPressed: loading
+                    ? null
+                    : () => _requestPhoneOtp(forceSms: true),
                 icon: const Icon(Icons.sms_outlined, size: 15),
-                label: const Text('Send via SMS instead', style: TextStyle(fontSize: 12)),
+                label: const Text(
+                  'Send via SMS instead',
+                  style: TextStyle(fontSize: 12),
+                ),
               ),
             ),
           ],
@@ -788,7 +947,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             defaultPinTheme: PinTheme(
               width: 48,
               height: 56,
-              textStyle: TextStyle(fontSize: 22, color: textPrimary, fontWeight: FontWeight.w600),
+              textStyle: TextStyle(
+                fontSize: 22,
+                color: textPrimary,
+                fontWeight: FontWeight.w600,
+              ),
               decoration: BoxDecoration(
                 border: Border.all(color: border),
                 borderRadius: BorderRadius.circular(12),
@@ -798,7 +961,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             focusedPinTheme: PinTheme(
               width: 48,
               height: 56,
-              textStyle: TextStyle(fontSize: 22, color: textPrimary, fontWeight: FontWeight.w600),
+              textStyle: TextStyle(
+                fontSize: 22,
+                color: textPrimary,
+                fontWeight: FontWeight.w600,
+              ),
               decoration: BoxDecoration(
                 border: Border.all(color: DesignTokens.primary, width: 2),
                 borderRadius: BorderRadius.circular(12),
@@ -810,8 +977,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             },
             onCompleted: (_) => _verifyPhoneOtp(),
           ),
-          InlineFieldError(error: _otpError ?? ref.read(authProvider).errorMessage),
-          
+          InlineFieldError(
+            error: _otpError ?? ref.read(authProvider).errorMessage,
+          ),
+
           if (_noAccount) ...[
             const SizedBox(height: 16),
             Container(
@@ -825,26 +994,40 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 children: [
                   const Text(
                     'No account is linked to this number.',
-                    style: TextStyle(color: Colors.orange, fontWeight: FontWeight.w600, fontSize: 13),
+                    style: TextStyle(
+                      color: Colors.orange,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
                   ),
                   const SizedBox(height: 8),
                   FilledButton(
-                    onPressed: () => context.go('/auth/register', extra: {'phoneE164': _phoneE164}),
-                    style: FilledButton.styleFrom(backgroundColor: DesignTokens.primary),
+                    onPressed: () => context.go(
+                      '/auth/register',
+                      extra: {'phoneE164': _phoneE164},
+                    ),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: DesignTokens.primary,
+                    ),
                     child: const Text('Create an account with this number'),
                   ),
                 ],
               ),
             ),
           ],
-          
+
           const SizedBox(height: 8),
           Row(
             children: [
               Expanded(
                 child: TextButton(
-                  onPressed: loading ? null : () => setState(() => _otpStep = false),
-                  child: const Text('Change number', style: TextStyle(fontSize: 13)),
+                  onPressed: loading
+                      ? null
+                      : () => setState(() => _otpStep = false),
+                  child: const Text(
+                    'Change number',
+                    style: TextStyle(fontSize: 13),
+                  ),
                 ),
               ),
               Expanded(
@@ -862,7 +1045,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           FilledButton(
             onPressed: loading ? null : _verifyPhoneOtp,
             child: loading
-                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
                 : const Text('Log in'),
           ),
         ],
@@ -932,7 +1122,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           FilledButton(
             onPressed: loading ? null : _submitEmail,
             child: loading
-                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
                 : const Text('Sign In'),
           ),
         ],

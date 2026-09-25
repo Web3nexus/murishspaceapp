@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
-import 'package:camera/camera.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide ConnectionState;
+import 'package:livekit_client/livekit_client.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
@@ -14,7 +14,6 @@ import '../components/kyc_live_gate_dialog.dart';
 import '../components/send_gift_dialog.dart';
 import '../config/env.dart';
 import '../core/api_client.dart';
-import '../core/camera_service.dart';
 import '../core/roles.dart';
 import '../models/chat_models.dart';
 import '../providers/auth_provider.dart';
@@ -25,6 +24,7 @@ import '../providers/messages_provider.dart';
 /// Real-Time LiveKit Session Connection, Authenticated Chat, Likes, and Ledger-Backed Gifting.
 class LiveStreamScreen extends ConsumerStatefulWidget {
   final int? streamId;
+  final String? trackingId;
   final String streamTitle;
   final String hostName;
   final String? communityName;
@@ -38,6 +38,7 @@ class LiveStreamScreen extends ConsumerStatefulWidget {
   const LiveStreamScreen({
     super.key,
     this.streamId,
+    this.trackingId,
     this.streamTitle = 'Live Broadcast',
     this.hostName = 'Creator',
     this.communityName,
@@ -53,8 +54,10 @@ class LiveStreamScreen extends ConsumerStatefulWidget {
   ConsumerState<LiveStreamScreen> createState() => _LiveStreamScreenState();
 }
 
-class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with TickerProviderStateMixin {
+class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
+    with TickerProviderStateMixin {
   int? _activeStreamId;
+  String? _trackingId;
   int? _hostUserId;
   int _viewerCount = 1;
   int _likesCount = 0;
@@ -66,6 +69,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
 
   bool _isCameraReady = false;
   late bool _cameraOn;
+  bool _isFrontCamera = true;
   bool _isSwitchingCamera = false;
 
   final List<Map<String, dynamic>> _chatMessages = [];
@@ -79,11 +83,19 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
 
   Timer? _metricsTimer;
   String? _connectionError;
+  bool _leaveSent = false;
+  Room? _liveKitRoom;
+  EventsListener<RoomEvent>? _liveKitListener;
+  VideoTrack? _remoteVideoTrack;
+  VideoTrack? _localVideoTrack;
+  bool _isConnectingLiveKit = false;
+  bool _isLeavingLiveKit = false;
 
   @override
   void initState() {
     super.initState();
     _activeStreamId = widget.streamId;
+    _trackingId = widget.trackingId;
     _cameraOn = widget.cameraEnabled;
     _pinnedProduct = widget.pinnedProduct;
 
@@ -103,7 +115,10 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
       final user = ref.read(authProvider).user;
       final kycStatus = user?.kycStatus.toLowerCase() ?? 'unsubmitted';
       final role = user?.role ?? UserRole.member;
-      final isPrivileged = role == UserRole.creator || role == UserRole.vendor || role == UserRole.admin;
+      final isPrivileged =
+          role == UserRole.creator ||
+          role == UserRole.vendor ||
+          role == UserRole.admin;
       if (!isPrivileged && kycStatus != 'verified' && kycStatus != 'approved') {
         if (mounted) {
           Navigator.of(context).pop();
@@ -113,17 +128,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
       }
     }
 
-    // 1. Initialize local hardware camera if hosting and camera enabled
-    if (widget.isHost && _cameraOn && widget.streamMode != 'audio') {
-      final cameraReady = await CameraService.instance.initialize(preferFront: true);
-      if (mounted) {
-        setState(() {
-          _isCameraReady = cameraReady;
-        });
-      }
-    }
-
-    // 2. Connect to backend LiveStream API
+    // 1. Connect to backend LiveStream API
     await _connectToBackendStream();
 
     // 3. Start real-time polling timer for chat and viewer count updates
@@ -147,38 +152,67 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
 
       if (widget.isHost && _activeStreamId == null) {
         // Start stream on backend
-        final res = await api.post('/live/start', data: {
-          'title': widget.streamTitle,
-          'stream_mode': widget.streamMode,
-          'background_sound': widget.backgroundSound?['title'],
-          'pinned_product_id': widget.pinnedProduct != null
-              ? int.tryParse(widget.pinnedProduct!['id'].toString())
-              : null,
-        });
+        final res = await api.post(
+          '/live/start',
+          data: {
+            'title': widget.streamTitle,
+            'stream_mode': widget.streamMode,
+            'background_sound': widget.backgroundSound?['title'],
+            'pinned_product_id': widget.pinnedProduct != null
+                ? int.tryParse(widget.pinnedProduct!['id'].toString())
+                : null,
+          },
+        );
 
         final streamData = res.data['data']?['stream'] ?? res.data['stream'];
-        _applyPinnedProduct(res.data['data']?['pinned_product'] ?? res.data['pinned_product']);
+        _applyPinnedProduct(
+          res.data['data']?['pinned_product'] ?? res.data['pinned_product'],
+        );
         if (streamData != null && mounted) {
           setState(() {
             _activeStreamId = (streamData['id'] as num?)?.toInt();
-            _hostUserId = (streamData['user_id'] as num?)?.toInt() ?? (streamData['user']?['id'] as num?)?.toInt();
+            _trackingId ??= (streamData['tracking_id'] as String?)?.trim();
+            _hostUserId =
+                (streamData['user_id'] as num?)?.toInt() ??
+                (streamData['user']?['id'] as num?)?.toInt();
             _viewerCount = (streamData['viewers_count'] as num?)?.toInt() ?? 1;
             _likesCount = (streamData['likes_count'] as num?)?.toInt() ?? 0;
-            _totalGiftsCoins = (streamData['total_coins_earned'] as num?)?.toInt() ?? 0;
+            _totalGiftsCoins =
+                (streamData['total_coins_earned'] as num?)?.toInt() ?? 0;
           });
+        }
+        final liveKitData = res.data['data']?['livekit'] ?? res.data['livekit'];
+        if (liveKitData is Map) {
+          await _connectToLiveKit(
+            liveKitData,
+            isPublisher: liveKitData['is_publisher'] == true,
+          );
         }
       } else if (_activeStreamId != null) {
         // Join stream as viewer
         final res = await api.post('/live/$_activeStreamId/join');
         final streamData = res.data['data']?['stream'] ?? res.data['stream'];
-        _applyPinnedProduct(res.data['data']?['pinned_product'] ?? res.data['pinned_product']);
+        _applyPinnedProduct(
+          res.data['data']?['pinned_product'] ?? res.data['pinned_product'],
+        );
         if (streamData != null && mounted) {
           setState(() {
-            _hostUserId = (streamData['user_id'] as num?)?.toInt() ?? (streamData['user']?['id'] as num?)?.toInt();
+            _hostUserId =
+                (streamData['user_id'] as num?)?.toInt() ??
+                (streamData['user']?['id'] as num?)?.toInt();
+            _trackingId ??= (streamData['tracking_id'] as String?)?.trim();
             _viewerCount = (streamData['viewers_count'] as num?)?.toInt() ?? 1;
             _likesCount = (streamData['likes_count'] as num?)?.toInt() ?? 0;
-            _totalGiftsCoins = (streamData['total_coins_earned'] as num?)?.toInt() ?? 0;
+            _totalGiftsCoins =
+                (streamData['total_coins_earned'] as num?)?.toInt() ?? 0;
           });
+        }
+        final liveKitData = res.data['data']?['livekit'] ?? res.data['livekit'];
+        if (liveKitData is Map) {
+          await _connectToLiveKit(
+            liveKitData,
+            isPublisher: liveKitData['is_publisher'] == true,
+          );
         }
       }
 
@@ -200,6 +234,196 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
     }
   }
 
+  Future<void> _disposeLiveKitConnection() async {
+    final listener = _liveKitListener;
+    final room = _liveKitRoom;
+    final localVideoTrack = _localVideoTrack;
+    _liveKitListener = null;
+    _liveKitRoom = null;
+    _remoteVideoTrack = null;
+    _localVideoTrack = null;
+    _isCameraReady = false;
+    listener?.dispose();
+    room?.disconnect();
+    room?.dispose();
+    if (localVideoTrack is LocalVideoTrack) {
+      try {
+        await localVideoTrack.stop();
+      } catch (_) {}
+    }
+  }
+
+  Future<void> _connectToLiveKit(
+    Map<dynamic, dynamic> credentials, {
+    required bool isPublisher,
+  }) async {
+    if (_isConnectingLiveKit ||
+        (_liveKitRoom?.connectionState == ConnectionState.connected)) {
+      return;
+    }
+
+    final token = credentials['token']?.toString().trim() ?? '';
+    var host = credentials['host']?.toString().trim() ?? '';
+    if (token.isEmpty || host.isEmpty) {
+      if (mounted) {
+        setState(() {
+          _connectionError = 'Live video credentials are unavailable.';
+        });
+      }
+      return;
+    }
+
+    if (host.startsWith('https://')) {
+      host = 'wss://${host.substring(8)}';
+    } else if (host.startsWith('http://')) {
+      host = 'ws://${host.substring(7)}';
+    }
+    host = host.replaceAll(RegExp(r'/+$'), '');
+
+    _isConnectingLiveKit = true;
+    try {
+      final room = Room(
+        roomOptions: RoomOptions(
+          adaptiveStream: true,
+          dynacast: true,
+          defaultAudioPublishOptions: isPublisher
+              ? const AudioPublishOptions(
+                  name: 'microphone',
+                  dtx: false,
+                  encoding: AudioEncoding.presetSpeech,
+                )
+              : const AudioPublishOptions(),
+        ),
+      );
+      _liveKitRoom = room;
+      final listener = room.createListener();
+      _liveKitListener = listener;
+      listener
+        ..on<AudioPlaybackStatusChanged>((event) async {
+          if (!event.isPlaying) {
+            try {
+              await room.startAudio();
+            } catch (_) {}
+          }
+        })
+        ..on<TrackSubscribedEvent>((_) {
+          _syncRemoteVideoTrack();
+        })
+        ..on<TrackUnsubscribedEvent>((_) {
+          _syncRemoteVideoTrack();
+        })
+        ..on<ParticipantConnectedEvent>((_) {
+          _syncRemoteVideoTrack();
+        })
+        ..on<ParticipantDisconnectedEvent>((_) {
+          _syncRemoteVideoTrack();
+        })
+        ..on<RoomDisconnectedEvent>((_) {
+          if (_isLeavingLiveKit) return;
+          unawaited(_disposeLiveKitConnection());
+          if (mounted) {
+            setState(() {
+              _connectionError = 'The live video connection ended.';
+            });
+          }
+        });
+
+      await room.connect(host, token);
+      if (!mounted || _isLeavingLiveKit) {
+        await _disposeLiveKitConnection();
+        return;
+      }
+
+      try {
+        await room.startAudio();
+      } catch (_) {}
+
+      if (isPublisher) {
+        final participant = room.localParticipant;
+        if (participant != null) {
+          try {
+            await participant.setMicrophoneEnabled(widget.micEnabled);
+          } catch (_) {}
+          if (widget.streamMode != 'audio' && _cameraOn) {
+            try {
+              await participant.setCameraEnabled(
+                true,
+                cameraCaptureOptions: const CameraCaptureOptions(
+                  cameraPosition: CameraPosition.front,
+                ),
+              );
+            } catch (_) {}
+          }
+        }
+      }
+
+      _syncLocalVideoTrack();
+      _syncRemoteVideoTrack();
+    } catch (e) {
+      await _disposeLiveKitConnection();
+      if (mounted && !_isLeavingLiveKit) {
+        setState(() {
+          _connectionError = e.toString().replaceAll('Exception: ', '');
+        });
+      }
+    } finally {
+      _isConnectingLiveKit = false;
+    }
+  }
+
+  void _syncLocalVideoTrack() {
+    if (!mounted) return;
+    VideoTrack? nextTrack;
+    final room = _liveKitRoom;
+    final publications = room?.localParticipant?.videoTrackPublications;
+    if (widget.isHost && _cameraOn && publications != null) {
+      for (final publication in publications) {
+        final track = publication.track;
+        if (!publication.muted && track is VideoTrack) {
+          nextTrack = track;
+          break;
+        }
+      }
+    }
+    if (identical(_localVideoTrack, nextTrack) &&
+        _isCameraReady == (nextTrack != null)) {
+      return;
+    }
+    setState(() {
+      _localVideoTrack = nextTrack;
+      _isCameraReady = nextTrack != null;
+    });
+  }
+
+  void _syncRemoteVideoTrack() {
+    if (!mounted) return;
+    VideoTrack? nextTrack;
+    final room = _liveKitRoom;
+    if (room != null) {
+      for (final participant in room.remoteParticipants.values) {
+        for (final publication in participant.videoTrackPublications) {
+          final track = publication.track;
+          if (publication.subscribed &&
+              !publication.muted &&
+              track is VideoTrack) {
+            nextTrack = track;
+            break;
+          }
+        }
+        if (nextTrack != null) break;
+      }
+    }
+    if (identical(_remoteVideoTrack, nextTrack)) return;
+    setState(() {
+      _remoteVideoTrack = nextTrack;
+    });
+  }
+
+  Future<void> _disconnectLiveKit() async {
+    _isLeavingLiveKit = true;
+    await _disposeLiveKitConnection();
+  }
+
   Future<void> _pollLiveMetricsAndChat() async {
     if (_activeStreamId == null || !mounted) return;
 
@@ -207,20 +431,30 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
       final api = ref.read(apiClientProvider);
       final res = await api.get('/live/$_activeStreamId');
       final streamData = res.data['data']?['stream'] ?? res.data['stream'];
-      _applyPinnedProduct(res.data['data']?['pinned_product'] ?? res.data['pinned_product']);
+      _applyPinnedProduct(
+        res.data['data']?['pinned_product'] ?? res.data['pinned_product'],
+      );
 
       if (streamData != null && mounted) {
         setState(() {
-          _hostUserId ??= (streamData['user_id'] as num?)?.toInt() ?? (streamData['user']?['id'] as num?)?.toInt();
-          _viewerCount = (streamData['viewers_count'] as num?)?.toInt() ?? _viewerCount;
-          _likesCount = (streamData['likes_count'] as num?)?.toInt() ?? _likesCount;
-          _totalGiftsCoins = (streamData['total_coins_earned'] as num?)?.toInt() ?? _totalGiftsCoins;
+          _hostUserId ??=
+              (streamData['user_id'] as num?)?.toInt() ??
+              (streamData['user']?['id'] as num?)?.toInt();
+          _trackingId ??= (streamData['tracking_id'] as String?)?.trim();
+          _viewerCount =
+              (streamData['viewers_count'] as num?)?.toInt() ?? _viewerCount;
+          _likesCount =
+              (streamData['likes_count'] as num?)?.toInt() ?? _likesCount;
+          _totalGiftsCoins =
+              (streamData['total_coins_earned'] as num?)?.toInt() ??
+              _totalGiftsCoins;
         });
       }
 
       // Fetch latest chat messages
       final chatRes = await api.get('/live/$_activeStreamId/chat');
-      final msgList = (chatRes.data['data']?['data'] ?? chatRes.data['data']) as List?;
+      final msgList =
+          (chatRes.data['data']?['data'] ?? chatRes.data['data']) as List?;
       if (msgList != null && mounted) {
         final currentUserId = ref.read(authProvider).user?.id;
 
@@ -233,8 +467,13 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
           final user = m['user'] as Map<String, dynamic>?;
           final senderId = (user?['id'] as num?)?.toInt();
 
-          final isGiftMessage = type == 'gift' || text.contains('🎁') || text.contains('sent a gift');
-          if (isGiftMessage && id != null && !_seenGiftMessageIds.contains(id)) {
+          final isGiftMessage =
+              type == 'gift' ||
+              text.contains('🎁') ||
+              text.contains('sent a gift');
+          if (isGiftMessage &&
+              id != null &&
+              !_seenGiftMessageIds.contains(id)) {
             _seenGiftMessageIds.add(id);
 
             // If not sent by current user (since sender already triggered immediate animation)
@@ -244,19 +483,23 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
               final coinPrice = (m['coin_price'] as num?)?.toInt() ?? 100;
               final animType = coinPrice >= 1000
                   ? 'full_screen'
-                  : (coinPrice >= 400 ? 'premium' : (coinPrice <= 20 ? 'micro' : 'standard'));
+                  : (coinPrice >= 400
+                        ? 'premium'
+                        : (coinPrice <= 20 ? 'micro' : 'standard'));
 
-              ref.read(giftAnimationProvider.notifier).play(
-                GiftAnimationData(
-                  giftName: giftName,
-                  iconUrl: m['icon_url']?.toString(),
-                  iconEmoji: '🎁',
-                  coinPrice: coinPrice,
-                  senderName: senderName,
-                  recipientName: widget.hostName,
-                  animationType: animType,
-                ),
-              );
+              ref
+                  .read(giftAnimationProvider.notifier)
+                  .play(
+                    GiftAnimationData(
+                      giftName: giftName,
+                      iconUrl: m['icon_url']?.toString(),
+                      iconEmoji: '🎁',
+                      coinPrice: coinPrice,
+                      senderName: senderName,
+                      recipientName: widget.hostName,
+                      animationType: animType,
+                    ),
+                  );
             }
           }
         }
@@ -280,31 +523,48 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
     } catch (_) {}
   }
 
+  Future<void> _leaveViewerStream() async {
+    if (_leaveSent || widget.isHost || _activeStreamId == null) return;
+    _leaveSent = true;
+    try {
+      await ref.read(apiClientProvider).post('/live/$_activeStreamId/leave');
+    } catch (_) {}
+  }
+
   @override
   void dispose() {
+    unawaited(_leaveViewerStream());
+    unawaited(_disconnectLiveKit());
     _metricsTimer?.cancel();
     _chatCtrl.dispose();
     _chatFocusNode.dispose();
     _scrollController.dispose();
-
-    // Release camera hardware on exit
-    CameraService.instance.dispose();
 
     super.dispose();
   }
 
   Future<void> _toggleCamera() async {
     if (_isSwitchingCamera) return;
-    setState(() => _isSwitchingCamera = true);
+    final localTrack = _localVideoTrack;
+    final participant = _liveKitRoom?.localParticipant;
+    if (localTrack is! LocalVideoTrack || participant == null) return;
 
-    final success = await CameraService.instance.switchCamera();
-    if (mounted) {
-      setState(() {
-        _isSwitchingCamera = false;
-        if (success) {
-          _isCameraReady = true;
-        }
-      });
+    setState(() => _isSwitchingCamera = true);
+    try {
+      final nextPosition = _isFrontCamera
+          ? CameraPosition.back
+          : CameraPosition.front;
+      await localTrack.setCameraPosition(nextPosition);
+      if (mounted) {
+        setState(() {
+          _isFrontCamera = !_isFrontCamera;
+          _isSwitchingCamera = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _isSwitchingCamera = false);
+      }
     }
   }
 
@@ -318,7 +578,9 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
         'name': user?.name ?? 'You',
         'role': widget.isHost ? 'Host' : 'Viewer',
         'msg': text,
-        'color': widget.isHost ? const Color(0xFFFF3B30) : const Color(0xFF007AFF),
+        'color': widget.isHost
+            ? const Color(0xFFFF3B30)
+            : const Color(0xFF007AFF),
       });
       _chatCtrl.clear();
     });
@@ -390,10 +652,10 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
           if (_activeStreamId != null) {
             try {
               final api = ref.read(apiClientProvider);
-              api.post('/live/$_activeStreamId/gift', data: {
-                'gift_id': gift.id,
-                'message': 'Sent ${gift.name}',
-              });
+              api.post(
+                '/live/$_activeStreamId/gift',
+                data: {'gift_id': gift.id, 'message': 'Sent ${gift.name}'},
+              );
             } catch (_) {}
           }
         },
@@ -402,22 +664,37 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
   }
 
   String _streamProductPrice(Map<String, dynamic> product) {
-    final symbol = product['symbol']?.toString() ??
-        (product['currency'] == 'NGN' ? '₦' : (product['currency'] == 'EUR' ? '€' : (product['currency'] == 'GBP' ? '£' : '\$')));
+    final symbol =
+        product['symbol']?.toString() ??
+        (product['currency'] == 'NGN'
+            ? '₦'
+            : (product['currency'] == 'EUR'
+                  ? '€'
+                  : (product['currency'] == 'GBP' ? '£' : '\$')));
     final raw = product['price'];
-    final price = raw is num ? raw.toDouble() : double.tryParse(raw?.toString() ?? '') ?? 0;
+    final price = raw is num
+        ? raw.toDouble()
+        : double.tryParse(raw?.toString() ?? '') ?? 0;
     return '$symbol${price.toStringAsFixed(2)}';
   }
 
   Widget _streamProductImage(Map<String, dynamic> product, double size) {
-    final images = (product['images'] as List?)?.whereType<String>().toList() ?? const <String>[];
-    final cover = product['cover_url']?.toString() ?? (images.isNotEmpty ? images.first : null);
+    final images =
+        (product['images'] as List?)?.whereType<String>().toList() ??
+        const <String>[];
+    final cover =
+        product['cover_url']?.toString() ??
+        (images.isNotEmpty ? images.first : null);
     final url = ApiClient.resolveUrl(cover);
     final fallback = Container(
       width: size,
       height: size,
       decoration: const BoxDecoration(color: Color(0xFFFF9500)),
-      child: Icon(Icons.shopping_bag_rounded, color: Colors.white, size: size * 0.5),
+      child: Icon(
+        Icons.shopping_bag_rounded,
+        color: Colors.white,
+        size: size * 0.5,
+      ),
     );
     if (url == null || url.isEmpty) return fallback;
     return ClipRRect(
@@ -457,8 +734,13 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
     int? streamId = _activeStreamId ?? widget.streamId;
     streamId ??= await _waitForStreamId();
 
-    final liveUrl = Env.liveStreamUrl(streamId ?? 0, hostUserId: _hostUserId);
-    final shareMessage = '🔴 Watch ${widget.hostName} live on MurihSpace: "${widget.streamTitle}"\n$liveUrl';
+    final liveUrl = Env.liveStreamUrl(
+      streamId ?? 0,
+      hostUserId: _hostUserId,
+      trackingId: _trackingId,
+    );
+    final shareMessage =
+        '🔴 Watch ${widget.hostName} live on MurihSpace: "${widget.streamTitle}"\n$liveUrl';
 
     if (!mounted) return;
 
@@ -477,7 +759,12 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
             color: sheetBg,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           ),
-          padding: EdgeInsets.fromLTRB(20, 12, 20, MediaQuery.of(ctx).padding.bottom + 20),
+          padding: EdgeInsets.fromLTRB(
+            20,
+            12,
+            20,
+            MediaQuery.of(ctx).padding.bottom + 20,
+          ),
           child: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -497,7 +784,10 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFFFF3B30),
                         borderRadius: BorderRadius.circular(6),
@@ -507,7 +797,14 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
                         children: [
                           Icon(Icons.sensors, color: Colors.white, size: 12),
                           SizedBox(width: 4),
-                          Text('LIVE', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 10)),
+                          Text(
+                            'LIVE',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w900,
+                              fontSize: 10,
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -518,11 +815,18 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
                         children: [
                           Text(
                             'Share Live Broadcast',
-                            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: textPrimary),
+                            style: TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 16,
+                              color: textPrimary,
+                            ),
                           ),
                           Text(
                             'Invite friends to join ${widget.hostName}\'s stream',
-                            style: TextStyle(fontSize: 12, color: textSecondary),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: textSecondary,
+                            ),
                           ),
                         ],
                       ),
@@ -536,7 +840,11 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
                   alignment: Alignment.centerLeft,
                   child: Text(
                     'Send to',
-                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: textSecondary),
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 13,
+                      color: textSecondary,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -591,22 +899,37 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
 
                 // Link Copy Box
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
                   decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF2F2F7),
+                    color: isDark
+                        ? const Color(0xFF2C2C2E)
+                        : const Color(0xFFF2F2F7),
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
+                    border: Border.all(
+                      color: Colors.grey.withValues(alpha: 0.2),
+                    ),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.link_rounded, color: Color(0xFF007AFF), size: 20),
+                      const Icon(
+                        Icons.link_rounded,
+                        color: Color(0xFF007AFF),
+                        size: 20,
+                      ),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
                           liveUrl,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: 13, color: textPrimary, fontWeight: FontWeight.w500),
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: textPrimary,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -615,8 +938,13 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
                           backgroundColor: const Color(0xFF007AFF),
                           foregroundColor: Colors.white,
                           elevation: 0,
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 8,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
                         ),
                         onPressed: () {
                           Clipboard.setData(ClipboardData(text: liveUrl));
@@ -624,13 +952,21 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
                           Navigator.pop(ctx);
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text('✓ Live stream link copied to clipboard!'),
+                              content: Text(
+                                '✓ Live stream link copied to clipboard!',
+                              ),
                               backgroundColor: Color(0xFF34C759),
                               duration: Duration(seconds: 2),
                             ),
                           );
                         },
-                        child: const Text('Copy', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                        child: const Text(
+                          'Copy',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -647,9 +983,14 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
                       label: 'WhatsApp',
                       onTap: () async {
                         Navigator.pop(ctx);
-                        final waUrl = Uri.parse('https://wa.me/?text=${Uri.encodeComponent(shareMessage)}');
+                        final waUrl = Uri.parse(
+                          'https://wa.me/?text=${Uri.encodeComponent(shareMessage)}',
+                        );
                         if (await canLaunchUrl(waUrl)) {
-                          await launchUrl(waUrl, mode: LaunchMode.externalApplication);
+                          await launchUrl(
+                            waUrl,
+                            mode: LaunchMode.externalApplication,
+                          );
                         }
                       },
                     ),
@@ -659,9 +1000,14 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
                       label: 'X (Twitter)',
                       onTap: () async {
                         Navigator.pop(ctx);
-                        final xUrl = Uri.parse('https://twitter.com/intent/tweet?text=${Uri.encodeComponent(shareMessage)}');
+                        final xUrl = Uri.parse(
+                          'https://twitter.com/intent/tweet?text=${Uri.encodeComponent(shareMessage)}',
+                        );
                         if (await canLaunchUrl(xUrl)) {
-                          await launchUrl(xUrl, mode: LaunchMode.externalApplication);
+                          await launchUrl(
+                            xUrl,
+                            mode: LaunchMode.externalApplication,
+                          );
                         }
                       },
                     ),
@@ -671,7 +1017,9 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
                       label: 'Messages',
                       onTap: () async {
                         Navigator.pop(ctx);
-                        final smsUrl = Uri.parse('sms:?body=${Uri.encodeComponent(shareMessage)}');
+                        final smsUrl = Uri.parse(
+                          'sms:?body=${Uri.encodeComponent(shareMessage)}',
+                        );
                         if (await canLaunchUrl(smsUrl)) {
                           await launchUrl(smsUrl);
                         }
@@ -731,15 +1079,15 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
   }
 
   /// Sends the live broadcast link as a message into the chosen conversation.
-  Future<void> _sendLiveToConversation(Conversation conversation, String shareMessage) async {
+  Future<void> _sendLiveToConversation(
+    Conversation conversation,
+    String shareMessage,
+  ) async {
     if (conversation.id <= 0) return;
     try {
       await ref
           .read(conversationMessagesProvider(conversation.id).notifier)
-          .sendMessage(
-            content: shareMessage,
-            attachmentType: 'live_stream',
-          );
+          .sendMessage(content: shareMessage, attachmentType: 'live_stream');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -752,7 +1100,11 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not send the live broadcast. Please try again.')),
+          const SnackBar(
+            content: Text(
+              'Could not send the live broadcast. Please try again.',
+            ),
+          ),
         );
       }
     }
@@ -788,19 +1140,16 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
     );
 
     if (shouldLeave == true && mounted) {
+      await _disconnectLiveKit();
       if (isHost && _activeStreamId != null) {
         try {
           final api = ref.read(apiClientProvider);
           await api.post('/live/$_activeStreamId/end');
         } catch (_) {}
       } else if (!isHost && _activeStreamId != null) {
-        try {
-          final api = ref.read(apiClientProvider);
-          await api.post('/live/$_activeStreamId/leave');
-        } catch (_) {}
+        await _leaveViewerStream();
       }
 
-      await CameraService.instance.dispose();
       if (mounted) Navigator.of(context).pop();
     }
   }
@@ -827,16 +1176,25 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
         },
         child: Stack(
           children: [
-            // 1. Native Hardware Camera Preview Feed or Audio Room Canvas
-            if (widget.isHost && _isCameraReady && CameraService.instance.controller != null && _cameraOn)
+            if (widget.isHost && _localVideoTrack != null && _cameraOn)
               SizedBox.expand(
-                child: FittedBox(
-                  fit: BoxFit.cover,
-                  child: SizedBox(
-                    width: CameraService.instance.controller!.value.previewSize?.height ?? 1,
-                    height: CameraService.instance.controller!.value.previewSize?.width ?? 1,
-                    child: CameraPreview(CameraService.instance.controller!),
+                child: Transform.scale(
+                  scaleX: _isFrontCamera ? -1 : 1,
+                  child: VideoTrackRenderer(
+                    _localVideoTrack!,
+                    fit: widget.streamMode == 'audio'
+                        ? VideoViewFit.contain
+                        : VideoViewFit.cover,
                   ),
+                ),
+              )
+            else if (!widget.isHost && _remoteVideoTrack != null)
+              SizedBox.expand(
+                child: VideoTrackRenderer(
+                  _remoteVideoTrack!,
+                  fit: _remoteVideoTrack!.source == TrackSource.screenShareVideo
+                      ? VideoViewFit.contain
+                      : VideoViewFit.cover,
                 ),
               )
             else
@@ -854,9 +1212,13 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
                     children: [
                       CircleAvatar(
                         radius: 46,
-                        backgroundColor: const Color(0xFFFF9500).withValues(alpha: 0.2),
+                        backgroundColor: const Color(
+                          0xFFFF9500,
+                        ).withValues(alpha: 0.2),
                         child: Icon(
-                          _cameraOn ? Icons.videocam_rounded : Icons.mic_rounded,
+                          _cameraOn
+                              ? Icons.videocam_rounded
+                              : Icons.mic_rounded,
                           color: const Color(0xFFFF9500),
                           size: 42,
                         ),
@@ -864,25 +1226,40 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
                       const SizedBox(height: 12),
                       Text(
                         widget.streamTitle,
-                        style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
+                        ),
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 4),
                       Text(
                         'Hosted by ${widget.hostName}${widget.communityName != null ? ' in ${widget.communityName}' : ''}',
-                        style: const TextStyle(color: Colors.grey, fontSize: 13),
+                        style: const TextStyle(
+                          color: Colors.grey,
+                          fontSize: 13,
+                        ),
                       ),
                       if (_connectionError != null) ...[
                         const SizedBox(height: 12),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFFF3B30).withValues(alpha: 0.2),
+                            color: const Color(
+                              0xFFFF3B30,
+                            ).withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Text(
                             _connectionError!,
-                            style: const TextStyle(color: Color(0xFFFF3B30), fontSize: 12),
+                            style: const TextStyle(
+                              color: Color(0xFFFF3B30),
+                              fontSize: 12,
+                            ),
                           ),
                         ),
                       ],
@@ -892,13 +1269,15 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
               ),
 
             // 2. Floating Animated Hearts Layer
-            ..._hearts.map((heart) => _FloatingHeartWidget(
-                  key: ValueKey(heart.id),
-                  heart: heart,
-                  onComplete: () {
-                    if (mounted) setState(() => _hearts.remove(heart));
-                  },
-                )),
+            ..._hearts.map(
+              (heart) => _FloatingHeartWidget(
+                key: ValueKey(heart.id),
+                heart: heart,
+                onComplete: () {
+                  if (mounted) setState(() => _hearts.remove(heart));
+                },
+              ),
+            ),
 
             // 3. Pinned product available for in-stream purchase
             if (_pinnedProduct != null)
@@ -913,7 +1292,9 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
                     decoration: BoxDecoration(
                       color: const Color(0xFF14181F).withValues(alpha: 0.92),
                       borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: const Color(0xFFFF9500).withValues(alpha: 0.55)),
+                      border: Border.all(
+                        color: const Color(0xFFFF9500).withValues(alpha: 0.55),
+                      ),
                     ),
                     child: Row(
                       children: [
@@ -925,23 +1306,38 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Text(
-                                _pinnedProduct!['title']?.toString() ?? _pinnedProduct!['name']?.toString() ?? 'Product',
+                                _pinnedProduct!['title']?.toString() ??
+                                    _pinnedProduct!['name']?.toString() ??
+                                    'Product',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Colors.white),
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w800,
+                                  color: Colors.white,
+                                ),
                               ),
                               Text(
                                 _streamProductPrice(_pinnedProduct!),
-                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Color(0xFFFF9500)),
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w900,
+                                  color: Color(0xFFFF9500),
+                                ),
                               ),
                             ],
                           ),
                         ),
                         const SizedBox(width: 6),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 5,
+                          ),
                           decoration: BoxDecoration(
-                            color: widget.isHost ? Colors.white24 : const Color(0xFFFF9500),
+                            color: widget.isHost
+                                ? Colors.white24
+                                : const Color(0xFFFF9500),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
@@ -949,7 +1345,9 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
                             style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.w900,
-                              color: widget.isHost ? Colors.white : Colors.black,
+                              color: widget.isHost
+                                  ? Colors.white
+                                  : Colors.black,
                             ),
                           ),
                         ),
@@ -967,7 +1365,10 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
               child: Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFFFF3B30),
                       borderRadius: BorderRadius.circular(12),
@@ -976,22 +1377,43 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
                       children: [
                         Icon(Icons.circle, color: Colors.white, size: 8),
                         SizedBox(width: 6),
-                        Text('LIVE', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 11)),
+                        Text(
+                          'LIVE',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 11,
+                          ),
+                        ),
                       ],
                     ),
                   ),
                   const SizedBox(width: 8),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.black.withValues(alpha: 0.55),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.remove_red_eye_rounded, color: Colors.white, size: 14),
+                        const Icon(
+                          Icons.remove_red_eye_rounded,
+                          color: Colors.white,
+                          size: 14,
+                        ),
                         const SizedBox(width: 4),
-                        Text('$_viewerCount', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                        Text(
+                          '$_viewerCount',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -999,16 +1421,28 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
 
                   // Real Wallet Coin Balance
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.black.withValues(alpha: 0.55),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFFFF9500).withValues(alpha: 0.4)),
+                      border: Border.all(
+                        color: const Color(0xFFFF9500).withValues(alpha: 0.4),
+                      ),
                     ),
                     child: Row(
                       children: [
                         const Text('🪙 ', style: TextStyle(fontSize: 12)),
-                        Text('$coinBalance Coins', style: const TextStyle(color: Color(0xFFFF9500), fontWeight: FontWeight.w900, fontSize: 12)),
+                        Text(
+                          '$coinBalance Coins',
+                          style: const TextStyle(
+                            color: Color(0xFFFF9500),
+                            fontWeight: FontWeight.w900,
+                            fontSize: 12,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -1016,16 +1450,28 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
 
                   // Share Live Stream Button
                   IconButton(
-                    style: IconButton.styleFrom(backgroundColor: Colors.black.withValues(alpha: 0.55)),
-                    icon: const Icon(Icons.share_rounded, color: Colors.white, size: 20),
+                    style: IconButton.styleFrom(
+                      backgroundColor: Colors.black.withValues(alpha: 0.55),
+                    ),
+                    icon: const Icon(
+                      Icons.share_rounded,
+                      color: Colors.white,
+                      size: 20,
+                    ),
                     onPressed: _openShareModal,
                   ),
                   const SizedBox(width: 4),
 
                   // Close/End Stream Button
                   IconButton(
-                    style: IconButton.styleFrom(backgroundColor: Colors.black.withValues(alpha: 0.55)),
-                    icon: const Icon(Icons.close_rounded, color: Colors.white, size: 20),
+                    style: IconButton.styleFrom(
+                      backgroundColor: Colors.black.withValues(alpha: 0.55),
+                    ),
+                    icon: const Icon(
+                      Icons.close_rounded,
+                      color: Colors.white,
+                      size: 20,
+                    ),
                     onPressed: _endOrLeaveStream,
                   ),
                 ],
@@ -1046,22 +1492,35 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
                   itemBuilder: (context, idx) {
                     final msg = _chatMessages[idx];
                     return Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFF0F141C).withValues(alpha: 0.75),
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.1),
+                        ),
                       ),
                       child: RichText(
                         text: TextSpan(
                           children: [
                             TextSpan(
                               text: '${msg['name']} ',
-                              style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: msg['color'] as Color),
+                              style: TextStyle(
+                                fontWeight: FontWeight.w900,
+                                fontSize: 13,
+                                color: msg['color'] as Color,
+                              ),
                             ),
                             TextSpan(
                               text: msg['msg'] as String,
-                              style: const TextStyle(fontSize: 13, color: Colors.white, fontWeight: FontWeight.w500),
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: Colors.white,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
                           ],
                         ),
@@ -1074,7 +1533,11 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
 
             // 6. Facebook-Style Bottom Controls & High-Contrast Chat Input Bar
             Positioned(
-              bottom: viewInsetsBottom + (isKeyboardOpen ? 8 : (MediaQuery.of(context).padding.bottom + 12)),
+              bottom:
+                  viewInsetsBottom +
+                  (isKeyboardOpen
+                      ? 8
+                      : (MediaQuery.of(context).padding.bottom + 12)),
               left: 16,
               right: 16,
               child: Row(
@@ -1104,18 +1567,21 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
                         children: [
                           Icon(
                             Icons.chat_bubble_outline_rounded,
-                            color: _chatFocusNode.hasFocus ? const Color(0xFF007AFF) : Colors.white70,
+                            color: _chatFocusNode.hasFocus
+                                ? const Color(0xFF007AFF)
+                                : Colors.white70,
                             size: 18,
                           ),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Theme(
                               data: ThemeData.dark().copyWith(
-                                textSelectionTheme: const TextSelectionThemeData(
-                                  cursorColor: Color(0xFF007AFF),
-                                  selectionColor: Color(0x66007AFF),
-                                  selectionHandleColor: Color(0xFF007AFF),
-                                ),
+                                textSelectionTheme:
+                                    const TextSelectionThemeData(
+                                      cursorColor: Color(0xFF007AFF),
+                                      selectionColor: Color(0x66007AFF),
+                                      selectionHandleColor: Color(0xFF007AFF),
+                                    ),
                               ),
                               child: TextField(
                                 controller: _chatCtrl,
@@ -1140,7 +1606,9 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
                                   disabledBorder: InputBorder.none,
                                   isDense: true,
                                   filled: false,
-                                  contentPadding: EdgeInsets.symmetric(vertical: 10),
+                                  contentPadding: EdgeInsets.symmetric(
+                                    vertical: 10,
+                                  ),
                                 ),
                                 onSubmitted: (_) => _sendChat(),
                               ),
@@ -1156,7 +1624,11 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
                                   color: Color(0xFF007AFF),
                                   shape: BoxShape.circle,
                                 ),
-                                child: const Icon(Icons.send_rounded, color: Colors.white, size: 14),
+                                child: const Icon(
+                                  Icons.send_rounded,
+                                  color: Colors.white,
+                                  size: 14,
+                                ),
                               ),
                             ),
                           ],
@@ -1170,23 +1642,39 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
                   if (!isKeyboardOpen) ...[
                     IconButton(
                       style: IconButton.styleFrom(
-                        backgroundColor: const Color(0xFF1E232B).withValues(alpha: 0.92),
+                        backgroundColor: const Color(
+                          0xFF1E232B,
+                        ).withValues(alpha: 0.92),
                         padding: const EdgeInsets.all(10),
                       ),
-                      icon: const Icon(Icons.share_rounded, color: Colors.white, size: 20),
+                      icon: const Icon(
+                        Icons.share_rounded,
+                        color: Colors.white,
+                        size: 20,
+                      ),
                       onPressed: _openShareModal,
                     ),
                   ],
 
                   // Host Controls: Switch Camera
-                  if (widget.isHost && _cameraOn) ...[
+                  if (widget.isHost &&
+                      _cameraOn &&
+                      widget.streamMode != 'audio') ...[
                     const SizedBox(width: 6),
                     IconButton(
                       style: IconButton.styleFrom(
-                        backgroundColor: const Color(0xFF1E232B).withValues(alpha: 0.92),
+                        backgroundColor: const Color(
+                          0xFF1E232B,
+                        ).withValues(alpha: 0.92),
                         padding: const EdgeInsets.all(10),
                       ),
-                      icon: Icon(_isSwitchingCamera ? Icons.hourglass_top : Icons.flip_camera_ios_rounded, color: Colors.white, size: 20),
+                      icon: Icon(
+                        _isSwitchingCamera
+                            ? Icons.hourglass_top
+                            : Icons.flip_camera_ios_rounded,
+                        color: Colors.white,
+                        size: 20,
+                      ),
                       onPressed: _toggleCamera,
                     ),
                   ],
@@ -1199,7 +1687,11 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> with Ticker
                         backgroundColor: const Color(0xFFFF9500),
                         padding: const EdgeInsets.all(10),
                       ),
-                      icon: const Icon(Icons.card_giftcard_rounded, color: Colors.white, size: 20),
+                      icon: const Icon(
+                        Icons.card_giftcard_rounded,
+                        color: Colors.white,
+                        size: 20,
+                      ),
                       onPressed: _openGiftingModal,
                     ),
                   ],
@@ -1241,7 +1733,8 @@ class _FloatingHeartWidget extends StatefulWidget {
   State<_FloatingHeartWidget> createState() => _FloatingHeartWidgetState();
 }
 
-class _FloatingHeartWidgetState extends State<_FloatingHeartWidget> with SingleTickerProviderStateMixin {
+class _FloatingHeartWidgetState extends State<_FloatingHeartWidget>
+    with SingleTickerProviderStateMixin {
   late AnimationController _anim;
   late double _targetX;
 
@@ -1249,8 +1742,10 @@ class _FloatingHeartWidgetState extends State<_FloatingHeartWidget> with SingleT
   void initState() {
     super.initState();
     _targetX = widget.heart.startX + (Random().nextDouble() * 80 - 40);
-    _anim = AnimationController(vsync: this, duration: const Duration(milliseconds: 1400))
-      ..forward().then((_) => widget.onComplete());
+    _anim = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    )..forward().then((_) => widget.onComplete());
   }
 
   @override
@@ -1266,7 +1761,8 @@ class _FloatingHeartWidgetState extends State<_FloatingHeartWidget> with SingleT
       builder: (context, child) {
         final progress = _anim.value;
         final dy = widget.heart.startY - (progress * 240);
-        final dx = widget.heart.startX + (progress * (_targetX - widget.heart.startX));
+        final dx =
+            widget.heart.startX + (progress * (_targetX - widget.heart.startX));
         final opacity = (1.0 - progress).clamp(0.0, 1.0);
         final scale = 0.8 + (progress * 0.5);
 
@@ -1277,7 +1773,11 @@ class _FloatingHeartWidgetState extends State<_FloatingHeartWidget> with SingleT
             opacity: opacity,
             child: Transform.scale(
               scale: scale,
-              child: Icon(Icons.favorite_rounded, color: widget.heart.color, size: 28),
+              child: Icon(
+                Icons.favorite_rounded,
+                color: widget.heart.color,
+                size: 28,
+              ),
             ),
           ),
         );
@@ -1338,7 +1838,8 @@ class _LiveShareRecipientSheet extends ConsumerStatefulWidget {
   final String shareMessage;
   final List<String> conversationTypes;
   final bool allowsUserSearch;
-  final Future<void> Function(Conversation conversation, String shareMessage) onSend;
+  final Future<void> Function(Conversation conversation, String shareMessage)
+  onSend;
 
   const _LiveShareRecipientSheet({
     required this.title,
@@ -1349,10 +1850,12 @@ class _LiveShareRecipientSheet extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<_LiveShareRecipientSheet> createState() => _LiveShareRecipientSheetState();
+  ConsumerState<_LiveShareRecipientSheet> createState() =>
+      _LiveShareRecipientSheetState();
 }
 
-class _LiveShareRecipientSheetState extends ConsumerState<_LiveShareRecipientSheet> {
+class _LiveShareRecipientSheetState
+    extends ConsumerState<_LiveShareRecipientSheet> {
   final _searchCtrl = TextEditingController();
   Timer? _debounce;
   List<ChatUser> _userResults = const [];
@@ -1414,9 +1917,9 @@ class _LiveShareRecipientSheetState extends ConsumerState<_LiveShareRecipientShe
       }
       final users = raw is List
           ? raw
-              .map(ChatUser.fromJson)
-              .where((u) => u.id != 0 && u.name.isNotEmpty)
-              .toList()
+                .map(ChatUser.fromJson)
+                .where((u) => u.id != 0 && u.name.isNotEmpty)
+                .toList()
           : <ChatUser>[];
       if (mounted) {
         setState(() {
@@ -1454,7 +1957,9 @@ class _LiveShareRecipientSheetState extends ConsumerState<_LiveShareRecipientShe
       await widget.onSend(conversation, widget.shareMessage);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not start a chat with this user right now.')),
+        const SnackBar(
+          content: Text('Could not start a chat with this user right now.'),
+        ),
       );
     }
   }
@@ -1467,7 +1972,9 @@ class _LiveShareRecipientSheetState extends ConsumerState<_LiveShareRecipientShe
     final textSecondary = isDark ? Colors.grey[400] : Colors.grey[600];
     final query = _searchCtrl.text.trim().toLowerCase();
 
-    final conversations = ref.watch(conversationsProvider).conversations
+    final conversations = ref
+        .watch(conversationsProvider)
+        .conversations
         .where((c) => widget.conversationTypes.contains(c.type))
         .where((c) => query.isEmpty || c.title.toLowerCase().contains(query))
         .toList();
@@ -1512,7 +2019,11 @@ class _LiveShareRecipientSheetState extends ConsumerState<_LiveShareRecipientShe
                     color: const Color(0xFFFF3B30).withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.sensors, color: Color(0xFFFF3B30), size: 20),
+                  child: const Icon(
+                    Icons.sensors,
+                    color: Color(0xFFFF3B30),
+                    size: 20,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -1536,7 +2047,11 @@ class _LiveShareRecipientSheetState extends ConsumerState<_LiveShareRecipientShe
                 ),
                 IconButton(
                   onPressed: () => Navigator.of(context).pop(),
-                  icon: Icon(Icons.close_rounded, color: textSecondary, size: 20),
+                  icon: Icon(
+                    Icons.close_rounded,
+                    color: textSecondary,
+                    size: 20,
+                  ),
                 ),
               ],
             ),
@@ -1552,7 +2067,9 @@ class _LiveShareRecipientSheetState extends ConsumerState<_LiveShareRecipientShe
                   prefixIcon: const Icon(Icons.search, size: 20),
                   isDense: true,
                   filled: true,
-                  fillColor: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF2F2F7),
+                  fillColor: isDark
+                      ? const Color(0xFF2C2C2E)
+                      : const Color(0xFFF2F2F7),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide.none,
@@ -1564,19 +2081,29 @@ class _LiveShareRecipientSheetState extends ConsumerState<_LiveShareRecipientShe
             Flexible(
               child: ListView(
                 shrinkWrap: true,
-                keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
                 children: [
-                  if (conversations.isEmpty && (!showUserResults || _userResults.isEmpty))
+                  if (conversations.isEmpty &&
+                      (!showUserResults || _userResults.isEmpty))
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 40),
                       child: Center(
                         child: Column(
                           children: [
-                            Icon(Icons.chat_bubble_outline_rounded, size: 42, color: textSecondary),
+                            Icon(
+                              Icons.chat_bubble_outline_rounded,
+                              size: 42,
+                              color: textSecondary,
+                            ),
                             const SizedBox(height: 10),
                             Text(
                               'No ${_categoryLabel}s to send to',
-                              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: textPrimary),
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 15,
+                                color: textPrimary,
+                              ),
                             ),
                             const SizedBox(height: 4),
                             Text(
@@ -1584,38 +2111,54 @@ class _LiveShareRecipientSheetState extends ConsumerState<_LiveShareRecipientShe
                                   ? 'Search for a friend above to get started.'
                                   : 'You are not part of any $_categoryLabel chats yet.',
                               textAlign: TextAlign.center,
-                              style: TextStyle(fontSize: 12, color: textSecondary),
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: textSecondary,
+                              ),
                             ),
                           ],
                         ),
                       ),
                     ),
-                  ...conversations.map((c) => ListTile(
-                        contentPadding: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
-                        leading: _RecipientAvatar(
-                          title: c.title,
-                          avatarUrl: c.avatarUrl,
-                          color: widget.conversationTypes.contains('group')
-                              ? const Color(0xFF34C759)
-                              : widget.conversationTypes.contains('community')
-                                  ? const Color(0xFFFF9500)
-                                  : const Color(0xFF007AFF),
+                  ...conversations.map(
+                    (c) => ListTile(
+                      contentPadding: const EdgeInsets.symmetric(
+                        vertical: 2,
+                        horizontal: 4,
+                      ),
+                      leading: _RecipientAvatar(
+                        title: c.title,
+                        avatarUrl: c.avatarUrl,
+                        color: widget.conversationTypes.contains('group')
+                            ? const Color(0xFF34C759)
+                            : widget.conversationTypes.contains('community')
+                            ? const Color(0xFFFF9500)
+                            : const Color(0xFF007AFF),
+                      ),
+                      title: Text(
+                        c.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 15,
+                          color: textPrimary,
                         ),
-                        title: Text(
-                          c.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: textPrimary),
-                        ),
-                        subtitle: Text(
-                          widget.conversationTypes.contains('direct')
-                              ? '@${c.otherUser?.username ?? 'friend'}'
-                              : '${c.memberCount ?? 0} members',
-                          style: TextStyle(fontSize: 12, color: textSecondary),
-                        ),
-                        trailing: const Icon(Icons.send_rounded, size: 18, color: Color(0xFF007AFF)),
-                        onTap: () => _select(c),
-                      )),
+                      ),
+                      subtitle: Text(
+                        widget.conversationTypes.contains('direct')
+                            ? '@${c.otherUser?.username ?? 'friend'}'
+                            : '${c.memberCount ?? 0} members',
+                        style: TextStyle(fontSize: 12, color: textSecondary),
+                      ),
+                      trailing: const Icon(
+                        Icons.send_rounded,
+                        size: 18,
+                        color: Color(0xFF007AFF),
+                      ),
+                      onTap: () => _select(c),
+                    ),
+                  ),
                   if (showUserResults) ...[
                     const SizedBox(height: 4),
                     Padding(
@@ -1633,32 +2176,57 @@ class _LiveShareRecipientSheetState extends ConsumerState<_LiveShareRecipientShe
                     if (_searchingUsers)
                       const Padding(
                         padding: EdgeInsets.symmetric(vertical: 16),
-                        child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                        child: Center(
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
                       )
                     else
-                      ..._userResults.map((u) => ListTile(
-                            contentPadding: const EdgeInsets.symmetric(vertical: 1, horizontal: 4),
-                            leading: CircleAvatar(
-                              radius: 20,
-                              backgroundColor: const Color(0xFF007AFF).withValues(alpha: 0.12),
-                              backgroundImage: u.avatarUrl != null && u.avatarUrl!.isNotEmpty
-                                  ? NetworkImage(u.avatarUrl!)
-                                  : null,
-                              child: u.avatarUrl == null || u.avatarUrl!.isEmpty
-                                  ? const Icon(Icons.person, color: Color(0xFF007AFF), size: 20)
-                                  : null,
+                      ..._userResults.map(
+                        (u) => ListTile(
+                          contentPadding: const EdgeInsets.symmetric(
+                            vertical: 1,
+                            horizontal: 4,
+                          ),
+                          leading: CircleAvatar(
+                            radius: 20,
+                            backgroundColor: const Color(
+                              0xFF007AFF,
+                            ).withValues(alpha: 0.12),
+                            backgroundImage:
+                                u.avatarUrl != null && u.avatarUrl!.isNotEmpty
+                                ? NetworkImage(u.avatarUrl!)
+                                : null,
+                            child: u.avatarUrl == null || u.avatarUrl!.isEmpty
+                                ? const Icon(
+                                    Icons.person,
+                                    color: Color(0xFF007AFF),
+                                    size: 20,
+                                  )
+                                : null,
+                          ),
+                          title: Text(
+                            u.name,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 15,
+                              color: textPrimary,
                             ),
-                            title: Text(
-                              u.name,
-                              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: textPrimary),
+                          ),
+                          subtitle: Text(
+                            '@${u.username}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: textSecondary,
                             ),
-                            subtitle: Text(
-                              '@${u.username}',
-                              style: TextStyle(fontSize: 12, color: textSecondary),
-                            ),
-                            trailing: const Icon(Icons.send_rounded, size: 18, color: Color(0xFF007AFF)),
-                            onTap: () => _sendToNewUser(u),
-                          )),
+                          ),
+                          trailing: const Icon(
+                            Icons.send_rounded,
+                            size: 18,
+                            color: Color(0xFF007AFF),
+                          ),
+                          onTap: () => _sendToNewUser(u),
+                        ),
+                      ),
                   ],
                 ],
               ),
@@ -1676,7 +2244,11 @@ class _RecipientAvatar extends StatelessWidget {
   final String? avatarUrl;
   final Color color;
 
-  const _RecipientAvatar({required this.title, required this.avatarUrl, required this.color});
+  const _RecipientAvatar({
+    required this.title,
+    required this.avatarUrl,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1715,7 +2287,8 @@ class _LiveProductBuySheet extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<_LiveProductBuySheet> createState() => _LiveProductBuySheetState();
+  ConsumerState<_LiveProductBuySheet> createState() =>
+      _LiveProductBuySheetState();
 }
 
 class _LiveProductBuySheetState extends ConsumerState<_LiveProductBuySheet> {
@@ -1727,22 +2300,29 @@ class _LiveProductBuySheetState extends ConsumerState<_LiveProductBuySheet> {
   String? _error;
 
   int? get _productId => int.tryParse(widget.product['id'].toString());
-  String get _productType => (widget.product['product_type'] ?? widget.product['type'])?.toString() ?? 'physical';
+  String get _productType =>
+      (widget.product['product_type'] ?? widget.product['type'])?.toString() ??
+      'physical';
   bool get _isDigital => _productType == 'digital';
   bool get _isFree =>
-      widget.product['is_free'] == true || ((widget.product['price'] as num?)?.toDouble() ?? 1) == 0;
+      widget.product['is_free'] == true ||
+      ((widget.product['price'] as num?)?.toDouble() ?? 1) == 0;
 
   String get _symbol {
     final currency = widget.product['currency']?.toString();
     return widget.product['symbol']?.toString() ??
-        (currency == 'NGN' ? '₦' : (currency == 'EUR' ? '€' : (currency == 'GBP' ? '£' : '\$')));
+        (currency == 'NGN'
+            ? '₦'
+            : (currency == 'EUR' ? '€' : (currency == 'GBP' ? '£' : '\$')));
   }
 
   String _fmt(num value) => '$_symbol${value.toStringAsFixed(2)}';
 
   double get _basePrice {
     final raw = widget.product['price'];
-    return raw is num ? raw.toDouble() : double.tryParse(raw?.toString() ?? '') ?? 0;
+    return raw is num
+        ? raw.toDouble()
+        : double.tryParse(raw?.toString() ?? '') ?? 0;
   }
 
   Future<void> _purchase() async {
@@ -1754,12 +2334,15 @@ class _LiveProductBuySheetState extends ConsumerState<_LiveProductBuySheet> {
     });
     try {
       final api = ref.read(apiClientProvider);
-      final res = await api.post('/live/${widget.streamId}/purchase', data: {
-        'product_id': _productId,
-        'product_type': _productType,
-        'quantity': _quantity,
-        'idempotency_key': _idempotencyKey,
-      });
+      final res = await api.post(
+        '/live/${widget.streamId}/purchase',
+        data: {
+          'product_id': _productId,
+          'product_type': _productType,
+          'quantity': _quantity,
+          'idempotency_key': _idempotencyKey,
+        },
+      );
       final payload = ApiClient.instance.unwrap(res);
       if (!mounted) return;
       widget.onPurchased();
@@ -1794,17 +2377,27 @@ class _LiveProductBuySheetState extends ConsumerState<_LiveProductBuySheet> {
     try {
       final resolved = ApiClient.resolveUrl(url) ?? url;
       final dir = await getApplicationDocumentsDirectory();
-      final filePath = '${dir.path}/purchase_${DateTime.now().millisecondsSinceEpoch}';
-      final response = await ApiClient.instance.dio.download(resolved, filePath);
-      await SharePlus.instance.share(ShareParams(
-        files: [
-          XFile(
-            filePath,
-            mimeType: response.headers.value('content-type')?.split(';').first.trim(),
-          ),
-        ],
-        text: 'Your purchased file from MurihSpace',
-      ));
+      final filePath =
+          '${dir.path}/purchase_${DateTime.now().millisecondsSinceEpoch}';
+      final response = await ApiClient.instance.dio.download(
+        resolved,
+        filePath,
+      );
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [
+            XFile(
+              filePath,
+              mimeType: response.headers
+                  .value('content-type')
+                  ?.split(';')
+                  .first
+                  .trim(),
+            ),
+          ],
+          text: 'Your purchased file from MurihSpace',
+        ),
+      );
       if (mounted) setState(() => _downloading = false);
     } catch (_) {
       if (mounted) {
@@ -1825,12 +2418,19 @@ class _LiveProductBuySheetState extends ConsumerState<_LiveProductBuySheet> {
     final cardBg = isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF2F4F7);
 
     final order = _result?['order'];
-    final orderTotal = (order is Map<String, dynamic> ? order['total'] : null) as num?;
-    final orderNumber = (order is Map<String, dynamic> ? order['order_number'] : null)?.toString();
+    final orderTotal =
+        (order is Map<String, dynamic> ? order['total'] : null) as num?;
+    final orderNumber =
+        (order is Map<String, dynamic> ? order['order_number'] : null)
+            ?.toString();
     final paid = _result != null;
 
-    final images = (widget.product['images'] as List?)?.whereType<String>().toList() ?? const <String>[];
-    final cover = widget.product['cover_url']?.toString() ?? (images.isNotEmpty ? images.first : null);
+    final images =
+        (widget.product['images'] as List?)?.whereType<String>().toList() ??
+        const <String>[];
+    final cover =
+        widget.product['cover_url']?.toString() ??
+        (images.isNotEmpty ? images.first : null);
     final coverUrl = ApiClient.resolveUrl(cover);
 
     return Container(
@@ -1862,16 +2462,28 @@ class _LiveProductBuySheetState extends ConsumerState<_LiveProductBuySheet> {
             const SizedBox(height: 14),
             Row(
               children: [
-                const Icon(Icons.shopping_bag_rounded, color: Color(0xFFFF9500), size: 20),
+                const Icon(
+                  Icons.shopping_bag_rounded,
+                  color: Color(0xFFFF9500),
+                  size: 20,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     'Shop this stream',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: textPrimary),
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w900,
+                      color: textPrimary,
+                    ),
                   ),
                 ),
                 IconButton(
-                  icon: Icon(Icons.close_rounded, color: textSecondary, size: 20),
+                  icon: Icon(
+                    Icons.close_rounded,
+                    color: textSecondary,
+                    size: 20,
+                  ),
                   onPressed: () => Navigator.pop(context),
                 ),
               ],
@@ -1888,9 +2500,30 @@ class _LiveProductBuySheetState extends ConsumerState<_LiveProductBuySheet> {
                   ClipRRect(
                     borderRadius: BorderRadius.circular(10),
                     child: coverUrl != null && coverUrl.isNotEmpty
-                        ? Image.network(coverUrl, width: 64, height: 64, fit: BoxFit.cover,
-                            errorBuilder: (_, _, _) => Container(width: 64, height: 64, color: const Color(0xFFFF9500), child: const Icon(Icons.shopping_bag_rounded, color: Colors.white)))
-                        : Container(width: 64, height: 64, color: const Color(0xFFFF9500), child: const Icon(Icons.shopping_bag_rounded, color: Colors.white)),
+                        ? Image.network(
+                            coverUrl,
+                            width: 64,
+                            height: 64,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, _, _) => Container(
+                              width: 64,
+                              height: 64,
+                              color: const Color(0xFFFF9500),
+                              child: const Icon(
+                                Icons.shopping_bag_rounded,
+                                color: Colors.white,
+                              ),
+                            ),
+                          )
+                        : Container(
+                            width: 64,
+                            height: 64,
+                            color: const Color(0xFFFF9500),
+                            child: const Icon(
+                              Icons.shopping_bag_rounded,
+                              color: Colors.white,
+                            ),
+                          ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -1898,29 +2531,52 @@ class _LiveProductBuySheetState extends ConsumerState<_LiveProductBuySheet> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          widget.product['title']?.toString() ?? widget.product['name']?.toString() ?? 'Product',
+                          widget.product['title']?.toString() ??
+                              widget.product['name']?.toString() ??
+                              'Product',
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: textPrimary),
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                            color: textPrimary,
+                          ),
                         ),
                         const SizedBox(height: 4),
                         Text(
                           _fmt(_basePrice),
-                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Color(0xFFFF9500)),
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFFFF9500),
+                          ),
                         ),
                         const SizedBox(height: 4),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
-                            color: _isDigital ? const Color(0xFF007AFF).withValues(alpha: 0.15) : const Color(0xFF34C759).withValues(alpha: 0.15),
+                            color: _isDigital
+                                ? const Color(
+                                    0xFF007AFF,
+                                  ).withValues(alpha: 0.15)
+                                : const Color(
+                                    0xFF34C759,
+                                  ).withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
-                            _isDigital ? 'Digital · Instant delivery' : 'Physical · Escrow protected',
+                            _isDigital
+                                ? 'Digital · Instant delivery'
+                                : 'Physical · Escrow protected',
                             style: TextStyle(
                               fontSize: 9,
                               fontWeight: FontWeight.w700,
-                              color: _isDigital ? const Color(0xFF007AFF) : const Color(0xFF34C759),
+                              color: _isDigital
+                                  ? const Color(0xFF007AFF)
+                                  : const Color(0xFF34C759),
                             ),
                           ),
                         ),
@@ -1935,38 +2591,64 @@ class _LiveProductBuySheetState extends ConsumerState<_LiveProductBuySheet> {
               const SizedBox(height: 14),
               Row(
                 children: [
-                  Text('Quantity', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textPrimary)),
+                  Text(
+                    'Quantity',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: textPrimary,
+                    ),
+                  ),
                   const Spacer(),
                   IconButton(
-                    icon: const Icon(Icons.remove_circle_outline_rounded, color: Color(0xFFFF9500)),
+                    icon: const Icon(
+                      Icons.remove_circle_outline_rounded,
+                      color: Color(0xFFFF9500),
+                    ),
                     onPressed: _quantity > 1
                         ? () => setState(() {
-                              _quantity -= 1;
-                              _idempotencyKey = null;
-                            })
+                            _quantity -= 1;
+                            _idempotencyKey = null;
+                          })
                         : null,
                   ),
-                  Text('$_quantity', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: textPrimary)),
+                  Text(
+                    '$_quantity',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w900,
+                      color: textPrimary,
+                    ),
+                  ),
                   IconButton(
-                    icon: const Icon(Icons.add_circle_rounded, color: Color(0xFFFF9500)),
+                    icon: const Icon(
+                      Icons.add_circle_rounded,
+                      color: Color(0xFFFF9500),
+                    ),
                     onPressed: _quantity < 100
                         ? () => setState(() {
-                              _quantity += 1;
-                              _idempotencyKey = null;
-                            })
+                            _quantity += 1;
+                            _idempotencyKey = null;
+                          })
                         : null,
                   ),
                 ],
               ),
             ],
 
-            if (!_isDigital && (widget.product['description']?.toString() ?? '').isNotEmpty) ...[
+            if (!_isDigital &&
+                (widget.product['description']?.toString() ?? '')
+                    .isNotEmpty) ...[
               const SizedBox(height: 6),
               Text(
                 widget.product['description'].toString(),
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 11, color: textSecondary, height: 1.4),
+                style: TextStyle(
+                  fontSize: 11,
+                  color: textSecondary,
+                  height: 1.4,
+                ),
               ),
             ],
 
@@ -1978,22 +2660,38 @@ class _LiveProductBuySheetState extends ConsumerState<_LiveProductBuySheet> {
                 decoration: BoxDecoration(
                   color: const Color(0xFF34C759).withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: const Color(0xFF34C759).withValues(alpha: 0.4)),
+                  border: Border.all(
+                    color: const Color(0xFF34C759).withValues(alpha: 0.4),
+                  ),
                 ),
                 child: Column(
                   children: [
-                    const Icon(Icons.check_circle_rounded, color: Color(0xFF34C759), size: 28),
+                    const Icon(
+                      Icons.check_circle_rounded,
+                      color: Color(0xFF34C759),
+                      size: 28,
+                    ),
                     const SizedBox(height: 6),
                     Text(
-                      orderNumber != null ? 'Order $orderNumber confirmed!' : 'Order confirmed!',
-                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Color(0xFF34C759)),
+                      orderNumber != null
+                          ? 'Order $orderNumber confirmed!'
+                          : 'Order confirmed!',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF34C759),
+                      ),
                       textAlign: TextAlign.center,
                     ),
                     if (orderTotal != null) ...[
                       const SizedBox(height: 4),
                       Text(
                         'Paid ${_fmt(orderTotal)}',
-                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFF34C759)),
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF34C759),
+                        ),
                       ),
                     ],
                     const SizedBox(height: 6),
@@ -2017,13 +2715,24 @@ class _LiveProductBuySheetState extends ConsumerState<_LiveProductBuySheet> {
                       backgroundColor: const Color(0xFF007AFF),
                       foregroundColor: Colors.white,
                       elevation: 0,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
                     ),
                     onPressed: _download,
                     icon: _downloading
-                        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
                         : const Icon(Icons.download_rounded, size: 20),
-                    label: Text(_downloading ? 'Downloading…' : 'Download Product'),
+                    label: Text(
+                      _downloading ? 'Downloading…' : 'Download Product',
+                    ),
                   ),
                 ),
               ],
@@ -2040,7 +2749,11 @@ class _LiveProductBuySheetState extends ConsumerState<_LiveProductBuySheet> {
                   ),
                   child: Text(
                     _error!,
-                    style: const TextStyle(color: Color(0xFFFF3B30), fontSize: 12, fontWeight: FontWeight.w600),
+                    style: const TextStyle(
+                      color: Color(0xFFFF3B30),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
                     textAlign: TextAlign.center,
                   ),
                 ),
@@ -2053,18 +2766,32 @@ class _LiveProductBuySheetState extends ConsumerState<_LiveProductBuySheet> {
                     backgroundColor: const Color(0xFFFF9500),
                     foregroundColor: Colors.white,
                     elevation: 0,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
                   ),
                   onPressed: widget.isHost || _buying ? null : _purchase,
                   child: _buying
-                      ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
                       : Text(
                           widget.isHost
                               ? 'Pinned to your stream'
                               : _isDigital
-                                  ? (_isFree ? 'Claim for Free' : 'Pay ${_fmt(_basePrice)}')
-                                  : 'Pay ${_fmt(_basePrice * _quantity)}',
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                              ? (_isFree
+                                    ? 'Claim for Free'
+                                    : 'Pay ${_fmt(_basePrice)}')
+                              : 'Pay ${_fmt(_basePrice * _quantity)}',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                 ),
               ),
@@ -2073,7 +2800,11 @@ class _LiveProductBuySheetState extends ConsumerState<_LiveProductBuySheet> {
                   padding: const EdgeInsets.only(top: 8),
                   child: Text(
                     'You\'ll complete shipping after checkout.',
-                    style: TextStyle(fontSize: 10, color: textSecondary, fontStyle: FontStyle.italic),
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: textSecondary,
+                      fontStyle: FontStyle.italic,
+                    ),
                     textAlign: TextAlign.center,
                   ),
                 ),
@@ -2086,7 +2817,10 @@ class _LiveProductBuySheetState extends ConsumerState<_LiveProductBuySheet> {
               child: TextButton(
                 style: TextButton.styleFrom(foregroundColor: textSecondary),
                 onPressed: () => Navigator.pop(context),
-                child: const Text('Done', style: TextStyle(fontWeight: FontWeight.w700)),
+                child: const Text(
+                  'Done',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
               ),
             ),
           ],
