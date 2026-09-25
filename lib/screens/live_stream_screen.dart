@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart' hide ConnectionState;
 import 'package:livekit_client/livekit_client.dart';
 import 'package:flutter/services.dart';
@@ -218,7 +219,26 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
 
       await _pollLiveMetricsAndChat();
     } catch (e) {
-      final errStr = e.toString().toLowerCase();
+      String errorMessage = 'Failed to connect to live stream.';
+      if (e is DioException) {
+        final responseData = e.response?.data;
+        if (responseData is Map && responseData['message'] != null) {
+          errorMessage = responseData['message'].toString();
+        } else if (responseData is Map && responseData['error'] != null) {
+          errorMessage = responseData['error'].toString();
+        } else if (e.message != null && e.message!.isNotEmpty) {
+          errorMessage = e.message!;
+        } else {
+          final status = e.response?.statusCode;
+          errorMessage = status != null
+              ? 'Unable to connect to live room (Server error $status).'
+              : 'Network error connecting to live stream. Please check your connection.';
+        }
+      } else {
+        errorMessage = e.toString().replaceAll('Exception: ', '');
+      }
+
+      final errStr = errorMessage.toLowerCase();
       if (widget.isHost && (errStr.contains('kyc') || errStr.contains('403'))) {
         if (mounted) {
           Navigator.of(context).pop();
@@ -228,7 +248,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
       }
       if (mounted) {
         setState(() {
-          _connectionError = e.toString().replaceAll('Exception: ', '');
+          _connectionError = errorMessage;
         });
       }
     }
