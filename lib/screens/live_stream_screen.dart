@@ -746,22 +746,31 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
     _scrollToBottom();
   }
 
-  Future<void> _addHeart(TapUpDetails details) async {
+  Future<void> _addHeart({double? x, double? y}) async {
+    final screenSize = MediaQuery.of(context).size;
+    final startX = x ?? (screenSize.width - 48 + (_random.nextDouble() * 24 - 12));
+    final startY = y ?? (screenSize.height - 120);
+
     setState(() {
       _likesCount += 1;
       _hearts.add(
         _FloatingHeart(
-          id: DateTime.now().millisecondsSinceEpoch,
-          startX: details.localPosition.dx,
-          startY: details.localPosition.dy,
-          color: [
-            Colors.red,
-            Colors.pink,
-            Colors.amber,
-            Colors.purple,
-            Colors.cyan,
-            Colors.orange,
-          ][_random.nextInt(6)],
+          id: DateTime.now().microsecondsSinceEpoch + _random.nextInt(1000),
+          startX: startX,
+          startY: startY,
+          color: const [
+            Color(0xFFFF2D55),
+            Color(0xFFFF375F),
+            Color(0xFFFF9500),
+            Color(0xFFFFCC00),
+            Color(0xFFAF52DE),
+            Color(0xFF5856D6),
+            Color(0xFF30D158),
+            Color(0xFF007AFF),
+          ][_random.nextInt(8)],
+          swayAmplitude: 12.0 + _random.nextDouble() * 12.0,
+          swayPhase: _random.nextDouble() * 2 * pi,
+          size: 26.0 + _random.nextDouble() * 10.0,
         ),
       );
     });
@@ -1324,7 +1333,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
           if (_chatFocusNode.hasFocus) {
             _chatFocusNode.unfocus();
           } else {
-            _addHeart(details);
+            _addHeart(x: details.localPosition.dx, y: details.localPosition.dy);
           }
         },
         child: Stack(
@@ -1631,59 +1640,107 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
               ),
             ),
 
-            // 5. Live Chat Feed Overlay (dynamically lifts above keyboard)
+            // 5. TikTok-Style Live Chat Feed Overlay (Transparent, popping below, constrained height, no scrollbars)
             Positioned(
-              bottom: viewInsetsBottom + 70,
+              bottom: viewInsetsBottom + 66,
               left: 16,
-              right: 80,
+              width: min(MediaQuery.of(context).size.width * 0.78, 300),
               child: SizedBox(
-                height: isKeyboardOpen ? 120 : 180,
-                child: Align(
-                  alignment: Alignment.bottomLeft,
-                  child: ListView.separated(
-                    controller: _scrollController,
-                    shrinkWrap: true,
-                    padding: EdgeInsets.zero,
-                    itemCount: _chatMessages.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 6),
-                    itemBuilder: (context, idx) {
-                      final msg = _chatMessages[idx];
-                      return Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF0F141C).withValues(alpha: 0.75),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.1),
-                          ),
-                        ),
-                        child: RichText(
-                          text: TextSpan(
-                            children: [
-                              TextSpan(
-                                text: '${msg['name']} ',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: 13,
-                                  color: msg['color'] as Color,
+                height: isKeyboardOpen ? 130 : 210,
+                child: ShaderMask(
+                  shaderCallback: (bounds) => const LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Colors.transparent, Colors.white],
+                    stops: [0.0, 0.20],
+                  ).createShader(bounds),
+                  blendMode: BlendMode.dstIn,
+                  child: ScrollConfiguration(
+                    behavior:
+                        const ScrollBehavior().copyWith(scrollbars: false),
+                    child: ListView.separated(
+                      controller: _scrollController,
+                      physics: const BouncingScrollPhysics(),
+                      shrinkWrap: true,
+                      padding: EdgeInsets.zero,
+                      itemCount: _chatMessages.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 5),
+                      itemBuilder: (context, idx) {
+                        final msg = _chatMessages[idx];
+                        final isHost =
+                            msg['name'] == widget.hostName ||
+                            msg['role'] == 'Host';
+                        final isGift =
+                            (msg['msg'] as String).contains('🎁') ||
+                            msg['type'] == 'gift';
+
+                        return _TikTokLiveMessageBubble(
+                          key: ValueKey(msg['id'] ?? idx),
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 5,
+                              ),
+                              decoration: BoxDecoration(
+                                color: isGift
+                                    ? const Color(
+                                        0xFFFF9500,
+                                      ).withValues(alpha: 0.30)
+                                    : Colors.black.withValues(alpha: 0.35),
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: isGift
+                                      ? const Color(
+                                          0xFFFF9500,
+                                        ).withValues(alpha: 0.45)
+                                      : Colors.white.withValues(alpha: 0.10),
+                                  width: 0.5,
                                 ),
                               ),
-                              TextSpan(
-                                text: msg['msg'] as String,
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w500,
+                              child: RichText(
+                                text: TextSpan(
+                                  children: [
+                                    TextSpan(
+                                      text:
+                                          '${msg['name']}${isHost ? ' (Host)' : ''}: ',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 12.5,
+                                        color: isHost
+                                            ? const Color(0xFFFFCC00)
+                                            : const Color(0xFF38BDF8),
+                                        shadows: const [
+                                          Shadow(
+                                            color: Colors.black54,
+                                            blurRadius: 2,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    TextSpan(
+                                      text: msg['msg'] as String,
+                                      style: const TextStyle(
+                                        fontSize: 12.5,
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w500,
+                                        shadows: [
+                                          Shadow(
+                                            color: Colors.black87,
+                                            blurRadius: 2,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
-                            ],
+                            ),
                           ),
-                        ),
-                      );
-                    },
+                        );
+                      },
+                    ),
                   ),
                 ),
               ),
@@ -1856,7 +1913,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
                     ),
                   ],
 
-                  // Non-Host Viewers: Real Gifting Button
+                  // Non-Host Viewers: Real Gifting Button & Heart/Like Button
                   if (!widget.isHost) ...[
                     const SizedBox(width: 6),
                     IconButton(
@@ -1870,6 +1927,22 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
                         size: 20,
                       ),
                       onPressed: _openGiftingModal,
+                    ),
+                    const SizedBox(width: 6),
+                    IconButton(
+                      style: IconButton.styleFrom(
+                        backgroundColor: const Color(0xFFFF2D55).withValues(alpha: 0.22),
+                        padding: const EdgeInsets.all(10),
+                      ),
+                      icon: const Icon(
+                        Icons.favorite_rounded,
+                        color: Color(0xFFFF2D55),
+                        size: 20,
+                      ),
+                      onPressed: () {
+                        HapticFeedback.lightImpact();
+                        _addHeart();
+                      },
                     ),
                   ],
                 ],
@@ -1887,12 +1960,18 @@ class _FloatingHeart {
   final double startX;
   final double startY;
   final Color color;
+  final double swayAmplitude;
+  final double swayPhase;
+  final double size;
 
   _FloatingHeart({
     required this.id,
     required this.startX,
     required this.startY,
     required this.color,
+    this.swayAmplitude = 14.0,
+    this.swayPhase = 0.0,
+    this.size = 28.0,
   });
 }
 
@@ -1913,15 +1992,13 @@ class _FloatingHeartWidget extends StatefulWidget {
 class _FloatingHeartWidgetState extends State<_FloatingHeartWidget>
     with SingleTickerProviderStateMixin {
   late AnimationController _anim;
-  late double _targetX;
 
   @override
   void initState() {
     super.initState();
-    _targetX = widget.heart.startX + (Random().nextDouble() * 80 - 40);
     _anim = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1400),
+      duration: const Duration(milliseconds: 1800),
     )..forward().then((_) => widget.onComplete());
   }
 
@@ -1937,25 +2014,103 @@ class _FloatingHeartWidgetState extends State<_FloatingHeartWidget>
       animation: _anim,
       builder: (context, child) {
         final progress = _anim.value;
-        final dy = widget.heart.startY - (progress * 240);
-        final dx =
-            widget.heart.startX + (progress * (_targetX - widget.heart.startX));
-        final opacity = (1.0 - progress).clamp(0.0, 1.0);
-        final scale = 0.8 + (progress * 0.5);
+        // Ascends vertically UPWARDS by 420px (never downwards or sideways)
+        final dy = widget.heart.startY - (progress * 420);
+        // Gentle sinusoidal wave oscillating around startX (never drifts away)
+        final sway = sin(progress * 2.5 * pi + widget.heart.swayPhase) *
+            widget.heart.swayAmplitude;
+        final dx = widget.heart.startX + sway;
+
+        // TikTok pop-in scale curve
+        final scale = progress < 0.15
+            ? (progress / 0.15) * 1.18
+            : (progress < 0.75 ? 1.0 : 1.0 - (progress - 0.75) * 1.2);
+
+        // Fade in rapidly, stay solid, then fade out smoothly at the top
+        final opacity = progress > 0.65
+            ? ((1.0 - progress) / 0.35).clamp(0.0, 1.0)
+            : (progress / 0.1).clamp(0.0, 1.0);
+
+        final rotation = sin(progress * pi + widget.heart.swayPhase) * 0.15;
 
         return Positioned(
-          left: dx - 12,
-          top: dy - 12,
+          left: dx - (widget.heart.size / 2),
+          top: dy - (widget.heart.size / 2),
           child: Opacity(
             opacity: opacity,
-            child: Transform.scale(
-              scale: scale,
-              child: Icon(
-                Icons.favorite_rounded,
-                color: widget.heart.color,
-                size: 28,
+            child: Transform.rotate(
+              angle: rotation,
+              child: Transform.scale(
+                scale: scale.clamp(0.0, 1.5),
+                child: Icon(
+                  Icons.favorite_rounded,
+                  color: widget.heart.color,
+                  size: widget.heart.size,
+                  shadows: [
+                    Shadow(
+                      color: widget.heart.color.withValues(alpha: 0.6),
+                      blurRadius: 10,
+                    ),
+                  ],
+                ),
               ),
             ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// A smooth pop-in animation for incoming TikTok live comments
+class _TikTokLiveMessageBubble extends StatefulWidget {
+  final Widget child;
+
+  const _TikTokLiveMessageBubble({super.key, required this.child});
+
+  @override
+  State<_TikTokLiveMessageBubble> createState() =>
+      _TikTokLiveMessageBubbleState();
+}
+
+class _TikTokLiveMessageBubbleState extends State<_TikTokLiveMessageBubble>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _slideAnim;
+  late Animation<double> _fadeAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 220),
+    );
+    _slideAnim = Tween<double>(begin: 12.0, end: 0.0).animate(
+      CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic),
+    );
+    _fadeAnim = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _ctrl, curve: Curves.easeOut),
+    );
+    _ctrl.forward();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _ctrl,
+      builder: (context, child) {
+        return Transform.translate(
+          offset: Offset(0, _slideAnim.value),
+          child: Opacity(
+            opacity: _fadeAnim.value,
+            child: widget.child,
           ),
         );
       },
