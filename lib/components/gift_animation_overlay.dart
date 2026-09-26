@@ -542,7 +542,7 @@ class _GiftOverlayViewState extends State<_GiftOverlayView> with TickerProviderS
                                       const Text('🪙', style: TextStyle(fontSize: 14)),
                                       const SizedBox(width: 6),
                                       Text(
-                                        '${widget.data.coinPrice} Coins',
+                                        '${widget.data.coinPrice} MSH',
                                         style: const TextStyle(
                                           color: Color(0xFFFFB340),
                                           fontSize: 13,

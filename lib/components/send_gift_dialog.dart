@@ -282,12 +282,12 @@ class _SendGiftDialogState extends ConsumerState<SendGiftDialog> {
               ),
               const SizedBox(height: 16),
               Text(
-                'Insufficient Coins',
+                'Insufficient MSH Coins',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: textPrimary),
               ),
               const SizedBox(height: 8),
               Text(
-                'You need ${gift.coinCost} Coins to send ${gift.name}, but you currently have $currentCoins Coins (need $deficit more Coins).\n\nTop up your System Wallet to purchase coins and send your gift.',
+                'You need ${gift.coinCost} MSH (🪙) to send ${gift.name}, but you currently have $currentCoins MSH (need $deficit more MSH).\n\nTop up your System Wallet to purchase MSH coins and send your gift.',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 13, height: 1.4, color: textSecondary),
               ),
@@ -485,10 +485,10 @@ class _SendGiftDialogState extends ConsumerState<SendGiftDialog> {
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.monetization_on_rounded, color: Color(0xFFFF9500), size: 15),
+                      const Text('🪙', style: TextStyle(fontSize: 14)),
                       const SizedBox(width: 4),
                       Text(
-                        '$currentCoins',
+                        '$currentCoins MSH',
                         style: const TextStyle(color: Color(0xFFFF9500), fontWeight: FontWeight.w900, fontSize: 13),
                       ),
                       const SizedBox(width: 4),
@@ -578,7 +578,7 @@ class _SendGiftDialogState extends ConsumerState<SendGiftDialog> {
                                 overflow: TextOverflow.ellipsis,
                               ),
                               Text(
-                                '${gift.coinCost} coins',
+                                '🪙 ${gift.coinCost} MSH',
                                 style: TextStyle(fontSize: 10, color: gift.color, fontWeight: FontWeight.w900),
                               ),
                             ],
@@ -609,12 +609,12 @@ class _SendGiftDialogState extends ConsumerState<SendGiftDialog> {
                   : Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text(hasEnoughCoins ? (_selectedGift?.icon ?? '🎁') : '💳', style: const TextStyle(fontSize: 16)),
+                        Text(hasEnoughCoins ? (_selectedGift?.icon ?? '🎁') : '🪙', style: const TextStyle(fontSize: 16)),
                         const SizedBox(width: 8),
                         Text(
                           hasEnoughCoins
-                              ? 'Send ${_selectedGift?.name ?? 'Gift'} (${_selectedGift?.coinCost ?? 0} Coins)'
-                              : 'Top Up Wallet to Send (${_selectedGift?.coinCost ?? 0} Coins)',
+                              ? 'Send ${_selectedGift?.name ?? 'Gift'} (🪙 ${_selectedGift?.coinCost ?? 0} MSH)'
+                              : 'Top Up Wallet to Send (🪙 ${_selectedGift?.coinCost ?? 0} MSH)',
                           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                         ),
                       ],

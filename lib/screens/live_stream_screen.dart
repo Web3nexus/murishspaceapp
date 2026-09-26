@@ -23,6 +23,7 @@ import '../models/chat_models.dart';
 import '../providers/auth_provider.dart';
 import '../providers/chat_provider.dart';
 import '../providers/messages_provider.dart';
+import '../providers/wallet_provider.dart';
 
 /// Full Interactive Live Streaming Stage with Native Hardware Camera Preview,
 /// Real-Time LiveKit Session Connection, Authenticated Chat, Likes, and Ledger-Backed Gifting.
@@ -241,7 +242,9 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
         if (liveKitData is Map) {
           await _connectToLiveKit(
             liveKitData,
-            isPublisher: liveKitData['is_publisher'] == true,
+            isPublisher: widget.isHost ||
+                liveKitData['is_publisher'] == true ||
+                liveKitData['is_publisher'] == 1,
           );
         }
       } else if (_activeStreamId != null) {
@@ -269,7 +272,9 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
         if (liveKitData is Map) {
           await _connectToLiveKit(
             liveKitData,
-            isPublisher: liveKitData['is_publisher'] == true,
+            isPublisher: widget.isHost ||
+                liveKitData['is_publisher'] == true ||
+                liveKitData['is_publisher'] == 1,
           );
         }
       }
@@ -373,6 +378,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
             echoCancellation: true,
             noiseSuppression: true,
             autoGainControl: true,
+            highpassFilter: true,
           ),
           defaultAudioPublishOptions: isPublisher
               ? const AudioPublishOptions(
@@ -392,16 +398,30 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
             try {
               await room.startAudio();
               await AudioManager.instance.setSpeakerOutputPreferred(true, force: true);
+              await Hardware.instance.setSpeakerphoneOn(true);
             } catch (_) {}
           }
         })
         ..on<TrackSubscribedEvent>((event) async {
           if (event.track is AudioTrack) {
             try {
+              await event.track.start();
               await AudioManager.instance.setSpeakerOutputPreferred(true, force: true);
-            } catch (_) {}
+              await Hardware.instance.setSpeakerphoneOn(true);
+            } catch (e) {
+              debugPrint('[LiveKit] Error starting subscribed audio track: $e');
+            }
           }
           _syncRemoteVideoTrack();
+        })
+        ..on<TrackUnmutedEvent>((event) async {
+          if (event.track is AudioTrack) {
+            try {
+              await event.track?.start();
+              await AudioManager.instance.setSpeakerOutputPreferred(true, force: true);
+              await Hardware.instance.setSpeakerphoneOn(true);
+            } catch (_) {}
+          }
         })
         ..on<TrackUnsubscribedEvent>((_) {
           _syncRemoteVideoTrack();
@@ -431,34 +451,56 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
       try {
         await room.startAudio();
         await AudioManager.instance.setSpeakerOutputPreferred(true, force: true);
-      } catch (_) {}
+        await Hardware.instance.setSpeakerphoneOn(true);
+      } catch (e) {
+        debugPrint('[LiveKit] Error starting audio: $e');
+      }
 
-      // Route existing remote audio tracks to speakerphone
+      // Start and route existing remote audio tracks to speakerphone
       for (final p in room.remoteParticipants.values) {
         for (final pub in p.audioTrackPublications) {
           if (pub.subscribed && pub.track != null) {
             try {
+              await pub.track!.start();
               await AudioManager.instance.setSpeakerOutputPreferred(true, force: true);
-            } catch (_) {}
+              await Hardware.instance.setSpeakerphoneOn(true);
+            } catch (e) {
+              debugPrint('[LiveKit] Error starting existing audio track: $e');
+            }
           }
         }
       }
 
-      if (isPublisher) {
+      if (isPublisher || widget.isHost) {
         final participant = room.localParticipant;
         if (participant != null) {
           if (_micOn) {
             try {
-              final micPerm = await Permission.microphone.request();
-              if (micPerm.isGranted) {
+              final micGranted = await Permission.microphone.isGranted ||
+                  (await Permission.microphone.request()).isGranted;
+              if (micGranted) {
+                await participant.setMicrophoneEnabled(true);
+              } else {
                 await participant.setMicrophoneEnabled(true);
               }
-            } catch (_) {}
+            } catch (e) {
+              try {
+                await participant.setMicrophoneEnabled(true);
+              } catch (_) {}
+            }
           }
           if (widget.streamMode != 'audio' && _cameraOn) {
             try {
-              final camPerm = await Permission.camera.request();
-              if (camPerm.isGranted) {
+              final camGranted = await Permission.camera.isGranted ||
+                  (await Permission.camera.request()).isGranted;
+              if (camGranted) {
+                await participant.setCameraEnabled(
+                  true,
+                  cameraCaptureOptions: const CameraCaptureOptions(
+                    cameraPosition: CameraPosition.front,
+                  ),
+                );
+              } else {
                 await participant.setCameraEnabled(
                   true,
                   cameraCaptureOptions: const CameraCaptureOptions(
@@ -466,7 +508,16 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
                   ),
                 );
               }
-            } catch (_) {}
+            } catch (e) {
+              try {
+                await participant.setCameraEnabled(
+                  true,
+                  cameraCaptureOptions: const CameraCaptureOptions(
+                    cameraPosition: CameraPosition.front,
+                  ),
+                );
+              } catch (_) {}
+            }
           }
         }
       }
@@ -683,14 +734,21 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
     if (participant != null) {
       try {
         if (next) {
-          final perm = await Permission.microphone.request();
-          if (perm.isGranted) {
+          final granted = await Permission.microphone.isGranted ||
+              (await Permission.microphone.request()).isGranted;
+          if (granted) {
+            await participant.setMicrophoneEnabled(true);
+          } else {
             await participant.setMicrophoneEnabled(true);
           }
         } else {
           await participant.setMicrophoneEnabled(false);
         }
-      } catch (_) {}
+      } catch (e) {
+        try {
+          await participant.setMicrophoneEnabled(next);
+        } catch (_) {}
+      }
     }
   }
 
@@ -800,7 +858,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
             _chatMessages.add({
               'name': 'System',
               'role': 'Gift',
-              'msg': '🎁 You sent ${gift.name} (+$amount Coins)!',
+              'msg': '🎁 You sent ${gift.name} (🪙 +$amount MSH)!',
               'color': const Color(0xFFFF9500),
             });
           });
@@ -1319,7 +1377,9 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
   @override
   Widget build(BuildContext context) {
     final authUser = ref.watch(authProvider).user;
-    final coinBalance = authUser?.coins ?? 0;
+    final walletCoins = ref.watch(walletProvider).coinsBalance;
+    final authCoins = authUser?.coins ?? 0;
+    final coinBalance = walletCoins > 0 ? walletCoins : authCoins;
     final viewInsetsBottom = MediaQuery.of(context).viewInsets.bottom;
     final isKeyboardOpen = viewInsetsBottom > 0;
     final hasChatText = _chatCtrl.text.trim().isNotEmpty;
@@ -1335,6 +1395,12 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
           } else {
             _addHeart(x: details.localPosition.dx, y: details.localPosition.dy);
           }
+          // Resume audio if system suspended it
+          try {
+            _liveKitRoom?.startAudio();
+            AudioManager.instance.setSpeakerOutputPreferred(true, force: true);
+            Hardware.instance.setSpeakerphoneOn(true);
+          } catch (_) {}
         },
         child: Stack(
           children: [
@@ -1598,7 +1664,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
                       children: [
                         const Text('🪙 ', style: TextStyle(fontSize: 12)),
                         Text(
-                          '$coinBalance Coins',
+                          '$coinBalance MSH',
                           style: const TextStyle(
                             color: Color(0xFFFF9500),
                             fontWeight: FontWeight.w900,
