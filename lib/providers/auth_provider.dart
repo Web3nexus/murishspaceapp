@@ -20,6 +20,9 @@ class UserProfile {
   final bool onboardingCompleted;
   final String? bannerUrl;
   final String? avatarUrl;
+
+  String? get avatar => avatarUrl;
+  String? get coverImage => bannerUrl;
   final String? bio;
   final String? phone;
   final DateTime? birthday;

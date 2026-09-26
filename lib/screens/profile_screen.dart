@@ -143,7 +143,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     _bioController = TextEditingController(text: user?.bio ?? '');
     _phoneController = TextEditingController(text: user?.phone ?? '');
     _selectedBirthday = user?.birthday;
-    _avatarUrl = user?.avatarUrl ?? user?.avatar;
+    _avatarUrl = user?.avatarUrl;
     _bannerUrl = user?.bannerUrl;
   }
 
