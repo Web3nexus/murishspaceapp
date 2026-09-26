@@ -451,7 +451,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
       );
     }
 
-    final messages = state.messages.reversed.toList();
+    final messages = state.messages;
     final typer = typing.values.isNotEmpty ? typing.values.first : null;
     final showTopLoader = state.hasMore;
     final itemCount = messages.length + (typer != null ? 1 : 0) + (showTopLoader ? 1 : 0);

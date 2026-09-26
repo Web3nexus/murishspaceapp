@@ -1724,7 +1724,9 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
                   child: ScrollConfiguration(
                     behavior:
                         const ScrollBehavior().copyWith(scrollbars: false),
-                    child: ListView.separated(
+                    child: Align(
+                      alignment: Alignment.bottomLeft,
+                      child: ListView.separated(
                       controller: _scrollController,
                       physics: const BouncingScrollPhysics(),
                       shrinkWrap: true,
@@ -1809,6 +1811,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
                     ),
                   ),
                 ),
+              ),
               ),
             ),
 
