@@ -11,6 +11,7 @@ import 'package:permission_handler/permission_handler.dart';
 
 import '../config/env.dart';
 import '../core/api_client.dart';
+import '../core/roles.dart';
 import '../components/gift_animation_overlay.dart';
 import '../components/send_gift_dialog.dart';
 import '../providers/auth_provider.dart';
@@ -144,6 +145,16 @@ class _ConferenceMeetingScreenState extends ConsumerState<ConferenceMeetingScree
   // ── Meeting lifecycle ───────────────────────────────────────────────────
 
   Future<void> _startMeeting() async {
+    final user = ref.read(authProvider).user;
+    final canHost = user?.role == UserRole.creator ||
+        user?.role == UserRole.vendor ||
+        user?.role == UserRole.admin;
+    if (!canHost) {
+      setState(() => _error =
+          'Hosting instant meetings is reserved for Creator & Vendor accounts. Please upgrade to host meetings.');
+      return;
+    }
+
     final title = _titleCtrl.text.trim();
     setState(() {
       _busy = true;
@@ -571,6 +582,9 @@ class _ConferenceMeetingScreenState extends ConsumerState<ConferenceMeetingScree
     final authUser = ref.watch(authProvider).user;
     final userName = authUser?.name.isNotEmpty == true ? authUser!.name : 'You';
     final userAvatar = authUser?.avatarUrl;
+    final canHostMeetings = authUser?.role == UserRole.creator ||
+        authUser?.role == UserRole.vendor ||
+        authUser?.role == UserRole.admin;
 
     return SafeArea(
       child: Scaffold(
@@ -666,13 +680,15 @@ class _ConferenceMeetingScreenState extends ConsumerState<ConferenceMeetingScree
                     ),
                     const SizedBox(height: 14),
                     Text(
-                      'Host a Live Conference',
+                      canHostMeetings ? 'Host a Live Conference' : 'Join a Video Conference',
                       textAlign: TextAlign.center,
                       style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: textPrimary),
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'Private HD rooms with crystal clear audio, chat, emoji reactions, and gifting.',
+                      canHostMeetings
+                          ? 'Private HD rooms with crystal clear audio, chat, emoji reactions, and gifting.'
+                          : 'Enter a room code or invite link to join meetings in high-definition WebRTC.',
                       textAlign: TextAlign.center,
                       style: TextStyle(fontSize: 13, color: textSecondary, height: 1.35),
                     ),
@@ -866,91 +882,143 @@ class _ConferenceMeetingScreenState extends ConsumerState<ConferenceMeetingScree
                     ),
                     const SizedBox(height: 18),
 
-                    // Start new meeting card
-                    _modernCard(
-                      context,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF007AFF).withValues(alpha: 0.12),
-                                  borderRadius: BorderRadius.circular(10),
+                    if (canHostMeetings) ...[
+                      // Start new meeting card (Creators / Vendors / Admins)
+                      _modernCard(
+                        context,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF007AFF).withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: const Icon(Icons.add_circle_outline_rounded, color: Color(0xFF007AFF), size: 20),
                                 ),
-                                child: const Icon(Icons.add_circle_outline_rounded, color: Color(0xFF007AFF), size: 20),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text('Start an Instant Meeting', style: TextStyle(color: textPrimary, fontSize: 16, fontWeight: FontWeight.w800)),
-                                    Text('Create a new room and share code with guests', style: TextStyle(color: textSecondary, fontSize: 11)),
-                                  ],
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text('Start an Instant Meeting', style: TextStyle(color: textPrimary, fontSize: 16, fontWeight: FontWeight.w800)),
+                                      Text('Create a new room and share code with guests', style: TextStyle(color: textSecondary, fontSize: 11)),
+                                    ],
+                                  ),
                                 ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 14),
-                          TextField(
-                            controller: _titleCtrl,
-                            style: TextStyle(color: textPrimary, fontSize: 14),
-                            textInputAction: TextInputAction.done,
-                            onSubmitted: (_) => _startMeeting(),
-                            decoration: InputDecoration(
-                              hintText: 'Meeting title or topic (optional)',
-                              hintStyle: TextStyle(color: textSecondary.withValues(alpha: 0.8), fontSize: 13),
-                              prefixIcon: Icon(Icons.meeting_room_outlined, color: textSecondary, size: 20),
-                              isDense: true,
-                              filled: true,
-                              fillColor: inputFill,
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(14),
-                                borderSide: BorderSide(color: inputBorder),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(14),
-                                borderSide: BorderSide(color: inputBorder),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(14),
-                                borderSide: const BorderSide(color: Color(0xFF007AFF), width: 1.5),
+                              ],
+                            ),
+                            const SizedBox(height: 14),
+                            TextField(
+                              controller: _titleCtrl,
+                              style: TextStyle(color: textPrimary, fontSize: 14),
+                              textInputAction: TextInputAction.done,
+                              onSubmitted: (_) => _startMeeting(),
+                              decoration: InputDecoration(
+                                hintText: 'Meeting title or topic (optional)',
+                                hintStyle: TextStyle(color: textSecondary.withValues(alpha: 0.8), fontSize: 13),
+                                prefixIcon: Icon(Icons.meeting_room_outlined, color: textSecondary, size: 20),
+                                isDense: true,
+                                filled: true,
+                                fillColor: inputFill,
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                  borderSide: BorderSide(color: inputBorder),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                  borderSide: BorderSide(color: inputBorder),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                  borderSide: const BorderSide(color: Color(0xFF007AFF), width: 1.5),
+                                ),
                               ),
                             ),
-                          ),
-                          const SizedBox(height: 14),
-                          SizedBox(
-                            width: double.infinity,
-                            child: FilledButton.icon(
-                              style: FilledButton.styleFrom(
-                                backgroundColor: const Color(0xFF007AFF),
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(vertical: 14),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                                elevation: 0,
-                              ),
-                              onPressed: _busy ? null : _startMeeting,
-                              icon: _busy
-                                  ? const SizedBox(
-                                      width: 16,
-                                      height: 16,
-                                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                                    )
-                                  : const Icon(Icons.video_call_rounded, size: 20),
-                              label: Text(
-                                _busy ? 'Starting meeting…' : 'Start Instant Meeting',
-                                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                            const SizedBox(height: 14),
+                            SizedBox(
+                              width: double.infinity,
+                              child: FilledButton.icon(
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: const Color(0xFF007AFF),
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                  elevation: 0,
+                                ),
+                                onPressed: _busy ? null : _startMeeting,
+                                icon: _busy
+                                    ? const SizedBox(
+                                        width: 16,
+                                        height: 16,
+                                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                      )
+                                    : const Icon(Icons.video_call_rounded, size: 20),
+                                label: Text(
+                                  _busy ? 'Starting meeting…' : 'Start Instant Meeting',
+                                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                                ),
                               ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 18),
+                      const SizedBox(height: 18),
+                    ] else ...[
+                      // Upgrade prompt card for members who want to host
+                      _modernCard(
+                        context,
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF007AFF).withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Icon(Icons.video_camera_front_rounded, color: Color(0xFF007AFF), size: 22),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Want to host your own meetings?',
+                                    style: TextStyle(
+                                      color: textPrimary,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'Upgrade to Creator or Vendor to host encrypted meetings, record calls, and manage rooms.',
+                                    style: TextStyle(color: textSecondary, fontSize: 11.5, height: 1.3),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            OutlinedButton(
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: const Color(0xFF007AFF),
+                                side: const BorderSide(color: Color(0xFF007AFF), width: 1.2),
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              ),
+                              onPressed: () => context.push('/upgrade-account'),
+                              child: const Text('Upgrade', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                    ],
 
                     // Join by code card
                     _modernCard(

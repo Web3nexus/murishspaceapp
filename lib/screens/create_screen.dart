@@ -15,6 +15,7 @@ import 'post_composer_sheet.dart';
 import 'story_composer_sheet.dart';
 import 'automated_greeting_sheet.dart';
 import '../components/go_live_setup_dialog.dart';
+import '../components/join_live_stream_dialog.dart';
 
 /// Full Publish & Creation Hub Screen (replaces empty create screen).
 class CreateScreen extends ConsumerStatefulWidget {
@@ -1089,10 +1090,10 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
-                        onPressed: () => GoLiveSetupDialog.show(context),
+                        onPressed: () => JoinLiveStreamDialog.show(context),
                         icon: const Icon(Icons.live_tv_rounded, size: 18),
                         label: const Text(
-                          'Live Streams',
+                          'Join Live Stream',
                           style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
                         ),
                       ),
