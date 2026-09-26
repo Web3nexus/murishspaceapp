@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:math';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart' hide ConnectionState;
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:livekit_client/livekit_client.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -328,6 +329,12 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
 
     final token = credentials['token']?.toString().trim() ?? '';
     var host = credentials['host']?.toString().trim() ?? '';
+    if (host.isEmpty || host.contains('localhost') || host.contains('127.0.0.1')) {
+      host = Env.apiEnv == 'production' || Env.apiEnv == 'prod'
+          ? 'wss://live.murihspace.com'
+          : 'wss://live-staging.murihspace.com';
+    }
+
     if (token.isEmpty || host.isEmpty) {
       if (mounted) {
         setState(() {
@@ -800,6 +807,21 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
     int? streamId = _activeStreamId ?? widget.streamId;
     streamId ??= await _waitForStreamId();
 
+    if ((streamId == null || streamId <= 0) &&
+        (_trackingId == null || _trackingId!.trim().isEmpty)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Initializing live broadcast room. Please try sharing again in a moment.',
+            ),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+      return;
+    }
+
     final liveUrl = Env.liveStreamUrl(
       streamId ?? 0,
       hostUserId: _hostUserId,
@@ -980,8 +1002,9 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
                     _ShareOptionItem(
-                      icon: Icons.chat_bubble_outline_rounded,
+                      icon: FontAwesomeIcons.whatsapp,
                       color: const Color(0xFF25D366),
+                      iconColor: const Color(0xFF25D366),
                       label: 'WhatsApp',
                       onTap: () async {
                         Navigator.pop(ctx);
@@ -997,8 +1020,9 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
                       },
                     ),
                     _ShareOptionItem(
-                      icon: Icons.alternate_email_rounded,
-                      color: const Color(0xFF1DA1F2),
+                      icon: FontAwesomeIcons.xTwitter,
+                      color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFF0F1419),
+                      iconColor: isDark ? Colors.white : Colors.black,
                       label: 'X (Twitter)',
                       onTap: () async {
                         Navigator.pop(ctx);
@@ -1014,8 +1038,9 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
                       },
                     ),
                     _ShareOptionItem(
-                      icon: Icons.sms_outlined,
+                      icon: FontAwesomeIcons.solidCommentDots,
                       color: const Color(0xFF34C759),
+                      iconColor: const Color(0xFF34C759),
                       label: 'Messages',
                       onTap: () async {
                         Navigator.pop(ctx);
@@ -1028,8 +1053,9 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
                       },
                     ),
                     _ShareOptionItem(
-                      icon: Icons.mail_outline_rounded,
-                      color: const Color(0xFFFF9500),
+                      icon: FontAwesomeIcons.solidEnvelope,
+                      color: const Color(0xFFEA4335),
+                      iconColor: const Color(0xFFEA4335),
                       label: 'Email',
                       onTap: () async {
                         Navigator.pop(ctx);
@@ -1877,8 +1903,9 @@ class _FloatingHeartWidgetState extends State<_FloatingHeartWidget>
 }
 
 class _ShareOptionItem extends StatelessWidget {
-  final IconData icon;
+  final dynamic icon;
   final Color color;
+  final Color? iconColor;
   final String label;
   final VoidCallback onTap;
 
@@ -1887,11 +1914,31 @@ class _ShareOptionItem extends StatelessWidget {
     required this.color,
     required this.label,
     required this.onTap,
+    this.iconColor,
   });
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    Widget iconWidget;
+    if (icon is FaIconData) {
+      iconWidget = FaIcon(
+        icon as FaIconData,
+        color: iconColor ?? color,
+        size: 22,
+      );
+    } else if (icon is IconData) {
+      iconWidget = Icon(
+        icon as IconData,
+        color: iconColor ?? color,
+        size: 24,
+      );
+    } else if (icon is Widget) {
+      iconWidget = icon as Widget;
+    } else {
+      iconWidget = const SizedBox();
+    }
+
     return GestureDetector(
       onTap: onTap,
       child: Column(
@@ -1901,10 +1948,12 @@ class _ShareOptionItem extends StatelessWidget {
             width: 48,
             height: 48,
             decoration: BoxDecoration(
-              color: color.withOpacity(0.15),
+              color: color.withValues(alpha: 0.15),
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, color: color, size: 24),
+            child: Center(
+              child: iconWidget,
+            ),
           ),
           const SizedBox(height: 6),
           Text(

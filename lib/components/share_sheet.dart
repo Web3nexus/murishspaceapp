@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -80,7 +81,7 @@ class _SocialShareModal extends StatelessWidget {
     final shareChannels = [
       _ShareChannel(
         name: 'WhatsApp',
-        icon: Icons.chat_bubble_rounded,
+        icon: FontAwesomeIcons.whatsapp,
         color: const Color(0xFF25D366),
         onTap: () {
           Navigator.pop(context);
@@ -90,8 +91,8 @@ class _SocialShareModal extends StatelessWidget {
       ),
       _ShareChannel(
         name: 'TikTok',
-        icon: Icons.music_note_rounded,
-        color: const Color(0xFF000000),
+        icon: FontAwesomeIcons.tiktok,
+        color: isDark ? Colors.white : const Color(0xFF000000),
         onTap: () {
           Navigator.pop(context);
           // Copy to clipboard and open TikTok
@@ -104,8 +105,8 @@ class _SocialShareModal extends StatelessWidget {
       ),
       _ShareChannel(
         name: 'X (Twitter)',
-        icon: Icons.tag_rounded,
-        color: const Color(0xFF1DA1F2),
+        icon: FontAwesomeIcons.xTwitter,
+        color: isDark ? Colors.white : const Color(0xFF0F1419),
         onTap: () {
           Navigator.pop(context);
           final encoded = Uri.encodeComponent(_sharePayload);
@@ -114,7 +115,7 @@ class _SocialShareModal extends StatelessWidget {
       ),
       _ShareChannel(
         name: 'Telegram',
-        icon: Icons.send_rounded,
+        icon: FontAwesomeIcons.telegram,
         color: const Color(0xFF0088CC),
         onTap: () {
           Navigator.pop(context);
@@ -124,7 +125,7 @@ class _SocialShareModal extends StatelessWidget {
       ),
       _ShareChannel(
         name: 'Email',
-        icon: Icons.email_rounded,
+        icon: FontAwesomeIcons.solidEnvelope,
         color: const Color(0xFFEA4335),
         onTap: () {
           Navigator.pop(context);
@@ -135,7 +136,7 @@ class _SocialShareModal extends StatelessWidget {
       ),
       _ShareChannel(
         name: 'Messages / SMS',
-        icon: Icons.sms_rounded,
+        icon: FontAwesomeIcons.solidCommentDots,
         color: const Color(0xFF34C759),
         onTap: () {
           Navigator.pop(context);
@@ -222,8 +223,10 @@ class _SocialShareModal extends StatelessWidget {
                     children: [
                       CircleAvatar(
                         radius: 26,
-                        backgroundColor: channel.color.withOpacity(0.12),
-                        child: Icon(channel.icon, color: channel.color, size: 26),
+                        backgroundColor: channel.color.withValues(alpha: 0.12),
+                        child: channel.icon is FaIconData
+                            ? FaIcon(channel.icon as FaIconData, color: channel.color, size: 24)
+                            : Icon(channel.icon as IconData, color: channel.color, size: 26),
                       ),
                       const SizedBox(height: 6),
                       Text(
@@ -247,7 +250,7 @@ class _SocialShareModal extends StatelessWidget {
 
 class _ShareChannel {
   final String name;
-  final IconData icon;
+  final dynamic icon;
   final Color color;
   final VoidCallback onTap;
 

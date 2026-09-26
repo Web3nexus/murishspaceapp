@@ -136,7 +136,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         if (kycStatus != 'verified' && kycStatus != 'approved') {
                           showKycRequiredLiveModal(context);
                         } else {
-                          context.push('/app/live');
+                          GoLiveSetupDialog.show(context);
                         }
                       },
                     ),

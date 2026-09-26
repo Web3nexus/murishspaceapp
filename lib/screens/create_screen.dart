@@ -1089,7 +1089,7 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
-                        onPressed: () => context.push('/app/live'),
+                        onPressed: () => GoLiveSetupDialog.show(context),
                         icon: const Icon(Icons.live_tv_rounded, size: 18),
                         label: const Text(
                           'Live Streams',
