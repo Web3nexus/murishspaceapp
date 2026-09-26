@@ -60,10 +60,50 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
   int? _activeStreamId;
   String? _trackingId;
   int? _hostUserId;
+  String? _resolvedHostName;
   int _viewerCount = 1;
   int _likesCount = 0;
   int _totalGiftsCoins = 0;
   final Set<dynamic> _seenGiftMessageIds = {};
+
+  String get _effectiveHostName {
+    if (_resolvedHostName != null && _resolvedHostName!.isNotEmpty) {
+      return _resolvedHostName!;
+    }
+    if (widget.isHost) {
+      final me = ref.read(authProvider).user;
+      if (me != null) {
+        if (me.username.isNotEmpty) return '@${me.username}';
+        if (me.name.isNotEmpty) return me.name;
+      }
+    }
+    if (widget.hostName.isNotEmpty &&
+        widget.hostName != 'Creator' &&
+        widget.hostName != 'Creator Live') {
+      return widget.hostName;
+    }
+    final me = ref.read(authProvider).user;
+    if (me != null) {
+      if (me.username.isNotEmpty) return '@${me.username}';
+      if (me.name.isNotEmpty) return me.name;
+    }
+    return widget.hostName.isNotEmpty ? widget.hostName : 'Host';
+  }
+
+  String? _parseHostName(dynamic streamData) {
+    if (streamData is! Map) return null;
+    final hostObj = streamData['host'] ?? streamData['user'];
+    if (hostObj is Map) {
+      final uName = hostObj['username']?.toString().trim();
+      final rName = hostObj['name']?.toString().trim();
+      if (uName != null && uName.isNotEmpty) {
+        return '@$uName';
+      } else if (rName != null && rName.isNotEmpty) {
+        return rName;
+      }
+    }
+    return null;
+  }
 
   // Pinned product available for purchase inside the stream.
   Map<String, dynamic>? _pinnedProduct;
@@ -170,12 +210,14 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
           res.data['data']?['pinned_product'] ?? res.data['pinned_product'],
         );
         if (streamData != null && mounted) {
+          final parsedHost = _parseHostName(streamData);
           setState(() {
             _activeStreamId = (streamData['id'] as num?)?.toInt();
             _trackingId ??= (streamData['tracking_id'] as String?)?.trim();
             _hostUserId =
                 (streamData['user_id'] as num?)?.toInt() ??
                 (streamData['user']?['id'] as num?)?.toInt();
+            if (parsedHost != null) _resolvedHostName = parsedHost;
             _viewerCount = (streamData['viewers_count'] as num?)?.toInt() ?? 1;
             _likesCount = (streamData['likes_count'] as num?)?.toInt() ?? 0;
             _totalGiftsCoins =
@@ -197,10 +239,12 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
           res.data['data']?['pinned_product'] ?? res.data['pinned_product'],
         );
         if (streamData != null && mounted) {
+          final parsedHost = _parseHostName(streamData);
           setState(() {
             _hostUserId =
                 (streamData['user_id'] as num?)?.toInt() ??
                 (streamData['user']?['id'] as num?)?.toInt();
+            if (parsedHost != null) _resolvedHostName = parsedHost;
             _trackingId ??= (streamData['tracking_id'] as String?)?.trim();
             _viewerCount = (streamData['viewers_count'] as num?)?.toInt() ?? 1;
             _likesCount = (streamData['likes_count'] as num?)?.toInt() ?? 0;
@@ -456,10 +500,12 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
       );
 
       if (streamData != null && mounted) {
+        final parsedHost = _parseHostName(streamData);
         setState(() {
           _hostUserId ??=
               (streamData['user_id'] as num?)?.toInt() ??
               (streamData['user']?['id'] as num?)?.toInt();
+          if (parsedHost != null) _resolvedHostName = parsedHost;
           _trackingId ??= (streamData['tracking_id'] as String?)?.trim();
           _viewerCount =
               (streamData['viewers_count'] as num?)?.toInt() ?? _viewerCount;
@@ -516,7 +562,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
                       iconEmoji: '🎁',
                       coinPrice: coinPrice,
                       senderName: senderName,
-                      recipientName: widget.hostName,
+                      recipientName: _effectiveHostName,
                       animationType: animType,
                     ),
                   );
@@ -654,7 +700,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
       backgroundColor: Colors.transparent,
       builder: (ctx) => SendGiftDialog(
         recipientId: _hostUserId ?? 1,
-        recipientName: widget.hostName,
+        recipientName: _effectiveHostName,
         onGiftSent: (gift, amount) {
           // Update user wallet state and total stream coins
           ref.read(authProvider.notifier).refreshProfile();
@@ -760,7 +806,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
       trackingId: _trackingId,
     );
     final shareMessage =
-        '🔴 Watch ${widget.hostName} live on MurihSpace: "${widget.streamTitle}"\n$liveUrl';
+        '🔴 Watch $_effectiveHostName live on MurihSpace: "${widget.streamTitle}"\n$liveUrl';
 
     if (!mounted) return;
 
@@ -842,7 +888,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
                             ),
                           ),
                           Text(
-                            'Invite friends to join ${widget.hostName}\'s stream',
+                            'Invite friends to join $_effectiveHostName\'s stream',
                             style: TextStyle(
                               fontSize: 12,
                               color: textSecondary,
@@ -1052,7 +1098,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
                       onTap: () async {
                         Navigator.pop(ctx);
                         final mailUrl = Uri.parse(
-                          'mailto:?subject=${Uri.encodeComponent('Join ${widget.hostName}\'s Live on MurihSpace')}&body=${Uri.encodeComponent(shareMessage)}',
+                          'mailto:?subject=${Uri.encodeComponent('Join $_effectiveHostName\'s Live on MurihSpace')}&body=${Uri.encodeComponent(shareMessage)}',
                         );
                         if (await canLaunchUrl(mailUrl)) {
                           await launchUrl(mailUrl);
@@ -1255,7 +1301,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Hosted by ${widget.hostName}${widget.communityName != null ? ' in ${widget.communityName}' : ''}',
+                        'Hosted by $_effectiveHostName${widget.communityName != null ? ' in ${widget.communityName}' : ''}',
                         style: const TextStyle(
                           color: Colors.grey,
                           fontSize: 13,

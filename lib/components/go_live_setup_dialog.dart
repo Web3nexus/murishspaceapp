@@ -282,12 +282,18 @@ class _GoLiveSetupDialogState extends ConsumerState<GoLiveSetupDialog> {
 
     if (!mounted) return;
 
+    final currentUser = ref.read(authProvider).user;
+    final defaultHostName = (currentUser != null && currentUser.username.isNotEmpty)
+        ? '@${currentUser.username}'
+        : (currentUser?.name.isNotEmpty == true ? currentUser!.name : 'Host');
+    final hostDisplayName = widget.community != null ? widget.community!.name : defaultHostName;
+
     Navigator.pop(context);
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => LiveStreamScreen(
           streamTitle: _titleCtrl.text.trim(),
-          hostName: widget.community != null ? widget.community!.name : 'Creator Live',
+          hostName: hostDisplayName,
           communityName: widget.community?.name,
           isHost: true,
           cameraEnabled: _cameraEnabled && _streamMode != 'audio',
