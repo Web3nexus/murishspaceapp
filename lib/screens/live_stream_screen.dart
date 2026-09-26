@@ -378,7 +378,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
             echoCancellation: true,
             noiseSuppression: true,
             autoGainControl: true,
-            highpassFilter: true,
+            highPassFilter: true,
           ),
           defaultAudioPublishOptions: isPublisher
               ? const AudioPublishOptions(
@@ -415,9 +415,10 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
           _syncRemoteVideoTrack();
         })
         ..on<TrackUnmutedEvent>((event) async {
-          if (event.track is AudioTrack) {
+          final track = event.publication.track;
+          if (track is AudioTrack) {
             try {
-              await event.track?.start();
+              await track.start();
               await AudioManager.instance.setSpeakerOutputPreferred(true, force: true);
               await Hardware.instance.setSpeakerphoneOn(true);
             } catch (_) {}

@@ -167,7 +167,7 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> {
                       ),
                     )
                   : CachedNetworkImage(
-                      imageUrl: resolvedMediaUrl,
+                      imageUrl: resolvedMediaUrl ?? story.mediaUrl,
                       fit: BoxFit.cover,
                       placeholder: (_, __) => Container(
                         color: Colors.black,
