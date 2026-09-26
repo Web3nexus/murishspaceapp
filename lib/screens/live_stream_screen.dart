@@ -10,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import '../components/gift_animation_overlay.dart';
 import '../components/kyc_live_gate_dialog.dart';
@@ -111,6 +112,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
 
   bool _isCameraReady = false;
   late bool _cameraOn;
+  late bool _micOn;
   bool _isFrontCamera = true;
   bool _isSwitchingCamera = false;
 
@@ -139,6 +141,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
     _activeStreamId = widget.streamId;
     _trackingId = widget.trackingId;
     _cameraOn = widget.cameraEnabled;
+    _micOn = widget.micEnabled;
     _pinnedProduct = widget.pinnedProduct;
 
     _chatCtrl.addListener(() {
@@ -168,6 +171,14 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
         }
         return;
       }
+
+      // Request microphone and camera permissions
+      try {
+        await Permission.microphone.request();
+        if (widget.streamMode != 'audio') {
+          await Permission.camera.request();
+        }
+      } catch (_) {}
     }
 
     // 1. Connect to backend LiveStream API
@@ -357,6 +368,11 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
         roomOptions: RoomOptions(
           adaptiveStream: true,
           dynacast: true,
+          defaultAudioCaptureOptions: const AudioCaptureOptions(
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          ),
           defaultAudioPublishOptions: isPublisher
               ? const AudioPublishOptions(
                   name: 'microphone',
@@ -374,10 +390,16 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
           if (!event.isPlaying) {
             try {
               await room.startAudio();
+              await AudioManager.instance.setSpeakerOutputPreferred(true, force: true);
             } catch (_) {}
           }
         })
-        ..on<TrackSubscribedEvent>((_) {
+        ..on<TrackSubscribedEvent>((event) async {
+          if (event.track is AudioTrack) {
+            try {
+              await AudioManager.instance.setSpeakerOutputPreferred(true, force: true);
+            } catch (_) {}
+          }
           _syncRemoteVideoTrack();
         })
         ..on<TrackUnsubscribedEvent>((_) {
@@ -407,22 +429,42 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
 
       try {
         await room.startAudio();
+        await AudioManager.instance.setSpeakerOutputPreferred(true, force: true);
       } catch (_) {}
+
+      // Route existing remote audio tracks to speakerphone
+      for (final p in room.remoteParticipants.values) {
+        for (final pub in p.audioTrackPublications) {
+          if (pub.subscribed && pub.track != null) {
+            try {
+              await AudioManager.instance.setSpeakerOutputPreferred(true, force: true);
+            } catch (_) {}
+          }
+        }
+      }
 
       if (isPublisher) {
         final participant = room.localParticipant;
         if (participant != null) {
-          try {
-            await participant.setMicrophoneEnabled(widget.micEnabled);
-          } catch (_) {}
+          if (_micOn) {
+            try {
+              final micPerm = await Permission.microphone.request();
+              if (micPerm.isGranted) {
+                await participant.setMicrophoneEnabled(true);
+              }
+            } catch (_) {}
+          }
           if (widget.streamMode != 'audio' && _cameraOn) {
             try {
-              await participant.setCameraEnabled(
-                true,
-                cameraCaptureOptions: const CameraCaptureOptions(
-                  cameraPosition: CameraPosition.front,
-                ),
-              );
+              final camPerm = await Permission.camera.request();
+              if (camPerm.isGranted) {
+                await participant.setCameraEnabled(
+                  true,
+                  cameraCaptureOptions: const CameraCaptureOptions(
+                    cameraPosition: CameraPosition.front,
+                  ),
+                );
+              }
             } catch (_) {}
           }
         }
@@ -616,6 +658,24 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
     super.dispose();
   }
 
+  Future<void> _toggleMic() async {
+    final participant = _liveKitRoom?.localParticipant;
+    final next = !_micOn;
+    setState(() => _micOn = next);
+    if (participant != null) {
+      try {
+        if (next) {
+          final perm = await Permission.microphone.request();
+          if (perm.isGranted) {
+            await participant.setMicrophoneEnabled(true);
+          }
+        } else {
+          await participant.setMicrophoneEnabled(false);
+        }
+      } catch (_) {}
+    }
+  }
+
   Future<void> _toggleCamera() async {
     if (_isSwitchingCamera) return;
     final localTrack = _localVideoTrack;
@@ -665,9 +725,9 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
       } catch (_) {}
     }
 
-    Future.delayed(const Duration(milliseconds: 100), () {
+    Future.delayed(const Duration(milliseconds: 50), () {
       if (_scrollController.hasClients) {
-        _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+        _scrollController.jumpTo(0.0);
       }
     });
   }
@@ -1603,10 +1663,11 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
                 height: isKeyboardOpen ? 120 : 180,
                 child: ListView.separated(
                   controller: _scrollController,
+                  reverse: true,
                   itemCount: _chatMessages.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 6),
+                  separatorBuilder: (_, _) => const SizedBox(height: 6),
                   itemBuilder: (context, idx) {
-                    final msg = _chatMessages[idx];
+                    final msg = _chatMessages[_chatMessages.length - 1 - idx];
                     return Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 10,
@@ -1769,6 +1830,25 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
                         size: 20,
                       ),
                       onPressed: _openShareModal,
+                    ),
+                  ],
+
+                  // Host Controls: Microphone Toggle
+                  if (widget.isHost) ...[
+                    const SizedBox(width: 6),
+                    IconButton(
+                      style: IconButton.styleFrom(
+                        backgroundColor: _micOn
+                            ? const Color(0xFF1E232B).withValues(alpha: 0.92)
+                            : const Color(0xFFFF3B30),
+                        padding: const EdgeInsets.all(10),
+                      ),
+                      icon: Icon(
+                        _micOn ? Icons.mic_rounded : Icons.mic_off_rounded,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                      onPressed: _toggleMic,
                     ),
                   ],
 
