@@ -543,8 +543,16 @@ class _ConferenceMeetingScreenState extends ConsumerState<ConferenceMeetingScree
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final scaffoldBg = switch (_stage) {
+      _MeetingStage.preJoin || _MeetingStage.connecting =>
+        isDark ? const Color(0xFF0F141C) : const Color(0xFFF8FAFC),
+      _MeetingStage.connected => const Color(0xFF0A0D12),
+      _MeetingStage.ended => isDark ? const Color(0xFF0F141C) : const Color(0xFFF8FAFC),
+    };
+
     return Scaffold(
-      backgroundColor: const Color(0xFF10141A),
+      backgroundColor: scaffoldBg,
       body: switch (_stage) {
         _MeetingStage.preJoin || _MeetingStage.connecting => _buildPreJoin(context),
         _MeetingStage.connected => _buildRoom(context),
@@ -555,9 +563,14 @@ class _ConferenceMeetingScreenState extends ConsumerState<ConferenceMeetingScree
 
   Widget _buildPreJoin(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg = const Color(0xFF10141A);
-    final textColor = isDark ? Colors.white : const Color(0xFFF1F5F9);
-    final muted = const Color(0xFF94A3B8);
+    final bg = isDark ? const Color(0xFF0F141C) : const Color(0xFFF8FAFC);
+    final textPrimary = isDark ? Colors.white : const Color(0xFF0F172A);
+    final textSecondary = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
+    final inputFill = isDark ? const Color(0xFF121720) : const Color(0xFFF1F5F9);
+    final inputBorder = isDark ? const Color(0xFF263242) : const Color(0xFFE2E8F0);
+    final authUser = ref.watch(authProvider).user;
+    final userName = authUser?.name.isNotEmpty == true ? authUser!.name : 'You';
+    final userAvatar = authUser?.avatarUrl;
 
     return SafeArea(
       child: Scaffold(
@@ -565,82 +578,373 @@ class _ConferenceMeetingScreenState extends ConsumerState<ConferenceMeetingScree
         appBar: AppBar(
           backgroundColor: bg,
           elevation: 0,
+          scrolledUnderElevation: 0,
           leading: IconButton(
-            icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+            icon: Icon(Icons.arrow_back_rounded, color: textPrimary),
             onPressed: () => context.pop(),
           ),
-          title: const Text(
+          title: Text(
             'Meetings & Conference',
-            style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w800),
+            style: TextStyle(color: textPrimary, fontSize: 17, fontWeight: FontWeight.w800),
           ),
+          actions: [
+            Container(
+              margin: const EdgeInsets.only(right: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFF007AFF).withValues(alpha: isDark ? 0.2 : 0.1),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: const Color(0xFF007AFF).withValues(alpha: 0.3),
+                ),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.shield_outlined, size: 13, color: Color(0xFF007AFF)),
+                  SizedBox(width: 4),
+                  Text(
+                    'HD WebRTC',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF007AFF),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
         body: _stage == _MeetingStage.connecting
-            ? const Center(
+            ? Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    SizedBox(width: 42, height: 42, child: CircularProgressIndicator(strokeWidth: 3, color: Color(0xFF007AFF))),
-                    SizedBox(height: 16),
-                    Text('Connecting to the meeting room…', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                    const SizedBox(
+                      width: 46,
+                      height: 46,
+                      child: CircularProgressIndicator(strokeWidth: 3, color: Color(0xFF007AFF)),
+                    ),
+                    const SizedBox(height: 18),
+                    Text(
+                      'Connecting to the meeting room…',
+                      style: TextStyle(color: textPrimary, fontSize: 15, fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Negotiating encrypted WebRTC media streams',
+                      style: TextStyle(color: textSecondary, fontSize: 12),
+                    ),
                   ],
                 ),
               )
             : SingleChildScrollView(
-                padding: const EdgeInsets.all(20),
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
                 child: Column(
                   children: [
-                    const SizedBox(height: 8),
-                    const Icon(Icons.videocam_rounded, color: Color(0xFF34C759), size: 56),
-                    const SizedBox(height: 12),
+                    // Hero Icon
+                    Container(
+                      width: 68,
+                      height: 68,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF007AFF), Color(0xFF00C6FF)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF007AFF).withValues(alpha: 0.3),
+                            blurRadius: 18,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(Icons.videocam_rounded, color: Colors.white, size: 34),
+                    ),
+                    const SizedBox(height: 14),
                     Text(
-                      'Host a live video conference',
+                      'Host a Live Conference',
                       textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: textColor),
+                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: textPrimary),
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'Private HD rooms with chat, emoji reactions, and gifting.',
+                      'Private HD rooms with crystal clear audio, chat, emoji reactions, and gifting.',
                       textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 13, color: muted),
+                      style: TextStyle(fontSize: 13, color: textSecondary, height: 1.35),
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 14),
 
-                    // Start new meeting card
-                    _glassCard(
+                    // Feature / Trust badges
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      alignment: WrapAlignment.center,
+                      children: [
+                        _buildFeatureBadge(
+                          icon: Icons.lock_outline_rounded,
+                          label: 'End-to-End Encrypted',
+                          color: const Color(0xFF34C759),
+                          isDark: isDark,
+                        ),
+                        _buildFeatureBadge(
+                          icon: Icons.bolt_rounded,
+                          label: 'Ultra HD Calls',
+                          color: const Color(0xFF007AFF),
+                          isDark: isDark,
+                        ),
+                        _buildFeatureBadge(
+                          icon: Icons.favorite_outline_rounded,
+                          label: 'Live Reactions',
+                          color: const Color(0xFFFF2D55),
+                          isDark: isDark,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Pre-join Audio & Video readiness check card
+                    _modernCard(
                       context,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Icon(Icons.add_circle_outline_rounded, color: Color(0xFF007AFF), size: 22),
-                          const SizedBox(height: 10),
-                          const Text('Start an Instant Meeting', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w800)),
-                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              CircleAvatar(
+                                radius: 16,
+                                backgroundColor: const Color(0xFF007AFF).withValues(alpha: 0.15),
+                                backgroundImage: (userAvatar != null && userAvatar.isNotEmpty)
+                                    ? NetworkImage(userAvatar)
+                                    : null,
+                                child: (userAvatar == null || userAvatar.isEmpty)
+                                    ? Text(
+                                        (userName.isNotEmpty ? userName[0] : 'U').toUpperCase(),
+                                        style: const TextStyle(
+                                          color: Color(0xFF007AFF),
+                                          fontWeight: FontWeight.w800,
+                                          fontSize: 13,
+                                        ),
+                                      )
+                                    : null,
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Audio & Video Check',
+                                      style: TextStyle(
+                                        color: textPrimary,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                    Text(
+                                      'Joining as $userName',
+                                      style: TextStyle(color: textSecondary, fontSize: 11),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF34C759).withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.check_circle_rounded, color: Color(0xFF34C759), size: 12),
+                                    SizedBox(width: 4),
+                                    Text(
+                                      'Ready',
+                                      style: TextStyle(
+                                        color: Color(0xFF34C759),
+                                        fontSize: 10.5,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 14),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(14),
+                                  onTap: () => setState(() => _isMuted = !_isMuted),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 11),
+                                    decoration: BoxDecoration(
+                                      color: _isMuted
+                                          ? const Color(0xFFFF3B30).withValues(alpha: 0.1)
+                                          : const Color(0xFF34C759).withValues(alpha: 0.1),
+                                      borderRadius: BorderRadius.circular(14),
+                                      border: Border.all(
+                                        color: _isMuted
+                                            ? const Color(0xFFFF3B30).withValues(alpha: 0.3)
+                                            : const Color(0xFF34C759).withValues(alpha: 0.3),
+                                      ),
+                                    ),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          _isMuted ? Icons.mic_off_rounded : Icons.mic_rounded,
+                                          color: _isMuted ? const Color(0xFFFF3B30) : const Color(0xFF34C759),
+                                          size: 18,
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          _isMuted ? 'Mic Muted' : 'Mic Ready',
+                                          style: TextStyle(
+                                            color: _isMuted ? const Color(0xFFFF3B30) : const Color(0xFF34C759),
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(14),
+                                  onTap: () => setState(() => _isCameraOff = !_isCameraOff),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 11),
+                                    decoration: BoxDecoration(
+                                      color: _isCameraOff
+                                          ? const Color(0xFFFF3B30).withValues(alpha: 0.1)
+                                          : const Color(0xFF007AFF).withValues(alpha: 0.1),
+                                      borderRadius: BorderRadius.circular(14),
+                                      border: Border.all(
+                                        color: _isCameraOff
+                                            ? const Color(0xFFFF3B30).withValues(alpha: 0.3)
+                                            : const Color(0xFF007AFF).withValues(alpha: 0.3),
+                                      ),
+                                    ),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          _isCameraOff ? Icons.videocam_off_rounded : Icons.videocam_rounded,
+                                          color: _isCameraOff ? const Color(0xFFFF3B30) : const Color(0xFF007AFF),
+                                          size: 18,
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          _isCameraOff ? 'Cam Off' : 'Cam Ready',
+                                          style: TextStyle(
+                                            color: _isCameraOff ? const Color(0xFFFF3B30) : const Color(0xFF007AFF),
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+
+                    // Start new meeting card
+                    _modernCard(
+                      context,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF007AFF).withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: const Icon(Icons.add_circle_outline_rounded, color: Color(0xFF007AFF), size: 20),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text('Start an Instant Meeting', style: TextStyle(color: textPrimary, fontSize: 16, fontWeight: FontWeight.w800)),
+                                    Text('Create a new room and share code with guests', style: TextStyle(color: textSecondary, fontSize: 11)),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 14),
                           TextField(
                             controller: _titleCtrl,
-                            style: const TextStyle(color: Colors.white),
+                            style: TextStyle(color: textPrimary, fontSize: 14),
                             textInputAction: TextInputAction.done,
                             onSubmitted: (_) => _startMeeting(),
                             decoration: InputDecoration(
-                              hintText: 'Meeting title (optional)',
-                              hintStyle: const TextStyle(color: Color(0xFF64748B)),
+                              hintText: 'Meeting title or topic (optional)',
+                              hintStyle: TextStyle(color: textSecondary.withValues(alpha: 0.8), fontSize: 13),
+                              prefixIcon: Icon(Icons.meeting_room_outlined, color: textSecondary, size: 20),
                               isDense: true,
                               filled: true,
-                              fillColor: const Color(0xFF1C222B),
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                              fillColor: inputFill,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(14),
+                                borderSide: BorderSide(color: inputBorder),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(14),
+                                borderSide: BorderSide(color: inputBorder),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(14),
+                                borderSide: const BorderSide(color: Color(0xFF007AFF), width: 1.5),
+                              ),
                             ),
                           ),
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 14),
                           SizedBox(
                             width: double.infinity,
-                            child: FilledButton(
+                            child: FilledButton.icon(
                               style: FilledButton.styleFrom(
                                 backgroundColor: const Color(0xFF007AFF),
                                 foregroundColor: Colors.white,
                                 padding: const EdgeInsets.symmetric(vertical: 14),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                elevation: 0,
                               ),
                               onPressed: _busy ? null : _startMeeting,
-                              child: Text(_busy ? 'Starting…' : 'Start Meeting Now'),
+                              icon: _busy
+                                  ? const SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                    )
+                                  : const Icon(Icons.video_call_rounded, size: 20),
+                              label: Text(
+                                _busy ? 'Starting meeting…' : 'Start Instant Meeting',
+                                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                              ),
                             ),
                           ),
                         ],
@@ -649,42 +953,91 @@ class _ConferenceMeetingScreenState extends ConsumerState<ConferenceMeetingScree
                     const SizedBox(height: 18),
 
                     // Join by code card
-                    _glassCard(
+                    _modernCard(
                       context,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Icon(Icons.video_settings_rounded, color: Color(0xFF34C759), size: 22),
-                          const SizedBox(height: 10),
-                          const Text('Join with a Code or Invite Link', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w800)),
-                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF34C759).withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: const Icon(Icons.tag_rounded, color: Color(0xFF34C759), size: 20),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text('Join with Code or Link', style: TextStyle(color: textPrimary, fontSize: 16, fontWeight: FontWeight.w800)),
+                                    Text('Enter room code or paste an invite link', style: TextStyle(color: textSecondary, fontSize: 11)),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 14),
                           TextField(
                             controller: _joinCtrl,
-                            style: const TextStyle(color: Colors.white),
+                            style: TextStyle(color: textPrimary, fontSize: 14),
                             textInputAction: TextInputAction.done,
                             onSubmitted: (_) => _joinMeeting(),
                             decoration: InputDecoration(
                               hintText: 'e.g. abc-defg-hij or paste a link',
-                              hintStyle: const TextStyle(color: Color(0xFF64748B)),
-                              prefixIcon: const Icon(Icons.tag_rounded, color: Color(0xFF94A3B8), size: 20),
+                              hintStyle: TextStyle(color: textSecondary.withValues(alpha: 0.8), fontSize: 13),
+                              prefixIcon: Icon(Icons.link_rounded, color: textSecondary, size: 20),
+                              suffixIcon: TextButton.icon(
+                                style: TextButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                                  foregroundColor: const Color(0xFF007AFF),
+                                  textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                                ),
+                                icon: const Icon(Icons.content_paste_rounded, size: 14),
+                                label: const Text('Paste'),
+                                onPressed: () async {
+                                  final data = await Clipboard.getData(Clipboard.kTextPlain);
+                                  if (data?.text != null && data!.text!.trim().isNotEmpty) {
+                                    setState(() {
+                                      _joinCtrl.text = data.text!.trim();
+                                    });
+                                  }
+                                },
+                              ),
                               isDense: true,
                               filled: true,
-                              fillColor: const Color(0xFF1C222B),
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                              fillColor: inputFill,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(14),
+                                borderSide: BorderSide(color: inputBorder),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(14),
+                                borderSide: BorderSide(color: inputBorder),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(14),
+                                borderSide: const BorderSide(color: Color(0xFF34C759), width: 1.5),
+                              ),
                             ),
                           ),
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 14),
                           SizedBox(
                             width: double.infinity,
-                            child: OutlinedButton(
+                            child: OutlinedButton.icon(
                               style: OutlinedButton.styleFrom(
-                                foregroundColor: Colors.white,
-                                side: const BorderSide(color: Color(0xFF334155)),
+                                foregroundColor: textPrimary,
+                                side: BorderSide(color: isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1)),
                                 padding: const EdgeInsets.symmetric(vertical: 14),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                               ),
                               onPressed: _busy ? null : _joinMeeting,
-                              child: const Text('Join Meeting'),
+                              icon: const Icon(Icons.arrow_forward_rounded, size: 18),
+                              label: const Text('Join Meeting', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
                             ),
                           ),
                         ],
@@ -695,18 +1048,26 @@ class _ConferenceMeetingScreenState extends ConsumerState<ConferenceMeetingScree
                       const SizedBox(height: 18),
                       Container(
                         width: double.infinity,
-                        padding: const EdgeInsets.all(12),
+                        padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
                           color: const Color(0xFFFF3B30).withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(14),
                           border: Border.all(color: const Color(0xFFFF3B30).withValues(alpha: 0.4)),
                         ),
                         child: Row(
                           children: [
-                            const Icon(Icons.error_outline_rounded, color: Color(0xFFFF3B30), size: 18),
-                            const SizedBox(width: 8),
+                            const Icon(Icons.error_outline_rounded, color: Color(0xFFFF3B30), size: 20),
+                            const SizedBox(width: 10),
                             Expanded(
-                              child: Text(_error!, style: const TextStyle(color: Color(0xFFFF6B61), fontSize: 12.5, fontWeight: FontWeight.w600)),
+                              child: Text(
+                                _error!,
+                                style: const TextStyle(color: Color(0xFFFF3B30), fontSize: 13, fontWeight: FontWeight.w600),
+                              ),
+                            ),
+                            IconButton(
+                              visualDensity: VisualDensity.compact,
+                              icon: const Icon(Icons.close_rounded, color: Color(0xFFFF3B30), size: 16),
+                              onPressed: () => setState(() => _error = null),
                             ),
                           ],
                         ),
@@ -719,16 +1080,70 @@ class _ConferenceMeetingScreenState extends ConsumerState<ConferenceMeetingScree
     );
   }
 
-  Widget _glassCard(BuildContext context, {required Widget child}) {
+  Widget _modernCard(
+    BuildContext context, {
+    required Widget child,
+    EdgeInsetsGeometry padding = const EdgeInsets.all(18),
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: padding,
       decoration: BoxDecoration(
-        color: const Color(0xFF161B22),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFF232B36)),
+        color: isDark ? const Color(0xFF181F2A) : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isDark ? const Color(0xFF263242) : const Color(0xFFE2E8F0),
+          width: 1,
+        ),
+        boxShadow: isDark
+            ? [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.25),
+                  blurRadius: 16,
+                  offset: const Offset(0, 4),
+                ),
+              ]
+            : [
+                BoxShadow(
+                  color: const Color(0xFF0F172A).withValues(alpha: 0.05),
+                  blurRadius: 16,
+                  offset: const Offset(0, 4),
+                ),
+              ],
       ),
       child: child,
+    );
+  }
+
+  Widget _buildFeatureBadge({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required bool isDark,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: isDark ? 0.16 : 0.1),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: color),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: color,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -747,19 +1162,67 @@ class _ConferenceMeetingScreenState extends ConsumerState<ConferenceMeetingScree
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        _title.isEmpty ? 'MurihSpace Meeting' : _title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Colors.white),
-                      ),
                       Row(
                         children: [
-                          const Icon(Icons.videocam_rounded, color: Color(0xFF34C759), size: 13),
-                          const SizedBox(width: 4),
+                          Flexible(
+                            child: Text(
+                              _title.isEmpty ? 'MurihSpace Meeting' : _title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Colors.white),
+                            ),
+                          ),
+                          if (_code.isNotEmpty) ...[
+                            const SizedBox(width: 8),
+                            InkWell(
+                              onTap: _copyInviteLink,
+                              borderRadius: BorderRadius.circular(8),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      _code,
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        fontFamily: 'monospace',
+                                        fontWeight: FontWeight.w700,
+                                        color: Color(0xFF6FB4FF),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Icon(
+                                      _copiedInvite ? Icons.check_rounded : Icons.copy_rounded,
+                                      size: 11,
+                                      color: _copiedInvite ? const Color(0xFF34C759) : const Color(0xFF6FB4FF),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 3),
+                      Row(
+                        children: [
+                          Container(
+                            width: 7,
+                            height: 7,
+                            decoration: const BoxDecoration(
+                              color: Color(0xFF34C759),
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
                           Text(
                             '${_formatDuration(_meetingSeconds)} · $_participantCount ${_participantCount == 1 ? 'Person' : 'People'}',
-                            style: const TextStyle(fontSize: 11, color: Colors.grey),
+                            style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.7)),
                           ),
                         ],
                       ),
@@ -833,12 +1296,21 @@ class _ConferenceMeetingScreenState extends ConsumerState<ConferenceMeetingScree
 
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF1C222B),
+        color: const Color(0xFF181F2A),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isSpeaking ? const Color(0xFF34C759) : const Color(0xFF2A323D),
-          width: isSpeaking ? 2 : 1,
+          color: isSpeaking ? const Color(0xFF34C759) : const Color(0xFF263242),
+          width: isSpeaking ? 2.5 : 1,
         ),
+        boxShadow: isSpeaking
+            ? [
+                BoxShadow(
+                  color: const Color(0xFF34C759).withValues(alpha: 0.35),
+                  blurRadius: 10,
+                  spreadRadius: 1,
+                ),
+              ]
+            : null,
       ),
       clipBehavior: Clip.antiAlias,
       child: Stack(
@@ -852,7 +1324,7 @@ class _ConferenceMeetingScreenState extends ConsumerState<ConferenceMeetingScree
           else
             Center(
               child: CircleAvatar(
-                radius: 26,
+                radius: 28,
                 backgroundColor: const Color(0xFF007AFF).withValues(alpha: 0.2),
                 child: Text(
                   tile.name.isEmpty ? '?' : tile.name.substring(0, tile.name.length >= 2 ? 2 : 1).toUpperCase(),
@@ -868,7 +1340,7 @@ class _ConferenceMeetingScreenState extends ConsumerState<ConferenceMeetingScree
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.55),
+                color: Colors.black.withValues(alpha: 0.65),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Row(
@@ -916,41 +1388,57 @@ class _ConferenceMeetingScreenState extends ConsumerState<ConferenceMeetingScree
   }
 
   Widget _buildChatPanel(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final panelBg = isDark ? const Color(0xFF141922) : Colors.white;
+    final panelBorder = isDark ? const Color(0xFF232B36) : const Color(0xFFE2E8F0);
+    final headerText = isDark ? Colors.white : const Color(0xFF0F172A);
+    final inputBg = isDark ? const Color(0xFF1F2733) : const Color(0xFFF1F5F9);
+    final inputText = isDark ? Colors.white : const Color(0xFF0F172A);
+    final hintColor = isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8);
+
     return Container(
-      height: 300,
+      height: 310,
       margin: const EdgeInsets.fromLTRB(10, 0, 10, 8),
       decoration: BoxDecoration(
-        color: const Color(0xFF161B22),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFF232B36)),
+        color: panelBg,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: panelBorder),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.08),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(14, 10, 6, 2),
+            padding: const EdgeInsets.fromLTRB(14, 10, 6, 4),
             child: Row(
               children: [
-                const Icon(Icons.chat_bubble_outline_rounded, color: Color(0xFF34C759), size: 16),
+                const Icon(Icons.chat_bubble_outline_rounded, color: Color(0xFF007AFF), size: 16),
                 const SizedBox(width: 8),
-                const Text('Meeting Chat', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w800)),
+                Text('In-Meeting Chat', style: TextStyle(color: headerText, fontSize: 13, fontWeight: FontWeight.w800)),
                 const Spacer(),
                 IconButton(
                   visualDensity: VisualDensity.compact,
-                  icon: const Icon(Icons.close_rounded, color: Colors.grey, size: 18),
+                  icon: Icon(Icons.close_rounded, color: hintColor, size: 18),
                   onPressed: () => setState(() => _showChat = false),
                 ),
               ],
             ),
           ),
+          Divider(height: 1, color: panelBorder),
           Expanded(
             child: _messages.isEmpty
-                ? const Center(
-                    child: Text('No messages yet. Say hello!', style: TextStyle(color: Color(0xFF64748B), fontSize: 12)),
+                ? Center(
+                    child: Text('No messages yet. Say hello!', style: TextStyle(color: hintColor, fontSize: 12)),
                   )
                 : ListView.builder(
                     controller: _scrollCtrl,
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     itemCount: _messages.length,
                     itemBuilder: (context, index) {
                       final msg = _messages[index];
@@ -959,11 +1447,13 @@ class _ConferenceMeetingScreenState extends ConsumerState<ConferenceMeetingScree
                         child: Align(
                           alignment: msg.isMine ? Alignment.centerRight : Alignment.centerLeft,
                           child: Container(
-                            constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                            constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.72),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                             decoration: BoxDecoration(
-                              color: msg.isMine ? const Color(0xFF007AFF) : const Color(0xFF1F2733),
-                              borderRadius: BorderRadius.circular(12),
+                              color: msg.isMine
+                                  ? const Color(0xFF007AFF)
+                                  : (isDark ? const Color(0xFF1F2733) : const Color(0xFFF1F5F9)),
+                              borderRadius: BorderRadius.circular(14),
                             ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -971,12 +1461,21 @@ class _ConferenceMeetingScreenState extends ConsumerState<ConferenceMeetingScree
                                 if (!msg.isMine)
                                   Text(
                                     msg.sender,
-                                    style: const TextStyle(color: Color(0xFF7AB8FF), fontSize: 10, fontWeight: FontWeight.w700),
+                                    style: TextStyle(
+                                      color: isDark ? const Color(0xFF7AB8FF) : const Color(0xFF007AFF),
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                    ),
                                   ),
-                                const SizedBox(height: 2),
+                                if (!msg.isMine) const SizedBox(height: 2),
                                 Text(
                                   msg.text,
-                                  style: const TextStyle(color: Colors.white, fontSize: 13),
+                                  style: TextStyle(
+                                    color: msg.isMine
+                                        ? Colors.white
+                                        : (isDark ? Colors.white : const Color(0xFF0F172A)),
+                                    fontSize: 13,
+                                  ),
                                 ),
                               ],
                             ),
@@ -988,7 +1487,7 @@ class _ConferenceMeetingScreenState extends ConsumerState<ConferenceMeetingScree
           ),
           // Quick emojis
           SizedBox(
-            height: 40,
+            height: 38,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -1000,12 +1499,12 @@ class _ConferenceMeetingScreenState extends ConsumerState<ConferenceMeetingScree
                   borderRadius: BorderRadius.circular(10),
                   onTap: () => _sendReaction(emoji),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF1F2733),
+                      color: inputBg,
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: Text(emoji, style: const TextStyle(fontSize: 19)),
+                    child: Text(emoji, style: const TextStyle(fontSize: 18)),
                   ),
                 );
               },
@@ -1018,15 +1517,15 @@ class _ConferenceMeetingScreenState extends ConsumerState<ConferenceMeetingScree
                 Expanded(
                   child: TextField(
                     controller: _chatCtrl,
-                    style: const TextStyle(color: Colors.white, fontSize: 13),
+                    style: TextStyle(color: inputText, fontSize: 13),
                     textInputAction: TextInputAction.send,
                     onSubmitted: (_) => _sendChat(),
                     decoration: InputDecoration(
                       hintText: 'Send a message to the meeting…',
-                      hintStyle: const TextStyle(color: Color(0xFF64748B), fontSize: 12.5),
+                      hintStyle: TextStyle(color: hintColor, fontSize: 12.5),
                       isDense: true,
                       filled: true,
-                      fillColor: const Color(0xFF1F2733),
+                      fillColor: inputBg,
                       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                     ),
@@ -1047,11 +1546,25 @@ class _ConferenceMeetingScreenState extends ConsumerState<ConferenceMeetingScree
   }
 
   Widget _buildControlDock(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 14),
-      decoration: const BoxDecoration(
-        color: Color(0xFF1C222B),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF141922) : const Color(0xFF1E2530),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        border: Border(
+          top: BorderSide(
+            color: isDark ? const Color(0xFF263242) : const Color(0xFF334155),
+            width: 1,
+          ),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.35),
+            blurRadius: 18,
+            offset: const Offset(0, -3),
+          ),
+        ],
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
