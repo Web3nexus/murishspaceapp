@@ -630,12 +630,29 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
           };
         }).toList();
 
+        final hadNewMessages = parsed.length > _chatMessages.length ||
+            (parsed.isNotEmpty && _chatMessages.isEmpty);
         setState(() {
           _chatMessages.clear();
           _chatMessages.addAll(parsed);
         });
+        if (hadNewMessages) {
+          _scrollToBottom();
+        }
       }
     } catch (_) {}
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOut,
+        );
+      }
+    });
   }
 
   Future<void> _leaveViewerStream() async {
@@ -725,11 +742,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
       } catch (_) {}
     }
 
-    Future.delayed(const Duration(milliseconds: 50), () {
-      if (_scrollController.hasClients) {
-        _scrollController.jumpTo(0.0);
-      }
-    });
+    _scrollToBottom();
   }
 
   Future<void> _addHeart(TapUpDetails details) async {
@@ -781,6 +794,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
               'color': const Color(0xFFFF9500),
             });
           });
+          _scrollToBottom();
 
           if (_activeStreamId != null) {
             try {
@@ -1661,49 +1675,53 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
               right: 80,
               child: SizedBox(
                 height: isKeyboardOpen ? 120 : 180,
-                child: ListView.separated(
-                  controller: _scrollController,
-                  reverse: true,
-                  itemCount: _chatMessages.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 6),
-                  itemBuilder: (context, idx) {
-                    final msg = _chatMessages[_chatMessages.length - 1 - idx];
-                    return Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF0F141C).withValues(alpha: 0.75),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.1),
+                child: Align(
+                  alignment: Alignment.bottomLeft,
+                  child: ListView.separated(
+                    controller: _scrollController,
+                    shrinkWrap: true,
+                    padding: EdgeInsets.zero,
+                    itemCount: _chatMessages.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 6),
+                    itemBuilder: (context, idx) {
+                      final msg = _chatMessages[idx];
+                      return Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
                         ),
-                      ),
-                      child: RichText(
-                        text: TextSpan(
-                          children: [
-                            TextSpan(
-                              text: '${msg['name']} ',
-                              style: TextStyle(
-                                fontWeight: FontWeight.w900,
-                                fontSize: 13,
-                                color: msg['color'] as Color,
-                              ),
-                            ),
-                            TextSpan(
-                              text: msg['msg'] as String,
-                              style: const TextStyle(
-                                fontSize: 13,
-                                color: Colors.white,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF0F141C).withValues(alpha: 0.75),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.1),
+                          ),
                         ),
-                      ),
-                    );
-                  },
+                        child: RichText(
+                          text: TextSpan(
+                            children: [
+                              TextSpan(
+                                text: '${msg['name']} ',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 13,
+                                  color: msg['color'] as Color,
+                                ),
+                              ),
+                              TextSpan(
+                                text: msg['msg'] as String,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
                 ),
               ),
             ),
