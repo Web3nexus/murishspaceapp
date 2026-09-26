@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -41,22 +42,37 @@ class StoryNotifier extends Notifier<StoryState> {
   Future<void> fetchStories() async {
     state = state.copyWith(isLoading: true, error: null);
     try {
-      final response = await _dio.get('/stories/feed');
-      final payload = ApiClient.instance.unwrap(response);
-
-      if (payload is Map<String, dynamic> && payload.containsKey('data')) {
-        final rawList = payload['data'] as List<dynamic>;
-        final fetchedGroups = rawList
-            .map((e) => UserStoryGroup.fromJson(e as Map<String, dynamic>))
-            .toList();
-
-        if (fetchedGroups.isNotEmpty) {
-          state = state.copyWith(groups: fetchedGroups, isLoading: false);
-          return;
-        }
+      Response response;
+      try {
+        response = await _dio.get('/stories/feed');
+      } catch (_) {
+        response = await _dio.get('/stories');
       }
 
-      state = state.copyWith(groups: _defaultStoryGroups, isLoading: false);
+      final fetchedGroups = ApiClient.instance.unwrapList(
+        response,
+        UserStoryGroup.fromJson,
+      );
+
+      final sortedGroups = List<UserStoryGroup>.from(fetchedGroups);
+      final myGroupIndex = sortedGroups.indexWhere((g) => g.isMyStory);
+
+      if (myGroupIndex > 0) {
+        final myGroup = sortedGroups.removeAt(myGroupIndex);
+        sortedGroups.insert(0, myGroup);
+      } else if (myGroupIndex == -1) {
+        sortedGroups.insert(
+          0,
+          const UserStoryGroup(
+            userId: 'me',
+            userName: 'Your Story',
+            isMyStory: true,
+            stories: [],
+          ),
+        );
+      }
+
+      state = state.copyWith(groups: sortedGroups, isLoading: false);
     } catch (_) {
       // Fallback to default followed & community stories if offline or backend unready
       state = state.copyWith(groups: _defaultStoryGroups, isLoading: false);
@@ -68,26 +84,37 @@ class StoryNotifier extends Notifier<StoryState> {
     required String mediaUrl,
     String? caption,
   }) async {
+    String remoteMediaUrl = mediaUrl;
+
+    // If mediaUrl is a local file path, upload to /upload before persisting
+    try {
+      final file = File(mediaUrl);
+      if (await file.exists()) {
+        final bytes = await file.readAsBytes();
+        final fileName = mediaUrl.contains('/') ? mediaUrl.split('/').last : 'story.jpg';
+        final form = FormData.fromMap({
+          'file': MultipartFile.fromBytes(bytes, filename: fileName),
+        });
+        final uploadRes = await _dio.post('/upload', data: form);
+        final payload = ApiClient.instance.unwrap(uploadRes);
+        final url = payload is Map<String, dynamic> ? payload['url']?.toString() : null;
+        if (url != null && url.isNotEmpty) {
+          remoteMediaUrl = url;
+        }
+      }
+    } catch (_) {
+      // Gracefully continue with original mediaUrl if upload fails
+    }
+
     final newStory = StoryItem(
       id: 'story_${DateTime.now().millisecondsSinceEpoch}',
-      mediaUrl: mediaUrl,
+      mediaUrl: remoteMediaUrl,
       caption: caption,
       createdAt: DateTime.now(),
       expiresAt: DateTime.now().add(const Duration(hours: 24)),
       viewsCount: 0,
       isSeen: true,
     );
-
-    // Try posting to backend API
-    try {
-      await _dio.post('/stories', data: {
-        'media_url': mediaUrl,
-        'caption': caption,
-        'media_type': 'image',
-      });
-    } catch (_) {
-      // Gracefully continue with local optimistic update
-    }
 
     // Optimistically update local Riverpod state
     final currentGroups = List<UserStoryGroup>.from(state.groups);
@@ -108,6 +135,19 @@ class StoryNotifier extends Notifier<StoryState> {
     }
 
     state = state.copyWith(groups: currentGroups);
+
+    // Post to backend API and reload
+    try {
+      await _dio.post('/stories', data: {
+        'media_url': remoteMediaUrl,
+        'caption': caption,
+        'media_type': 'image',
+      });
+      fetchStories();
+    } catch (_) {
+      // Gracefully continue with local optimistic update
+    }
+
     return true;
   }
 

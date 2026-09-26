@@ -17,8 +17,8 @@ class ChatUser {
     required this.name,
     required this.username,
     this.avatarUrl,
-    this.isOnline = true,
-    this.lastSeen = 'online',
+    this.isOnline = false,
+    this.lastSeen,
   });
 
   factory ChatUser.fromJson(dynamic json) {
@@ -29,8 +29,8 @@ class ChatUser {
       name: map['name']?.toString() ?? '',
       username: map['username']?.toString() ?? '',
       avatarUrl: (map['avatar_url'] ?? map['avatar'])?.toString(),
-      isOnline: (map['is_online'] as bool?) ?? (map['isOnline'] as bool?) ?? true,
-      lastSeen: map['last_seen']?.toString() ?? map['lastSeen']?.toString() ?? 'online',
+      isOnline: (map['is_online'] as bool?) ?? (map['isOnline'] as bool?) ?? (map['is_online'] == 1 ? true : false),
+      lastSeen: map['last_seen']?.toString() ?? map['lastSeen']?.toString(),
     );
   }
 }

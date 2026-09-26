@@ -12,6 +12,7 @@ import '../models/chat_models.dart';
 import '../providers/auth_provider.dart';
 import '../providers/broadcast_provider.dart';
 import '../providers/chat_provider.dart';
+import '../providers/friends_provider.dart';
 import '../utils/format.dart';
 import 'new_message_sheet.dart';
 
@@ -980,20 +981,23 @@ class _ActiveFriendsRow extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final conversationsState = ref.watch(conversationsProvider);
+    final friendsState = ref.watch(friendsProvider);
 
-    // Derive active friends from ongoing conversations + fallback list
+    // Derive active friends from ongoing conversations + friends list
     final List<Map<String, dynamic>> activeList = [];
+    final Set<int> addedUserIds = {};
 
     for (final conv in conversationsState.conversations) {
       if (conv.type == 'direct' && conv.otherUser != null) {
         final u = conv.otherUser!;
+        addedUserIds.add(u.id);
         activeList.add({
           'id': u.id,
           'name': u.name.isNotEmpty ? u.name : 'Friend',
           'username': u.username,
-          'avatarUrl': u.avatarUrl,
+          'avatarUrl': ApiClient.resolveUrl(u.avatarUrl),
           'color': 0xFF007AFF,
-          'isOnline': true,
+          'isOnline': u.isOnline,
           'conversationId': conv.id,
         });
       } else if (conv.type == 'community' && conv.community != null) {
@@ -1003,7 +1007,7 @@ class _ActiveFriendsRow extends ConsumerWidget {
             'id': c.id!,
             'name': c.name ?? 'Community',
             'username': c.slug ?? 'community',
-            'avatarUrl': c.logoUrl,
+            'avatarUrl': ApiClient.resolveUrl(c.logoUrl),
             'color': 0xFF5856D6,
             'isOnline': true,
             'isCommunity': true,
@@ -1013,6 +1017,32 @@ class _ActiveFriendsRow extends ConsumerWidget {
         }
       }
     }
+
+    // Add friends who may not have an active open conversation yet
+    for (final friend in friendsState.friends) {
+      if (!addedUserIds.contains(friend.id)) {
+        addedUserIds.add(friend.id);
+        activeList.add({
+          'id': friend.id,
+          'name': friend.name.isNotEmpty ? friend.name : 'Friend',
+          'username': friend.username,
+          'avatarUrl': ApiClient.resolveUrl(friend.avatarUrl),
+          'color': 0xFF007AFF,
+          'isOnline': friend.isOnline,
+          'conversationId': null,
+        });
+      }
+    }
+
+    // Sort so online users & spaces appear first
+    activeList.sort((a, b) {
+      final aOnline = (a['isOnline'] as bool?) ?? false;
+      final bOnline = (b['isOnline'] as bool?) ?? false;
+      if (aOnline != bOnline) {
+        return aOnline ? -1 : 1;
+      }
+      return (a['name'] as String? ?? '').compareTo(b['name'] as String? ?? '');
+    });
 
     if (activeList.isEmpty) return const SizedBox.shrink();
 
@@ -1044,7 +1074,8 @@ class _ActiveFriendsRow extends ConsumerWidget {
               final name = friend['name']?.toString() ?? 'Friend';
               final username = friend['username']?.toString() ?? 'user_$friendId';
               final avatarUrl = friend['avatarUrl']?.toString();
-              final isOnline = (friend['isOnline'] as bool?) ?? true;
+              final hasAvatar = avatarUrl != null && avatarUrl.isNotEmpty;
+              final isOnline = (friend['isOnline'] as bool?) ?? false;
               final isCommunity = (friend['isCommunity'] as bool?) ?? false;
               final communityId = (friend['communityId'] as num?)?.toInt();
               final conversationId = (friend['conversationId'] as num?)?.toInt();
@@ -1075,8 +1106,8 @@ class _ActiveFriendsRow extends ConsumerWidget {
                         CircleAvatar(
                           radius: 25,
                           backgroundColor: color.withOpacity(0.18),
-                          backgroundImage: avatarUrl != null ? NetworkImage(avatarUrl) : null,
-                          child: avatarUrl == null
+                          backgroundImage: hasAvatar ? CachedNetworkImageProvider(avatarUrl) : null,
+                          child: !hasAvatar
                               ? Icon(Icons.person, color: color, size: 28)
                               : null,
                         ),

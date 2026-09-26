@@ -1,8 +1,11 @@
 import 'dart:async';
+import 'dart:io';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/api_client.dart';
 import '../models/story_models.dart';
 import '../providers/story_provider.dart';
 
@@ -132,6 +135,12 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> {
     }
 
     final story = widget.group.stories[_currentIndex];
+    final resolvedMediaUrl = ApiClient.resolveUrl(story.mediaUrl);
+    final isLocalMedia = !story.mediaUrl.startsWith('http') && File(story.mediaUrl).existsSync();
+
+    final rawAuthorAvatar = widget.group.userAvatar;
+    final resolvedAuthorAvatar = rawAuthorAvatar != null ? ApiClient.resolveUrl(rawAuthorAvatar) : null;
+    final hasAuthorAvatar = resolvedAuthorAvatar != null && resolvedAuthorAvatar.isNotEmpty;
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -146,16 +155,33 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> {
           children: [
             // Story Media Image Layer
             Positioned.fill(
-              child: Image.network(
-                story.mediaUrl,
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => Container(
-                  color: Colors.purple[950],
-                  child: const Center(
-                    child: Icon(Icons.broken_image_rounded, size: 64, color: Colors.white54),
-                  ),
-                ),
-              ),
+              child: isLocalMedia
+                  ? Image.file(
+                      File(story.mediaUrl),
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(
+                        color: Colors.purple[950],
+                        child: const Center(
+                          child: Icon(Icons.broken_image_rounded, size: 64, color: Colors.white54),
+                        ),
+                      ),
+                    )
+                  : CachedNetworkImage(
+                      imageUrl: resolvedMediaUrl,
+                      fit: BoxFit.cover,
+                      placeholder: (_, __) => Container(
+                        color: Colors.black,
+                        child: const Center(
+                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                        ),
+                      ),
+                      errorWidget: (_, __, ___) => Container(
+                        color: Colors.purple[950],
+                        child: const Center(
+                          child: Icon(Icons.broken_image_rounded, size: 64, color: Colors.white54),
+                        ),
+                      ),
+                    ),
             ),
 
             // Gradient Overlays for readability
@@ -243,11 +269,11 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> {
                               CircleAvatar(
                                 radius: 18,
                                 backgroundColor: const Color(0xFF007AFF),
-                                backgroundImage: widget.group.userAvatar != null
-                                    ? NetworkImage(widget.group.userAvatar!)
+                                backgroundImage: hasAuthorAvatar
+                                    ? CachedNetworkImageProvider(resolvedAuthorAvatar)
                                     : null,
-                                child: widget.group.userAvatar == null
-                                    ? Icon(Icons.person, color: Colors.white, size: 20)
+                                child: !hasAuthorAvatar
+                                    ? const Icon(Icons.person, color: Colors.white, size: 20)
                                     : null,
                               ),
                               const SizedBox(width: 10),

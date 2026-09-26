@@ -121,10 +121,15 @@ class UserStoryGroup {
 
   factory UserStoryGroup.fromJson(Map<String, dynamic> json) {
     final rawStories = json['stories'] as List<dynamic>? ?? [];
+    final user = json['user'] is Map<String, dynamic> ? json['user'] as Map<String, dynamic> : null;
+    final userId = (user?['id'] ?? json['user_id'])?.toString() ?? '0';
+    final userName = (user?['name'] ?? json['user_name'])?.toString() ?? 'Friend';
+    final userAvatar = (user?['avatar_url'] ?? user?['avatar'] ?? json['user_avatar'])?.toString();
+
     return UserStoryGroup(
-      userId: json['user_id']?.toString() ?? '0',
-      userName: json['user_name']?.toString() ?? 'Friend',
-      userAvatar: json['user_avatar']?.toString(),
+      userId: userId,
+      userName: userName,
+      userAvatar: userAvatar,
       isMyStory: (json['is_my_story'] as bool?) ?? false,
       isCommunity: (json['is_community'] as bool?) ?? false,
       communityName: json['community_name']?.toString(),

@@ -1,9 +1,11 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../components/brand.dart';
 import '../components/ui_states.dart';
+import '../core/api_client.dart';
 import '../providers/auth_provider.dart';
 import '../providers/community_provider.dart';
 import '../providers/story_provider.dart';
@@ -393,6 +395,9 @@ class _StoriesRow extends ConsumerWidget {
           // -----------------------------------------------------------------
           if (group.isMyStory) {
             final hasStories = group.stories.isNotEmpty;
+            final rawMyAvatar = user?.avatarUrl ?? user?.avatar ?? group.userAvatar;
+            final myAvatar = rawMyAvatar != null ? ApiClient.resolveUrl(rawMyAvatar) : null;
+            final hasMyAvatar = myAvatar != null && myAvatar.isNotEmpty;
 
             return Padding(
               padding: const EdgeInsets.only(right: 14),
@@ -428,7 +433,10 @@ class _StoriesRow extends ConsumerWidget {
                           ),
                           child: CircleAvatar(
                             backgroundColor: isDark ? const Color(0xFF1C1C1E) : Colors.white,
-                            child: Icon(Icons.person, color: isDark ? Colors.white : Colors.black, size: 20),
+                            backgroundImage: hasMyAvatar ? CachedNetworkImageProvider(myAvatar) : null,
+                            child: !hasMyAvatar
+                                ? Icon(Icons.person, color: isDark ? Colors.white : Colors.black, size: 20)
+                                : null,
                           ),
                         ),
                         // Plus (+) Badge Icon
@@ -473,6 +481,9 @@ class _StoriesRow extends ConsumerWidget {
           // ITEM > 0: Followed Friends & Joined Communities Story Bubbles
           // -----------------------------------------------------------------
           final hasUnseen = group.hasUnseen;
+          final rawAvatar = group.userAvatar;
+          final friendAvatar = rawAvatar != null ? ApiClient.resolveUrl(rawAvatar) : null;
+          final hasFriendAvatar = friendAvatar != null && friendAvatar.isNotEmpty;
 
           return Padding(
             padding: const EdgeInsets.only(right: 14),
@@ -509,8 +520,8 @@ class _StoriesRow extends ConsumerWidget {
                     ),
                     child: CircleAvatar(
                       backgroundColor: isDark ? const Color(0xFF1C1C1E) : Colors.white,
-                      backgroundImage: group.userAvatar != null ? NetworkImage(group.userAvatar!) : null,
-                      child: group.userAvatar == null
+                      backgroundImage: hasFriendAvatar ? CachedNetworkImageProvider(friendAvatar) : null,
+                      child: !hasFriendAvatar
                           ? Icon(Icons.person, color: isDark ? Colors.white : Colors.black, size: 25)
                           : null,
                     ),
