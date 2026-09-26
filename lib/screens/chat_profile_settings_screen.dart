@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../components/animated_action_feedback.dart';
 import '../components/online_status_badge.dart';
 import '../core/design_tokens.dart';
 import '../core/api_client.dart';
@@ -984,10 +985,11 @@ class _ChatProfileSettingsScreenState extends ConsumerState<ChatProfileSettingsS
                   leading: const Icon(Icons.info_outline_rounded, color: DesignTokens.primary),
                   title: const Text('Bio', style: TextStyle(fontSize: 13, color: DesignTokens.textSecondary)),
                   subtitle: const Text(bio, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
-                  onTap: () {
-                    Clipboard.setData(const ClipboardData(text: bio));
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Bio copied to clipboard!')));
-                  },
+                  trailing: AnimatedCopyIcon(
+                    onCopy: () async {
+                      await Clipboard.setData(const ClipboardData(text: bio));
+                    },
+                  ),
                 ),
                 const Divider(height: 1),
                 if (!isCommunity) ...[
@@ -995,11 +997,11 @@ class _ChatProfileSettingsScreenState extends ConsumerState<ChatProfileSettingsS
                     leading: const Icon(Icons.alternate_email_rounded, color: DesignTokens.primary),
                     title: const Text('Username', style: TextStyle(fontSize: 13, color: DesignTokens.textSecondary)),
                     subtitle: Text('@$username', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
-                    trailing: const Icon(Icons.copy_rounded, size: 18),
-                    onTap: () {
-                      Clipboard.setData(ClipboardData(text: '@$username'));
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Username copied!')));
-                    },
+                    trailing: AnimatedCopyIcon(
+                      onCopy: () async {
+                        await Clipboard.setData(ClipboardData(text: '@$username'));
+                      },
+                    ),
                   ),
                   const Divider(height: 1),
                   ListTile(

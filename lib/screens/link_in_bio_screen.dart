@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../components/animated_action_feedback.dart';
+import '../components/share_sheet.dart';
 import '../config/env.dart';
 import '../providers/auth_provider.dart';
 
@@ -396,19 +398,26 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> with SingleTi
                 Row(
                   children: [
                     Expanded(
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF007AFF),
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      child: AnimatedActionFeedbackButton(
+                        idleLabel: 'Copy Link',
+                        idleIcon: Icons.copy_rounded,
+                        activeLabel: 'Copied!',
+                        activeIcon: Icons.check_rounded,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 12,
                         ),
-                        onPressed: () {
-                          Clipboard.setData(ClipboardData(text: bioUrl));
-                          Navigator.pop(ctx);
-                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Bio Link URL copied!')));
+                        borderRadius: 12,
+                        fontSize: 14,
+                        iconSize: 18,
+                        onAction: () async {
+                          await Clipboard.setData(ClipboardData(text: bioUrl));
                         },
-                        icon: const Icon(Icons.copy_rounded, size: 18),
-                        label: const Text('Copy Link', style: TextStyle(fontWeight: FontWeight.bold)),
+                        onComplete: () {
+                          if (Navigator.canPop(ctx)) {
+                            Navigator.pop(ctx);
+                          }
+                        },
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -476,8 +485,11 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> with SingleTi
             icon: const Icon(Icons.share_rounded, color: Color(0xFF007AFF)),
             tooltip: 'Share Bio Link',
             onPressed: () {
-              Clipboard.setData(ClipboardData(text: bioUrl));
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Bio Link copied to clipboard!')));
+              AppShare.share(
+                context,
+                text: 'Check out my profile on MurihSpace: $bioUrl',
+                title: '$name - Link in Bio',
+              );
             },
           ),
           IconButton(

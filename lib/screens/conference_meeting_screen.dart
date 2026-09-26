@@ -105,6 +105,7 @@ class _ConferenceMeetingScreenState extends ConsumerState<ConferenceMeetingScree
   final List<_FloatingReaction> _reactions = [];
   int _reactionCounter = 0;
   bool _showChat = false;
+  bool _copiedInvite = false;
   final _chatCtrl = TextEditingController();
   final _scrollCtrl = ScrollController();
 
@@ -514,13 +515,16 @@ class _ConferenceMeetingScreenState extends ConsumerState<ConferenceMeetingScree
   // ── Invite / share ─────────────────────────────────────────────────────
 
   Future<void> _copyInviteLink() async {
+    if (_copiedInvite) return;
     final path = _meetingUrl.isNotEmpty ? _meetingUrl : '/app/meeting/$_code';
     final url = '$webBaseUrl$path';
     await Clipboard.setData(ClipboardData(text: url));
+    HapticFeedback.mediumImpact();
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Meeting invite link copied to clipboard!')),
-      );
+      setState(() => _copiedInvite = true);
+      Future.delayed(const Duration(milliseconds: 1500), () {
+        if (mounted) setState(() => _copiedInvite = false);
+      });
     }
   }
 
@@ -763,8 +767,16 @@ class _ConferenceMeetingScreenState extends ConsumerState<ConferenceMeetingScree
                   ),
                 ),
                 IconButton(
-                  tooltip: 'Copy invite link',
-                  icon: const Icon(Icons.copy_rounded, color: Colors.white, size: 20),
+                  tooltip: _copiedInvite ? 'Copied!' : 'Copy invite link',
+                  icon: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 200),
+                    child: Icon(
+                      _copiedInvite ? Icons.check_rounded : Icons.copy_rounded,
+                      key: ValueKey(_copiedInvite),
+                      color: _copiedInvite ? const Color(0xFF34C759) : Colors.white,
+                      size: 20,
+                    ),
+                  ),
                   onPressed: _copyInviteLink,
                 ),
                 IconButton(

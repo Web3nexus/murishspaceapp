@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:flutter/services.dart';
 
+import '../components/animated_action_feedback.dart';
 import '../components/followers_list_dialog.dart';
 import '../components/online_status_badge.dart';
 import '../components/share_sheet.dart';
@@ -1201,20 +1202,22 @@ class _CreatorMediaKitCard extends ConsumerWidget {
           Row(
             children: [
               Expanded(
-                child: OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFFFF9500),
-                    side: const BorderSide(color: Color(0xFFFF9500)),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  onPressed: () {
-                    Clipboard.setData(ClipboardData(text: '${Env.webBaseUrl}/creator/mediakit'));
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Public Creator Media Kit link copied!')),
+                child: AnimatedActionFeedbackButton(
+                  idleLabel: 'Export Media Kit',
+                  idleIcon: Icons.share_rounded,
+                  idleColor: const Color(0xFFFF9500),
+                  activeLabel: 'Link Copied!',
+                  activeIcon: Icons.check_rounded,
+                  activeColor: const Color(0xFF34C759),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  borderRadius: 12,
+                  fontSize: 12,
+                  iconSize: 16,
+                  onAction: () async {
+                    await Clipboard.setData(
+                      ClipboardData(text: '${Env.webBaseUrl}/creator/mediakit'),
                     );
                   },
-                  icon: const Icon(Icons.share_rounded, size: 16),
-                  label: const Text('Export Media Kit', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                 ),
               ),
               const SizedBox(width: 8),

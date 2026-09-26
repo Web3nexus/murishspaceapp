@@ -12,6 +12,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+import '../components/animated_action_feedback.dart';
 import '../components/gift_animation_overlay.dart';
 import '../components/kyc_live_gate_dialog.dart';
 import '../components/send_gift_dialog.dart';
@@ -1193,40 +1194,19 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
                         ),
                       ),
                       const SizedBox(width: 8),
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF007AFF),
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 8,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                        onPressed: () {
-                          Clipboard.setData(ClipboardData(text: liveUrl));
-                          HapticFeedback.mediumImpact();
-                          Navigator.pop(ctx);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                '✓ Live stream link copied to clipboard!',
-                              ),
-                              backgroundColor: Color(0xFF34C759),
-                              duration: Duration(seconds: 2),
-                            ),
-                          );
+                      AnimatedActionFeedbackButton(
+                        idleLabel: 'Copy',
+                        idleIcon: Icons.copy_rounded,
+                        activeLabel: 'Copied!',
+                        activeIcon: Icons.check_rounded,
+                        onAction: () async {
+                          await Clipboard.setData(ClipboardData(text: liveUrl));
                         },
-                        child: const Text(
-                          'Copy',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
-                          ),
-                        ),
+                        onComplete: () {
+                          if (Navigator.canPop(ctx)) {
+                            Navigator.pop(ctx);
+                          }
+                        },
                       ),
                     ],
                   ),
@@ -1278,25 +1258,8 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
       await ref
           .read(conversationMessagesProvider(conversation.id).notifier)
           .sendMessage(content: shareMessage, attachmentType: 'live_stream');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('✓ Live broadcast sent to ${conversation.title}'),
-            backgroundColor: const Color(0xFF34C759),
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      }
     } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Could not send the live broadcast. Please try again.',
-            ),
-          ),
-        );
-      }
+      rethrow;
     }
   }
 
@@ -2097,7 +2060,8 @@ class _LiveShareRecipientSheetState
   Timer? _debounce;
   List<ChatUser> _userResults = const [];
   bool _searchingUsers = false;
-  bool _sending = false;
+  int? _activeSendingId;
+  final Set<int> _sentIds = {};
 
   String get _categoryLabel {
     if (widget.conversationTypes.contains('direct')) return 'friend';
@@ -2170,35 +2134,125 @@ class _LiveShareRecipientSheetState
   }
 
   Future<void> _select(Conversation conversation) async {
-    if (_sending) return;
-    setState(() => _sending = true);
-    Navigator.of(context).pop();
-    await widget.onSend(conversation, widget.shareMessage);
+    if (_activeSendingId != null || _sentIds.contains(conversation.id)) return;
+    setState(() => _activeSendingId = conversation.id);
+    try {
+      await widget.onSend(conversation, widget.shareMessage);
+      HapticFeedback.mediumImpact();
+      if (!mounted) return;
+      setState(() {
+        _activeSendingId = null;
+        _sentIds.add(conversation.id);
+      });
+      await Future.delayed(const Duration(milliseconds: 700));
+      if (mounted && Navigator.canPop(context)) {
+        Navigator.of(context).pop();
+      }
+    } catch (_) {
+      if (mounted) setState(() => _activeSendingId = null);
+    }
   }
 
   Future<void> _sendToNewUser(ChatUser user) async {
-    if (_sending) return;
-    setState(() => _sending = true);
-    final conversation = await ref
-        .read(conversationsProvider.notifier)
-        .openDirectChat(
-          user.id,
-          name: user.name,
-          username: user.username,
-          avatarUrl: user.avatarUrl,
-          allowOfflineFallback: false,
-        );
-    if (!mounted) return;
-    Navigator.of(context).pop();
-    if (conversation != null) {
-      await widget.onSend(conversation, widget.shareMessage);
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Could not start a chat with this user right now.'),
-        ),
-      );
+    if (_activeSendingId != null || _sentIds.contains(user.id)) return;
+    setState(() => _activeSendingId = user.id);
+    try {
+      final conversation = await ref
+          .read(conversationsProvider.notifier)
+          .openDirectChat(
+            user.id,
+            name: user.name,
+            username: user.username,
+            avatarUrl: user.avatarUrl,
+            allowOfflineFallback: false,
+          );
+      if (!mounted) return;
+      if (conversation != null) {
+        await widget.onSend(conversation, widget.shareMessage);
+        HapticFeedback.mediumImpact();
+        if (!mounted) return;
+        setState(() {
+          _activeSendingId = null;
+          _sentIds.add(user.id);
+        });
+        await Future.delayed(const Duration(milliseconds: 700));
+        if (mounted && Navigator.canPop(context)) {
+          Navigator.of(context).pop();
+        }
+      } else {
+        if (mounted) setState(() => _activeSendingId = null);
+      }
+    } catch (_) {
+      if (mounted) setState(() => _activeSendingId = null);
     }
+  }
+
+  Widget _buildTrailingAction(int id) {
+    final isSent = _sentIds.contains(id);
+    final isSending = _activeSendingId == id;
+
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 200),
+      transitionBuilder: (child, anim) =>
+          ScaleTransition(scale: anim, child: FadeTransition(opacity: anim, child: child)),
+      child: isSent
+          ? Container(
+              key: const ValueKey('sent'),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: const Color(0xFF34C759),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.check_rounded, color: Colors.white, size: 14),
+                  SizedBox(width: 4),
+                  Text(
+                    'Sent',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            )
+          : isSending
+              ? const SizedBox(
+                  key: ValueKey('loading'),
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Color(0xFF007AFF),
+                  ),
+                )
+              : Container(
+                  key: const ValueKey('send'),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF007AFF).withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.send_rounded, color: Color(0xFF007AFF), size: 14),
+                      SizedBox(width: 4),
+                      Text(
+                        'Send',
+                        style: TextStyle(
+                          color: Color(0xFF007AFF),
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+    );
   }
 
   @override
@@ -2388,11 +2442,7 @@ class _LiveShareRecipientSheetState
                             : '${c.memberCount ?? 0} members',
                         style: TextStyle(fontSize: 12, color: textSecondary),
                       ),
-                      trailing: const Icon(
-                        Icons.send_rounded,
-                        size: 18,
-                        color: Color(0xFF007AFF),
-                      ),
+                      trailing: _buildTrailingAction(c.id),
                       onTap: () => _select(c),
                     ),
                   ),
@@ -2456,11 +2506,7 @@ class _LiveShareRecipientSheetState
                               color: textSecondary,
                             ),
                           ),
-                          trailing: const Icon(
-                            Icons.send_rounded,
-                            size: 18,
-                            color: Color(0xFF007AFF),
-                          ),
+                          trailing: _buildTrailingAction(u.id),
                           onTap: () => _sendToNewUser(u),
                         ),
                       ),

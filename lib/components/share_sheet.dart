@@ -42,7 +42,7 @@ class AppShare {
   }
 }
 
-class _SocialShareModal extends StatelessWidget {
+class _SocialShareModal extends StatefulWidget {
   final String title;
   final String text;
   final String? url;
@@ -53,22 +53,34 @@ class _SocialShareModal extends StatelessWidget {
     this.url,
   });
 
-  String get _sharePayload => url != null ? '$text\n$url' : text;
+  @override
+  State<_SocialShareModal> createState() => _SocialShareModalState();
+}
 
-  Future<void> _launchExternal(BuildContext context, Uri uri, String appName) async {
+class _SocialShareModalState extends State<_SocialShareModal> {
+  bool _copied = false;
+
+  String get _sharePayload =>
+      widget.url != null ? '${widget.text}\n${widget.url}' : widget.text;
+
+  Future<void> _launchExternal(
+    BuildContext context,
+    Uri uri,
+    String appName,
+  ) async {
     try {
-      final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      final launched = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
       if (!launched) {
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Could not open $appName. Opening system share…')),
-          );
-          Share.share(_sharePayload, subject: title);
+          Share.share(_sharePayload, subject: widget.title);
         }
       }
     } catch (_) {
       if (context.mounted) {
-        Share.share(_sharePayload, subject: title);
+        Share.share(_sharePayload, subject: widget.title);
       }
     }
   }
@@ -86,7 +98,11 @@ class _SocialShareModal extends StatelessWidget {
         onTap: () {
           Navigator.pop(context);
           final encoded = Uri.encodeComponent(_sharePayload);
-          _launchExternal(context, Uri.parse('whatsapp://send?text=$encoded'), 'WhatsApp');
+          _launchExternal(
+            context,
+            Uri.parse('whatsapp://send?text=$encoded'),
+            'WhatsApp',
+          );
         },
       ),
       _ShareChannel(
@@ -95,11 +111,7 @@ class _SocialShareModal extends StatelessWidget {
         color: isDark ? Colors.white : const Color(0xFF000000),
         onTap: () {
           Navigator.pop(context);
-          // Copy to clipboard and open TikTok
           Clipboard.setData(ClipboardData(text: _sharePayload));
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Link copied! Opening TikTok…')),
-          );
           _launchExternal(context, Uri.parse('snssdk1233://'), 'TikTok');
         },
       ),
@@ -110,7 +122,11 @@ class _SocialShareModal extends StatelessWidget {
         onTap: () {
           Navigator.pop(context);
           final encoded = Uri.encodeComponent(_sharePayload);
-          _launchExternal(context, Uri.parse('https://twitter.com/intent/tweet?text=$encoded'), 'X');
+          _launchExternal(
+            context,
+            Uri.parse('https://twitter.com/intent/tweet?text=$encoded'),
+            'X',
+          );
         },
       ),
       _ShareChannel(
@@ -120,7 +136,11 @@ class _SocialShareModal extends StatelessWidget {
         onTap: () {
           Navigator.pop(context);
           final encoded = Uri.encodeComponent(_sharePayload);
-          _launchExternal(context, Uri.parse('tg://msg?text=$encoded'), 'Telegram');
+          _launchExternal(
+            context,
+            Uri.parse('tg://msg?text=$encoded'),
+            'Telegram',
+          );
         },
       ),
       _ShareChannel(
@@ -129,9 +149,13 @@ class _SocialShareModal extends StatelessWidget {
         color: const Color(0xFFEA4335),
         onTap: () {
           Navigator.pop(context);
-          final subj = Uri.encodeComponent(title);
+          final subj = Uri.encodeComponent(widget.title);
           final body = Uri.encodeComponent(_sharePayload);
-          _launchExternal(context, Uri.parse('mailto:?subject=$subj&body=$body'), 'Email');
+          _launchExternal(
+            context,
+            Uri.parse('mailto:?subject=$subj&body=$body'),
+            'Email',
+          );
         },
       ),
       _ShareChannel(
@@ -145,15 +169,21 @@ class _SocialShareModal extends StatelessWidget {
         },
       ),
       _ShareChannel(
-        name: 'Copy Link',
-        icon: Icons.link_rounded,
-        color: const Color(0xFF6B7280),
-        onTap: () {
-          Navigator.pop(context);
-          Clipboard.setData(ClipboardData(text: url ?? _sharePayload));
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Link copied to clipboard!')),
+        name: _copied ? 'Copied!' : 'Copy Link',
+        icon: _copied ? Icons.check_rounded : Icons.link_rounded,
+        color: _copied ? const Color(0xFF34C759) : const Color(0xFF6B7280),
+        onTap: () async {
+          if (_copied) return;
+          await Clipboard.setData(
+            ClipboardData(text: widget.url ?? _sharePayload),
           );
+          HapticFeedback.mediumImpact();
+          if (!mounted) return;
+          setState(() => _copied = true);
+          await Future.delayed(const Duration(milliseconds: 700));
+          if (mounted && Navigator.canPop(context)) {
+            Navigator.pop(context);
+          }
         },
       ),
       _ShareChannel(
@@ -162,7 +192,7 @@ class _SocialShareModal extends StatelessWidget {
         color: DesignTokens.primary,
         onTap: () {
           Navigator.pop(context);
-          Share.share(_sharePayload, subject: title);
+          Share.share(_sharePayload, subject: widget.title);
         },
       ),
     ];
@@ -193,8 +223,11 @@ class _SocialShareModal extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  title,
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  widget.title,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 IconButton(
                   icon: const Icon(Icons.close_rounded, size: 20),
@@ -224,17 +257,46 @@ class _SocialShareModal extends StatelessWidget {
                       CircleAvatar(
                         radius: 26,
                         backgroundColor: channel.color.withValues(alpha: 0.12),
-                        child: channel.icon is FaIconData
-                            ? FaIcon(channel.icon as FaIconData, color: channel.color, size: 24)
-                            : Icon(channel.icon as IconData, color: channel.color, size: 26),
+                        child: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 200),
+                          transitionBuilder: (child, anim) =>
+                              ScaleTransition(scale: anim, child: child),
+                          child: channel.icon is FaIconData
+                              ? FaIcon(
+                                  channel.icon as FaIconData,
+                                  key: ValueKey(
+                                    '${channel.name}_${channel.color.toARGB32()}',
+                                  ),
+                                  color: channel.color,
+                                  size: 24,
+                                )
+                              : Icon(
+                                  channel.icon as IconData,
+                                  key: ValueKey(
+                                    '${channel.name}_${channel.color.toARGB32()}',
+                                  ),
+                                  color: channel.color,
+                                  size: 26,
+                                ),
+                        ),
                       ),
                       const SizedBox(height: 6),
-                      Text(
-                        channel.name,
-                        textAlign: TextAlign.center,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 200),
+                        child: Text(
+                          channel.name,
+                          key: ValueKey(channel.name),
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: channel.name == 'Copied!'
+                                ? const Color(0xFF34C759)
+                                : null,
+                          ),
+                        ),
                       ),
                     ],
                   ),
