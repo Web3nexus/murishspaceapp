@@ -963,7 +963,101 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
                 ),
                 const SizedBox(height: 20),
 
-                // Link Copy Box
+                // Quick Share Options (2nd)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Share to apps',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 13,
+                      color: textSecondary,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    _ShareOptionItem(
+                      icon: Icons.chat_bubble_outline_rounded,
+                      color: const Color(0xFF25D366),
+                      label: 'WhatsApp',
+                      onTap: () async {
+                        Navigator.pop(ctx);
+                        final waUrl = Uri.parse(
+                          'https://wa.me/?text=${Uri.encodeComponent(shareMessage)}',
+                        );
+                        if (await canLaunchUrl(waUrl)) {
+                          await launchUrl(
+                            waUrl,
+                            mode: LaunchMode.externalApplication,
+                          );
+                        }
+                      },
+                    ),
+                    _ShareOptionItem(
+                      icon: Icons.alternate_email_rounded,
+                      color: const Color(0xFF1DA1F2),
+                      label: 'X (Twitter)',
+                      onTap: () async {
+                        Navigator.pop(ctx);
+                        final xUrl = Uri.parse(
+                          'https://twitter.com/intent/tweet?text=${Uri.encodeComponent(shareMessage)}',
+                        );
+                        if (await canLaunchUrl(xUrl)) {
+                          await launchUrl(
+                            xUrl,
+                            mode: LaunchMode.externalApplication,
+                          );
+                        }
+                      },
+                    ),
+                    _ShareOptionItem(
+                      icon: Icons.sms_outlined,
+                      color: const Color(0xFF34C759),
+                      label: 'Messages',
+                      onTap: () async {
+                        Navigator.pop(ctx);
+                        final smsUrl = Uri.parse(
+                          'sms:?body=${Uri.encodeComponent(shareMessage)}',
+                        );
+                        if (await canLaunchUrl(smsUrl)) {
+                          await launchUrl(smsUrl);
+                        }
+                      },
+                    ),
+                    _ShareOptionItem(
+                      icon: Icons.mail_outline_rounded,
+                      color: const Color(0xFFFF9500),
+                      label: 'Email',
+                      onTap: () async {
+                        Navigator.pop(ctx);
+                        final mailUrl = Uri.parse(
+                          'mailto:?subject=${Uri.encodeComponent('Join $_effectiveHostName\'s Live on MurihSpace')}&body=${Uri.encodeComponent(shareMessage)}',
+                        );
+                        if (await canLaunchUrl(mailUrl)) {
+                          await launchUrl(mailUrl);
+                        }
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+
+                // Link Copy Box (3rd)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Copy link',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 13,
+                      color: textSecondary,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 14,
@@ -1036,76 +1130,6 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
                       ),
                     ],
                   ),
-                ),
-                const SizedBox(height: 20),
-
-                // Quick Share Options
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    _ShareOptionItem(
-                      icon: Icons.chat_bubble_outline_rounded,
-                      color: const Color(0xFF25D366),
-                      label: 'WhatsApp',
-                      onTap: () async {
-                        Navigator.pop(ctx);
-                        final waUrl = Uri.parse(
-                          'https://wa.me/?text=${Uri.encodeComponent(shareMessage)}',
-                        );
-                        if (await canLaunchUrl(waUrl)) {
-                          await launchUrl(
-                            waUrl,
-                            mode: LaunchMode.externalApplication,
-                          );
-                        }
-                      },
-                    ),
-                    _ShareOptionItem(
-                      icon: Icons.alternate_email_rounded,
-                      color: const Color(0xFF1DA1F2),
-                      label: 'X (Twitter)',
-                      onTap: () async {
-                        Navigator.pop(ctx);
-                        final xUrl = Uri.parse(
-                          'https://twitter.com/intent/tweet?text=${Uri.encodeComponent(shareMessage)}',
-                        );
-                        if (await canLaunchUrl(xUrl)) {
-                          await launchUrl(
-                            xUrl,
-                            mode: LaunchMode.externalApplication,
-                          );
-                        }
-                      },
-                    ),
-                    _ShareOptionItem(
-                      icon: Icons.sms_outlined,
-                      color: const Color(0xFF34C759),
-                      label: 'Messages',
-                      onTap: () async {
-                        Navigator.pop(ctx);
-                        final smsUrl = Uri.parse(
-                          'sms:?body=${Uri.encodeComponent(shareMessage)}',
-                        );
-                        if (await canLaunchUrl(smsUrl)) {
-                          await launchUrl(smsUrl);
-                        }
-                      },
-                    ),
-                    _ShareOptionItem(
-                      icon: Icons.mail_outline_rounded,
-                      color: const Color(0xFFFF9500),
-                      label: 'Email',
-                      onTap: () async {
-                        Navigator.pop(ctx);
-                        final mailUrl = Uri.parse(
-                          'mailto:?subject=${Uri.encodeComponent('Join $_effectiveHostName\'s Live on MurihSpace')}&body=${Uri.encodeComponent(shareMessage)}',
-                        );
-                        if (await canLaunchUrl(mailUrl)) {
-                          await launchUrl(mailUrl);
-                        }
-                      },
-                    ),
-                  ],
                 ),
               ],
             ),
