@@ -405,34 +405,6 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
     );
   }
 
-  Widget _locationTile(BuildContext ctx, String locationName, bool isDark) {
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-      leading: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF3A3B3C) : const Color(0xFFE4E6EB),
-          shape: BoxShape.circle,
-        ),
-        child: Icon(Icons.location_on_rounded, color: isDark ? Colors.white : Colors.black, size: 20),
-      ),
-      title: Text(
-        locationName,
-        style: TextStyle(
-          fontSize: 15,
-          fontWeight: FontWeight.w600,
-          color: isDark ? Colors.white : Colors.black,
-        ),
-      ),
-      onTap: () {
-        setState(() => _currentLocation = locationName);
-        Navigator.pop(ctx);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Marketplace location changed to $locationName')),
-        );
-      },
-    );
-  }
 
   void _showMarketplaceOptionsSheet() {
     showModalBottomSheet<void>(
@@ -654,9 +626,6 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bg = isDark ? const Color(0xFF18191A) : const Color(0xFFF7FAFC);
 
-    final auth = ref.watch(authProvider);
-    final user = auth.user;
-    final role = user?.role ?? UserRole.member;
 
     final conversationsState = ref.watch(conversationsProvider);
     final unreadCount = conversationsState.unreadTotal;
@@ -683,13 +652,6 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
     }).toList();
 
     final filteredItems = allMarketItems.where((item) {
-      // Role-specific product isolation:
-      if (role == UserRole.creator && item.category.toLowerCase() != 'digital') {
-        return false;
-      }
-      if (role == UserRole.vendor && item.category.toLowerCase() == 'digital') {
-        return false;
-      }
 
       // Search filter
       if (_searchController.text.trim().isNotEmpty) {
@@ -934,7 +896,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
               onRefresh: () async {
                 await ref.read(marketplaceProvider.notifier).fetchProducts();
               },
-              child: marketState.isLoading
+              child: (marketState.isLoading && marketState.products.isEmpty)
                   ? const Center(child: CircularProgressIndicator())
                   : filteredItems.isEmpty
                       ? Center(
@@ -952,7 +914,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
                                   ),
                                   const SizedBox(height: 16),
                                   Text(
-                                    'No products found',
+                                    marketState.error != null ? 'Unable to Load Products' : 'No products found',
                                     style: TextStyle(
                                       fontSize: 18,
                                       fontWeight: FontWeight.bold,
@@ -961,7 +923,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
                                   ),
                                   const SizedBox(height: 8),
                                   Text(
-                                    'Try adjusting your search query, location filter, or category.',
+                                    marketState.error ?? 'Try adjusting your search query, location filter, or category.',
                                     textAlign: TextAlign.center,
                                     style: TextStyle(
                                       fontSize: 13,
@@ -976,16 +938,20 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
                                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                     ),
                                     onPressed: () {
-                                      setState(() {
-                                        _selectedMainCategory = 'Explore';
-                                        _selectedPhysicalSubCategory = 'All Physical';
-                                        _currentLocation = 'All Locations';
-                                        _searchController.clear();
-                                      });
-                                      ref.read(marketplaceProvider.notifier).fetchProducts();
+                                      if (marketState.error != null) {
+                                        ref.read(marketplaceProvider.notifier).fetchProducts();
+                                      } else {
+                                        setState(() {
+                                          _selectedMainCategory = 'Explore';
+                                          _selectedPhysicalSubCategory = 'All Physical';
+                                          _currentLocation = 'All Locations';
+                                          _searchController.clear();
+                                        });
+                                        ref.read(marketplaceProvider.notifier).fetchProducts();
+                                      }
                                     },
-                                    icon: const Icon(Icons.refresh_rounded),
-                                    label: const Text('Reset Filters'),
+                                    icon: Icon(marketState.error != null ? Icons.refresh_rounded : Icons.clear_all_rounded),
+                                    label: Text(marketState.error != null ? 'Retry' : 'Reset Filters'),
                                   ),
                                 ],
                               ),
