@@ -15,6 +15,7 @@ import 'package:permission_handler/permission_handler.dart';
 import '../components/animated_action_feedback.dart';
 import '../components/gift_animation_overlay.dart';
 import '../components/kyc_live_gate_dialog.dart';
+import '../components/live_stream_top_header.dart';
 import '../components/send_gift_dialog.dart';
 import '../config/env.dart';
 import '../core/api_client.dart';
@@ -70,6 +71,14 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
   int _likesCount = 0;
   int _totalGiftsCoins = 0;
   final Set<dynamic> _seenGiftMessageIds = {};
+
+  /// First character of the host's name, ignoring any leading "@" so a handle
+  /// like "@vincent" yields "V".
+  String get _hostInitial {
+    final name = _effectiveHostName.trim();
+    final stripped = name.startsWith('@') ? name.substring(1).trim() : name;
+    return stripped.isNotEmpty ? stripped[0] : 'H';
+  }
 
   String get _effectiveHostName {
     if (_resolvedHostName != null && _resolvedHostName!.isNotEmpty) {
@@ -1454,9 +1463,9 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
                     children: [
                       _LiveRingAvatar(
                         avatarUrl: _hostAvatarUrl,
-                        fallbackInitial: _effectiveHostName.isNotEmpty
-                            ? _effectiveHostName[0]
-                            : 'H',
+                        // _effectiveHostName can be a "@username" handle — strip the
+                        // prefix so the fallback shows the host's initial, not "@".
+                        fallbackInitial: _hostInitial,
                         radius: 46,
                         isLive: true,
                       ),
@@ -1599,133 +1608,11 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
               top: MediaQuery.of(context).padding.top + 8,
               left: 16,
               right: 16,
-              child: Row(
-                children: [
-                  // MurihSpace LIVE logo + LIVE pill
-                  Row(
-                    children: [
-                      Image.asset(
-                        'assets/images/murihspace-live-logo.png',
-                        height: 26,
-                        fit: BoxFit.contain,
-                        semanticLabel: 'MurihSpace LIVE',
-                      ),
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 3,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFF3B30),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.circle, color: Colors.white, size: 7),
-                            SizedBox(width: 4),
-                            Text(
-                              'LIVE',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w900,
-                                fontSize: 10,
-                                letterSpacing: 0.8,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.55),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(
-                          Icons.remove_red_eye_rounded,
-                          color: Colors.white,
-                          size: 14,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          '$_viewerCount',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const Spacer(),
-
-                  // Real Wallet Coin Balance
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.55),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: const Color(0xFFFF9500).withValues(alpha: 0.4),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        const Text('🪙 ', style: TextStyle(fontSize: 12)),
-                        Text(
-                          '$coinBalance MSH',
-                          style: const TextStyle(
-                            color: Color(0xFFFF9500),
-                            fontWeight: FontWeight.w900,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-
-                  // Share Live Stream Button
-                  IconButton(
-                    style: IconButton.styleFrom(
-                      backgroundColor: Colors.black.withValues(alpha: 0.55),
-                    ),
-                    icon: const Icon(
-                      Icons.share_rounded,
-                      color: Colors.white,
-                      size: 20,
-                    ),
-                    onPressed: _openShareModal,
-                  ),
-                  const SizedBox(width: 4),
-
-                  // Close/End Stream Button
-                  IconButton(
-                    style: IconButton.styleFrom(
-                      backgroundColor: Colors.black.withValues(alpha: 0.55),
-                    ),
-                    icon: const Icon(
-                      Icons.close_rounded,
-                      color: Colors.white,
-                      size: 20,
-                    ),
-                    onPressed: _endOrLeaveStream,
-                  ),
-                ],
+              child: LiveStreamTopHeader(
+                viewerCount: _viewerCount,
+                coinBalance: coinBalance,
+                onShare: _openShareModal,
+                onClose: _endOrLeaveStream,
               ),
             ),
 
@@ -3387,6 +3274,19 @@ class _LiveRingAvatarState extends State<_LiveRingAvatar>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
 
+  /// Set when the avatar image fails to load, so the initial can be shown
+  /// instead of an empty, background-coloured circle.
+  bool _imageFailed = false;
+
+  /// Absolute URL for the avatar, or null when unusable. Relative paths such as
+  /// /storage/avatar.jpg need the API host prepended or NetworkImage cannot
+  /// resolve them.
+  String? get _resolvedAvatarUrl {
+    final raw = widget.avatarUrl;
+    if (raw == null || raw.isEmpty) return null;
+    return ApiClient.resolveUrl(raw);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -3400,6 +3300,9 @@ class _LiveRingAvatarState extends State<_LiveRingAvatar>
   @override
   void didUpdateWidget(_LiveRingAvatar oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (widget.avatarUrl != oldWidget.avatarUrl) {
+      _imageFailed = false;
+    }
     if (widget.isLive && !_controller.isAnimating) {
       _controller.repeat();
     } else if (!widget.isLive && _controller.isAnimating) {
@@ -3468,22 +3371,29 @@ class _LiveRingAvatarState extends State<_LiveRingAvatar>
           ),
 
           // Actual avatar image
-          CircleAvatar(
-            radius: widget.radius - 3,
-            backgroundColor: const Color(0xFF1C2030),
-            backgroundImage: (widget.avatarUrl?.isNotEmpty ?? false)
-                ? NetworkImage(widget.avatarUrl!)
-                : null,
-            child: (widget.avatarUrl?.isNotEmpty ?? false)
-                ? null
-                : Text(
-                    widget.fallbackInitial.toUpperCase(),
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w900,
-                      fontSize: widget.radius * 0.6,
-                    ),
-                  ),
+          Builder(
+            builder: (context) {
+              final avatarUrl = _imageFailed ? null : _resolvedAvatarUrl;
+              return CircleAvatar(
+                radius: widget.radius - 3,
+                backgroundColor: const Color(0xFF1C2030),
+                backgroundImage:
+                    avatarUrl != null ? NetworkImage(avatarUrl) : null,
+                onBackgroundImageError: avatarUrl != null
+                    ? (_, _) => setState(() => _imageFailed = true)
+                    : null,
+                child: avatarUrl == null
+                    ? Text(
+                        widget.fallbackInitial.toUpperCase(),
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w900,
+                          fontSize: widget.radius * 0.6,
+                        ),
+                      )
+                    : null,
+              );
+            },
           ),
 
           // "LIVE" badge below the avatar

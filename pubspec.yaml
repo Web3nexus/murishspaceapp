@@ -98,6 +98,7 @@ flutter:
 
   assets:
     - assets/images/brand/
+    - assets/images/murihspace-live-logo.png
     - assets/sounds/
 
   # To add assets to your application, add an assets section, like this:
