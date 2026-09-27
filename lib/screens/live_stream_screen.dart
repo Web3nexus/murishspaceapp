@@ -65,6 +65,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
   String? _trackingId;
   int? _hostUserId;
   String? _resolvedHostName;
+  String? _hostAvatarUrl;
   int _viewerCount = 1;
   int _likesCount = 0;
   int _totalGiftsCoins = 0;
@@ -105,6 +106,16 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
       } else if (rName != null && rName.isNotEmpty) {
         return rName;
       }
+    }
+    return null;
+  }
+
+  String? _parseHostAvatarUrl(dynamic streamData) {
+    if (streamData is! Map) return null;
+    final hostObj = streamData['host'] ?? streamData['user'];
+    if (hostObj is Map) {
+      final url = hostObj['avatar_url']?.toString().trim();
+      if (url != null && url.isNotEmpty) return url;
     }
     return null;
   }
@@ -603,11 +614,13 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
 
       if (streamData != null && mounted) {
         final parsedHost = _parseHostName(streamData);
+        final parsedAvatar = _parseHostAvatarUrl(streamData);
         setState(() {
           _hostUserId ??=
               (streamData['user_id'] as num?)?.toInt() ??
               (streamData['user']?['id'] as num?)?.toInt();
           if (parsedHost != null) _resolvedHostName = parsedHost;
+          if (parsedAvatar != null) _hostAvatarUrl = parsedAvatar;
           _trackingId ??= (streamData['tracking_id'] as String?)?.trim();
           _viewerCount =
               (streamData['viewers_count'] as num?)?.toInt() ?? _viewerCount;
@@ -1439,18 +1452,13 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      CircleAvatar(
+                      _LiveRingAvatar(
+                        avatarUrl: _hostAvatarUrl,
+                        fallbackInitial: _effectiveHostName.isNotEmpty
+                            ? _effectiveHostName[0]
+                            : 'H',
                         radius: 46,
-                        backgroundColor: const Color(
-                          0xFFFF9500,
-                        ).withValues(alpha: 0.2),
-                        child: Icon(
-                          _cameraOn
-                              ? Icons.videocam_rounded
-                              : Icons.mic_rounded,
-                          color: const Color(0xFFFF9500),
-                          size: 42,
-                        ),
+                        isLive: true,
                       ),
                       const SizedBox(height: 12),
                       Text(
@@ -1593,29 +1601,43 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
               right: 16,
               child: Row(
                 children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFF3B30),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Row(
-                      children: [
-                        Icon(Icons.circle, color: Colors.white, size: 8),
-                        SizedBox(width: 6),
-                        Text(
-                          'LIVE',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w900,
-                            fontSize: 11,
-                          ),
+                  // MurihSpace LIVE logo + LIVE pill
+                  Row(
+                    children: [
+                      Image.asset(
+                        'assets/images/murihspace-live-logo.png',
+                        height: 26,
+                        fit: BoxFit.contain,
+                        semanticLabel: 'MurihSpace LIVE',
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
                         ),
-                      ],
-                    ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFF3B30),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.circle, color: Colors.white, size: 7),
+                            SizedBox(width: 4),
+                            Text(
+                              'LIVE',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w900,
+                                fontSize: 10,
+                                letterSpacing: 0.8,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(width: 8),
                   Container(
@@ -3333,6 +3355,161 @@ class _LiveProductBuySheetState extends ConsumerState<_LiveProductBuySheet> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// ─────────────────────────────────────────────────────────────────────────────
+/// TikTok-style animated live ring around a circular avatar.
+/// The ring is a conic-gradient (red→orange→pink→red) that rotates slowly.
+/// Usage:
+///   _LiveRingAvatar(avatarUrl: host.avatarUrl, radius: 28, isLive: true)
+/// ─────────────────────────────────────────────────────────────────────────────
+class _LiveRingAvatar extends StatefulWidget {
+  final String? avatarUrl;
+  final String fallbackInitial;
+  final double radius;
+  final bool isLive;
+
+  const _LiveRingAvatar({
+    this.avatarUrl,
+    this.fallbackInitial = '?',
+    this.radius = 28,
+    this.isLive = true,
+  });
+
+  @override
+  State<_LiveRingAvatar> createState() => _LiveRingAvatarState();
+}
+
+class _LiveRingAvatarState extends State<_LiveRingAvatar>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 3),
+    );
+    if (widget.isLive) _controller.repeat();
+  }
+
+  @override
+  void didUpdateWidget(_LiveRingAvatar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isLive && !_controller.isAnimating) {
+      _controller.repeat();
+    } else if (!widget.isLive && _controller.isAnimating) {
+      _controller.stop();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ringSize = widget.radius * 2 + 6.0; // ring is 3px on each side
+    return SizedBox(
+      width: ringSize,
+      height: ringSize,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Spinning conic-gradient ring
+          if (widget.isLive)
+            AnimatedBuilder(
+              animation: _controller,
+              builder: (_, __) {
+                return Transform.rotate(
+                  angle: _controller.value * 2 * 3.141592653589793,
+                  child: Container(
+                    width: ringSize,
+                    height: ringSize,
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: SweepGradient(
+                        colors: [
+                          Color(0xFFEF4444), // red-500
+                          Color(0xFFF97316), // orange-500
+                          Color(0xFFEC4899), // pink-500
+                          Color(0xFFEF4444), // back to red
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            )
+          else
+            Container(
+              width: ringSize,
+              height: ringSize,
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                color: Color(0xFF6B7280), // gray-500 when offline
+              ),
+            ),
+
+          // White gap ring
+          Container(
+            width: ringSize - 4,
+            height: ringSize - 4,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.black,
+            ),
+          ),
+
+          // Actual avatar image
+          CircleAvatar(
+            radius: widget.radius - 3,
+            backgroundColor: const Color(0xFF1C2030),
+            backgroundImage: (widget.avatarUrl?.isNotEmpty ?? false)
+                ? NetworkImage(widget.avatarUrl!)
+                : null,
+            child: (widget.avatarUrl?.isNotEmpty ?? false)
+                ? null
+                : Text(
+                    widget.fallbackInitial.toUpperCase(),
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                      fontSize: widget.radius * 0.6,
+                    ),
+                  ),
+          ),
+
+          // "LIVE" badge below the avatar
+          if (widget.isLive)
+            Positioned(
+              bottom: 0,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEF4444),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: Colors.black, width: 1.2),
+                ),
+                child: const Text(
+                  'LIVE',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 7,
+                    letterSpacing: 0.6,
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
