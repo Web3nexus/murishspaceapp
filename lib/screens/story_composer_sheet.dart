@@ -98,8 +98,10 @@ class _StoryComposerContentState extends ConsumerState<_StoryComposerContent> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final mediaQuery = MediaQuery.of(context);
 
-    return Container(
-      height: mediaQuery.size.height * 0.92,
+    return Padding(
+      padding: EdgeInsets.only(bottom: mediaQuery.viewInsets.bottom),
+      child: Container(
+        height: (mediaQuery.size.height - mediaQuery.viewInsets.bottom - mediaQuery.padding.top) * 0.92,
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
@@ -336,6 +338,7 @@ class _StoryComposerContentState extends ConsumerState<_StoryComposerContent> {
           ),
           const SizedBox(height: 16),
         ],
+      ),
       ),
     );
   }

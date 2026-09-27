@@ -106,9 +106,11 @@ class _EmojiPickerSheetState extends State<EmojiPickerSheet> with SingleTickerPr
     final bg = isDark ? const Color(0xFF1E222A) : Colors.white;
     final tabBg = isDark ? const Color(0xFF282C35) : const Color(0xFFF2F4F7);
 
-    return Container(
-      height: 360,
-      decoration: BoxDecoration(
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: Container(
+        height: 360,
+        decoration: BoxDecoration(
         color: bg,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         boxShadow: [
@@ -198,6 +200,7 @@ class _EmojiPickerSheetState extends State<EmojiPickerSheet> with SingleTickerPr
             ),
           ),
         ],
+      ),
       ),
     );
   }

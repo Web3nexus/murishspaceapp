@@ -36,7 +36,7 @@ abstract final class AppBottomSheet {
             left: 20,
             right: 20,
             top: 12,
-            bottom: MediaQuery.of(ctx).padding.bottom + 20,
+            bottom: MediaQuery.of(ctx).viewInsets.bottom + MediaQuery.of(ctx).padding.bottom + 20,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -176,7 +176,7 @@ abstract final class AppBottomSheet {
             left: 20,
             right: 20,
             top: 12,
-            bottom: MediaQuery.of(ctx).padding.bottom + 20,
+            bottom: MediaQuery.of(ctx).viewInsets.bottom + MediaQuery.of(ctx).padding.bottom + 20,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -271,25 +271,31 @@ abstract final class AppBottomSheet {
         final isDark = Theme.of(ctx).brightness == Brightness.dark;
         final bg = isDark ? DesignTokens.darkSurface : DesignTokens.lightSurface;
 
-        return Container(
-          decoration: BoxDecoration(
-            color: bg,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SizedBox(height: 10),
-              Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: isDark ? Colors.white30 : Colors.black26,
-                  borderRadius: BorderRadius.circular(2),
-                ),
+        return Padding(
+          padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+          child: Container(
+            decoration: BoxDecoration(
+              color: bg,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: SafeArea(
+              top: false,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(height: 10),
+                  Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.white30 : Colors.black26,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  Flexible(child: builder(ctx)),
+                ],
               ),
-              Flexible(child: builder(ctx)),
-            ],
+            ),
           ),
         );
       },

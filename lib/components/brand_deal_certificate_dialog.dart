@@ -66,7 +66,7 @@ class BrandDealCertificateDialog extends StatelessWidget {
         left: 20,
         right: 20,
         top: 12,
-        bottom: MediaQuery.of(context).padding.bottom + 20,
+        bottom: MediaQuery.of(context).viewInsets.bottom + MediaQuery.of(context).padding.bottom + 20,
       ),
       child: SingleChildScrollView(
         child: Column(

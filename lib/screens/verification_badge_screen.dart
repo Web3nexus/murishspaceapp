@@ -390,7 +390,7 @@ class _VerificationBadgeScreenState extends ConsumerState<VerificationBadgeScree
       builder: (ctx) {
         final isDark = Theme.of(ctx).brightness == Brightness.dark;
         return Padding(
-          padding: const EdgeInsets.all(24),
+          padding: EdgeInsets.fromLTRB(24, 24, 24, 24 + MediaQuery.of(ctx).viewInsets.bottom),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [

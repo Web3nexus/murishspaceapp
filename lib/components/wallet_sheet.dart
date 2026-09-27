@@ -68,8 +68,12 @@ class _WalletSheetState extends ConsumerState<WalletSheet> {
     final walletState = ref.watch(walletProvider);
     final coins = walletState.coinsBalance;
 
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.82,
+    final media = MediaQuery.of(context);
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: media.viewInsets.bottom),
+      child: Container(
+        height: (media.size.height - media.viewInsets.bottom - media.padding.top) * 0.82,
       decoration: BoxDecoration(
         color: bg,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
@@ -303,6 +307,7 @@ class _WalletSheetState extends ConsumerState<WalletSheet> {
             ),
           ),
         ],
+      ),
       ),
     );
   }

@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../components/app_bottom_sheet.dart';
+import '../components/chat_pattern_background.dart';
 import '../components/online_status_badge.dart';
 import '../components/share_community_sheet.dart';
 import '../components/share_location_sheet.dart';
@@ -416,7 +417,11 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                 ],
               ),
             ),
-          Expanded(child: _messageArea(state, typing)),
+          Expanded(
+            child: ChatPatternBackground(
+              child: _messageArea(state, typing),
+            ),
+          ),
           Composer(
             controller: _controller,
             replyTo: _replyTo,

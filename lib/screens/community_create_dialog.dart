@@ -100,14 +100,20 @@ Future<Community?> showCreateCommunityDialog(BuildContext context) async {
             }
           }
 
+          final media = MediaQuery.of(ctx);
+
           return Padding(
             padding: EdgeInsets.only(
               left: 20,
               right: 20,
               top: 16,
-              bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
+              bottom: media.viewInsets.bottom + 20,
             ),
-            child: SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: media.size.height - media.padding.top - media.viewInsets.bottom - 36,
+              ),
+              child: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -357,6 +363,7 @@ Future<Community?> showCreateCommunityDialog(BuildContext context) async {
                   ),
                 ],
               ),
+            ),
             ),
           );
         },

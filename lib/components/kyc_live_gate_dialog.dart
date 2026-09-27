@@ -17,7 +17,7 @@ void showKycRequiredLiveModal(BuildContext context) {
 
       return SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+          padding: EdgeInsets.fromLTRB(24, 28, 24, 28 + MediaQuery.of(ctx).viewInsets.bottom),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [

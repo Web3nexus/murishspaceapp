@@ -97,7 +97,7 @@ class _CommunityDetailScreenState extends ConsumerState<CommunityDetailScreen>
       builder: (ctx) {
         final isDark = Theme.of(ctx).brightness == Brightness.dark;
         return Padding(
-          padding: const EdgeInsets.all(20),
+          padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + MediaQuery.of(ctx).viewInsets.bottom),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,

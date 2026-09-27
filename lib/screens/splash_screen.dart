@@ -56,13 +56,15 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
 
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF081826) : Colors.white,
-      body: Center(
-        child: FadeTransition(
-          opacity: _fade,
-          child: Image.asset(
-            'assets/images/brand/app_splash.png',
-            width: 220,
-            fit: BoxFit.contain,
+      body: SafeArea(
+        child: Center(
+          child: FadeTransition(
+            opacity: _fade,
+            child: Image.asset(
+              'assets/images/brand/app_splash.png',
+              width: 220,
+              fit: BoxFit.contain,
+            ),
           ),
         ),
       ),

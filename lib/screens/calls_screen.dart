@@ -31,9 +31,13 @@ class CallsScreen extends ConsumerWidget {
           builder: (context, setModalState) {
             final friends = friendsState.friends;
 
-            return Container(
-              height: MediaQuery.of(context).size.height * 0.7,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            final media = MediaQuery.of(context);
+
+            return Padding(
+              padding: EdgeInsets.only(bottom: media.viewInsets.bottom),
+              child: Container(
+                height: (media.size.height - media.viewInsets.bottom - media.padding.top) * 0.7,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -157,6 +161,7 @@ class CallsScreen extends ConsumerWidget {
                           ),
                   ),
                 ],
+              ),
               ),
             );
           },

@@ -196,7 +196,7 @@ class MessageBubble extends StatelessWidget {
             left: 20,
             right: 20,
             top: 12,
-            bottom: MediaQuery.of(ctx).padding.bottom + 20,
+            bottom: MediaQuery.of(ctx).viewInsets.bottom + MediaQuery.of(ctx).padding.bottom + 20,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
