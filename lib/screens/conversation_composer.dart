@@ -672,7 +672,9 @@ class _ReplyBar extends StatelessWidget {
     final preview = message.attachmentType != null && message.attachmentType != 'text'
         ? message.attachmentType == 'image'
             ? 'Photo'
-            : message.attachmentType!
+            : message.attachmentType == 'live_stream'
+                ? 'Live Stream'
+                : message.attachmentType!
         : message.content;
     return Container(
       color: isDark ? const Color(0xFF1C1C1E) : const Color(0xFFF2F5F8),

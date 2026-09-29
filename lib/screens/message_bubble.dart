@@ -379,6 +379,12 @@ class _BubbleContent extends StatelessWidget {
               mine: mine,
               isDark: isDark,
             )
+          else if (message.attachmentType == 'live_stream' || message.content.startsWith('🔴 Watch '))
+            _LiveStreamMessageWidget(
+              content: message.content,
+              mine: mine,
+              isDark: isDark,
+            )
           else if (message.type == 'call' ||
               message.content.trim().startsWith('{"call_id"') ||
               (message.content.trim().startsWith('{') && message.content.contains('"call_id"')))
@@ -1380,6 +1386,148 @@ class _CommunityMessageWidget extends StatelessWidget {
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
               child: const Text('View Community', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LiveStreamMessageWidget extends StatelessWidget {
+  final String content;
+  final bool mine;
+  final bool isDark;
+
+  const _LiveStreamMessageWidget({
+    required this.content,
+    required this.mine,
+    required this.isDark,
+  });
+
+  /// Pulls the first http(s) URL out of the shared message, e.g.
+  /// `🔴 Watch Ada live on MurihSpace: "My stream"\nhttps://…/live/xxx`.
+  String? _extractUrl() {
+    final match = RegExp(r'https?://[^\s]+').firstMatch(content);
+    return match?.group(0);
+  }
+
+  String _extractTitle() {
+    final match = RegExp(r'"([^"]+)"').firstMatch(content);
+    return match?.group(1) ?? 'Live Stream';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final url = _extractUrl();
+    final title = _extractTitle();
+    final hostLine = content.split('\n').first.replaceFirst('🔴 Watch ', '').replaceFirst(RegExp(r' live on MurihSpace.*'), '').trim();
+    final textColor = mine ? Colors.white : (isDark ? Colors.white : Colors.black87);
+    final liveRed = const Color(0xFFFF3B30);
+
+    return Container(
+      width: 250,
+      margin: const EdgeInsets.symmetric(vertical: 2),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: mine
+            ? const Color(0xFFB3261E).withValues(alpha: 0.25)
+            : (isDark ? const Color(0xFF262C38) : const Color(0xFFF1F5F9)),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: liveRed.withValues(alpha: 0.6), width: 1.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 18,
+                backgroundColor: liveRed.withValues(alpha: 0.15),
+                child: Icon(Icons.sensors_rounded, color: liveRed, size: 20),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: liveRed,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text(
+                            'LIVE',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 0.6,
+                            ),
+                          ),
+                        ),
+                        if (hostLine.isNotEmpty) ...[
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              hostLine,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: textColor.withValues(alpha: 0.8),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+              color: textColor,
+            ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () {
+                if (url == null || url.isEmpty) return;
+                final livePart = Uri.tryParse(url);
+                final sub = livePart?.pathSegments.contains('live') == true
+                    ? livePart!.pathSegments.last
+                    : null;
+                if (sub != null && sub.isNotEmpty) {
+                  context.push('/live/${Uri.encodeComponent(sub)}');
+                } else {
+                  launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: liveRed,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              icon: const Icon(Icons.sensors_rounded, size: 16),
+              label: const Text('Watch Live', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
             ),
           ),
         ],
