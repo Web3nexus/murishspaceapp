@@ -8,6 +8,7 @@ import 'package:pinput/pinput.dart';
 import '../components/app_bottom_sheet.dart';
 import '../components/brand.dart';
 import '../components/inline_field_error.dart';
+import '../config/env.dart';
 import '../core/design_tokens.dart';
 import '../core/roles.dart';
 import '../providers/auth_provider.dart';
@@ -663,6 +664,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ),
                   ),
                   child: const Text('Create new account'),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '${Env.apiEnv} \u00b7 ${Uri.parse(Env.apiBaseUrl).host}',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 11, color: textSecondary),
                 ),
               ],
             ),
