@@ -482,7 +482,19 @@ class AuthNotifier extends Notifier<AuthState> {
       state = state.copyWith(loading: false, errorMessage: e.message);
       return null;
     } on DioException catch (e) {
-      state = state.copyWith(loading: false, errorMessage: _dioError(e, 'Failed to send code'));
+      // Non-production servers return debug_reason on OTP failures so a
+      // misconfigured staging env (blank OTP_DRIVER, missing Twilio secrets) is
+      // visible on the device instead of an unactionable "could not be sent".
+      final base = _dioError(e, 'Failed to send code');
+      final data = e.response?.data;
+      // The server's response envelope nulls `data` on failures and relocates
+      // unknown keys into `errors`, so debug_reason arrives under errors.
+      final errors = data is Map<String, dynamic> ? data['errors'] : null;
+      final reason = errors is Map<String, dynamic> ? errors['debug_reason'] : null;
+      state = state.copyWith(
+        loading: false,
+        errorMessage: reason is String && reason.isNotEmpty ? '$base ($reason)' : base,
+      );
       return null;
     } catch (_) {
       state = state.copyWith(loading: false, errorMessage: 'An error occurred');

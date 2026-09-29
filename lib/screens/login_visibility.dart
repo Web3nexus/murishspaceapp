@@ -1,10 +1,14 @@
-/// Pure visibility rules for the login screen.
+/// Pure visibility rules for the login and registration screens.
 ///
 /// Extracted from `LoginScreen.build` so the method matrix can be unit tested
 /// without pumping a widget. `email_password` is a *member* method: when the
 /// platform disables it the option must disappear entirely for app users.
 /// Admins do not sign in through the app (the Securegate portal posts to the
 /// web `/auth/login` endpoint), so no admin carve-out belongs here.
+///
+/// The same rules drive the register and forgot-password screens. Those were
+/// previously ungated, so switching the platform to phone-only still showed
+/// email fields on sign-up and password reset.
 library;
 
 class LoginMethodVisibility {
@@ -49,4 +53,9 @@ class LoginMethodVisibility {
   bool get showPhone => phoneEnabled;
 
   bool get showSocial => googleEnabled || appleEnabled;
+
+  /// Password reset is only possible over email: the code is delivered by
+  /// email. When email/password is disabled there is no reset link to send, so
+  /// the screen must not offer the flow.
+  bool get canResetPassword => emailEnabled;
 }

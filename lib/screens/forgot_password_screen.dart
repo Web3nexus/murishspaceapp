@@ -1,18 +1,25 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/api_client.dart';
 import '../core/design_tokens.dart';
+import '../providers/platform_provider.dart';
 
 /// Requests a password-reset link for an email address.
-class ForgotPasswordScreen extends StatefulWidget {
+///
+/// Gated on the platform's `email_password.login` toggle: the reset code is
+/// delivered by email, so offering this screen while email/password is off
+/// would show an email field the server will always reject. This screen was
+/// reachable directly by route, so gating the login form alone was not enough.
+class ForgotPasswordScreen extends ConsumerStatefulWidget {
   const ForgotPasswordScreen({super.key});
 
   @override
-  State<ForgotPasswordScreen> createState() => _ForgotPasswordScreenState();
+  ConsumerState<ForgotPasswordScreen> createState() => _ForgotPasswordScreenState();
 }
 
-class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
+class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   bool _loading = false;
@@ -55,6 +62,42 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final platformState = ref.watch(platformProvider);
+
+    // Wait for the real config before rendering, so the screen cannot flash an
+    // email form that a phone-only platform will reject.
+    if (platformState.isLoading && platformState.config == null) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    // Fails open, matching every other screen, so a config outage cannot lock
+    // users out of password recovery.
+    final emailEnabled =
+        platformState.config?.isLoginEnabled('email_password') ?? true;
+
+    if (!emailEnabled) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Forgot Password')),
+        body: SafeArea(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Text(
+                'Password reset by email is currently unavailable. '
+                'Please contact support or reset it from the web portal.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: DesignTokens.danger,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(title: const Text('Forgot Password')),
       body: SafeArea(
