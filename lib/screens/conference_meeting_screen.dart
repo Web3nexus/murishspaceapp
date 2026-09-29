@@ -12,6 +12,7 @@ import 'package:permission_handler/permission_handler.dart';
 import '../config/env.dart';
 import '../core/api_client.dart';
 import '../core/roles.dart';
+import '../components/brand.dart';
 import '../components/gift_animation_overlay.dart';
 import '../components/send_gift_dialog.dart';
 import '../providers/auth_provider.dart';
@@ -646,7 +647,8 @@ class _ConferenceMeetingScreenState
     final scaffoldBg = switch (_stage) {
       _MeetingStage.preJoin || _MeetingStage.connecting =>
         isDark ? const Color(0xFF0F141C) : const Color(0xFFF8FAFC),
-      _MeetingStage.connected => const Color(0xFF0A0D12),
+      _MeetingStage.connected =>
+        isDark ? const Color(0xFF0A0D12) : const Color(0xFFF1F5F9),
       _MeetingStage.ended =>
         isDark ? const Color(0xFF0F141C) : const Color(0xFFF8FAFC),
     };
@@ -725,7 +727,7 @@ class _ConferenceMeetingScreenState
                   ),
                   SizedBox(width: 4),
                   Text(
-                    'HD WebRTC',
+                    'Private HD',
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
@@ -742,17 +744,47 @@ class _ConferenceMeetingScreenState
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const SizedBox(
-                      width: 46,
-                      height: 46,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 3,
-                        color: Color(0xFF007AFF),
+                    // System logo loader: brand mark ringed by a slim spinner.
+                    SizedBox(
+                      width: 92,
+                      height: 92,
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          const SizedBox.expand(
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Color(0x14007AFF),
+                              ),
+                            ),
+                          ),
+                          const SizedBox.expand(
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.fromBorderSide(
+                                  BorderSide(color: Color(0x33007AFF)),
+                                ),
+                              ),
+                            ),
+                          ),
+                          BrandIcon(size: 50),
+                          const SizedBox.expand(
+                            child: Padding(
+                              padding: EdgeInsets.all(2),
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.2,
+                                color: Color(0xFF00C6FF),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 18),
+                    const SizedBox(height: 22),
                     Text(
-                      'Connecting to the meeting room…',
+                      'Joining your meeting…',
                       style: TextStyle(
                         color: textPrimary,
                         fontSize: 15,
@@ -761,7 +793,7 @@ class _ConferenceMeetingScreenState
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'Negotiating encrypted WebRTC media streams',
+                      'Setting up a private, encrypted room.',
                       style: TextStyle(color: textSecondary, fontSize: 12),
                     ),
                   ],
@@ -814,7 +846,7 @@ class _ConferenceMeetingScreenState
                     Text(
                       canHostMeetings
                           ? 'Private HD rooms with crystal clear audio, chat, emoji reactions, and gifting.'
-                          : 'Enter a room code or invite link to join meetings in high-definition WebRTC.',
+                          : 'Enter a room code or invite link to join a private meeting.',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 13,
@@ -1561,6 +1593,16 @@ class _ConferenceMeetingScreenState
 
   Widget _buildRoom(BuildContext context) {
     final tiles = _tiles;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textPrimary = isDark ? Colors.white : const Color(0xFF0F172A);
+    final textSecondary = isDark
+        ? Colors.white.withValues(alpha: 0.7)
+        : const Color(0xFF64748B);
+    final chipBg = (isDark ? Colors.white : const Color(0xFF0F172A))
+        .withValues(alpha: 0.08);
+    final chipBorder = (isDark ? Colors.white : const Color(0xFF0F172A))
+        .withValues(alpha: 0.18);
+    final accent = isDark ? const Color(0xFF6FB4FF) : const Color(0xFF007AFF);
 
     return SafeArea(
       child: LayoutBuilder(
@@ -1591,10 +1633,10 @@ class _ConferenceMeetingScreenState
                                       : _title,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w900,
-                                    color: Colors.white,
+                                    color: textPrimary,
                                   ),
                                 ),
                               ),
@@ -1609,21 +1651,23 @@ class _ConferenceMeetingScreenState
                                       vertical: 2,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: Colors.white.withValues(
-                                        alpha: 0.12,
-                                      ),
+                                      color: chipBg,
                                       borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(
+                                        color: chipBorder,
+                                        width: 0.7,
+                                      ),
                                     ),
                                     child: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
                                         Text(
                                           _code,
-                                          style: const TextStyle(
+                                          style: TextStyle(
                                             fontSize: 11,
                                             fontFamily: 'monospace',
                                             fontWeight: FontWeight.w700,
-                                            color: Color(0xFF6FB4FF),
+                                            color: accent,
                                           ),
                                         ),
                                         const SizedBox(width: 4),
@@ -1634,7 +1678,7 @@ class _ConferenceMeetingScreenState
                                           size: 11,
                                           color: _copiedInvite
                                               ? const Color(0xFF34C759)
-                                              : const Color(0xFF6FB4FF),
+                                              : accent,
                                         ),
                                       ],
                                     ),
@@ -1659,7 +1703,7 @@ class _ConferenceMeetingScreenState
                                 '${_formatDuration(_meetingSeconds)} · $_participantCount ${_participantCount == 1 ? 'Person' : 'People'}',
                                 style: TextStyle(
                                   fontSize: 11,
-                                  color: Colors.white.withValues(alpha: 0.7),
+                                  color: textSecondary,
                                 ),
                               ),
                             ],
@@ -1678,7 +1722,7 @@ class _ConferenceMeetingScreenState
                           key: ValueKey(_copiedInvite),
                           color: _copiedInvite
                               ? const Color(0xFF34C759)
-                              : Colors.white,
+                              : textPrimary,
                           size: 20,
                         ),
                       ),
@@ -1686,9 +1730,9 @@ class _ConferenceMeetingScreenState
                     ),
                     IconButton(
                       tooltip: 'Invite link',
-                      icon: const Icon(
+                      icon: Icon(
                         Icons.share_rounded,
-                        color: Colors.white,
+                        color: textPrimary,
                         size: 20,
                       ),
                       onPressed: _copyInviteLink,
@@ -1761,12 +1805,22 @@ class _ConferenceMeetingScreenState
             tile.identity.isNotEmpty &&
             _raisedHands.contains(tile.identity));
 
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final tileBg = isDark ? const Color(0xFF181F2A) : const Color(0xFFF8FAFC);
+    final tileBorder =
+        isSpeaking ? const Color(0xFF34C759) : (isDark ? const Color(0xFF263242) : const Color(0xFFE2E8F0));
+    final initialsColor = isDark ? const Color(0xFF6FB4FF) : const Color(0xFF007AFF);
+    final nameScrim = isDark
+        ? Colors.black.withValues(alpha: 0.65)
+        : Colors.black.withValues(alpha: 0.55);
+
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF181F2A),
+        color: tileBg,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isSpeaking ? const Color(0xFF34C759) : const Color(0xFF263242),
+          color: tileBorder,
           width: isSpeaking ? 2.5 : 1,
         ),
         boxShadow: isSpeaking
@@ -1801,8 +1855,8 @@ class _ConferenceMeetingScreenState
                       : tile.name
                             .substring(0, tile.name.length >= 2 ? 2 : 1)
                             .toUpperCase(),
-                  style: const TextStyle(
-                    color: Color(0xFF6FB4FF),
+                  style: TextStyle(
+                    color: initialsColor,
                     fontWeight: FontWeight.bold,
                     fontSize: 18,
                   ),
@@ -1817,7 +1871,7 @@ class _ConferenceMeetingScreenState
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.65),
+                color: nameScrim,
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Row(
@@ -2088,20 +2142,25 @@ class _ConferenceMeetingScreenState
 
   Widget _buildControlDock(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final neutral = isDark ? Colors.white : const Color(0xFF0F172A);
+    final dockBg = isDark ? const Color(0xFF141922) : Colors.white;
+    final dockBorder = isDark
+        ? const Color(0xFF263242)
+        : const Color(0xFFE2E8F0);
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF141922) : const Color(0xFF1E2530),
+        color: dockBg,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         border: Border(
           top: BorderSide(
-            color: isDark ? const Color(0xFF263242) : const Color(0xFF334155),
+            color: dockBorder,
             width: 1,
           ),
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.35),
+            color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.08),
             blurRadius: 18,
             offset: const Offset(0, -3),
           ),
@@ -2113,7 +2172,7 @@ class _ConferenceMeetingScreenState
           _controlBtn(
             icon: _isMuted ? Icons.mic_off_rounded : Icons.mic_rounded,
             label: _isMuted ? 'Muted' : 'Mute',
-            color: _isMuted ? const Color(0xFFFF3B30) : Colors.white,
+            color: _isMuted ? const Color(0xFFFF3B30) : neutral,
             onTap: _toggleMic,
           ),
           _controlBtn(
@@ -2121,13 +2180,13 @@ class _ConferenceMeetingScreenState
                 ? Icons.videocam_off_rounded
                 : Icons.videocam_rounded,
             label: _isCameraOff ? 'Cam Off' : 'Camera',
-            color: _isCameraOff ? const Color(0xFFFF3B30) : Colors.white,
+            color: _isCameraOff ? const Color(0xFFFF3B30) : neutral,
             onTap: _toggleCamera,
           ),
           _controlBtn(
             icon: Icons.front_hand_rounded,
             label: _handRaised ? 'Hand Up' : 'Raise',
-            color: _handRaised ? const Color(0xFFFF9500) : Colors.white,
+            color: _handRaised ? const Color(0xFFFF9500) : neutral,
             onTap: _toggleRaiseHand,
           ),
           _controlBtn(
@@ -2139,7 +2198,7 @@ class _ConferenceMeetingScreenState
           _controlBtn(
             icon: Icons.chat_bubble_rounded,
             label: 'Chat',
-            color: _showChat ? const Color(0xFF34C759) : Colors.white,
+            color: _showChat ? const Color(0xFF34C759) : neutral,
             onTap: () => setState(() => _showChat = !_showChat),
           ),
           _controlBtn(
