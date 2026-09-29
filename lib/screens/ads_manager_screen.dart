@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../components/app_bottom_sheet.dart';
+import '../core/api_client.dart';
 import '../core/design_tokens.dart';
 import '../core/roles.dart';
 import '../models/marketplace_models.dart';
@@ -23,20 +24,108 @@ class _AdsManagerScreenState extends ConsumerState<AdsManagerScreen>
   late TabController _tabController;
 
   // New Ad Campaign state
-  String _selectedObjective = 'Conversions for Ads';
+  String _selectedObjective = 'Catalog Sales';
   final _campaignTitleController = TextEditingController(text: 'Summer Catalog Special');
   double _dailyBudget = 25.0;
   int _durationDays = 7;
   String _ctaButtonText = 'Shop Now';
   MarketplaceProduct? _selectedCatalogItem;
 
-  // Mock Active Campaigns List for Status View
-  final List<Map<String, dynamic>> _mockCampaigns = [];
+  // Real campaigns from GET /ads (Status View is server-driven, never mock).
+  final List<Map<String, dynamic>> _campaigns = [];
+  bool _loadingCampaigns = false;
+
+  // Server-driven ad meta from GET /ads/meta — objectives and CTAs are
+  // sourced from the backend, not hardcoded.
+  final List<Map<String, dynamic>> _objectives = [];
+  final List<String> _ctaOptions = [
+    'Shop Now',
+    'Send Message',
+    'Join Community',
+    'Learn More',
+  ];
+  final List<String> _campaignStatuses = [];
+  final List<String> _reviewStatuses = [];
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(marketplaceProvider.notifier).fetchMyProducts();
+      _fetchMeta();
+      _fetchCampaigns();
+    });
+  }
+
+  Future<void> _fetchMeta() async {
+    try {
+      final res = await ApiClient.instance.dio.get('/ads/meta');
+      final m = res.data;
+      if (m is! Map<String, dynamic>) return;
+      final objs = m['objectives'];
+      if (objs is List) {
+        final parsed = <Map<String, dynamic>>[];
+        for (final e in objs) {
+          if (e is Map) parsed.add(Map<String, dynamic>.from(e));
+        }
+        if (parsed.isNotEmpty) setState(() => _objectives..clear()..addAll(parsed));
+      }
+      final ctas = m['cta_options'];
+      if (ctas is List && ctas.isNotEmpty) {
+        setState(() => _ctaOptions..clear()..addAll(ctas.map((e) => e.toString())));
+      }
+      final sts = m['statuses'];
+      if (sts is List) {
+        setState(() => _campaignStatuses..clear()..addAll(sts.map((e) => e.toString())));
+      }
+      final rev = m['review_statuses'];
+      if (rev is List) {
+        setState(() => _reviewStatuses..clear()..addAll(rev.map((e) => e.toString())));
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _fetchCampaigns() async {
+    setState(() => _loadingCampaigns = true);
+    try {
+      final res = await ApiClient.instance.dio.get('/ads');
+      final payload = ApiClient.instance.unwrap(res);
+      List<dynamic> raw = [];
+      if (payload is List) {
+        raw = payload;
+      } else if (payload is Map && payload['data'] is List) {
+        raw = payload['data'] as List<dynamic>;
+      }
+      final list = <Map<String, dynamic>>[];
+      for (final e in raw) {
+        if (e is Map) list.add(Map<String, dynamic>.from(e));
+      }
+      if (mounted) {
+        setState(() {
+          _campaigns
+            ..clear()
+            ..addAll(list);
+          _loadingCampaigns = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loadingCampaigns = false);
+    }
+  }
+
+  String? _objectiveCodeFor(String label) {
+    for (final o in _objectives) {
+      if (o['label']?.toString() == label) return o['value']?.toString();
+    }
+    return null;
+  }
+
+  String _objectiveLabelFor(String? code) {
+    for (final o in _objectives) {
+      if (o['value']?.toString() == code) return o['label']?.toString() ?? code ?? '';
+    }
+    return code?.replaceAll('_', ' ') ?? '';
   }
 
   @override
@@ -150,29 +239,52 @@ class _AdsManagerScreenState extends ConsumerState<AdsManagerScreen>
     );
 
     if (confirm == true) {
-      setState(() {
-        _mockCampaigns.insert(0, {
-          'id': 'AD-${(1000 + _mockCampaigns.length * 17)}',
-          'title': _campaignTitleController.text.trim(),
-          'objective': _selectedObjective,
-          'status': 'ACTIVE',
-          'impressions': 0,
-          'clicks': 0,
-          'conversions': 0,
-          'spent': 0.0,
-          'budget': totalBudget,
-          'image': _selectedCatalogItem?.images.firstOrNull ?? 'https://picsum.photos/seed/ad/200/200',
+      final start = DateTime.now();
+      final end = start.add(Duration(days: _durationDays));
+      final image = _selectedCatalogItem?.images.firstOrNull ?? '';
+      final productId = int.tryParse(_selectedCatalogItem?.id ?? '');
+
+      try {
+        final res = await ApiClient.instance.dio.post('/ads', data: {
+          'name': _campaignTitleController.text.trim(),
+          'objective': _objectiveCodeFor(_selectedObjective) ?? 'product_sales',
+          'daily_budget': _dailyBudget,
+          'total_budget': totalBudget,
+          'start_date': start.toIso8601String(),
+          'end_date': end.toIso8601String(),
+          'targeting': <String, dynamic>{},
+          'placements': ['home_feed', 'community_feed', 'video_feed', 'marketplace', 'search'],
+          'headline': _campaignTitleController.text.trim(),
+          'description': 'Promoted catalog item via MurihSpace Ads.',
+          'cta_text': _ctaButtonText,
+          'destination_url': null,
+          'media_url': image.isEmpty ? null : image,
+          'media_type': image.isEmpty ? null : 'image',
+          if (_selectedCatalogItem != null)
+            'promotable_type': _selectedCatalogItem!.productType == 'digital' ? 'digital' : 'physical',
+          if (_selectedCatalogItem != null && productId != null) 'promotable_id': productId,
         });
-      });
+        ApiClient.instance.unwrap(res);
 
-      _tabController.animateTo(2); // Jump to Status View
+        await _fetchCampaigns();
+        if (!mounted) return;
+        _tabController.animateTo(2);
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Campaign launched successfully! It is now live.'),
-          backgroundColor: Color(0xFF34C759),
-        ),
-      );
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Campaign launched! It was submitted for review and is now live.'),
+            backgroundColor: Color(0xFF34C759),
+          ),
+        );
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Could not launch campaign. Please try again.'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
     }
   }
 
@@ -351,14 +463,12 @@ class _AdsManagerScreenState extends ConsumerState<AdsManagerScreen>
   // TAB 1: Conversions for Ads Creation
   // ---------------------------------------------------------------------------
   Widget _buildCreateAdTab(Color cardBg, Color textPrimary, Color? textSecondary, bool isDark) {
-    final objectives = [
-      'Conversions for Ads',
-      'Catalog Sales',
-      'Profile & Reach',
-      'Lead Generation',
-    ];
-
-    final ctaOptions = ['Shop Now', 'Send Message', 'Join Community', 'Learn More'];
+    // Objectives and CTAs come from GET /ads/meta (server-driven), with a
+    // safe fallback only while the initial request is in flight.
+    final objectives = _objectives.isNotEmpty
+        ? _objectives.map((o) => o['label']?.toString() ?? '').where((e) => e.isNotEmpty).toList()
+        : const ['Catalog Sales'];
+    final ctaOptions = _ctaOptions;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -512,9 +622,9 @@ class _AdsManagerScreenState extends ConsumerState<AdsManagerScreen>
   // ---------------------------------------------------------------------------
   Widget _buildCatalogViewTab(Color cardBg, Color textPrimary, Color? textSecondary, bool isDark) {
     final marketplaceState = ref.watch(marketplaceProvider);
-    final products = marketplaceState.products;
+    final products = marketplaceState.myProducts;
 
-    if (marketplaceState.isLoading && products.isEmpty) {
+    if (marketplaceState.myProductsLoading && products.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
 
@@ -632,119 +742,145 @@ class _AdsManagerScreenState extends ConsumerState<AdsManagerScreen>
   // TAB 3: Status View (Promoted Ads Tracking)
   // ---------------------------------------------------------------------------
   Widget _buildStatusViewTab(Color cardBg, Color textPrimary, Color? textSecondary, bool isDark) {
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text('Active & Past Campaigns',
-                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: textPrimary)),
-            Text('${_mockCampaigns.length} Campaigns',
-                style: TextStyle(color: textSecondary, fontSize: 13, fontWeight: FontWeight.bold)),
-          ],
-        ),
-        const SizedBox(height: 14),
-        if (_mockCampaigns.isEmpty)
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 16),
-            alignment: Alignment.center,
-            decoration: BoxDecoration(color: cardBg, borderRadius: BorderRadius.circular(20)),
-            child: Column(
-              children: [
-                Icon(Icons.campaign_outlined, size: 40, color: textSecondary),
-                const SizedBox(height: 10),
-                Text('No campaigns created yet', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: textPrimary)),
-                const SizedBox(height: 4),
-                Text('Create an ad campaign above to promote products or channels.', style: TextStyle(fontSize: 12, color: textSecondary), textAlign: TextAlign.center),
-              ],
-            ),
-          )
-        else
-          ListView.separated(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: _mockCampaigns.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 14),
-          itemBuilder: (ctx, i) {
-            final ad = _mockCampaigns[i];
-            final status = ad['status'] as String;
-            final isLive = status == 'ACTIVE';
+    if (_loadingCampaigns && _campaigns.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
-            return Container(
-              padding: const EdgeInsets.all(16),
+    return RefreshIndicator(
+      onRefresh: _fetchCampaigns,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Active & Past Campaigns',
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: textPrimary)),
+              Text('${_campaigns.length} Campaigns',
+                  style: TextStyle(color: textSecondary, fontSize: 13, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          const SizedBox(height: 14),
+          if (_campaigns.isEmpty)
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 16),
+              alignment: Alignment.center,
               decoration: BoxDecoration(color: cardBg, borderRadius: BorderRadius.circular(20)),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(10),
-                        child: Image.network(
-                          ad['image'] as String,
-                          width: 48,
-                          height: 48,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Container(
-                            width: 48,
-                            height: 48,
-                            color: Colors.grey,
-                            child: const Icon(Icons.campaign),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(ad['title'] as String,
-                                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: textPrimary),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis),
-                            Text('${ad['id']} · ${ad['objective']}',
-                                style: TextStyle(fontSize: 11, color: textSecondary)),
-                          ],
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: isLive ? const Color(0xFF34C759).withOpacity(0.15) : Colors.grey.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          status,
-                          style: TextStyle(
-                            color: isLive ? const Color(0xFF34C759) : textSecondary,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 11,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  const Divider(height: 1),
-                  const SizedBox(height: 12),
-
-                  // Metrics Grid
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      _metricBox('Impressions', '${ad['impressions']}', textPrimary, textSecondary),
-                      _metricBox('Clicks', '${ad['clicks']}', textPrimary, textSecondary),
-                      _metricBox('Conversions', '${ad['conversions']}', const Color(0xFF007AFF), textSecondary),
-                      _metricBox('Spent', '\$${ad['spent']}', const Color(0xFF34C759), textSecondary),
-                    ],
-                  ),
+                  Icon(Icons.campaign_outlined, size: 40, color: textSecondary),
+                  const SizedBox(height: 10),
+                  Text('No campaigns created yet', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: textPrimary)),
+                  const SizedBox(height: 4),
+                  Text('Create an ad campaign above to promote products or channels.', style: TextStyle(fontSize: 12, color: textSecondary), textAlign: TextAlign.center),
                 ],
               ),
-            );
-          },
-        ),
-      ],
+            )
+          else
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _campaigns.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 14),
+              itemBuilder: (ctx, i) => _buildCampaignCard(_campaigns[i], cardBg, textPrimary, textSecondary),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCampaignCard(Map<String, dynamic> c, Color cardBg, Color textPrimary, Color? textSecondary) {
+    final status = c['status']?.toString() ?? 'draft';
+    final reviewStatus = c['review_status']?.toString() ?? 'pending';
+    final isLive = status == 'active' && reviewStatus == 'approved';
+
+    final creatives = c['creatives'] is List ? (c['creatives'] as List) : const [];
+    String image = '';
+    if (creatives.isNotEmpty && creatives.first is Map) {
+      image = (creatives.first as Map)['media_url']?.toString() ?? '';
+    }
+
+    final dailyBudget = (c['daily_budget'] as num?)?.toDouble();
+    final totalBudget = (c['total_budget'] as num?)?.toDouble();
+    final objective = _objectiveLabelFor(c['objective']?.toString());
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: cardBg, borderRadius: BorderRadius.circular(20)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: image.isNotEmpty
+                    ? Image.network(
+                        image,
+                        width: 48,
+                        height: 48,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                          width: 48,
+                          height: 48,
+                          color: Colors.grey,
+                          child: const Icon(Icons.campaign),
+                        ),
+                      )
+                    : Container(
+                        width: 48,
+                        height: 48,
+                        color: Colors.grey[800],
+                        child: const Icon(Icons.campaign, color: Colors.white),
+                      ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(c['name']?.toString() ?? 'Campaign',
+                        style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: textPrimary),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis),
+                    Text('#${c['id']} · $objective',
+                        style: TextStyle(fontSize: 11, color: textSecondary)),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: isLive ? const Color(0xFF34C759).withOpacity(0.15) : Colors.grey.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  reviewStatus,
+                  style: TextStyle(
+                    color: isLive ? const Color(0xFF34C759) : textSecondary,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 11,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          const Divider(height: 1),
+          const SizedBox(height: 12),
+
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _metricBox('Status', status, isLive ? const Color(0xFF34C759) : textPrimary, textSecondary),
+              _metricBox('Daily', dailyBudget != null ? '\$${dailyBudget.toStringAsFixed(2)}' : '—', textPrimary, textSecondary),
+              _metricBox('Total', totalBudget != null ? '\$${totalBudget.toStringAsFixed(2)}' : '—', const Color(0xFF007AFF), textSecondary),
+              _metricBox('Review', reviewStatus, const Color(0xFF5856D6), textSecondary),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
