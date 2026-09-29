@@ -671,19 +671,23 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
               final senderName = user?['name'] ?? 'A Viewer';
               final giftName = m['gift_name']?.toString() ?? 'Celebration Gift';
               final coinPrice = (m['coin_price'] as num?)?.toInt() ?? 100;
-              final animType = coinPrice >= 1000
-                  ? 'full_screen'
-                  : (coinPrice >= 400
-                        ? 'premium'
-                        : (coinPrice <= 20 ? 'micro' : 'standard'));
+              final animType = m['animation_type']?.toString()?.isNotEmpty == true
+                  ? m['animation_type']!.toString()
+                  : (coinPrice >= 1000
+                        ? 'full_screen'
+                        : (coinPrice >= 400
+                              ? 'premium'
+                              : (coinPrice <= 20 ? 'micro' : 'standard')));
 
               ref
                   .read(giftAnimationProvider.notifier)
                   .play(
                     GiftAnimationData(
                       giftName: giftName,
-                      iconUrl: m['icon_url']?.toString(),
-                      iconEmoji: '🎁',
+                      iconUrl: (m['gift_icon_url'] ??
+                              m['icon_url'])
+                          ?.toString(),
+                      iconEmoji: GiftOption.emojiFor(giftName),
                       coinPrice: coinPrice,
                       senderName: senderName,
                       recipientName: _effectiveHostName,

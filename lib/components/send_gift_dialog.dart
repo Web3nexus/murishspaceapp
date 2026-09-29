@@ -20,6 +20,9 @@ class GiftOption {
   final int coinCost;
   final Color color;
   final String animationType;
+  final String localFormatted;
+  final String localCurrency;
+  final double localPrice;
 
   const GiftOption({
     required this.id,
@@ -30,88 +33,15 @@ class GiftOption {
     required this.coinCost,
     required this.color,
     this.animationType = 'standard',
+    this.localFormatted = '',
+    this.localCurrency = 'NGN',
+    this.localPrice = 0,
   });
 
   factory GiftOption.fromJson(Map<String, dynamic> json) {
     final name = json['name']?.toString() ?? 'Gift';
     final price = (json['coin_price'] as num?)?.toInt() ?? 50;
     final iconUrl = json['icon_url']?.toString();
-
-    // Assign emoji and color based on name/category
-    String emoji = '🎁';
-    Color col = const Color(0xFFFF9500);
-    final lower = name.toLowerCase();
-
-    if (lower.contains('love') || lower.contains('heart')) {
-      emoji = '💖';
-      col = const Color(0xFFFF2D55);
-    } else if (lower.contains('legit')) {
-      emoji = '🛡️';
-      col = const Color(0xFF00C853);
-    } else if (lower.contains('wine') || lower.contains('champagne')) {
-      emoji = '🍷';
-      col = const Color(0xFF9C27B0);
-    } else if (lower.contains('hookup')) {
-      emoji = '🔥';
-      col = const Color(0xFFFF3D00);
-    } else if (lower.contains('ankh')) {
-      emoji = '☥';
-      col = const Color(0xFFFFD700);
-    } else if (lower.contains('party')) {
-      emoji = '🎉';
-      col = const Color(0xFFFF9500);
-    } else if (lower.contains('fatima')) {
-      emoji = '🪬';
-      col = const Color(0xFF00B0FF);
-    } else if (lower.contains('aries')) {
-      emoji = '♈';
-      col = const Color(0xFFFF5252);
-    } else if (lower.contains('taurus')) {
-      emoji = '♉';
-      col = const Color(0xFFFFB300);
-    } else if (lower.contains('gemini')) {
-      emoji = '♊';
-      col = const Color(0xFFFFEE58);
-    } else if (lower.contains('cancer')) {
-      emoji = '♋';
-      col = const Color(0xFF4FC3F7);
-    } else if (lower.contains('leo')) {
-      emoji = '♌';
-      col = const Color(0xFFFF9800);
-    } else if (lower.contains('virgo')) {
-      emoji = '♍';
-      col = const Color(0xFF81C784);
-    } else if (lower.contains('church')) {
-      emoji = '⛪';
-      col = const Color(0xFF7E57C2);
-    } else if (lower.contains('mosque')) {
-      emoji = '🕌';
-      col = const Color(0xFF26A69A);
-    } else if (lower.contains('mentor')) {
-      emoji = '🎓';
-      col = const Color(0xFF3F51B5);
-    } else if (lower.contains('anpu') || lower.contains('anubis')) {
-      emoji = '🐺';
-      col = const Color(0xFFFF9500);
-    } else if (lower.contains('shrine')) {
-      emoji = '⛩️';
-      col = const Color(0xFFE91E63);
-    } else if (lower.contains('master')) {
-      emoji = '🗝️';
-      col = const Color(0xFFFFD700);
-    } else if (lower.contains('thot') || lower.contains('djehuti')) {
-      emoji = '📜';
-      col = const Color(0xFF00BCD4);
-    } else if (lower.contains('king') || lower.contains('crown')) {
-      emoji = '👑';
-      col = const Color(0xFFFFD700);
-    } else if (lower.contains('cruise') || lower.contains('ship')) {
-      emoji = '🚢';
-      col = const Color(0xFF0288D1);
-    } else if (lower.contains('mansion') || lower.contains('castle')) {
-      emoji = '🏰';
-      col = const Color(0xFFD4AF37);
-    }
 
     String animType = json['animation_type']?.toString() ?? '';
     if (animType.isEmpty) {
@@ -129,13 +59,122 @@ class GiftOption {
     return GiftOption(
       id: (json['id'] as num?)?.toInt() ?? 1,
       name: name,
-      icon: emoji,
+      icon: emojiFor(name),
       iconUrl: iconUrl,
       animationUrl: json['animation_url']?.toString(),
       coinCost: price,
-      color: col,
+      color: colorFor(name),
       animationType: animType,
+      localFormatted: json['local_formatted']?.toString() ?? '',
+      localCurrency: json['local_currency']?.toString() ?? 'NGN',
+      localPrice: (json['local_price'] as num?)?.toDouble() ?? 0,
     );
+  }
+
+  /// Emoji fallback for a gift by name (used when the artwork image is missing).
+  static String emojiFor(String name) {
+    final lower = name.toLowerCase();
+    if (lower.contains('love') || lower.contains('heart')) {
+      return '💖';
+    } else if (lower.contains('legit')) {
+      return '🛡️';
+    } else if (lower.contains('wine') || lower.contains('champagne')) {
+      return '🍷';
+    } else if (lower.contains('hookup')) {
+      return '🔥';
+    } else if (lower.contains('ankh')) {
+      return '☥';
+    } else if (lower.contains('party')) {
+      return '🎉';
+    } else if (lower.contains('fatima')) {
+      return '🪬';
+    } else if (lower.contains('aries')) {
+      return '♈';
+    } else if (lower.contains('taurus')) {
+      return '♉';
+    } else if (lower.contains('gemini')) {
+      return '♊';
+    } else if (lower.contains('cancer')) {
+      return '♋';
+    } else if (lower.contains('leo')) {
+      return '♌';
+    } else if (lower.contains('virgo')) {
+      return '♍';
+    } else if (lower.contains('church')) {
+      return '⛪';
+    } else if (lower.contains('mosque')) {
+      return '🕌';
+    } else if (lower.contains('mentor')) {
+      return '🎓';
+    } else if (lower.contains('anpu') || lower.contains('anubis')) {
+      return '🐺';
+    } else if (lower.contains('shrine')) {
+      return '⛩️';
+    } else if (lower.contains('master')) {
+      return '🗝️';
+    } else if (lower.contains('thot') || lower.contains('djehuti')) {
+      return '📜';
+    } else if (lower.contains('king') || lower.contains('crown')) {
+      return '👑';
+    } else if (lower.contains('cruise') || lower.contains('ship')) {
+      return '🚢';
+    } else if (lower.contains('mansion') || lower.contains('castle')) {
+      return '🏰';
+    }
+    return '🎁';
+  }
+
+  /// Accent color for a gift by name.
+  static Color colorFor(String name) {
+    final lower = name.toLowerCase();
+    if (lower.contains('love') || lower.contains('heart')) {
+      return const Color(0xFFFF2D55);
+    } else if (lower.contains('legit')) {
+      return const Color(0xFF00C853);
+    } else if (lower.contains('wine') || lower.contains('champagne')) {
+      return const Color(0xFF9C27B0);
+    } else if (lower.contains('hookup')) {
+      return const Color(0xFFFF3D00);
+    } else if (lower.contains('ankh')) {
+      return const Color(0xFFFFD700);
+    } else if (lower.contains('party')) {
+      return const Color(0xFFFF9500);
+    } else if (lower.contains('fatima')) {
+      return const Color(0xFF00B0FF);
+    } else if (lower.contains('aries')) {
+      return const Color(0xFFFF5252);
+    } else if (lower.contains('taurus')) {
+      return const Color(0xFFFFB300);
+    } else if (lower.contains('gemini')) {
+      return const Color(0xFFFFEE58);
+    } else if (lower.contains('cancer')) {
+      return const Color(0xFF4FC3F7);
+    } else if (lower.contains('leo')) {
+      return const Color(0xFFFF9800);
+    } else if (lower.contains('virgo')) {
+      return const Color(0xFF81C784);
+    } else if (lower.contains('church')) {
+      return const Color(0xFF7E57C2);
+    } else if (lower.contains('mosque')) {
+      return const Color(0xFF26A69A);
+    } else if (lower.contains('mentor')) {
+      return const Color(0xFF3F51B5);
+    } else if (lower.contains('anpu') || lower.contains('anubis')) {
+      return const Color(0xFFFF9500);
+    } else if (lower.contains('shrine')) {
+      return const Color(0xFFE91E63);
+    } else if (lower.contains('master')) {
+      return const Color(0xFFFFD700);
+    } else if (lower.contains('thot') || lower.contains('djehuti')) {
+      return const Color(0xFF00BCD4);
+    } else if (lower.contains('king') || lower.contains('crown')) {
+      return const Color(0xFFFFD700);
+    } else if (lower.contains('cruise') || lower.contains('ship')) {
+      return const Color(0xFF0288D1);
+    } else if (lower.contains('mansion') || lower.contains('castle')) {
+      return const Color(0xFFD4AF37);
+    }
+    return const Color(0xFFFF9500);
   }
 }
 
@@ -246,6 +285,14 @@ class _SendGiftDialogState extends ConsumerState<SendGiftDialog> {
       return walletState.coinsBalance;
     }
     return authState.user?.coins ?? 0;
+  }
+
+  /// Displays the admin-set USD price converted into the user's local currency
+  /// (driven by the server from the user's country) when available.
+  String _priceLabel(GiftOption? gift) {
+    final g = gift;
+    if (g == null) return '';
+    return g.localFormatted.isNotEmpty ? g.localFormatted : '🪙 ${g.coinCost} MSH';
   }
 
   void _showInsufficientCoinsSheet(GiftOption gift, int currentCoins) {
@@ -581,6 +628,11 @@ class _SendGiftDialogState extends ConsumerState<SendGiftDialog> {
                                 '🪙 ${gift.coinCost} MSH',
                                 style: TextStyle(fontSize: 10, color: gift.color, fontWeight: FontWeight.w900),
                               ),
+                              if (gift.localFormatted.isNotEmpty)
+                                Text(
+                                  gift.localFormatted,
+                                  style: TextStyle(fontSize: 10, color: textSecondary, fontWeight: FontWeight.w700),
+                                ),
                             ],
                           ),
                         ),
@@ -613,8 +665,8 @@ class _SendGiftDialogState extends ConsumerState<SendGiftDialog> {
                         const SizedBox(width: 8),
                         Text(
                           hasEnoughCoins
-                              ? 'Send ${_selectedGift?.name ?? 'Gift'} (🪙 ${_selectedGift?.coinCost ?? 0} MSH)'
-                              : 'Top Up Wallet to Send (🪙 ${_selectedGift?.coinCost ?? 0} MSH)',
+                              ? 'Send ${_selectedGift?.name ?? 'Gift'} (${_priceLabel(_selectedGift)})'
+                              : 'Top Up Wallet to Send (${_priceLabel(_selectedGift)})',
                           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                         ),
                       ],

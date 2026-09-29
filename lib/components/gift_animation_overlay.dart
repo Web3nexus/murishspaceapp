@@ -487,8 +487,6 @@ class _GiftOverlayViewState extends State<_GiftOverlayView> with TickerProviderS
                                 Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Icon(Icons.auto_awesome, color: _getPrimaryColor(_kind), size: 15),
-                                    const SizedBox(width: 6),
                                     Text(
                                       _getBannerTitle(_kind, widget.data.senderName),
                                       style: TextStyle(
@@ -498,8 +496,6 @@ class _GiftOverlayViewState extends State<_GiftOverlayView> with TickerProviderS
                                         letterSpacing: 1.3,
                                       ),
                                     ),
-                                    const SizedBox(width: 6),
-                                    Icon(Icons.auto_awesome, color: _getPrimaryColor(_kind), size: 15),
                                   ],
                                 ),
                                 const SizedBox(height: 8),
