@@ -12,6 +12,7 @@ import '../core/design_tokens.dart';
 import '../core/roles.dart';
 import '../providers/auth_provider.dart';
 import '../providers/platform_provider.dart';
+import 'login_visibility.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -421,19 +422,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
 
     final config = platformState.config;
-    final phoneEnabled = config?.isLoginEnabled('phone_otp') ?? true;
-    final emailEnabled = config?.isLoginEnabled('email_password') ?? true;
-    final googleEnabled = config?.isLoginEnabled('google') ?? true;
-    final appleEnabled = config?.isLoginEnabled('apple') ?? true;
+    final methods = LoginMethodVisibility(
+      phoneEnabled: config?.isLoginEnabled('phone_otp') ?? true,
+      emailEnabled: config?.isLoginEnabled('email_password') ?? true,
+      googleEnabled: config?.isLoginEnabled('google') ?? true,
+      appleEnabled: config?.isLoginEnabled('apple') ?? true,
+    );
+    final phoneEnabled = methods.showPhone;
+    final emailEnabled = methods.showEmailPassword;
+    final googleEnabled = methods.googleEnabled;
+    final appleEnabled = methods.appleEnabled;
 
     // Ensure we don't land on a disabled tab
-    if (_tabIndex == 0 && !phoneEnabled && emailEnabled) {
+    if (methods.resolveTabIndex(_tabIndex) != _tabIndex) {
+      final target = methods.resolveTabIndex(_tabIndex);
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) setState(() => _tabIndex = 1);
-      });
-    } else if (_tabIndex == 1 && !emailEnabled && phoneEnabled) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) setState(() => _tabIndex = 0);
+        if (mounted) setState(() => _tabIndex = target);
       });
     }
 
@@ -474,7 +478,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 const SizedBox(height: 32),
 
                 // Tabs
-                if (phoneEnabled && emailEnabled)
+                if (methods.showTabSwitcher)
                   Container(
                     padding: const EdgeInsets.all(4),
                     decoration: BoxDecoration(
@@ -543,7 +547,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ],
                     ),
                   )
-                else if (!phoneEnabled && !emailEnabled)
+                else if (!methods.anyMethodEnabled)
                   const Text(
                     'Login is currently disabled.',
                     textAlign: TextAlign.center,
