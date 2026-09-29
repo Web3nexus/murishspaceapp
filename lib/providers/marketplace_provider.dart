@@ -105,7 +105,7 @@ class MarketplaceNotifier extends Notifier<MarketplaceState> {
       }
 
       state = state.copyWith(
-        products: list.isNotEmpty ? list : state.products,
+        products: list,
         isLoading: false,
         error: null,
       );
@@ -237,7 +237,7 @@ class MarketplaceNotifier extends Notifier<MarketplaceState> {
       });
       return true;
     } catch (_) {
-      return true;
+      return false;
     }
   }
 
@@ -246,7 +246,7 @@ class MarketplaceNotifier extends Notifier<MarketplaceState> {
       await _dio.post('/products/$productId/save');
       return true;
     } catch (_) {
-      return true;
+      return false;
     }
   }
 
@@ -255,7 +255,7 @@ class MarketplaceNotifier extends Notifier<MarketplaceState> {
       await _dio.post('/products/$productId/alerts');
       return true;
     } catch (_) {
-      return true;
+      return false;
     }
   }
 
@@ -264,7 +264,7 @@ class MarketplaceNotifier extends Notifier<MarketplaceState> {
       await _dio.post('/follow/$sellerId');
       return true;
     } catch (_) {
-      return true;
+      return false;
     }
   }
 }
