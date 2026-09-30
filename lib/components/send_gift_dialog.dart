@@ -34,7 +34,7 @@ class GiftOption {
     required this.color,
     this.animationType = 'standard',
     this.localFormatted = '',
-    this.localCurrency = 'NGN',
+    this.localCurrency = 'USD',
     this.localPrice = 0,
   });
 
@@ -66,7 +66,7 @@ class GiftOption {
       color: colorFor(name),
       animationType: animType,
       localFormatted: json['local_formatted']?.toString() ?? '',
-      localCurrency: json['local_currency']?.toString() ?? 'NGN',
+      localCurrency: json['local_currency']?.toString() ?? 'USD',
       localPrice: (json['local_price'] as num?)?.toDouble() ?? 0,
     );
   }

@@ -54,7 +54,7 @@ class CoinPack {
     required this.currency,
     required this.badge,
     this.localFormatted = '',
-    this.localCurrency = 'NGN',
+    this.localCurrency = 'USD',
     this.localPrice = 0.0,
   });
 
@@ -70,7 +70,7 @@ class CoinPack {
       currency: json['currency']?.toString() ?? 'USD',
       badge: json['badge']?.toString(),
       localFormatted: json['local_formatted']?.toString() ?? '',
-      localCurrency: json['local_currency']?.toString() ?? 'NGN',
+      localCurrency: json['local_currency']?.toString() ?? 'USD',
       localPrice: (json['local_price'] as num?)?.toDouble() ?? 0.0,
     );
   }
@@ -85,7 +85,7 @@ class WalletInfo {
   factory WalletInfo.fromJson(Map<String, dynamic> json) {
     return WalletInfo(
       balance: (json['balance'] as num?)?.toInt() ?? 0,
-      currency: json['currency']?.toString() ?? 'NGN',
+      currency: json['currency']?.toString() ?? 'USD',
     );
   }
 }
@@ -210,7 +210,7 @@ class GiftsNotifier extends Notifier<GiftsState> {
         if (raw is Map<String, dynamic> && raw['wallet_type'] == 'system') {
           walletInfo = WalletInfo(
             balance: (raw['available'] as num?)?.toInt() ?? 0,
-            currency: raw['currency'] as String? ?? 'NGN',
+            currency: raw['currency'] as String? ?? 'USD',
           );
           break;
         }

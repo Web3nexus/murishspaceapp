@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../components/app_bottom_sheet.dart';
 import '../core/api_client.dart';
-import '../core/design_tokens.dart';
+import '../core/currency_formatter.dart';
 import '../core/roles.dart';
 import '../models/marketplace_models.dart';
 import '../providers/auth_provider.dart';
@@ -225,15 +225,17 @@ class _AdsManagerScreenState extends ConsumerState<AdsManagerScreen>
     final totalBudget = _dailyBudget * _durationDays;
     final wallet = ref.read(walletProvider);
 
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     final activeW = wallet.wallets.isNotEmpty ? wallet.wallets.first : null;
     final bal = (activeW?.available ?? 0) / 100.0;
+
+    final sysWallet = wallet.wallets.where((w) => w.type == WalletType.system).firstOrNull;
+    final localRate = sysWallet?.localRate ?? 0.0;
+    final localCurrency = sysWallet?.localCurrency ?? 'USD';
 
     final confirm = await AppBottomSheet.showConfirmation(
       context: context,
       title: 'Confirm Campaign Launch',
-      message: 'Campaign: ${_campaignTitleController.text}\nObjective: $_selectedObjective\nDuration: $_durationDays Days\nTotal Budget: \$${totalBudget.toStringAsFixed(2)}\nWallet Balance: \$${bal.toStringAsFixed(2)}',
+      message: 'Campaign: ${_campaignTitleController.text}\nObjective: $_selectedObjective\nDuration: $_durationDays Days\nTotal Budget: ${CurrencyFormatter.formatDual((totalBudget * 100).round(), localRate: localRate, localCurrency: localCurrency)}\nWallet Balance: \$${bal.toStringAsFixed(2)}',
       confirmText: 'Launch Now',
       icon: Icons.campaign_rounded,
     );
@@ -470,6 +472,10 @@ class _AdsManagerScreenState extends ConsumerState<AdsManagerScreen>
         : const ['Catalog Sales'];
     final ctaOptions = _ctaOptions;
 
+    final sysWallet = ref.watch(walletProvider).wallets.where((w) => w.type == WalletType.system).firstOrNull;
+    final localRate = sysWallet?.localRate ?? 0.0;
+    final localCurrency = sysWallet?.localCurrency ?? 'USD';
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -588,8 +594,10 @@ class _AdsManagerScreenState extends ConsumerState<AdsManagerScreen>
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     const Text('Total Budget:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                    Text('\$${(_dailyBudget * _durationDays).toStringAsFixed(2)} USD',
-                        style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Color(0xFF34C759))),
+                    Text(
+                      CurrencyFormatter.formatDual((_dailyBudget * _durationDays * 100).round(), localRate: localRate, localCurrency: localCurrency),
+                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Color(0xFF34C759)),
+                    ),
                   ],
                 ),
               ],

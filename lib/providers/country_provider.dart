@@ -32,7 +32,7 @@ class Country {
       name: json['name'] as String? ?? '',
       callingCode: json['calling_code'] as String? ?? '',
       flag: json['flag'] as String?,
-      currency: json['currency'] as String? ?? 'NGN',
+      currency: json['currency'] as String? ?? 'USD',
       stateRequired: json['state_required'] as bool? ?? false,
       postalCodeRequired: json['postal_code_required'] as bool? ?? false,
     );

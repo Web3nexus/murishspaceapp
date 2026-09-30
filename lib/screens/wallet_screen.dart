@@ -964,8 +964,8 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
     final coinBalance = activeWallet?.coins ?? cashMinorUnits;
     final currency = activeWallet?.currency ?? 'USD';
     final localEstimated = activeWallet?.localFormatted ?? '';
-    final localRate = activeWallet?.localRate ?? 1326.0;
-    final localCurrency = activeWallet?.localCurrency ?? 'NGN';
+    final localRate = activeWallet?.localRate ?? 0.0;
+    final localCurrency = activeWallet?.localCurrency ?? 'USD';
 
     final cardGradients = [
       const [Color(0xFF007AFF), Color(0xFF5856D6)],
@@ -1031,7 +1031,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
             _hideBalance ? '••••••••' : CurrencyFormatter.format(cashMinorUnits, currency),
             style: const TextStyle(color: Colors.white, fontSize: 34, fontWeight: FontWeight.w900, letterSpacing: 0.5),
           ),
-          if (!_hideBalance && localEstimated.isNotEmpty) ...[
+          if (!_hideBalance && localEstimated.isNotEmpty && localCurrency != 'USD' && localRate > 0) ...[
             const SizedBox(height: 2),
             Text(
               '≈ $localEstimated  (\$1 = ${CurrencyFormatter.getSymbol(localCurrency)}${localRate.toStringAsFixed(0)})',

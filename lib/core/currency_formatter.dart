@@ -29,7 +29,7 @@ class CurrencyFormatter {
 
   /// Formats a USD minor unit amount with an optional localized currency subtitle.
   /// Example: "$10.00 (≈ ₦13,260.00)"
-  static String formatDual(int usdMinorUnits, {double? localRate, String localCurrency = 'NGN'}) {
+  static String formatDual(int usdMinorUnits, {double? localRate, String localCurrency = 'USD'}) {
     final usdFormatted = format(usdMinorUnits, 'USD');
     if (localRate == null || localRate <= 0 || localCurrency.toUpperCase() == 'USD') {
       return usdFormatted;

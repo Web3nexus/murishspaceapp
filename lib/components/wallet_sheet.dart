@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../providers/gifts_provider.dart';
 import '../providers/wallet_provider.dart';
+import '../core/currency_formatter.dart';
 import 'send_gift_dialog.dart';
 import 'wallet_terms_dialog.dart';
 
@@ -67,6 +68,12 @@ class _WalletSheetState extends ConsumerState<WalletSheet> {
 
     final walletState = ref.watch(walletProvider);
     final coins = walletState.coinsBalance;
+
+    final localWallet = walletState.wallets.where((w) => w.type == WalletType.system).firstOrNull;
+    final localCurrencyLabel = (localWallet != null && localWallet.localCurrency != 'USD' && localWallet.localCurrency.isNotEmpty)
+        ? localWallet.localCurrency
+        : 'USD';
+    final localCurrencySymbol = CurrencyFormatter.getSymbol(localCurrencyLabel);
 
     final media = MediaQuery.of(context);
 
@@ -161,7 +168,7 @@ class _WalletSheetState extends ConsumerState<WalletSheet> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Asset Tabs: USD, NGN, Coins
+                    // Asset Tabs: USD, Local Currency, Coins
                     Container(
                       decoration: BoxDecoration(
                         color: cardBg,
@@ -171,7 +178,7 @@ class _WalletSheetState extends ConsumerState<WalletSheet> {
                       child: Row(
                         children: [
                           _tabPill(index: 0, label: 'USD (\$)'),
-                          _tabPill(index: 1, label: 'NGN (₦)'),
+                          _tabPill(index: 1, label: '$localCurrencyLabel ($localCurrencySymbol)'),
                           _tabPill(index: 2, label: 'MSH Coins (🪙)'),
                         ],
                       ),
@@ -346,6 +353,7 @@ class _WalletSheetState extends ConsumerState<WalletSheet> {
   Widget _buildBalanceCard(WalletState walletState, int coins, bool isDark) {
     String balanceDisplay = '\$0.00';
     String secondaryInfo = 'Safe Escrow & Settlement Account';
+    final sysWallet = walletState.wallets.where((w) => w.type == WalletType.system).firstOrNull;
 
     if (_hideBalance) {
       balanceDisplay = '••••••••';
@@ -354,8 +362,14 @@ class _WalletSheetState extends ConsumerState<WalletSheet> {
         balanceDisplay = '\$${walletState.systemBalance.toStringAsFixed(2)}';
         secondaryInfo = 'USD Escrow & Multi-Currency Account';
       } else if (_selectedAssetTab == 1) {
-        balanceDisplay = '₦${(walletState.systemBalance * 1550).toStringAsFixed(2)}';
-        secondaryInfo = 'NGN Local Currency Wallet';
+        final w = sysWallet;
+        if (w != null && w.localCurrency != 'USD' && w.localRate > 0 && w.localFormatted.isNotEmpty) {
+          balanceDisplay = w.localFormatted;
+          secondaryInfo = '${w.localCurrency} Local Currency Wallet';
+        } else {
+          balanceDisplay = '\$0.00';
+          secondaryInfo = 'Local currency unavailable — balance is USD';
+        }
       } else {
         balanceDisplay = '$coins MSH';
         secondaryInfo = 'Virtual Coins for Tipping & Gifts';
