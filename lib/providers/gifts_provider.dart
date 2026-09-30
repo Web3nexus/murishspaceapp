@@ -11,6 +11,9 @@ class GiftItem {
   final int coinPrice;
   final int creatorEarns;
   final String category;
+  final String? localFormatted;
+  final String? localCurrency;
+  final double? localPrice;
 
   GiftItem({
     required this.id,
@@ -19,6 +22,9 @@ class GiftItem {
     required this.coinPrice,
     required this.creatorEarns,
     required this.category,
+    this.localFormatted,
+    this.localCurrency,
+    this.localPrice,
   });
 
   factory GiftItem.fromJson(Map<String, dynamic> json) {
@@ -29,6 +35,9 @@ class GiftItem {
       coinPrice: (json['coin_price'] as num?)?.toInt() ?? 0,
       creatorEarns: (json['creator_earns'] as num?)?.toInt() ?? 0,
       category: json['category']?.toString() ?? 'standard',
+      localFormatted: json['local_formatted']?.toString(),
+      localCurrency: json['local_currency']?.toString(),
+      localPrice: (json['local_price'] as num?)?.toDouble(),
     );
   }
 }

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../components/ui_states.dart';
+import '../components/liquid_glass.dart';
 import '../core/currency_formatter.dart';
 import '../providers/auth_provider.dart';
 import '../providers/gifts_provider.dart';
@@ -967,31 +968,18 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
     final localRate = activeWallet?.localRate ?? 0.0;
     final localCurrency = activeWallet?.localCurrency ?? 'USD';
 
-    final cardGradients = [
-      const [Color(0xFF007AFF), Color(0xFF5856D6)],
-      const [Color(0xFF5856D6), Color(0xFFFF2D55)],
-      const [Color(0xFFFF9500), Color(0xFFFF3B30)],
+    final cardTints = [
+      const Color(0xFF007AFF), // System: subtle sapphire refraction
+      const Color(0xFF8B5CF6), // Creator: subtle amethyst refraction
+      const Color(0xFF10B981), // Business: subtle emerald refraction
     ];
 
     final cardTitles = ['SYSTEM WALLET', 'CREATOR EARNINGS', 'BUSINESS ESCROW STORE'];
 
-    return Container(
+    return LiquidGlassCard(
+      isDark: isDark,
+      tintColor: cardTints[_activeCardIndex % cardTints.length],
       padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: cardGradients[_activeCardIndex % cardGradients.length],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: cardGradients[_activeCardIndex % cardGradients.length][0].withValues(alpha: 0.4),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1000,62 +988,128 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
             children: [
               Row(
                 children: [
-                  const Icon(Icons.shield_rounded, color: Color(0xFF34C759), size: 18),
-                  const SizedBox(width: 6),
-                  Text(cardTitles[_activeCardIndex % cardTitles.length], style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w900)),
+                  Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF34C759).withValues(alpha: 0.15),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.shield_rounded, color: Color(0xFF34C759), size: 14),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    cardTitles[_activeCardIndex % cardTitles.length],
+                    style: TextStyle(
+                      color: isDark ? Colors.white.withValues(alpha: 0.9) : Colors.black87,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
                 ],
               ),
-              GestureDetector(
+              LiquidGlassPill(
+                isDark: isDark,
                 onTap: () => setState(() => _activeCardIndex = (_activeCardIndex + 1) % 3),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.25),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Row(
-                    children: [
-                      Text('Switch Card', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
-                      SizedBox(width: 4),
-                      Icon(Icons.swap_horizontal_circle_outlined, color: Colors.white, size: 14),
-                    ],
-                  ),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                child: Row(
+                  children: [
+                    Text(
+                      'Switch Card',
+                      style: TextStyle(
+                        color: isDark ? Colors.white : Colors.black87,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 11,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Icon(
+                      Icons.swap_horizontal_circle_outlined,
+                      color: isDark ? Colors.white70 : Colors.black54,
+                      size: 14,
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
           const SizedBox(height: 18),
-          const Text('Total Available Balance (USD Base)', style: TextStyle(color: Colors.white70, fontSize: 13)),
+          Text(
+            'Total Available Balance (USD Base)',
+            style: TextStyle(
+              color: isDark ? Colors.white60 : Colors.black54,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
           const SizedBox(height: 4),
           Text(
             _hideBalance ? '••••••••' : CurrencyFormatter.format(cashMinorUnits, currency),
-            style: const TextStyle(color: Colors.white, fontSize: 34, fontWeight: FontWeight.w900, letterSpacing: 0.5),
+            style: TextStyle(
+              color: isDark ? Colors.white : Colors.black,
+              fontSize: 34,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0.5,
+            ),
           ),
           if (!_hideBalance && localEstimated.isNotEmpty && localCurrency != 'USD' && localRate > 0) ...[
-            const SizedBox(height: 2),
-            Text(
-              '≈ $localEstimated  (\$1 = ${CurrencyFormatter.getSymbol(localCurrency)}${localRate.toStringAsFixed(0)})',
-              style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Text(
+                  '≈ $localEstimated',
+                  style: TextStyle(
+                    color: isDark ? Colors.white70 : Colors.black87,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    '\$1 = ${CurrencyFormatter.getSymbol(localCurrency)}${localRate.toStringAsFixed(0)}',
+                    style: TextStyle(
+                      color: isDark ? Colors.white60 : Colors.black54,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('•••• •••• •••• 9842', style: TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w600, letterSpacing: 1.5)),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.25),
-                  borderRadius: BorderRadius.circular(12),
+              Text(
+                '•••• •••• •••• 9842',
+                style: TextStyle(
+                  color: isDark ? Colors.white38 : Colors.black38,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 1.5,
                 ),
+              ),
+              LiquidGlassPill(
+                isDark: isDark,
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 child: Row(
                   children: [
-                    const Icon(Icons.monetization_on_rounded, color: Color(0xFFFFD700), size: 15),
+                    const Icon(Icons.monetization_on_rounded, color: Color(0xFFFFD700), size: 14),
                     const SizedBox(width: 5),
                     Text(
                       _hideBalance ? 'MSH: ••••' : CurrencyFormatter.formatCoins(coinBalance),
-                      style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w800),
+                      style: TextStyle(
+                        color: isDark ? Colors.white : Colors.black87,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                   ],
                 ),
@@ -1253,9 +1307,9 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                     CurrencyFormatter.format(wallet.available, wallet.currency),
                     style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Color(0xFF007AFF)),
                   ),
-                  if (wallet.localFormatted != null && wallet.currency == 'USD')
+                  if (wallet.localFormatted.isNotEmpty && wallet.currency == 'USD')
                     Text(
-                      wallet.localFormatted!,
+                      wallet.localFormatted,
                       style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: isDark ? Colors.grey[400] : Colors.grey[600]),
                     ),
                 ],
@@ -1400,35 +1454,6 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                 ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                 : Text(CurrencyFormatter.format(pack.price, pack.currency), style: const TextStyle(fontWeight: FontWeight.bold)),
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildLedgerTile(String title, String subtitle, String amount, Color color, bool isDark) {
-    final cardBg = isDark ? const Color(0xFF1C1C1E) : Colors.white;
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: cardBg, borderRadius: BorderRadius.circular(16)),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: color.withValues(alpha: 0.15), shape: BoxShape.circle),
-            child: Icon(Icons.receipt_long_rounded, color: color, size: 20),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: isDark ? Colors.white : Colors.black)),
-                Text(subtitle, style: TextStyle(fontSize: 12, color: isDark ? Colors.grey[400] : Colors.grey[600])),
-              ],
-            ),
-          ),
-          Text(amount, style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: color)),
         ],
       ),
     );

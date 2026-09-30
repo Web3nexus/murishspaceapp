@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../providers/gifts_provider.dart';
 import '../providers/wallet_provider.dart';
 import '../core/currency_formatter.dart';
+import 'liquid_glass.dart';
 import 'send_gift_dialog.dart';
 import 'wallet_terms_dialog.dart';
 
@@ -376,53 +377,53 @@ class _WalletSheetState extends ConsumerState<WalletSheet> {
       }
     }
 
-    return Container(
-      width: double.infinity,
+    return LiquidGlassCard(
+      borderRadius: 22,
+      blurSigma: 18,
+      tintColor: const Color(0xFF007AFF),
+      isDark: isDark,
       padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: isDark
-              ? [const Color(0xFF0F2027), const Color(0xFF203A43), const Color(0xFF2C5364)]
-              : [const Color(0xFF007AFF), const Color(0xFF0051C6), const Color(0xFF00388B)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF007AFF).withValues(alpha: 0.3),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 'TOTAL AVAILABLE BALANCE',
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w800,
                   letterSpacing: 1.0,
-                  color: Colors.white70,
+                  color: isDark ? Colors.white70 : const Color(0xFF334155),
                 ),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.2),
+                  color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.12),
+                  ),
                 ),
-                child: const Row(
+                child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.lock_outline_rounded, color: Colors.white, size: 12),
-                    SizedBox(width: 4),
-                    Text('Escrow Protected', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                    Icon(
+                      Icons.lock_outline_rounded,
+                      color: isDark ? const Color(0xFF34C759) : const Color(0xFF16A34A),
+                      size: 12,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Escrow Protected',
+                      style: TextStyle(
+                        color: isDark ? Colors.white : const Color(0xFF0F172A),
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -431,17 +432,20 @@ class _WalletSheetState extends ConsumerState<WalletSheet> {
           const SizedBox(height: 10),
           Text(
             balanceDisplay,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 32,
               fontWeight: FontWeight.w900,
-              color: Colors.white,
+              color: isDark ? Colors.white : const Color(0xFF0F172A),
               letterSpacing: -0.5,
             ),
           ),
           const SizedBox(height: 6),
           Text(
             secondaryInfo,
-            style: const TextStyle(fontSize: 12, color: Colors.white70),
+            style: TextStyle(
+              fontSize: 12,
+              color: isDark ? Colors.white70 : const Color(0xFF64748B),
+            ),
           ),
         ],
       ),
