@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../components/brand.dart';
 import '../components/app_bottom_sheet.dart';
+import '../config/env.dart';
 import '../components/ui_states.dart';
 import '../core/roles.dart';
 import '../providers/auth_provider.dart';
@@ -341,7 +342,7 @@ class UpgradeAccountScreen extends ConsumerWidget {
       await AppBottomSheet.showNotice(
         context: context,
         title: 'Upgrade Requested!',
-        message: 'Your application to upgrade to ${targetRole.toUpperCase()} has been submitted successfully.\n\n🌐 Web Dashboard Access:\n1. Open https://murihspace.com/dashboard/$targetRole on your browser.\n2. Log in with your MurihSpace credentials.\n3. Access full store analytics, escrow payouts, and campaign management.',
+        message: 'Your application to upgrade to ${targetRole.toUpperCase()} has been submitted successfully.\n\n🌐 Web Dashboard Access:\n1. Open ${Env.absolute("/dashboard/$targetRole")} on your browser.\n2. Log in with your MurihSpace credentials.\n3. Access full store analytics, escrow payouts, and campaign management.',
         actionText: 'Got It!',
         customIconWidget: const BrandFavicon(size: 32),
       );

@@ -194,7 +194,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             context: context,
             title: 'Admin Web Portal Only',
             message:
-                'Admin accounts manage ecosystem growth, KYC approvals, fee configurations, and dispute releases exclusively on the Web Admin Dashboard.\n\nPlease log in at https://murihspace.com/admin on a browser.',
+                'Admin accounts manage ecosystem growth, KYC approvals, fee configurations, and dispute releases exclusively on the Web Admin Dashboard.\n\nPlease log in at ${Env.absolute('/securegate/login')} on a browser.',
             actionText: 'Understood',
             icon: Icons.admin_panel_settings_rounded,
           );

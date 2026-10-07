@@ -81,36 +81,14 @@
                  bundling hosts would fail verification for all of them if any
                  single one cannot be verified.
 
+                 Only subdomains serve the app. The apex `murihspace.com` is a
+                 separate marketing site with none of these routes, so claiming
+                 it would fail verification for no benefit.
+
                  Keep the pathPrefix list in sync with
                  `DeepLinks.appClaimedPrefixes` in lib/config/deep_links.dart
                  and the `components` list in
                  web/frontend/public/.well-known/apple-app-site-association. -->
-            <intent-filter android:autoVerify="true">
-                <action android:name="android.intent.action.VIEW"/>
-                <category android:name="android.intent.category.DEFAULT"/>
-                <category android:name="android.intent.category.BROWSABLE"/>
-                <data android:scheme="https" android:host="murihspace.com" android:pathPrefix="/live/"/>
-                <data android:scheme="https" android:host="murihspace.com" android:pathPrefix="/m/"/>
-                <data android:scheme="https" android:host="murihspace.com" android:pathPrefix="/e/"/>
-                <data android:scheme="https" android:host="murihspace.com" android:pathPrefix="/p/"/>
-                <data android:scheme="https" android:host="murihspace.com" android:pathPrefix="/chat/"/>
-                <data android:scheme="https" android:host="murihspace.com" android:pathPrefix="/u/"/>
-                <data android:scheme="https" android:host="murihspace.com" android:pathPrefix="/c/"/>
-                <data android:scheme="https" android:host="murihspace.com" android:pathPrefix="/l/"/>
-                <data android:scheme="https" android:host="murihspace.com" android:pathPrefix="/store/"/>
-                <data android:scheme="https" android:host="murihspace.com" android:pathPrefix="/meeting/"/>
-                <data android:scheme="https" android:host="murihspace.com" android:pathPrefix="/meetings/"/>
-                <data android:scheme="https" android:host="murihspace.com" android:pathPrefix="/events/"/>
-                <data android:scheme="https" android:host="murihspace.com" android:pathPrefix="/products/"/>
-                <data android:scheme="https" android:host="murihspace.com" android:pathPrefix="/conversation/"/>
-                <data android:scheme="https" android:host="murihspace.com" android:pathPrefix="/community/"/>
-                <data android:scheme="https" android:host="murihspace.com" android:pathPrefix="/communities/"/>
-                <data android:scheme="https" android:host="murihspace.com" android:pathPrefix="/bio/"/>
-                <data android:scheme="https" android:host="murihspace.com" android:pathPrefix="/app/meeting/"/>
-                <data android:scheme="https" android:host="murihspace.com" android:pathPrefix="/app/meetings/"/>
-                <data android:scheme="https" android:host="murihspace.com" android:pathPrefix="/app/conversation/"/>
-                <data android:scheme="https" android:host="murihspace.com" android:pathPrefix="/app/community/"/>
-            </intent-filter>
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW"/>
                 <category android:name="android.intent.category.DEFAULT"/>

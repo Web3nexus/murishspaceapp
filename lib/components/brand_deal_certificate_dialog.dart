@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../config/env.dart';
 import '../core/design_tokens.dart';
 
 /// Official Digital Escrow Contract Certificate & Legal Protection Document Sheet.
@@ -173,7 +174,7 @@ class BrandDealCertificateDialog extends StatelessWidget {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
                     onPressed: () {
-                      Clipboard.setData(ClipboardData(text: 'https://murihspace.com/escrow/certificate/$certId'));
+                      Clipboard.setData(ClipboardData(text: Env.absolute('/escrow/certificate/$certId')));
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('Certificate link copied to clipboard!')),
                       );

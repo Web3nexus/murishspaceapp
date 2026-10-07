@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../components/brand.dart';
+import '../config/env.dart';
 import '../core/design_tokens.dart';
 
 const _secureStorage = FlutterSecureStorage();
@@ -25,9 +26,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   void initState() {
     super.initState();
     _privacyRecognizer = TapGestureRecognizer()
-      ..onTap = () => _launchUrl(context, 'https://murihspace.com/legal/privacy');
+      ..onTap = () => _launchUrl(context, Env.absolute('/privacy'));
     _termsRecognizer = TapGestureRecognizer()
-      ..onTap = () => _launchUrl(context, 'https://murihspace.com/legal/terms');
+      ..onTap = () => _launchUrl(context, Env.absolute('/terms'));
   }
 
   @override

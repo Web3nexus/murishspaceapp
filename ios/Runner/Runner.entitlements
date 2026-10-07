@@ -8,7 +8,6 @@
 	</array>
 	<key>com.apple.developer.associated-domains</key>
 	<array>
-		<string>applinks:murihspace.com</string>
 		<string>applinks:staging.murihspace.com</string>
 		<string>applinks:web.murihspace.com</string>
 	</array>
