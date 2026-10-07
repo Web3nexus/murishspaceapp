@@ -12,6 +12,8 @@ import '../components/online_status_badge.dart';
 import '../core/design_tokens.dart';
 import '../core/api_client.dart';
 import '../models/chat_models.dart';
+import '../config/env.dart';
+import '../config/deep_links.dart';
 import '../providers/chat_provider.dart';
 import '../providers/messages_provider.dart';
 import '../models/story_models.dart';
@@ -284,7 +286,7 @@ class _ChatProfileSettingsScreenState extends ConsumerState<ChatProfileSettingsS
                   trailing: const Icon(Icons.chevron_right_rounded),
                   onTap: () async {
                     Navigator.pop(ctx);
-                    final vcard = 'BEGIN:VCARD\r\nVERSION:3.0\r\nFN:$name\r\nTEL;TYPE=CELL:$phone\r\nNOTE:MurihSpace @$username\r\nURL:https://murihspace.com/@$username\r\nEND:VCARD';
+                    final vcard = 'BEGIN:VCARD\r\nVERSION:3.0\r\nFN:$name\r\nTEL;TYPE=CELL:$phone\r\nNOTE:MurihSpace @$username\r\nURL:${Env.absolute(DeepLinks.profile(username))}\r\nEND:VCARD';
                     await Share.share(vcard, subject: '$name Contact Card');
                   },
                 ),
@@ -316,7 +318,7 @@ class _ChatProfileSettingsScreenState extends ConsumerState<ChatProfileSettingsS
                   onTap: () {
                     Navigator.pop(ctx);
                     Clipboard.setData(ClipboardData(
-                      text: 'Name: $name\nPhone: $phone\nUsername: @$username\nProfile: https://murihspace.com/@$username',
+                      text: 'Name: $name\nPhone: $phone\nUsername: @$username\nProfile: ${Env.absolute(DeepLinks.profile(username))}',
                     ));
                     HapticFeedback.selectionClick();
                   },

@@ -1,5 +1,6 @@
-import 'dart:convert';
 import 'dart:io' show Platform;
+
+import 'deep_links.dart';
 
 /// Resolves which API backend (and Reverb cluster) the app talks to.
 ///
@@ -50,7 +51,7 @@ class Env {
   static const String _productionBaseUrl = 'https://api.murihspace.com/api/v1';
 
   static const String _stagingWebUrl = 'https://staging.murihspace.com';
-  static const String _productionWebUrl = 'https://murihspace.com';
+  static const String _productionWebUrl = 'https://web.murihspace.com';
 
   /// Resolves the primary frontend domain based on environment.
   static String get webBaseUrl {
@@ -85,14 +86,12 @@ class Env {
 
   /// Generates the canonical profile URL for any user handle.
   static String profileUrl(String username) {
-    final clean = username.trim().replaceFirst(RegExp(r'^@'), '');
-    return '$webBaseUrl/u/$clean';
+    return absolute(DeepLinks.profile(username));
   }
 
   /// Generates the canonical link-in-bio URL.
   static String linkInBioUrl(String username) {
-    final clean = username.trim().replaceFirst(RegExp(r'^@'), '');
-    return '$webBaseUrl/l/$clean';
+    return absolute(DeepLinks.linkInBio(username));
   }
 
   /// Builds a shareable, environment-aware deep link to a live stream.
@@ -108,16 +107,25 @@ class Env {
   }) {
     final tracking = trackingId?.trim();
     if (tracking != null && tracking.isNotEmpty) {
-      return '$livePublicUrl/live/${Uri.encodeComponent(tracking)}';
+      return absolute(DeepLinks.live(tracking));
     }
     if (streamId <= 0) {
-      return '$livePublicUrl/live';
+      return absolute(DeepLinks.livePath);
     }
-    final payload = hostUserId != null && hostUserId > 0
-        ? '$streamId:$hostUserId'
-        : '$streamId';
-    final token = base64Url.encode(utf8.encode(payload)).replaceAll('=', '');
-    return '$livePublicUrl/live/$token';
+    return absolute(
+      DeepLinks.live(
+        DeepLinks.encodeLiveToken(streamId, hostUserId: hostUserId),
+      ),
+    );
+  }
+
+  /// Builds the shareable web URL for a canonical in-app [path].
+  ///
+  /// Always returns an `https://` Universal Link so the recipient lands in the
+  /// app when it is installed and on the matching web page when it is not.
+  static String absolute(String path) {
+    final normalised = path.startsWith('/') ? path : '/$path';
+    return '${webBaseUrl.replaceAll(RegExp(r'/+$'), '')}$normalised';
   }
 
   /// Whether the app targets a hosted (staging/production) backend.

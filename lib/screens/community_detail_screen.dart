@@ -8,6 +8,8 @@ import '../components/community_manage_sheet.dart';
 import '../components/ui_states.dart';
 import '../core/api_client.dart';
 import '../core/design_tokens.dart';
+import '../config/env.dart';
+import '../config/deep_links.dart';
 import '../models/community_models.dart';
 import '../providers/auth_provider.dart';
 import '../providers/chat_provider.dart';
@@ -89,7 +91,9 @@ class _CommunityDetailScreenState extends ConsumerState<CommunityDetailScreen>
   }
 
   void _shareCommunity(Community community) {
-    final link = 'https://murihspace.com/app/communities/${community.slug}';
+    // Canonical deep link: opens the app when installed, the community page
+    // otherwise, and resolves on whichever environment the build targets.
+    final link = Env.absolute(DeepLinks.community(community.slug));
     Clipboard.setData(ClipboardData(text: link));
     showModalBottomSheet<void>(
       context: context,

@@ -7,6 +7,7 @@ import 'package:pinput/pinput.dart';
 
 import '../components/brand.dart';
 import '../components/inline_field_error.dart';
+import '../config/deep_links.dart';
 import '../core/api_client.dart';
 import '../core/design_tokens.dart';
 import '../core/roles.dart';
@@ -276,11 +277,28 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         );
 
     if (success && mounted) {
-      context.go('/app');
+      // A visitor who arrived from a shared link and chose "create account"
+      // instead of signing in must still end up where they were headed, so the
+      // same validated `returnTo` handling as login applies here.
+      final returnTo = DeepLinks.sanitiseReturnTo(
+        GoRouterState.of(context).uri.queryParameters['returnTo'],
+      );
+      context.go(returnTo ?? '/app');
     }
   }
 
-  @override
+    /// Login, reached from registration, carrying the same `returnTo` so a user
+  /// who switches from "create account" back to "sign in" does not lose the
+  /// shared link they originally opened.
+  String get _loginLocation {
+    final returnTo = DeepLinks.sanitiseReturnTo(
+      GoRouterState.of(context).uri.queryParameters['returnTo'],
+    );
+    if (returnTo == null) return '/auth/login';
+    return '/auth/login?returnTo=${Uri.encodeQueryComponent(returnTo)}';
+  }
+
+@override
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
     final platformState = ref.watch(platformProvider);
@@ -325,7 +343,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               )
             : IconButton(
                 icon: const Icon(Icons.close),
-                onPressed: () => context.go('/auth/login'),
+                onPressed: () => context.go(_loginLocation),
               ),
         title: Row(
           mainAxisSize: MainAxisSize.min,
@@ -466,7 +484,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             ),
             const SizedBox(height: 16),
             TextButton(
-              onPressed: () => context.go('/auth/login'),
+              onPressed: () => context.go(_loginLocation),
               child: const Text('Already have an account? Sign In'),
             ),
           ],

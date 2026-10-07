@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../config/env.dart';
+import '../config/deep_links.dart';
 import '../providers/chat_provider.dart';
 import '../providers/marketplace_provider.dart';
 
@@ -75,9 +77,14 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   void _shareProduct() {
     final title = widget.itemData['title'] as String? ?? 'Product';
     final id = widget.itemData['id'] as String? ?? '1';
-    final link = 'https://murihspace.com/marketplace/product/$id';
+    // `/p/:id` is the canonical product link; the old
+    // `/marketplace/product/:id` shape is still resolved server-side but no
+    // longer points at the app.
+    final link = Env.absolute(DeepLinks.product(id));
 
-    Clipboard.setData(ClipboardData(text: link));
+    Clipboard.setData(
+      ClipboardData(text: 'Check out "$title" on MurihSpace: $link'),
+    );
 
     showModalBottomSheet<void>(
       context: context,

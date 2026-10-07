@@ -62,9 +62,7 @@ class MarketplaceNotifier extends Notifier<MarketplaceState> {
   @override
   MarketplaceState build() {
     Future.microtask(() => fetchProducts());
-    return MarketplaceState(
-      isLoading: true,
-    );
+    return MarketplaceState(isLoading: true);
   }
 
   Future<void> fetchProducts() async {
@@ -81,7 +79,10 @@ class MarketplaceNotifier extends Notifier<MarketplaceState> {
         queryParams['search'] = state.searchQuery;
       }
 
-      final response = await _dio.get('/marketplace', queryParameters: queryParams);
+      final response = await _dio.get(
+        '/marketplace',
+        queryParameters: queryParams,
+      );
       final payload = ApiClient.instance.unwrap(response);
       List<dynamic> listRaw = [];
       if (payload is List) {
@@ -104,11 +105,7 @@ class MarketplaceNotifier extends Notifier<MarketplaceState> {
         }
       }
 
-      state = state.copyWith(
-        products: list,
-        isLoading: false,
-        error: null,
-      );
+      state = state.copyWith(products: list, isLoading: false, error: null);
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
@@ -185,20 +182,23 @@ class MarketplaceNotifier extends Notifier<MarketplaceState> {
     int stockQuantity = 50,
   }) async {
     try {
-      final response = await _dio.post('/marketplace/products', data: {
-        'title': title,
-        'name': title,
-        'description': description,
-        'price': price,
-        'currency': currency,
-        'type': isDigital ? 'digital' : 'physical',
-        'category': category,
-        'escrow_protected': escrowProtected,
-        'images': images,
-        'cover_url': images.isNotEmpty ? images.first : null,
-        'stock_quantity': stockQuantity,
-        'is_free': price <= 0.0,
-      });
+      final response = await _dio.post(
+        '/marketplace/products',
+        data: {
+          'title': title,
+          'name': title,
+          'description': description,
+          'price': price,
+          'currency': currency,
+          'type': isDigital ? 'digital' : 'physical',
+          'category': category,
+          'escrow_protected': escrowProtected,
+          'images': images,
+          'cover_url': images.isNotEmpty ? images.first : null,
+          'stock_quantity': stockQuantity,
+          'is_free': price <= 0.0,
+        },
+      );
 
       final payload = ApiClient.instance.unwrap(response);
       if (payload is Map<String, dynamic>) {
@@ -218,11 +218,10 @@ class MarketplaceNotifier extends Notifier<MarketplaceState> {
 
   Future<bool> createEscrowOrder(String productId, double amount) async {
     try {
-      await _dio.post('/orders', data: {
-        'product_id': productId,
-        'amount': amount,
-        'escrow': true,
-      });
+      await _dio.post(
+        '/orders',
+        data: {'product_id': productId, 'amount': amount, 'escrow': true},
+      );
       return true;
     } catch (_) {
       return false;
@@ -231,10 +230,10 @@ class MarketplaceNotifier extends Notifier<MarketplaceState> {
 
   Future<bool> sendOffer(String productId, double offerAmount) async {
     try {
-      await _dio.post('/products/$productId/offers', data: {
-        'amount': offerAmount,
-        'escrow_protected': true,
-      });
+      await _dio.post(
+        '/products/$productId/offers',
+        data: {'amount': offerAmount, 'escrow_protected': true},
+      );
       return true;
     } catch (_) {
       return false;
@@ -269,7 +268,34 @@ class MarketplaceNotifier extends Notifier<MarketplaceState> {
   }
 }
 
-final marketplaceProvider = NotifierProvider<MarketplaceNotifier, MarketplaceState>(
-  MarketplaceNotifier.new,
-);
+final marketplaceProvider =
+    NotifierProvider<MarketplaceNotifier, MarketplaceState>(
+      MarketplaceNotifier.new,
+    );
 
+/// Resolves a single product for a shared `/p/:id` link.
+///
+/// `GET /marketplace/{id}` is public and accepts a bare numeric id (physical is
+/// tried first, then digital) or an explicit `p_123` / `d_123` prefix, which is
+/// what makes an unambiguous deep link possible when a physical and a digital
+/// product happen to share a numeric id.
+final linkedProductProvider = FutureProvider.autoDispose
+    .family<MarketplaceProduct, String>((ref, id) {
+      final api = ref.read(apiClientProvider);
+      final segment = id.trim();
+      if (segment.isEmpty) {
+        throw ApiException(message: 'This product link is missing a product.');
+      }
+      return api.get('/marketplace/${Uri.encodeComponent(segment)}').then((
+        response,
+      ) {
+        final payload = api.unwrap(response);
+        final raw = payload is Map<String, dynamic>
+            ? (payload['product'] ?? payload['data'] ?? payload)
+            : payload;
+        if (raw is! Map<String, dynamic>) {
+          throw ApiException(message: 'This product is no longer available.');
+        }
+        return MarketplaceProduct.fromJson(raw);
+      });
+    });

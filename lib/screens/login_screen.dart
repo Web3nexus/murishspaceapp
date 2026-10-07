@@ -9,6 +9,7 @@ import '../components/app_bottom_sheet.dart';
 import '../components/brand.dart';
 import '../components/inline_field_error.dart';
 import '../config/env.dart';
+import '../config/deep_links.dart';
 import '../core/design_tokens.dart';
 import '../core/roles.dart';
 import '../providers/auth_provider.dart';
@@ -58,12 +59,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     super.dispose();
   }
 
+  /// Where to send the user once they are authenticated.
+  ///
+  /// A shared link that needs an account (a meeting invite, a chat, a protected
+  /// area) lands on `/auth/login?returnTo=…`, and the point of that parameter
+  /// is to finish the job: the user signs in and continues to the content they
+  /// originally opened. It is validated rather than trusted, so a crafted link
+  /// cannot use the login screen to bounce someone off to another origin.
   String _postAuthLocation() {
-    final returnTo = GoRouterState.of(context).uri.queryParameters['returnTo'];
-    if (returnTo != null && returnTo.startsWith('/live/')) {
-      return returnTo;
-    }
-    return '/app/home';
+    final returnTo = DeepLinks.sanitiseReturnTo(
+      GoRouterState.of(context).uri.queryParameters['returnTo'],
+    );
+    return returnTo ?? '/app/home';
   }
 
   void _startResendCooldown(int seconds) {
