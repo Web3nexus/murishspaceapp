@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 
-/// WhatsApp-style doodle backdrop for the conversation message area.
+/// Decorative backdrop for the conversation message area.
 ///
 /// The source artwork (`assets/images/brand/chat_pattern.png`) is a single
 /// light-blue ink on a fully transparent field, so it reads well on a dark
 /// surface but would all but disappear on a light one. Rather than shipping two
 /// copies of the asset, the ink is recoloured per theme with `BlendMode.srcIn`,
 /// which keeps the drawing's alpha (and therefore its shape) while swapping the
-/// colour for one that contrasts with the current background.
+/// colour for one that contrasts with the current background. Only the alpha
+/// channel is read; the ink colour baked into the PNG is never shown.
 ///
 /// The pattern is deliberately very low opacity: it should read as texture
 /// behind the message bubbles, never compete with message text.

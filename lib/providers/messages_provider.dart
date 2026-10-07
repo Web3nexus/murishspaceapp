@@ -87,7 +87,6 @@ class ConversationMessagesNotifier extends Notifier<ConversationMessagesState> {
       final payload = ApiClient.instance.unwrap(response);
       final (list, hasMore) = _messagesFromPayload(payload);
       state = ConversationMessagesState(messages: list, hasMore: hasMore);
-      await markRead();
       final me = ref.read(authProvider).user;
       if (me != null) {
         final toAcknowledge = list
@@ -112,6 +111,44 @@ class ConversationMessagesNotifier extends Notifier<ConversationMessagesState> {
   }
 
   Future<void> retry() => _load();
+
+  /// Catch-up sync called on app resume or reconnect to merge missed messages
+  Future<void> catchUp() async {
+    try {
+      final response = await _dio.get('/conversations/$_effectiveConversationId/messages');
+      final payload = ApiClient.instance.unwrap(response);
+      final (latestList, hasMore) = _messagesFromPayload(payload);
+      if (latestList.isEmpty) return;
+
+      final existingMap = {for (final m in state.messages) m.id: m};
+      for (final m in latestList) {
+        existingMap[m.id] = m;
+      }
+      final merged = existingMap.values.toList()
+        ..sort((a, b) => (b.createdAt ?? DateTime(0)).compareTo(a.createdAt ?? DateTime(0)));
+      state = state.copyWith(messages: merged, hasMore: hasMore);
+
+      final me = ref.read(authProvider).user;
+      if (me != null) {
+        final toAcknowledge = latestList
+            .where((m) => m.userId != me.id && m.status == 'sent' && m.id > 0)
+            .map((m) => m.id)
+            .toList();
+        if (toAcknowledge.isNotEmpty) {
+          markDelivered(toAcknowledge);
+        }
+      }
+      retryFailedMessages();
+    } catch (_) {}
+  }
+
+  /// Retries sending any messages that previously failed due to offline/network drop
+  Future<void> retryFailedMessages() async {
+    final failed = state.messages.where((m) => m.status == 'failed').toList();
+    for (final m in failed) {
+      await retrySending(m);
+    }
+  }
 
   Future<void> loadMore() async {
     if (state.loadingMore || !state.hasMore) return;
@@ -290,7 +327,7 @@ class ConversationMessagesNotifier extends Notifier<ConversationMessagesState> {
     if (messageIds.isEmpty) return;
     final set = messageIds.toSet();
     final updated = state.messages.map((m) {
-      if (set.contains(m.id) && m.status == 'sent') {
+      if (set.contains(m.id) && (m.status == 'sent' || m.status == 'sending')) {
         return m.copyWith(status: 'delivered');
       }
       return m;
@@ -298,12 +335,25 @@ class ConversationMessagesNotifier extends Notifier<ConversationMessagesState> {
     state = state.copyWith(messages: updated);
   }
 
-  /// Real-time handler: transitions my sent/delivered messages to 'read' (double green tick).
+  /// Real-time handler: transitions my sent/delivered messages to 'read' (double green tick) when read by recipient.
   void applyRealtimeRead(int readerUserId) {
     final me = ref.read(authProvider).user;
     if (me == null || readerUserId == me.id) return;
     final updated = state.messages.map((m) {
       if (m.userId == me.id && m.status != 'read') {
+        return m.copyWith(status: 'read', read: true);
+      }
+      return m;
+    }).toList();
+    state = state.copyWith(messages: updated);
+  }
+
+  /// Real-time handler for multi-device sync: I read this conversation on another device (e.g. Web).
+  void applyRealtimeReadByMe() {
+    final me = ref.read(authProvider).user;
+    if (me == null) return;
+    final updated = state.messages.map((m) {
+      if (m.userId != me.id && m.status != 'read') {
         return m.copyWith(status: 'read', read: true);
       }
       return m;
@@ -378,10 +428,9 @@ class ConversationMessagesNotifier extends Notifier<ConversationMessagesState> {
     ref.read(conversationsProvider.notifier).applyMessage(message, currentUserId: me?.id ?? 0);
     _checkTriggerAutoGreeting(message);
 
-    // If incoming message is from the other user, acknowledge delivery and mark read
+    // If incoming message is from the other user, acknowledge delivery
     if (me != null && message.userId != me.id && message.id > 0) {
       markDelivered([message.id]);
-      markRead();
     }
   }
 

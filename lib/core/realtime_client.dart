@@ -62,7 +62,7 @@ class ReverbClient {
       _WebSocketChannelSocket(WebSocketChannel.connect(uri));
 
   final _events = StreamController<RealtimeEvent>.broadcast();
-  final _pendingChannels = <String>[];
+  final Set<String> _desiredChannels = {};
 
   RealtimeSocket? _socket;
   StreamSubscription<dynamic>? _sub;
@@ -70,14 +70,18 @@ class ReverbClient {
   bool _disposed = false;
   bool _connecting = false;
   Timer? _reconnectTimer;
+  Timer? _pingTimer;
+  Timer? _pongTimeoutTimer;
 
   /// Backoff base for auto-reconnect attempts.
   static const _reconnectInterval = Duration(seconds: 5);
+  static const _pingInterval = Duration(seconds: 25);
+  static const _pongTimeout = Duration(seconds: 12);
 
   /// Stream of broadcast events. Never throws; connection drops are silent.
   Stream<RealtimeEvent> get events => _events.stream;
 
-  bool get isConnected => _socket != null;
+  bool get isConnected => _socket != null && _socketId != null;
 
   /// Connects (idempotent) and subscribes to any channels requested earlier.
   /// Drops are auto-recovered by reconnecting and re-subscribing.
@@ -92,6 +96,7 @@ class ReverbClient {
       socket = _openSocket(uri);
     } catch (_) {
       _connecting = false;
+      _scheduleReconnect();
       return;
     }
     _socket = socket;
@@ -104,12 +109,40 @@ class ReverbClient {
     _connecting = false;
   }
 
+  Future<void> reconnect() async {
+    if (_disposed) return;
+    _log('Manual reconnect requested');
+    _forceReconnect();
+  }
+
+  void checkLiveness() {
+    if (_disposed) return;
+    if (_socket == null || _socketId == null) {
+      connect();
+    } else {
+      _sendPing();
+    }
+  }
+
   Future<void> subscribe(String channel) async {
-    if (_pendingChannels.contains(channel)) return;
-    _pendingChannels.add(channel);
+    _desiredChannels.add(channel);
     if (_socket == null || _socketId == null) return;
+    await _sendSubscribe(channel);
+  }
+
+  void unsubscribe(String channel) {
+    _desiredChannels.remove(channel);
+    if (_socket != null && _socketId != null) {
+      _send('pusher:unsubscribe', {'channel': channel});
+    }
+  }
+
+  Future<void> _sendSubscribe(String channel) async {
     final auth = await _authorize(channel);
-    if (auth == null) return;
+    if (auth == null) {
+      _log('Subscription auth failed for $channel; will retry upon reconnect');
+      return;
+    }
     _send('pusher:subscribe', {'channel': channel, 'auth': auth});
   }
 
@@ -134,6 +167,49 @@ class ReverbClient {
     }
   }
 
+  void _startHeartbeat() {
+    _stopHeartbeat();
+    _pingTimer = Timer.periodic(_pingInterval, (_) => _sendPing());
+  }
+
+  void _stopHeartbeat() {
+    _pingTimer?.cancel();
+    _pingTimer = null;
+    _pongTimeoutTimer?.cancel();
+    _pongTimeoutTimer = null;
+  }
+
+  void _sendPing() {
+    if (_socket == null) return;
+    _send('pusher:ping', <String, dynamic>{});
+    _pongTimeoutTimer?.cancel();
+    _pongTimeoutTimer = Timer(_pongTimeout, () {
+      _log('Missed pong heartbeat; forcing reconnection');
+      _forceReconnect();
+    });
+  }
+
+  void _forceReconnect() {
+    _teardown();
+    _socketId = null;
+    _socket = null;
+    _connecting = false;
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
+    connect();
+  }
+
+  void _scheduleReconnect() {
+    if (_disposed) return;
+    _reconnectTimer?.cancel();
+    _reconnectTimer = Timer(_reconnectInterval, () {
+      _reconnectTimer = null;
+      if (!_disposed) {
+        connect();
+      }
+    });
+  }
+
   void _onMessage(dynamic raw) {
     final text = raw is String ? raw : (raw as dynamic)?.toString();
     if (text == null) return;
@@ -156,11 +232,11 @@ class ReverbClient {
           // ignore malformed handshake
         }
       }
-      // Now that we know our socket id, authorize + subscribe.
-      final channels = List<String>.from(_pendingChannels);
-      _pendingChannels.clear();
+      _startHeartbeat();
+      // Now that we know our socket id, authorize + subscribe all desired channels.
+      final channels = List<String>.from(_desiredChannels);
       for (final c in channels) {
-        subscribe(c);
+        _sendSubscribe(c);
       }
       return;
     }
@@ -169,7 +245,15 @@ class ReverbClient {
       _send('pusher:pong', null);
       return;
     }
-    if (event == 'pusher:pong' || event == 'pusher:error') return;
+    if (event == 'pusher:pong') {
+      _pongTimeoutTimer?.cancel();
+      _pongTimeoutTimer = null;
+      return;
+    }
+    if (event == 'pusher:error') {
+      _log('Pusher error: ${frame['data']}');
+      return;
+    }
 
     final channel = frame['channel'] as String? ?? '';
     var data = frame['data'];
@@ -184,23 +268,23 @@ class ReverbClient {
   }
 
   void _onDone() {
+    _stopHeartbeat();
     _teardown();
     final hadSocket = _socket != null;
     _socketId = null;
     _socket = null;
     // Keep the desired channel list so a reconnect re-subscribes everything.
     if (_disposed || !hadSocket) return;
-    _reconnectTimer ??= Timer(_reconnectInterval, () {
-      _reconnectTimer = null;
-      if (!_disposed) {
-        connect();
-      }
-    });
+    _scheduleReconnect();
   }
 
   void _teardown() {
+    _stopHeartbeat();
     _sub?.cancel();
     _sub = null;
+    try {
+      _socket?.close();
+    } catch (_) {}
   }
 
   void dispose() {
@@ -208,9 +292,6 @@ class ReverbClient {
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
     _teardown();
-    try {
-      _socket?.close();
-    } catch (_) {}
     _socket = null;
     _events.close();
   }

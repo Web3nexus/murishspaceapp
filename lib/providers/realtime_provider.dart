@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -24,6 +25,9 @@ class RealtimeService {
   final Set<int> _subscribedConversations = {};
   int? _userId;
   int? _activeConversationId;
+  Timer? _heartbeatTimer;
+
+  int? get activeConversationId => _activeConversationId;
 
   /// Subscribes to the user's personal private notification and call channels.
   void listenToUser(int userId) {
@@ -32,6 +36,28 @@ class RealtimeService {
     final client = _ensureClient();
     client.subscribe('private-App.Models.User.$userId');
     client.subscribe('private-user.$userId');
+    _startPresenceHeartbeat();
+  }
+
+  void _startPresenceHeartbeat() {
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = Timer.periodic(const Duration(seconds: 60), (_) {
+      _sendPresenceHeartbeat();
+    });
+    _sendPresenceHeartbeat();
+  }
+
+  void _sendPresenceHeartbeat() {
+    if (_userId == null) return;
+    ApiClient.instance.post('/chat/heartbeat').catchError((_) {});
+  }
+
+  /// Called when the application returns from background to foreground
+  void onAppResume() {
+    if (_userId != null) {
+      _client?.checkLiveness();
+      _sendPresenceHeartbeat();
+    }
   }
 
   /// Marks which conversation the user is currently viewing to suppress duplicate banners.
@@ -137,42 +163,68 @@ class RealtimeService {
 
       // Handle incoming MessageSent on user personal channel — this is what delivers
       // messages to recipients who are NOT currently inside the conversation screen.
-      if (event.event == 'App\\Events\\MessageSent' || event.event.endsWith('.MessageSent')) {
+      if (event.event == 'App\\Events\\MessageSent' ||
+          event.event.endsWith('.MessageSent') ||
+          event.event == 'MessageSent') {
         try {
           final msg = Message.fromJson(data['message'] ?? data);
           final convId = msg.conversationId;
+          final currentUserId = _ref.read(authProvider).user?.id;
           if (convId > 0) {
             // Push message into that conversation's state (creates provider lazily)
             _ref.read(conversationMessagesProvider(convId).notifier).applyRealtime(msg);
             // Refresh chat list so the last-message preview updates
             _ref.read(conversationsProvider.notifier).refresh();
-            // Show banner if user is not actively viewing this conversation
-            final currentUserId = _ref.read(authProvider).user?.id;
-            if (convId != _activeConversationId && msg.userId != currentUserId) {
-              _ref.read(inAppNotificationProvider.notifier).showFromMessage(msg);
-              SoundService.instance.playMessageReceived();
+
+            if (msg.userId != currentUserId) {
+              // Immediately acknowledge delivery for incoming message
+              if (msg.id > 0) {
+                _ref.read(conversationMessagesProvider(convId).notifier).markDelivered([msg.id]);
+              }
+              // If user is actively viewing this conversation, mark read
+              if (convId == _activeConversationId) {
+                _ref.read(conversationMessagesProvider(convId).notifier).markRead();
+              } else {
+                _ref.read(inAppNotificationProvider.notifier).showFromMessage(msg);
+                SoundService.instance.playMessageReceived();
+              }
             }
           }
         } catch (_) {}
+        return;
       }
-      if (event.event == 'App\\Events\\MessageDelivered' || event.event.endsWith('.MessageDelivered') || event.event == 'MessageDelivered') {
+      if (event.event == 'App\\Events\\MessageDelivered' ||
+          event.event.endsWith('.MessageDelivered') ||
+          event.event == 'MessageDelivered') {
         try {
           final convId = (data['conversation_id'] as num?)?.toInt() ?? 0;
           final rawIds = data['message_ids'];
           final ids = rawIds is List ? rawIds.map<int>((e) => (e as num).toInt()).toList() : <int>[];
           if (convId > 0 && ids.isNotEmpty) {
             _ref.read(conversationMessagesProvider(convId).notifier).applyRealtimeDelivered(ids);
+            _ref.read(conversationsProvider.notifier).applyDelivered(convId, ids);
           }
         } catch (_) {}
         return;
       }
 
-      if (event.event == 'App\\Events\\MessageRead' || event.event.endsWith('.MessageRead') || event.event == 'MessageRead') {
+      if (event.event == 'App\\Events\\MessageRead' ||
+          event.event.endsWith('.MessageRead') ||
+          event.event == 'MessageRead') {
         try {
           final convId = (data['conversation_id'] as num?)?.toInt() ?? 0;
           final readerId = (data['reader_id'] as num?)?.toInt() ?? 0;
+          final currentUserId = _ref.read(authProvider).user?.id;
           if (convId > 0 && readerId > 0) {
-            _ref.read(conversationMessagesProvider(convId).notifier).applyRealtimeRead(readerId);
+            if (readerId == currentUserId) {
+              // I read this conversation on another device (Web)!
+              _ref.read(conversationsProvider.notifier).markReadLocal(convId);
+              _ref.read(conversationMessagesProvider(convId).notifier).applyRealtimeReadByMe();
+            } else {
+              // Recipient read my messages!
+              _ref.read(conversationMessagesProvider(convId).notifier).applyRealtimeRead(readerId);
+              _ref.read(conversationsProvider.notifier).applyRead(convId);
+            }
           }
         } catch (_) {}
         return;
@@ -207,6 +259,7 @@ class RealtimeService {
     if (match == null) return;
     final conversationId = int.parse(match.group(1)!);
     final notifier = _ref.read(conversationMessagesProvider(conversationId).notifier);
+    final currentUserId = _ref.read(authProvider).user?.id;
 
     switch (event.event) {
       case 'App\\Events\\MessageSent':
@@ -215,46 +268,46 @@ class RealtimeService {
         final msg = Message.fromJson(event.data);
         notifier.applyRealtime(msg);
 
-        final currentUserId = _ref.read(authProvider).user?.id;
-
-        // Play chime for messages from others
+        // Play chime and notify only for messages from others
         if (msg.userId != currentUserId) {
-          SoundService.instance.playMessageReceived();
-        }
-
-        // If incoming message is a gift, trigger celebration animation
-        if (msg.userId != currentUserId &&
-            (msg.type == 'gift' || msg.attachmentType == 'gift' || msg.content.startsWith('[GIFT]'))) {
-          String giftName = 'Virtual Gift';
-          String giftEmoji = '🎁';
-          int coins = 100;
-          String animType = 'standard';
-          final text = msg.content;
-          if (text.startsWith('[GIFT]') && text.contains('[/GIFT]')) {
-            try {
-              final jsonStr = text.substring('[GIFT]'.length, text.indexOf('[/GIFT]'));
-              final map = jsonDecode(jsonStr) as Map<String, dynamic>;
-              giftName = map['name']?.toString() ?? giftName;
-              giftEmoji = map['icon']?.toString() ?? giftEmoji;
-              coins = (map['coins'] as num?)?.toInt() ?? coins;
-              animType = map['animation_type']?.toString() ?? animType;
-            } catch (_) {}
+          if (msg.id > 0) {
+            notifier.markDelivered([msg.id]);
           }
-          _ref.read(giftAnimationProvider.notifier).play(
-            GiftAnimationData(
-              giftName: giftName,
-              iconEmoji: giftEmoji,
-              coinPrice: coins,
-              senderName: msg.user?.name ?? 'Friend',
-              recipientName: 'You',
-              animationType: animType,
-            ),
-          );
-        }
+          if (conversationId == _activeConversationId) {
+            notifier.markRead();
+          } else {
+            _ref.read(inAppNotificationProvider.notifier).showFromMessage(msg);
+          }
+          SoundService.instance.playMessageReceived();
 
-        // If user is not currently inside this conversation, show an in-app banner
-        if (conversationId != _activeConversationId && msg.userId != currentUserId) {
-          _ref.read(inAppNotificationProvider.notifier).showFromMessage(msg);
+          // If incoming message is a gift, trigger celebration animation
+          if (msg.type == 'gift' || msg.attachmentType == 'gift' || msg.content.startsWith('[GIFT]')) {
+            String giftName = 'Virtual Gift';
+            String giftEmoji = '🎁';
+            int coins = 100;
+            String animType = 'standard';
+            final text = msg.content;
+            if (text.startsWith('[GIFT]') && text.contains('[/GIFT]')) {
+              try {
+                final jsonStr = text.substring('[GIFT]'.length, text.indexOf('[/GIFT]'));
+                final map = jsonDecode(jsonStr) as Map<String, dynamic>;
+                giftName = map['name']?.toString() ?? giftName;
+                giftEmoji = map['icon']?.toString() ?? giftEmoji;
+                coins = (map['coins'] as num?)?.toInt() ?? coins;
+                animType = map['animation_type']?.toString() ?? animType;
+              } catch (_) {}
+            }
+            _ref.read(giftAnimationProvider.notifier).play(
+              GiftAnimationData(
+                giftName: giftName,
+                iconEmoji: giftEmoji,
+                coinPrice: coins,
+                senderName: msg.user?.name ?? 'Friend',
+                recipientName: 'You',
+                animationType: animType,
+              ),
+            );
+          }
         }
       case 'MessageDeleted':
       case '.MessageDeleted':
@@ -278,13 +331,24 @@ class RealtimeService {
         final data = event.data is Map ? Map<String, dynamic>.from(event.data as Map) : <String, dynamic>{};
         final rawIds = data['message_ids'];
         final ids = rawIds is List ? rawIds.map<int>((e) => (e as num).toInt()).toList() : <int>[];
-        if (ids.isNotEmpty) notifier.applyRealtimeDelivered(ids);
+        if (ids.isNotEmpty) {
+          notifier.applyRealtimeDelivered(ids);
+          _ref.read(conversationsProvider.notifier).applyDelivered(conversationId, ids);
+        }
       case 'App\\Events\\MessageRead':
       case 'MessageRead':
       case '.MessageRead':
         final data = event.data is Map ? Map<String, dynamic>.from(event.data as Map) : <String, dynamic>{};
         final readerId = (data['reader_id'] as num?)?.toInt() ?? 0;
-        if (readerId > 0) notifier.applyRealtimeRead(readerId);
+        if (readerId > 0) {
+          if (readerId == currentUserId) {
+            _ref.read(conversationsProvider.notifier).markReadLocal(conversationId);
+            notifier.applyRealtimeReadByMe();
+          } else {
+            notifier.applyRealtimeRead(readerId);
+            _ref.read(conversationsProvider.notifier).applyRead(conversationId);
+          }
+        }
       case 'typing':
       case '.typing':
       case 'App\\Events\\TypingIndicator':
@@ -303,6 +367,8 @@ class RealtimeService {
   }
 
   void dispose() {
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = null;
     _client?.dispose();
     _client = null;
     _subscribedConversations.clear();

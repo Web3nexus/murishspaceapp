@@ -124,6 +124,42 @@ void main() {
       expect(conv.isMuted, true);
       expect(conv.memberCount, 7);
     });
+
+    test('markReadLocal, applyDelivered, and applyRead synchronize state without network calls', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final notifier = container.read(conversationsProvider.notifier);
+
+      notifier.upsert(const Conversation(
+        id: 20,
+        type: 'direct',
+        title: 'Alice',
+        unreadCount: 5,
+        latestMessage: Message(
+          id: 101,
+          conversationId: 20,
+          userId: 5,
+          content: 'Hello Alice',
+          type: 'text',
+          status: 'sent',
+        ),
+      ));
+
+      // 1. markReadLocal clears unread count immediately
+      notifier.markReadLocal(20);
+      var conv = container.read(conversationsProvider).conversations.first;
+      expect(conv.unreadCount, 0);
+
+      // 2. applyDelivered updates status to delivered
+      notifier.applyDelivered(20, [101]);
+      conv = container.read(conversationsProvider).conversations.first;
+      expect(conv.latestMessage?.status, 'delivered');
+
+      // 3. applyRead updates status to read
+      notifier.applyRead(20);
+      conv = container.read(conversationsProvider).conversations.first;
+      expect(conv.latestMessage?.status, 'read');
+    });
   });
 }
 

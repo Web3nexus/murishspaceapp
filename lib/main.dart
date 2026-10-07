@@ -12,6 +12,8 @@ import 'components/in_app_notification_overlay.dart';
 import 'components/incoming_call_overlay.dart';
 import 'core/api_client.dart';
 import 'providers/auth_provider.dart';
+import 'providers/chat_provider.dart';
+import 'providers/messages_provider.dart';
 import 'providers/realtime_provider.dart';
 
 import 'package:firebase_core/firebase_core.dart';
@@ -78,6 +80,12 @@ class _MurihSpaceAppState extends ConsumerState<MurihSpaceApp> with WidgetsBindi
       ref.read(securityProvider.notifier).onAppBackgrounded();
     } else if (state == AppLifecycleState.resumed) {
       ref.read(securityProvider.notifier).onAppForegrounded();
+      ref.read(realtimeProvider).onAppResume();
+      ref.read(conversationsProvider.notifier).refresh();
+      final activeId = ref.read(realtimeProvider).activeConversationId;
+      if (activeId != null) {
+        ref.read(conversationMessagesProvider(activeId).notifier).catchUp();
+      }
     }
   }
 

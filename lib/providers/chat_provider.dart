@@ -57,6 +57,7 @@ class ConversationsNotifier extends Notifier<ConversationsState> {
   Future<void> _loadConfig() async {
     try {
       final response = await _dio.get('/chat/config');
+      if (!ref.mounted) return;
       final data = response.data;
       final raw = data is Map<String, dynamic> ? data : (data is Map ? Map<String, dynamic>.from(data) : null);
       final maxPinned = raw?['data'] is Map<String, dynamic>
@@ -76,16 +77,20 @@ class ConversationsNotifier extends Notifier<ConversationsState> {
     }
     try {
       final response = await _dio.get('/conversations');
+      if (!ref.mounted) return;
       final list = ApiClient.instance.unwrapList<Conversation>(
         response,
         Conversation.fromJson,
       );
       state = ConversationsState(conversations: list);
     } on DioException catch (e) {
+      if (!ref.mounted) return;
       state = state.copyWith(loading: false, error: _errorMessage(e));
     } on ApiException catch (e) {
+      if (!ref.mounted) return;
       state = state.copyWith(loading: false, error: e.message);
     } catch (_) {
+      if (!ref.mounted) return;
       state = state.copyWith(loading: false, error: 'Failed to load conversations.');
     }
   }
@@ -115,12 +120,40 @@ class ConversationsNotifier extends Notifier<ConversationsState> {
     state = state.copyWith(conversations: list, clearError: true);
   }
 
-  Future<void> markRead(int conversationId, int currentUserId) async {
+  void markReadLocal(int conversationId) {
     state = state.copyWith(
       conversations: state.conversations
           .map((c) => c.id == conversationId ? c.copyWith(unreadCount: 0) : c)
           .toList(),
     );
+  }
+
+  void applyDelivered(int conversationId, List<int> messageIds) {
+    if (messageIds.isEmpty) return;
+    final set = messageIds.toSet();
+    state = state.copyWith(
+      conversations: state.conversations.map((c) {
+        if (c.id == conversationId && c.latestMessage != null && set.contains(c.latestMessage!.id)) {
+          return c.copyWith(latestMessage: c.latestMessage!.copyWith(status: 'delivered'));
+        }
+        return c;
+      }).toList(),
+    );
+  }
+
+  void applyRead(int conversationId) {
+    state = state.copyWith(
+      conversations: state.conversations.map((c) {
+        if (c.id == conversationId && c.latestMessage != null) {
+          return c.copyWith(latestMessage: c.latestMessage!.copyWith(status: 'read', read: true));
+        }
+        return c;
+      }).toList(),
+    );
+  }
+
+  Future<void> markRead(int conversationId, int currentUserId) async {
+    markReadLocal(conversationId);
     try {
       await _dio.post('/conversations/$conversationId/read');
     } catch (_) {}
