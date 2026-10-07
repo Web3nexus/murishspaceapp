@@ -174,9 +174,9 @@ class BrandDealCertificateDialog extends StatelessWidget {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
                     onPressed: () {
-                      Clipboard.setData(ClipboardData(text: Env.absolute('/escrow/certificate/$certId')));
+                      Clipboard.setData(ClipboardData(text: Env.absolute('/app/wallet/escrow')));
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Certificate link copied to clipboard!')),
+                        const SnackBar(content: Text('Escrow link copied to clipboard!')),
                       );
                     },
                     icon: const Icon(Icons.copy_rounded, size: 16),
