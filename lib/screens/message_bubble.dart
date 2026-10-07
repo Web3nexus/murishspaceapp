@@ -1,12 +1,14 @@
 import 'dart:convert';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../components/gift_animation_overlay.dart';
+import '../config/deep_links.dart';
 import '../core/api_client.dart';
 import '../core/design_tokens.dart';
 import '../models/chat_models.dart';
@@ -407,9 +409,11 @@ class _BubbleContent extends StatelessWidget {
               isDark: isDark,
             )
           else if (!message.deleted)
-            Text(
-              message.content,
-              style: TextStyle(color: textColor, fontSize: 15, height: 1.35),
+            _MessageContentWithLinks(
+              content: message.content,
+              mine: mine,
+              isDark: isDark,
+              textColor: textColor,
             ),
           if (message.deleted && message.type != 'call')
             Text(
@@ -1528,6 +1532,341 @@ class _LiveStreamMessageWidget extends StatelessWidget {
               ),
               icon: const Icon(Icons.sensors_rounded, size: 16),
               label: const Text('Watch Live', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MessageContentWithLinks extends StatelessWidget {
+  final String content;
+  final bool mine;
+  final bool isDark;
+  final Color textColor;
+
+  const _MessageContentWithLinks({
+    required this.content,
+    required this.mine,
+    required this.isDark,
+    required this.textColor,
+  });
+
+  static final _urlRegExp = RegExp(
+    r'(https?://[^\s]+|murihspace://[^\s]+)',
+    caseSensitive: false,
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final matches = _urlRegExp.allMatches(content).toList();
+    if (matches.isEmpty) {
+      return Text(
+        content,
+        style: TextStyle(color: textColor, fontSize: 15, height: 1.35),
+      );
+    }
+
+    final spans = <InlineSpan>[];
+    int lastEnd = 0;
+    DeepLinkTarget? firstMurihTarget;
+
+    final linkColor = mine ? const Color(0xFFFFD166) : const Color(0xFF007AFF);
+
+    for (final match in matches) {
+      if (match.start > lastEnd) {
+        spans.add(
+          TextSpan(
+            text: content.substring(lastEnd, match.start),
+            style: TextStyle(color: textColor, fontSize: 15, height: 1.35),
+          ),
+        );
+      }
+
+      final url = match.group(0)!;
+      final target = DeepLinks.resolve(url);
+      final isMurihSpace = target.type != DeepLinkType.unknown;
+
+      if (isMurihSpace && firstMurihTarget == null) {
+        firstMurihTarget = target;
+      }
+
+      spans.add(
+        TextSpan(
+          text: url,
+          style: TextStyle(
+            color: linkColor,
+            fontSize: 15,
+            height: 1.35,
+            decoration: TextDecoration.underline,
+            fontWeight: FontWeight.w600,
+          ),
+          recognizer: TapGestureRecognizer()
+            ..onTap = () {
+              if (isMurihSpace) {
+                context.push(target.appRoute);
+              } else {
+                launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+              }
+            },
+        ),
+      );
+
+      lastEnd = match.end;
+    }
+
+    if (lastEnd < content.length) {
+      spans.add(
+        TextSpan(
+          text: content.substring(lastEnd),
+          style: TextStyle(color: textColor, fontSize: 15, height: 1.35),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        RichText(
+          text: TextSpan(children: spans),
+        ),
+        if (firstMurihTarget != null) ...[
+          const SizedBox(height: 6),
+          _DeepLinkCardWidget(
+            target: firstMurihTarget,
+            mine: mine,
+            isDark: isDark,
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _DeepLinkCardWidget extends StatelessWidget {
+  final DeepLinkTarget target;
+  final bool mine;
+  final bool isDark;
+
+  const _DeepLinkCardWidget({
+    required this.target,
+    required this.mine,
+    required this.isDark,
+  });
+
+  IconData _getIcon() {
+    switch (target.type) {
+      case DeepLinkType.live:
+        return Icons.sensors_rounded;
+      case DeepLinkType.meeting:
+        return Icons.videocam_rounded;
+      case DeepLinkType.community:
+        return Icons.groups_rounded;
+      case DeepLinkType.event:
+        return Icons.calendar_month_rounded;
+      case DeepLinkType.product:
+        return Icons.shopping_bag_rounded;
+      case DeepLinkType.storefront:
+        return Icons.storefront_rounded;
+      case DeepLinkType.profile:
+        return Icons.person_rounded;
+      case DeepLinkType.linkInBio:
+        return Icons.link_rounded;
+      case DeepLinkType.chat:
+        return Icons.chat_bubble_rounded;
+      default:
+        return Icons.open_in_new_rounded;
+    }
+  }
+
+  Color _getAccentColor() {
+    switch (target.type) {
+      case DeepLinkType.live:
+        return const Color(0xFFFF3B30);
+      case DeepLinkType.meeting:
+        return const Color(0xFF007AFF);
+      case DeepLinkType.community:
+        return const Color(0xFF34C759);
+      case DeepLinkType.event:
+        return const Color(0xFFFF9500);
+      case DeepLinkType.product:
+        return const Color(0xFFAF52DE);
+      case DeepLinkType.storefront:
+        return const Color(0xFF5856D6);
+      case DeepLinkType.profile:
+      case DeepLinkType.linkInBio:
+      case DeepLinkType.chat:
+      default:
+        return const Color(0xFF007AFF);
+    }
+  }
+
+  String _getBadge() {
+    switch (target.type) {
+      case DeepLinkType.live:
+        return 'LIVE';
+      case DeepLinkType.meeting:
+        return 'MEETING';
+      case DeepLinkType.community:
+        return 'COMMUNITY';
+      case DeepLinkType.event:
+        return 'EVENT';
+      case DeepLinkType.product:
+        return 'PRODUCT';
+      case DeepLinkType.storefront:
+        return 'STORE';
+      case DeepLinkType.profile:
+        return 'PROFILE';
+      case DeepLinkType.linkInBio:
+        return 'BIO';
+      case DeepLinkType.chat:
+        return 'CHAT';
+      default:
+        return 'MURIHSPACE';
+    }
+  }
+
+  String _getTitle() {
+    switch (target.type) {
+      case DeepLinkType.live:
+        return 'Live Broadcast';
+      case DeepLinkType.meeting:
+        return 'Meeting: ${target.identifier}';
+      case DeepLinkType.community:
+        return 'Community: ${target.identifier}';
+      case DeepLinkType.event:
+        return 'Event: ${target.identifier}';
+      case DeepLinkType.product:
+        return 'Product #${target.identifier}';
+      case DeepLinkType.storefront:
+        return 'Store: ${target.identifier}';
+      case DeepLinkType.profile:
+        return '@${target.identifier}';
+      case DeepLinkType.linkInBio:
+        return '@${target.identifier}';
+      case DeepLinkType.chat:
+        return 'Chat #${target.identifier}';
+      default:
+        return target.identifier;
+    }
+  }
+
+  String _getButtonLabel() {
+    switch (target.type) {
+      case DeepLinkType.live:
+        return 'Watch Live';
+      case DeepLinkType.meeting:
+        return 'Join Meeting';
+      case DeepLinkType.community:
+        return 'View Community';
+      case DeepLinkType.event:
+        return 'View Event';
+      case DeepLinkType.product:
+        return 'View Product';
+      case DeepLinkType.storefront:
+        return 'Visit Store';
+      case DeepLinkType.profile:
+        return 'View Profile';
+      case DeepLinkType.linkInBio:
+        return 'View Bio';
+      case DeepLinkType.chat:
+        return 'Open Chat';
+      default:
+        return 'Open';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = _getAccentColor();
+    final badge = _getBadge();
+    final title = _getTitle();
+    final buttonLabel = _getButtonLabel();
+    final isLive = target.type == DeepLinkType.live;
+
+    final cardBg = mine
+        ? Colors.black.withValues(alpha: 0.2)
+        : (isDark ? const Color(0xFF1E232D) : const Color(0xFFF1F5F9));
+    final borderColor = mine
+        ? Colors.white.withValues(alpha: 0.25)
+        : accent.withValues(alpha: 0.35);
+
+    return Container(
+      width: 250,
+      margin: const EdgeInsets.only(top: 4),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: borderColor, width: 1.2),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 16,
+                backgroundColor: accent.withValues(alpha: 0.15),
+                child: Icon(_getIcon(), color: accent, size: 18),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: isLive ? accent : accent.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        badge,
+                        style: TextStyle(
+                          color: isLive ? Colors.white : accent,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: mine ? Colors.white : (isDark ? Colors.white : Colors.black87),
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () => context.push(target.appRoute),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: accent,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              icon: Icon(_getIcon(), size: 14),
+              label: Text(
+                buttonLabel,
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+              ),
             ),
           ),
         ],
