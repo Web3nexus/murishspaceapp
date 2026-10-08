@@ -34,6 +34,19 @@ abstract final class DesignTokens {
   static const Color creator = Color(0xFFFF9500);
   static const Color vendor = Color(0xFF5856D6);
 
+  // Broadcast palette (live room surfaces)
+  // The room is watched, not read: its ground stays ink at every theme.
+  static const Color roomGround = Color(0xFF0B1626);
+  static const Color roomChrome = Color(0xFF0F1A2B);
+  static const Color roomPanel = Color(0xFF16233A);
+  static const Color roomBorder = Color(0xFF24334D);
+  static const Color roomTextSecondary = Color(0xFF93A4BC);
+  static const Color roomTextPrimary = Color(0xFFF4F7FC);
+
+  // Signal: live state only (on-air tally, speaking, hand raised).
+  static const Color signal = Color(0xFFFF9F0A);
+  static const Color signalSoft = Color(0x33FF9F0A);
+
   // Radius Scale
   static const double rTiny = 6.0;
   static const double rSm = 8.0;
