@@ -1645,19 +1645,80 @@ class _MessageContentWithLinks extends StatelessWidget {
   }
 }
 
-class _DeepLinkCardWidget extends StatelessWidget {
+class _DeepLinkCardWidget extends StatefulWidget {
   final DeepLinkTarget target;
   final bool mine;
   final bool isDark;
 
   const _DeepLinkCardWidget({
+    super.key,
     required this.target,
     required this.mine,
     required this.isDark,
   });
 
-  IconData _getIcon() {
-    switch (target.type) {
+  @override
+  State<_DeepLinkCardWidget> createState() => _DeepLinkCardWidgetState();
+}
+
+class _DeepLinkCardWidgetState extends State<_DeepLinkCardWidget> {
+  static final Map<String, Map<String, dynamic>?> _cache = {};
+  Map<String, dynamic>? _preview;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchPreview();
+  }
+
+  @override
+  void didUpdateWidget(covariant _DeepLinkCardWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.target.appRoute != widget.target.appRoute) {
+      _fetchPreview();
+    }
+  }
+
+  Future<void> _fetchPreview() async {
+    final route = widget.target.appRoute;
+    if (_cache.containsKey(route)) {
+      if (mounted) setState(() => _preview = _cache[route]);
+      return;
+    }
+
+    // Clear whatever the previous route showed so a failed lookup does not
+    // leave another message's card on this bubble.
+    if (mounted) setState(() => _preview = null);
+
+    try {
+      final res = await ApiClient.instance.dio.get(
+        '/link-preview',
+        queryParameters: {'url': route},
+      );
+      final data = ApiClient.instance.unwrap(res) is Map<String, dynamic>
+          ? ApiClient.instance.unwrap(res) as Map<String, dynamic>
+          : null;
+      _cache[route] = data;
+      if (mounted) {
+        setState(() => _preview = data);
+      }
+    } catch (_) {
+      // Do not cache failures: a dropped response would otherwise pin a
+      // blank card for the rest of the app session with no retry.
+      if (mounted) setState(() => _preview = null);
+    }
+  }
+
+  IconData _getIcon(bool isEnded) {
+    if (isEnded) {
+      if (widget.target.type == DeepLinkType.live) {
+        return Icons.sensors_off_rounded;
+      }
+      if (widget.target.type == DeepLinkType.meeting) {
+        return Icons.videocam_off_rounded;
+      }
+    }
+    switch (widget.target.type) {
       case DeepLinkType.live:
         return Icons.sensors_rounded;
       case DeepLinkType.meeting:
@@ -1682,7 +1743,7 @@ class _DeepLinkCardWidget extends StatelessWidget {
   }
 
   Color _getAccentColor() {
-    switch (target.type) {
+    switch (widget.target.type) {
       case DeepLinkType.live:
         return const Color(0xFFFF3B30);
       case DeepLinkType.meeting:
@@ -1703,8 +1764,15 @@ class _DeepLinkCardWidget extends StatelessWidget {
     }
   }
 
-  String _getBadge() {
-    switch (target.type) {
+  String _getBadge(bool isEnded) {
+    if (isEnded) {
+      return widget.target.type == DeepLinkType.live
+          ? 'BROADCAST ENDED'
+          : widget.target.type == DeepLinkType.meeting
+              ? 'MEETING ENDED'
+              : 'ENDED';
+    }
+    switch (widget.target.type) {
       case DeepLinkType.live:
         return 'LIVE';
       case DeepLinkType.meeting:
@@ -1728,33 +1796,48 @@ class _DeepLinkCardWidget extends StatelessWidget {
     }
   }
 
-  String _getTitle() {
-    switch (target.type) {
+  String _getTitle(bool isEnded) {
+    if (isEnded) {
+      if (widget.target.type == DeepLinkType.live) {
+        return 'Live Broadcast (Ended)';
+      }
+      if (widget.target.type == DeepLinkType.meeting) {
+        return 'Meeting has ended';
+      }
+    }
+    switch (widget.target.type) {
       case DeepLinkType.live:
         return 'Live Broadcast';
       case DeepLinkType.meeting:
-        return 'Meeting: ${target.identifier}';
+        return 'Meeting: ${widget.target.identifier}';
       case DeepLinkType.community:
-        return 'Community: ${target.identifier}';
+        return 'Community: ${widget.target.identifier}';
       case DeepLinkType.event:
-        return 'Event: ${target.identifier}';
+        return 'Event: ${widget.target.identifier}';
       case DeepLinkType.product:
-        return 'Product #${target.identifier}';
+        return 'Product #${widget.target.identifier}';
       case DeepLinkType.storefront:
-        return 'Store: ${target.identifier}';
+        return 'Store: ${widget.target.identifier}';
       case DeepLinkType.profile:
-        return '@${target.identifier}';
+        return '@${widget.target.identifier}';
       case DeepLinkType.linkInBio:
-        return '@${target.identifier}';
+        return '@${widget.target.identifier}';
       case DeepLinkType.chat:
-        return 'Chat #${target.identifier}';
+        return 'Chat #${widget.target.identifier}';
       default:
-        return target.identifier;
+        return widget.target.identifier;
     }
   }
 
-  String _getButtonLabel() {
-    switch (target.type) {
+  String _getButtonLabel(bool isEnded) {
+    if (isEnded) {
+      return widget.target.type == DeepLinkType.live
+          ? 'Broadcast Ended'
+          : widget.target.type == DeepLinkType.meeting
+              ? 'Meeting Ended'
+              : 'Ended';
+    }
+    switch (widget.target.type) {
       case DeepLinkType.live:
         return 'Watch Live';
       case DeepLinkType.meeting:
@@ -1780,16 +1863,19 @@ class _DeepLinkCardWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = _getAccentColor();
-    final badge = _getBadge();
-    final title = _getTitle();
-    final buttonLabel = _getButtonLabel();
-    final isLive = target.type == DeepLinkType.live;
+    final isEnded = _preview != null && _preview!['is_active'] == false;
+    final accent = isEnded ? const Color(0xFF8E8E93) : _getAccentColor();
+    final badge = _getBadge(isEnded);
+    final title = _preview?['title']?.toString() ?? _getTitle(isEnded);
+    final buttonLabel = isEnded
+        ? _getButtonLabel(true)
+        : (_preview?['label']?.toString() ?? _getButtonLabel(false));
+    final isLive = widget.target.type == DeepLinkType.live && !isEnded;
 
-    final cardBg = mine
+    final cardBg = widget.mine
         ? Colors.black.withValues(alpha: 0.2)
-        : (isDark ? const Color(0xFF1E232D) : const Color(0xFFF1F5F9));
-    final borderColor = mine
+        : (widget.isDark ? const Color(0xFF1E232D) : const Color(0xFFF1F5F9));
+    final borderColor = widget.mine
         ? Colors.white.withValues(alpha: 0.25)
         : accent.withValues(alpha: 0.35);
 
@@ -1811,7 +1897,7 @@ class _DeepLinkCardWidget extends StatelessWidget {
               CircleAvatar(
                 radius: 16,
                 backgroundColor: accent.withValues(alpha: 0.15),
-                child: Icon(_getIcon(), color: accent, size: 18),
+                child: Icon(_getIcon(isEnded), color: accent, size: 18),
               ),
               const SizedBox(width: 8),
               Expanded(
@@ -1840,7 +1926,7 @@ class _DeepLinkCardWidget extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
-                        color: mine ? Colors.white : (isDark ? Colors.white : Colors.black87),
+                        color: widget.mine ? Colors.white : (widget.isDark ? Colors.white : Colors.black87),
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -1854,7 +1940,7 @@ class _DeepLinkCardWidget extends StatelessWidget {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: () => context.push(target.appRoute),
+              onPressed: () => context.push(widget.target.appRoute),
               style: ElevatedButton.styleFrom(
                 backgroundColor: accent,
                 foregroundColor: Colors.white,
@@ -1862,7 +1948,7 @@ class _DeepLinkCardWidget extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(vertical: 6),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
-              icon: Icon(_getIcon(), size: 14),
+              icon: Icon(_getIcon(isEnded), size: 14),
               label: Text(
                 buttonLabel,
                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
