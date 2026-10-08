@@ -24,7 +24,7 @@ class AppTheme {
       colorScheme: scheme,
       scaffoldBackgroundColor: DesignTokens.background,
       appBarTheme: const AppBarTheme(
-        backgroundColor: DesignTokens.surface,
+        backgroundColor: DesignTokens.background,
         foregroundColor: DesignTokens.textPrimary,
         elevation: 0,
         surfaceTintColor: Colors.transparent,

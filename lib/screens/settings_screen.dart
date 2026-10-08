@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../components/app_bottom_sheet.dart';
 import '../core/roles.dart';
+import '../providers/appearance_provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/feature_flag_provider.dart';
 import '../providers/language_provider.dart';
@@ -241,10 +242,22 @@ class SettingsScreen extends ConsumerWidget {
                   onTap: () => context.push('/admin/moderation'),
                 ),
               ],
-              _SettingsTile(
+              _SettingsSwitchTile(
                 iconBg: const Color(0xFF5AC8FA),
-                icon: Icons.brightness_6_rounded,
-                title: 'Appearance',
+                icon: Icons.dark_mode_rounded,
+                title: 'Dark Mode',
+                value: isDark,
+                onChanged: (val) {
+                  ref.read(appearanceProvider.notifier).setThemeMode(
+                    val ? AppThemeMode.dark : AppThemeMode.light,
+                  );
+                },
+                isDark: isDark,
+              ),
+              _SettingsTile(
+                iconBg: const Color(0xFF5856D6),
+                icon: Icons.palette_rounded,
+                title: 'Appearance & Themes',
                 trailingText: isDark ? 'Dark >' : 'Light >',
                 isDark: isDark,
                 onTap: () => context.push('/profile/appearance'),
@@ -490,6 +503,52 @@ class _SettingsTile extends StatelessWidget {
               size: 20,
             ),
         ],
+      ),
+    );
+  }
+}
+
+class _SettingsSwitchTile extends StatelessWidget {
+  final Color iconBg;
+  final IconData icon;
+  final String title;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+  final bool isDark;
+
+  const _SettingsSwitchTile({
+    required this.iconBg,
+    required this.icon,
+    required this.title,
+    required this.value,
+    required this.onChanged,
+    required this.isDark,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: Container(
+        width: 32,
+        height: 32,
+        decoration: BoxDecoration(
+          color: iconBg,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Icon(icon, color: Colors.white, size: 20),
+      ),
+      title: Text(
+        title,
+        style: TextStyle(
+          color: isDark ? Colors.white : Colors.black,
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      trailing: Switch(
+        value: value,
+        onChanged: onChanged,
+        activeColor: const Color(0xFF007AFF),
       ),
     );
   }

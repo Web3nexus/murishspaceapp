@@ -51,12 +51,12 @@ abstract final class DesignTokens {
   static const double navBarHeight = 60.0;
 
   // Legacy Static Color Aliases
-  static const Color background = Color(0xFFF7FAFC);
+  static const Color background = Color(0xFFF2F2F7);
   static const Color surface = Color(0xFFFFFFFF);
-  static const Color surfaceSecondary = Color(0xFFF0F6FA);
+  static const Color surfaceSecondary = Color(0xFFEFEFF4);
   static const Color textPrimary = Color(0xFF102840);
   static const Color textSecondary = Color(0xFF61758A);
-  static const Color border = Color(0xFFDCE7EF);
+  static const Color border = Color(0xFFE5E5EA);
 
   // Dynamic Helpers
   static Color bgOf(bool isDark) => isDark ? darkBg : lightBg;
