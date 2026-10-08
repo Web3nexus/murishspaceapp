@@ -11,6 +11,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:go_router/go_router.dart';
 
 import '../components/animated_action_feedback.dart';
 import '../components/gift_animation_overlay.dart';
@@ -188,7 +189,11 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
           role == UserRole.admin;
       if (!isPrivileged && kycStatus != 'verified' && kycStatus != 'approved') {
         if (mounted) {
-          Navigator.of(context).pop();
+          if (Navigator.of(context).canPop()) {
+            Navigator.of(context).pop();
+          } else {
+            context.go('/app/home');
+          }
           showKycRequiredLiveModal(context);
         }
         return;
@@ -323,7 +328,11 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
       final errStr = errorMessage.toLowerCase();
       if (widget.isHost && (errStr.contains('kyc') || errStr.contains('403'))) {
         if (mounted) {
-          Navigator.of(context).pop();
+          if (Navigator.of(context).canPop()) {
+            Navigator.of(context).pop();
+          } else {
+            context.go('/app/home');
+          }
           showKycRequiredLiveModal(context);
           return;
         }
@@ -1397,7 +1406,13 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
         await _leaveViewerStream();
       }
 
-      if (mounted) Navigator.of(context).pop();
+      if (mounted) {
+        if (Navigator.of(context).canPop()) {
+          Navigator.of(context).pop();
+        } else {
+          context.go('/app/home');
+        }
+      }
     }
   }
 
@@ -1411,7 +1426,13 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
     final isKeyboardOpen = viewInsetsBottom > 0;
     final hasChatText = _chatCtrl.text.trim().isNotEmpty;
 
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        await _endOrLeaveStream();
+      },
+      child: Scaffold(
       backgroundColor: Colors.black,
       resizeToAvoidBottomInset: false,
       body: GestureDetector(
@@ -1934,6 +1955,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
           ],
         ),
       ),
+    ),
     );
   }
 }

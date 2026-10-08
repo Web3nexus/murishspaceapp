@@ -56,11 +56,15 @@ class _LiveLinkScreenState extends ConsumerState<LiveLinkScreen> {
         return;
       }
 
+      final isLive = stream['status'] == 'live';
+
       setState(() {
         _stream = stream;
         _loading = false;
       });
-      _continueToStream(stream);
+      if (isLive) {
+        _continueToStream(stream);
+      }
     } catch (_) {
       if (!mounted) return;
       setState(() {
@@ -72,6 +76,7 @@ class _LiveLinkScreenState extends ConsumerState<LiveLinkScreen> {
 
   void _continueToStream(Map<String, dynamic> stream) {
     if (ref.read(authProvider).token == null) return;
+    if (stream['status'] != 'live') return;
 
     final streamId = (stream['id'] as num?)?.toInt();
     if (streamId == null) return;
@@ -97,7 +102,11 @@ class _LiveLinkScreenState extends ConsumerState<LiveLinkScreen> {
               '${Uri.encodeQueryComponent(entry.key)}=${Uri.encodeQueryComponent(entry.value)}',
         )
         .join('&');
-    context.go('/app/live?$encodedQuery');
+    if (context.canPop()) {
+      context.pushReplacement('/app/live?$encodedQuery');
+    } else {
+      context.push('/app/live?$encodedQuery');
+    }
   }
 
   void _openLogin() {
@@ -109,6 +118,7 @@ class _LiveLinkScreenState extends ConsumerState<LiveLinkScreen> {
   Widget build(BuildContext context) {
     final host = _stream?['host'] as Map<String, dynamic>?;
     final hostName = (host?['name'] as String?)?.trim();
+    final isLive = _stream?['status'] == 'live';
 
     return Scaffold(
       appBar: AppBar(title: const Text('Live broadcast')),
@@ -119,7 +129,8 @@ class _LiveLinkScreenState extends ConsumerState<LiveLinkScreen> {
               ? const CircularProgressIndicator()
               : _error != null
               ? _ErrorState(message: _error!, onRetry: _resolve)
-              : _LivePreview(
+              : isLive
+              ? _LivePreview(
                   title:
                       (_stream?['title'] as String?)?.trim().isNotEmpty == true
                       ? (_stream!['title'] as String).trim()
@@ -129,6 +140,15 @@ class _LiveLinkScreenState extends ConsumerState<LiveLinkScreen> {
                       : 'Creator',
                   isAuthenticated: ref.watch(authProvider).token != null,
                   onWatch: _continueToStreamFromState,
+                )
+              : _LiveEndedPreview(
+                  title:
+                      (_stream?['title'] as String?)?.trim().isNotEmpty == true
+                      ? (_stream!['title'] as String).trim()
+                      : 'Live Broadcast',
+                  hostName: hostName?.isNotEmpty == true
+                      ? hostName!
+                      : 'Creator',
                 ),
         ),
       ),
@@ -137,12 +157,90 @@ class _LiveLinkScreenState extends ConsumerState<LiveLinkScreen> {
 
   void _continueToStreamFromState() {
     final stream = _stream;
-    if (stream == null) return;
+    if (stream == null || stream['status'] != 'live') return;
     if (ref.read(authProvider).token == null) {
       _openLogin();
       return;
     }
     _continueToStream(stream);
+  }
+}
+
+class _LiveEndedPreview extends StatelessWidget {
+  final String title;
+  final String hostName;
+
+  const _LiveEndedPreview({
+    required this.title,
+    required this.hostName,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 480),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 96,
+            height: 96,
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surfaceContainerHighest,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.sensors_off_rounded,
+              size: 48,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 24),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              'BROADCAST ENDED',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.8,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            title,
+            style: theme.textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.w800,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'This live broadcast by $hostName has ended.',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 28),
+          FilledButton.icon(
+            onPressed: () => context.go('/app/home'),
+            icon: const Icon(Icons.home_rounded),
+            label: const Text('Back to Home'),
+            style: FilledButton.styleFrom(
+              minimumSize: const Size.fromHeight(50),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

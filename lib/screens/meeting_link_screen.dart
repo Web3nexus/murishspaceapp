@@ -191,7 +191,12 @@ class _MeetingLinkScreenState extends ConsumerState<MeetingLinkScreen> {
 
   void _join(BuildContext context, WidgetRef ref, String canonicalPath) {
     if (ref.read(authProvider).token != null) {
-      context.go('/app/meeting/${Uri.encodeComponent(widget.roomCode.trim())}');
+      final target = '/app/meeting/${Uri.encodeComponent(widget.roomCode.trim())}';
+      if (context.canPop()) {
+        context.pushReplacement(target);
+      } else {
+        context.push(target);
+      }
       return;
     }
     // The router guard already redirects /m/* to login; doing it here too keeps
