@@ -339,6 +339,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
           avatarUrl: avatar,
           isVideo: isVideo,
           recipientId: recipientId,
+          conversationId: widget.conversationId,
         ),
       ),
     );

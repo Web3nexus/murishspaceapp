@@ -131,7 +131,10 @@ class _IncomingCallOverlayState extends ConsumerState<IncomingCallOverlay>
     _ringTimeoutTimer = Timer(const Duration(seconds: 45), () {
       _stopRingingFeedback();
       if (mounted) {
-        ref.read(callsProvider.notifier).handleCallEnded({});
+        final current = ref.read(callsProvider).activeCall;
+        if (current != null && current.status == 'incoming') {
+          ref.read(callsProvider.notifier).handleCallEnded({});
+        }
       }
     });
 

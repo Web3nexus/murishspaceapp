@@ -10,7 +10,9 @@ import 'components/app_lock_overlay.dart';
 import 'components/gift_animation_overlay.dart';
 import 'components/in_app_notification_overlay.dart';
 import 'components/incoming_call_overlay.dart';
+import 'components/floating_call_overlay.dart';
 import 'core/api_client.dart';
+import 'providers/appearance_provider.dart';
 import 'providers/auth_provider.dart';
 import 'providers/chat_provider.dart';
 import 'providers/messages_provider.dart';
@@ -110,11 +112,13 @@ class _MurihSpaceAppState extends ConsumerState<MurihSpaceApp> with WidgetsBindi
       PushService.instance.syncToken();
     }
 
+    final appearance = ref.watch(appearanceProvider);
+
     return MaterialApp.router(
       title: Env.appName,
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
-      themeMode: ThemeMode.system,
+      themeMode: appearance.flutterThemeMode,
       routerConfig: router,
       debugShowCheckedModeBanner: false,
       builder: (context, child) {
@@ -122,7 +126,9 @@ class _MurihSpaceAppState extends ConsumerState<MurihSpaceApp> with WidgetsBindi
         return AppLockOverlay(
           child: IncomingCallOverlay(
             child: InAppNotificationOverlay(
-              child: GiftAnimationOverlay(child: child),
+              child: GiftAnimationOverlay(
+                child: FloatingCallOverlay(child: child),
+              ),
             ),
           ),
         );

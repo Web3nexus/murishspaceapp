@@ -395,7 +395,13 @@ class _ConferenceMeetingScreenState
         ).showSnackBar(SnackBar(content: Text(reason)));
       }
       Future.delayed(const Duration(milliseconds: 400), () {
-        if (mounted) context.pop();
+        if (mounted) {
+          if (context.canPop()) {
+            context.pop();
+          } else {
+            context.go('/app/conference');
+          }
+        }
       });
     }
   }
@@ -694,7 +700,13 @@ class _ConferenceMeetingScreenState
           scrolledUnderElevation: 0,
           leading: IconButton(
             icon: Icon(Icons.arrow_back_rounded, color: textPrimary),
-            onPressed: () => context.pop(),
+            onPressed: () {
+              if (context.canPop()) {
+                context.pop();
+              } else {
+                context.go('/app/conference');
+              }
+            },
           ),
           title: Text(
             'Meetings & Conference',
