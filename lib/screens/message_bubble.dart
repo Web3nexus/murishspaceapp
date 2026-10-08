@@ -1661,9 +1661,28 @@ class _DeepLinkCardWidget extends StatefulWidget {
   State<_DeepLinkCardWidget> createState() => _DeepLinkCardWidgetState();
 }
 
+/// A cached lookup plus the time it was fetched, so status-bearing previews
+/// can go stale without pinning a badge for the rest of the app session.
+class _PreviewCacheEntry {
+  final Map<String, dynamic>? data;
+  final DateTime at;
+
+  const _PreviewCacheEntry(this.data, this.at);
+}
+
 class _DeepLinkCardWidgetState extends State<_DeepLinkCardWidget> {
-  static final Map<String, Map<String, dynamic>?> _cache = {};
+  static const Duration _statusTtl = Duration(seconds: 30);
+  static const Duration _staticTtl = Duration(minutes: 5);
+
+  static final Map<String, _PreviewCacheEntry> _cache = {};
   Map<String, dynamic>? _preview;
+
+  Duration get _cacheTtl {
+    final type = widget.target.type;
+    return type == DeepLinkType.live || type == DeepLinkType.meeting
+        ? _statusTtl
+        : _staticTtl;
+  }
 
   @override
   void initState() {
@@ -1681,13 +1700,15 @@ class _DeepLinkCardWidgetState extends State<_DeepLinkCardWidget> {
 
   Future<void> _fetchPreview() async {
     final route = widget.target.appRoute;
-    if (_cache.containsKey(route)) {
-      if (mounted) setState(() => _preview = _cache[route]);
+    final cached = _cache[route];
+    if (cached != null && DateTime.now().difference(cached.at) <= _cacheTtl) {
+      if (mounted) setState(() => _preview = cached.data);
       return;
     }
 
-    // Clear whatever the previous route showed so a failed lookup does not
-    // leave another message's card on this bubble.
+    // Drop the expired answer and whatever the previous route showed, so a
+    // stale card is never repainted while this lookup runs.
+    _cache.remove(route);
     if (mounted) setState(() => _preview = null);
 
     try {
@@ -1698,13 +1719,17 @@ class _DeepLinkCardWidgetState extends State<_DeepLinkCardWidget> {
       final data = ApiClient.instance.unwrap(res) is Map<String, dynamic>
           ? ApiClient.instance.unwrap(res) as Map<String, dynamic>
           : null;
-      _cache[route] = data;
+      // Cache it either way — it is still the right answer for `route` —
+      // but never paint it if the card has since moved to another link.
+      _cache[route] = _PreviewCacheEntry(data, DateTime.now());
+      if (route != widget.target.appRoute) return;
       if (mounted) {
         setState(() => _preview = data);
       }
     } catch (_) {
       // Do not cache failures: a dropped response would otherwise pin a
       // blank card for the rest of the app session with no retry.
+      if (route != widget.target.appRoute) return;
       if (mounted) setState(() => _preview = null);
     }
   }
