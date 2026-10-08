@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../core/api_client.dart';
 import '../providers/auth_provider.dart';
 import '../config/deep_links.dart';
 
@@ -20,23 +21,61 @@ bool _isRoomCode(String code) {
 
 /// Landing page for a shared meeting invite (`/m/:code`).
 ///
-/// Every meeting endpoint is authenticated, so this cannot fetch room details
-/// without a session. Instead it presents the invite, hands the code straight
-/// to the room screen when the visitor is signed in, and otherwise routes them
-/// through login with a `returnTo` so they land back here — and from here into
-/// the room — once authenticated.
-///
-/// That round trip is the whole point: a meeting link pasted into a chat app
-/// used to dead-end for anyone who was not already signed in.
-class MeetingLinkScreen extends ConsumerWidget {
+/// Checks if the meeting is active via the link preview resolver, showing a
+/// clear ended screen when the room has closed rather than bouncing into an
+/// empty/failing conference room.
+class MeetingLinkScreen extends ConsumerStatefulWidget {
   final String roomCode;
 
   const MeetingLinkScreen({super.key, required this.roomCode});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<MeetingLinkScreen> createState() => _MeetingLinkScreenState();
+}
+
+class _MeetingLinkScreenState extends ConsumerState<MeetingLinkScreen> {
+  bool _loading = true;
+  bool _isActive = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkMeeting();
+  }
+
+  Future<void> _checkMeeting() async {
+    final code = widget.roomCode.trim().toLowerCase();
+    if (!_isRoomCode(code)) {
+      setState(() => _loading = false);
+      return;
+    }
+
+    try {
+      final api = ref.read(apiClientProvider);
+      final response = await api.get(
+        '/link-preview',
+        queryParameters: {'url': '/m/$code'},
+      );
+      final payload =
+          ApiClient.instance.unwrap(response) as Map<String, dynamic>;
+      // Only an explicit false means the room is closed. An absent field
+      // leaves the meeting joinable, matching message_bubble.dart.
+      final active = payload['is_active'] != false;
+      if (!mounted) return;
+      setState(() {
+        _isActive = active;
+        _loading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final code = roomCode.trim().toLowerCase();
+    final code = widget.roomCode.trim().toLowerCase();
     final isValid = _isRoomCode(code);
     final isAuthenticated = ref.watch(authProvider).token != null;
 
@@ -54,6 +93,28 @@ class MeetingLinkScreen extends ConsumerWidget {
           message:
               'Meeting links end in a room code. Ask the host to share '
               'the link again.',
+          primaryLabel: 'Go to meetings',
+          onPrimary: () => context.go('/app/conference'),
+        ),
+      );
+    }
+
+    if (_loading) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Meeting invite')),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (!_isActive) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Meeting invite')),
+        body: _CenteredMessage(
+          icon: Icons.videocam_off_rounded,
+          title: 'This meeting has ended',
+          message:
+              'Meeting room "$code" is no longer active or the invite has expired. '
+              'Ask the host for a fresh invite link.',
           primaryLabel: 'Go to meetings',
           onPrimary: () => context.go('/app/conference'),
         ),
@@ -130,7 +191,7 @@ class MeetingLinkScreen extends ConsumerWidget {
 
   void _join(BuildContext context, WidgetRef ref, String canonicalPath) {
     if (ref.read(authProvider).token != null) {
-      context.go('/app/meeting/${Uri.encodeComponent(roomCode.trim())}');
+      context.go('/app/meeting/${Uri.encodeComponent(widget.roomCode.trim())}');
       return;
     }
     // The router guard already redirects /m/* to login; doing it here too keeps
