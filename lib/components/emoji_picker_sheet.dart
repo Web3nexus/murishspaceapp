@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../core/design_tokens.dart';
+import '../core/emoji_assets.dart';
 
 class EmojiPickerSheet extends StatefulWidget {
   final ValueChanged<String> onEmojiSelected;
@@ -188,10 +189,7 @@ class _EmojiPickerSheetState extends State<EmojiPickerSheet> with SingleTickerPr
                       borderRadius: BorderRadius.circular(10),
                       splashColor: DesignTokens.primary.withOpacity(0.2),
                       child: Center(
-                        child: Text(
-                          emoji,
-                          style: const TextStyle(fontSize: 26),
-                        ),
+                        child: AnimatedEmoji(emoji: emoji, size: 26),
                       ),
                     );
                   },

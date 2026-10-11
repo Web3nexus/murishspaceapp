@@ -719,7 +719,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
           IconButton(
             onPressed: () {
               final shell = StatefulNavigationShell.of(context);
-              shell.goBranch(1);
+              shell.goBranch(3);
             },
             icon: Stack(
               children: [

@@ -10,6 +10,7 @@ import 'package:livekit_client/livekit_client.dart';
 import '../components/chat_pattern_background.dart';
 import '../config/router.dart';
 import '../core/api_client.dart';
+import '../core/emoji_assets.dart';
 import '../providers/calls_provider.dart';
 import '../providers/messages_provider.dart';
 import '../services/call_session_manager.dart';
@@ -1201,9 +1202,10 @@ class _FloatingReactionBubbleState extends State<_FloatingReactionBubble>
                     ),
                   ],
                 ),
-                child: Text(
-                  widget.emoji,
-                  style: const TextStyle(fontSize: 32),
+                child: AnimatedEmoji(
+                  emoji: widget.emoji,
+                  size: 32,
+                  fallbackColor: Colors.white,
                 ),
               ),
             ),
@@ -1282,9 +1284,10 @@ class _MoreActionsSheet extends StatelessWidget {
                   },
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                    child: Text(
-                      emoji,
-                      style: const TextStyle(fontSize: 26),
+                    child: AnimatedEmoji(
+                      emoji: emoji,
+                      size: 26,
+                      fallbackColor: Colors.white,
                     ),
                   ),
                 );

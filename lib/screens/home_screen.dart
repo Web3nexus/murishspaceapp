@@ -19,6 +19,9 @@ import 'story_viewer_screen.dart';
 import '../components/go_live_setup_dialog.dart';
 import '../components/kyc_live_gate_dialog.dart';
 import '../components/live_now_rail.dart';
+import '../components/murih_icon.dart';
+import '../providers/chat_provider.dart';
+import '../providers/notifications_provider.dart';
 import '../providers/live_discovery_provider.dart';
 
 /// FB/Instagram style Home Feed screen with MurihSpace Brand Logo & Messenger jump action.
@@ -242,6 +245,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final bg = isDark ? Colors.black : const Color(0xFFF7FAFC);
     final user = ref.watch(authProvider).user;
 
+    final unreadNotes = ref.watch(notificationsProvider).unread;
+    final unreadChats = ref.watch(conversationsProvider).unreadTotal;
+    final cardBg = isDark ? const Color(0xFF161B26) : Colors.white;
+    final borderColor = isDark ? const Color(0xFF2E384D) : const Color(0xFFE4E7EC);
+
     return Scaffold(
       backgroundColor: bg,
       appBar: AppBar(
@@ -250,52 +258,75 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         scrolledUnderElevation: 0,
         title: BrandLogo(
           role: user?.role,
-          height: 30,
+          height: 28,
           isDark: isDark,
         ),
         actions: [
           const _LiveActionButton(),
+          // Notifications Bell with Unread Badge
           IconButton(
-            onPressed: () => _showQuickCreateMenu(context, isDark),
-            icon: Container(
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                color: DesignTokens.primary.withOpacity(0.15),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.add_rounded,
-                color: isDark ? Colors.white : DesignTokens.primary,
-                size: 22,
-              ),
+            onPressed: () => context.push('/profile/notifications'),
+            icon: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                MurihIcon(
+                  'Notification',
+                  size: 22,
+                  color: isDark ? Colors.white : const Color(0xFF17202B),
+                ),
+                if (unreadNotes > 0)
+                  Positioned(
+                    top: -2,
+                    right: -2,
+                    child: Container(
+                      width: 8,
+                      height: 8,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFDC2626),
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ),
+              ],
             ),
-            tooltip: 'Quick Create (Post, Story, Live)',
+            tooltip: 'Notifications',
           ),
-          IconButton(
-            onPressed: () => context.push('/friends'),
-            icon: Icon(
-              Icons.people_outline_rounded,
-              color: isDark ? Colors.white : Colors.black,
-              size: 24,
-            ),
-            tooltip: 'Friends & Requests',
-          ),
+
+          // Messages Jump Button (BrandFavicon with unread badge)
           Padding(
-            padding: const EdgeInsets.only(right: 8),
+            padding: const EdgeInsets.only(right: 12),
             child: IconButton(
               onPressed: widget.onOpenMessages,
-              icon: Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFEFF3F6),
-                  shape: BoxShape.circle,
-                ),
-                child: BrandFavicon(
-                  size: 20,
-                  isDark: isDark,
-                ),
+              icon: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  BrandFavicon(
+                    size: 22,
+                    isDark: isDark,
+                  ),
+                  if (unreadChats > 0)
+                    Positioned(
+                      top: -4,
+                      right: -6,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFDC2626),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          '$unreadChats',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               ),
-              tooltip: 'MurihSpace Messages',
+              tooltip: 'Messages',
             ),
           ),
         ],
@@ -314,60 +345,119 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // What's on your mind composer bar (Facebook style: post creation block first)
+              // 1. Stories Row at Top of Feed (per Instagram/Facebook & reference)
+              const _StoriesRow(),
+              const SizedBox(height: 6),
+
+              // 2. What's on your mind Composer Card
               Padding(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(isDark ? 0.3 : 0.05),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
+                    color: cardBg,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: borderColor),
                   ),
-                  child: Row(
+                  child: Column(
                     children: [
-                      CircleAvatar(
-                        radius: 18,
-                        backgroundColor: DesignTokens.primary,
-                        child: const Icon(Icons.person, color: Colors.white, size: 20),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: _compose,
-                          child: Text(
-                            "What's on your mind, ${user != null ? user.name.split(' ').first : 'there'}?",
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: isDark ? Colors.grey[400] : Colors.grey[600],
+                      Row(
+                        children: [
+                          Builder(
+                            builder: (context) {
+                              final raw = user?.avatarUrl;
+                              final resolved = raw != null ? ApiClient.resolveUrl(raw) : null;
+                              return CircleAvatar(
+                                radius: 18,
+                                backgroundColor: DesignTokens.primary,
+                                backgroundImage: resolved != null ? CachedNetworkImageProvider(resolved) : null,
+                                child: resolved == null
+                                    ? const Icon(Icons.person, color: Colors.white, size: 20)
+                                    : null,
+                              );
+                            },
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: _compose,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                decoration: BoxDecoration(
+                                  color: isDark ? const Color(0xFF1E2638) : const Color(0xFFF8FAFC),
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(color: borderColor),
+                                ),
+                                child: Text(
+                                  "What's on your mind?",
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF667085),
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
                             ),
                           ),
-                        ),
+                          const SizedBox(width: 8),
+                          GestureDetector(
+                            onTap: () => _showQuickCreateMenu(context, isDark),
+                            child: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: DesignTokens.primary.withValues(alpha: 0.1),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.add_rounded, color: DesignTokens.primary, size: 20),
+                            ),
+                          ),
+                        ],
                       ),
-                      IconButton(
-                        onPressed: _compose,
-                        icon: const Icon(Icons.photo_library_rounded, color: Color(0xFF34C759), size: 22),
+                      const SizedBox(height: 12),
+                      Divider(height: 1, color: borderColor),
+                      const SizedBox(height: 10),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          _composerPill(
+                            iconName: 'Image',
+                            label: 'Photo',
+                            color: const Color(0xFF16A34A),
+                            onTap: _compose,
+                            isDark: isDark,
+                          ),
+                          _composerPill(
+                            iconName: 'Video',
+                            label: 'Video',
+                            color: const Color(0xFFDC2626),
+                            onTap: _compose,
+                            isDark: isDark,
+                          ),
+                          _composerPill(
+                            iconName: 'Camera',
+                            label: 'Live',
+                            color: const Color(0xFF7C3AED),
+                            onTap: () => context.push('/live/start'),
+                            isDark: isDark,
+                          ),
+                          _composerPill(
+                            iconName: 'Chart',
+                            label: 'Poll',
+                            color: DesignTokens.primary,
+                            onTap: _compose,
+                            isDark: isDark,
+                          ),
+                        ],
                       ),
                     ],
                   ),
                 ),
               ),
-              const Divider(height: 1),
 
-              // Stories Row (Facebook style: stories row under writing post block)
-              const _StoriesRow(),
-              const Divider(height: 1),
-
-              // Live Now rail (hidden when nobody is broadcasting)
+              // 3. Live Now rail
               const LiveNowRail(),
 
-              // Home Feed Posts
+              // 4. Home Feed Posts
               const _HomeFeedPosts(),
             ],
           ),
@@ -381,6 +471,33 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (post != null) {
       ref.read(postsProvider(const PostsSource.feed('home')).notifier).prepend(post);
     }
+  }
+
+  Widget _composerPill({
+    required String iconName,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+    required bool isDark,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          MurihIcon(iconName, size: 16, color: color),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: isDark ? const Color(0xFFE2E8F0) : const Color(0xFF334155),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

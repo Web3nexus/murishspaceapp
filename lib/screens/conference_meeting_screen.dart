@@ -12,6 +12,7 @@ import 'package:permission_handler/permission_handler.dart';
 import '../config/env.dart';
 import '../core/api_client.dart';
 import '../core/design_tokens.dart';
+import '../core/emoji_assets.dart';
 import '../core/roles.dart';
 import '../components/brand.dart';
 import '../components/gift_animation_overlay.dart';
@@ -2222,7 +2223,7 @@ class _ConferenceMeetingScreenState
                       color: inputBg,
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: Text(emoji, style: const TextStyle(fontSize: 18)),
+                    child: AnimatedEmoji(emoji: emoji, size: 18, fallbackColor: Colors.white),
                   ),
                 );
               },
@@ -2515,9 +2516,10 @@ class _ReactionParticleState extends State<_ReactionParticle>
             opacity: (1 - t) * 0.95,
             child: Transform.scale(
               scale: 0.6 + 0.8 * t.clamp(0, 1),
-              child: Text(
-                widget.emoji,
-                style: TextStyle(fontSize: 26 + 10 * t),
+              child: AnimatedEmoji(
+                emoji: widget.emoji,
+                size: 26 + 10 * t,
+                fallbackColor: Colors.white,
               ),
             ),
           ),

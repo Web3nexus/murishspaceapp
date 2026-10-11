@@ -6,6 +6,7 @@ import '../core/design_tokens.dart';
 import '../models/community_models.dart';
 import '../providers/community_provider.dart';
 import '../providers/follow_provider.dart';
+import '../components/murih_icon.dart';
 import '../utils/format.dart';
 
 /// One post card with author header, announcement badge, poll widget, content, media and engagement actions.
@@ -553,38 +554,93 @@ class _ActionRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final defaultColor = isDark ? const Color(0xFF8E8E93) : const Color(0xFF61758A);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          _ActionButton(
-            icon: post.likedByMe ? Icons.favorite : Icons.favorite_border,
-            color: post.likedByMe ? DesignTokens.danger : defaultColor,
-            label: _count(post.likesCount),
-            onTap: onLike,
+    final defaultColor = isDark ? const Color(0xFF94A3B8) : const Color(0xFF667085);
+    final borderColor = isDark ? const Color(0xFF2E384D) : const Color(0xFFE4E7EC);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 1. Social Engagement Summary Row
+        Padding(
+          padding: const EdgeInsets.only(top: 8, bottom: 6),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(2.5),
+                    decoration: const BoxDecoration(
+                      color: DesignTokens.primary,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.thumb_up_rounded, size: 10, color: Colors.white),
+                  ),
+                  const SizedBox(width: 2),
+                  Container(
+                    padding: const EdgeInsets.all(2.5),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFDC2626),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.favorite_rounded, size: 10, color: Colors.white),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    _count(post.likesCount),
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: defaultColor,
+                    ),
+                  ),
+                ],
+              ),
+              Text(
+                '${post.commentsCount} comments · ${post.sharesCount} shares',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: defaultColor,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
           ),
-          _ActionButton(
-            icon: Icons.chat_bubble_outline,
-            color: defaultColor,
-            label: _count(post.commentsCount),
-            onTap: onCommentTap,
-          ),
-          const Spacer(),
-          _ActionButton(
-            icon: post.savedByMe ? Icons.bookmark : Icons.bookmark_border,
-            color: post.savedByMe ? DesignTokens.primary : defaultColor,
-            label: _count(post.savesCount),
-            onTap: onSave,
-          ),
-          _ActionButton(
-            icon: Icons.share_outlined,
-            color: defaultColor,
-            label: _count(post.sharesCount),
-            onTap: onShare,
-          ),
-        ],
-      ),
+        ),
+        Divider(height: 1, color: borderColor),
+        const SizedBox(height: 4),
+
+        // 2. Action Buttons Row (Like, Comment, Share, Save)
+        Row(
+          children: [
+            _ActionButton(
+              icon: post.likedByMe ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+              color: post.likedByMe ? const Color(0xFFDC2626) : defaultColor,
+              label: 'Like',
+              onTap: onLike,
+            ),
+            _ActionButton(
+              icon: Icons.chat_bubble_outline_rounded,
+              color: defaultColor,
+              label: 'Comment',
+              onTap: onCommentTap,
+            ),
+            const Spacer(),
+            _ActionButton(
+              icon: Icons.share_rounded,
+              color: defaultColor,
+              label: 'Share',
+              onTap: onShare,
+            ),
+            _ActionButton(
+              icon: post.savedByMe ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
+              color: post.savedByMe ? DesignTokens.primary : defaultColor,
+              label: 'Save',
+              onTap: onSave,
+            ),
+          ],
+        ),
+      ],
     );
   }
 

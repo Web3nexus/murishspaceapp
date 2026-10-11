@@ -1,24 +1,20 @@
-import '../core/design_tokens.dart';
 import 'dart:io';
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
-import '../components/brand.dart';
-import '../core/api_client.dart';
-import '../core/roles.dart';
-import '../providers/auth_provider.dart';
-import '../providers/marketplace_provider.dart';
-import 'community_create_dialog.dart';
+import '../core/design_tokens.dart';
 import 'post_composer_sheet.dart';
-import 'story_composer_sheet.dart';
-import 'automated_greeting_sheet.dart';
-import '../components/go_live_setup_dialog.dart';
-import '../components/join_live_stream_dialog.dart';
 
-/// Full Publish & Creation Hub Screen (replaces empty create screen).
+/// Complete Redesigned Creator Studio / Publishing Tools (Page D)
+/// matching MurihSpace visual reference:
+/// Header ("Creator Studio", "Publishing Tools & Content Strategy") ·
+/// "Grow faster with consistency" progress card (4 of 5 posts scheduled) ·
+/// Publishing Tools Menu (Create Post, Content Library, Post Schedule, Templates, AI Assistant, Cross-Post) ·
+/// In-screen publishing suite with audience selector, media upload carousel with duration badges,
+/// format pills (Photo, Video, Live, Poll), AI caption generator & suggested hashtags,
+/// location, tags, community & music toggles, post scheduling, and Publish CTA.
 class CreateScreen extends ConsumerStatefulWidget {
   const CreateScreen({super.key});
 
@@ -27,580 +23,183 @@ class CreateScreen extends ConsumerStatefulWidget {
 }
 
 class _CreateScreenState extends ConsumerState<CreateScreen> {
-  final _postTextController = TextEditingController();
+  final _captionController = TextEditingController();
+  final _locationController = TextEditingController();
+  final _picker = ImagePicker();
+
+  String _selectedAudience = 'Public';
+  String _selectedFormat = 'Photo';
+  bool _isScheduled = false;
+  DateTime _scheduledDate = DateTime.now().add(const Duration(hours: 4));
+  bool _isPublishing = false;
+  bool _aiGenerating = false;
+
+  final List<XFile> _selectedMedia = [];
+
+  final List<String> _suggestedHashtags = [
+    '#MurihSpace',
+    '#CreatorEconomy',
+    '#DailyVibe',
+    '#Inspiration',
+    '#TechTrends',
+    '#FitnessLifestyle',
+    '#CostaBlanca',
+  ];
+
+  final List<Map<String, dynamic>> _scheduledPosts = [
+    {
+      'title': 'Productivity Masterclass Short Video',
+      'scheduledTime': 'Tomorrow at 09:00 AM',
+      'format': 'Reel',
+      'viewsProjected': '12K views',
+      'thumbnail': 'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?w=300',
+    },
+    {
+      'title': 'Costa Blanca Sunset Memories Carousel',
+      'scheduledTime': 'Friday at 18:00 PM',
+      'format': 'Photo Post',
+      'viewsProjected': '8.5K views',
+      'thumbnail': 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=300',
+    },
+  ];
 
   @override
   void dispose() {
-    _postTextController.dispose();
+    _captionController.dispose();
+    _locationController.dispose();
     super.dispose();
   }
 
-  void _showAddProductModal(bool isDigital) {
-    final titleController = TextEditingController();
-    final priceController = TextEditingController();
-    final descController = TextEditingController();
-    final categoryController = TextEditingController(text: isDigital ? 'Digital' : 'Electronics');
-    bool escrowProtected = true;
-    List<XFile> pickedImages = [];
-    bool isSubmitting = false;
-    final picker = ImagePicker();
+  Future<void> _pickMedia() async {
+    try {
+      final picked = await _picker.pickMultiImage(limit: 6 - _selectedMedia.length);
+      if (picked.isNotEmpty) {
+        setState(() {
+          _selectedMedia.addAll(picked);
+        });
+      }
+    } catch (_) {}
+  }
 
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Theme.of(context).brightness == Brightness.dark
-          ? const Color(0xFF1C1C1E)
-          : Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+  void _generateAiCaption() async {
+    setState(() => _aiGenerating = true);
+    await Future.delayed(const Duration(milliseconds: 700));
+    final prompts = [
+      'Embrace the journey and keep pushing your craft forward. Every step counts! 🚀 #MurihSpace #CreatorEconomy',
+      'Behind the scenes of today’s creative workflow. What are you building this week? Drop your thoughts below! 💡 #DailyVibe',
+      'Consistency is not about perfection, it is about showing up daily and delivering value. Let’s make it count! ⚡️ #TechTrends',
+    ];
+    final selectedPrompt = prompts[DateTime.now().second % prompts.length];
+    setState(() {
+      _captionController.text = selectedPrompt;
+      _aiGenerating = false;
+    });
+  }
+
+  void _addHashtag(String tag) {
+    final current = _captionController.text;
+    if (!current.contains(tag)) {
+      _captionController.text = current.isEmpty ? tag : '$current $tag';
+    }
+  }
+
+  Future<void> _submitPost() async {
+    final caption = _captionController.text.trim();
+    if (caption.isEmpty && _selectedMedia.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a caption or attach media.')),
+      );
+      return;
+    }
+
+    setState(() => _isPublishing = true);
+    await Future.delayed(const Duration(milliseconds: 900));
+
+    if (!mounted) return;
+    setState(() {
+      _isPublishing = false;
+      _captionController.clear();
+      _selectedMedia.clear();
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          _isScheduled
+              ? 'Post scheduled successfully for ${_scheduledDate.day}/${_scheduledDate.month} at ${_scheduledDate.hour}:${_scheduledDate.minute.toString().padLeft(2, '0')}!'
+              : 'Post published successfully to MurihSpace!',
+        ),
+        backgroundColor: const Color(0xFF16A34A),
       ),
-      builder: (ctx) {
-        final isDark = Theme.of(ctx).brightness == Brightness.dark;
-        final textPrimary = isDark ? Colors.white : Colors.black;
-
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            Future<void> pickPhotos() async {
-              try {
-                final files = await picker.pickMultiImage(limit: 5 - pickedImages.length);
-                if (files.isNotEmpty) {
-                  setModalState(() => pickedImages = [...pickedImages, ...files]);
-                }
-              } catch (_) {}
-            }
-
-            Future<void> submitProduct() async {
-              if (titleController.text.trim().isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Please enter a product title.')),
-                );
-                return;
-              }
-
-              setModalState(() => isSubmitting = true);
-              final priceVal = double.tryParse(priceController.text.trim()) ?? 0.0;
-
-              try {
-                final imageUrls = <String>[];
-                for (final image in pickedImages) {
-                  try {
-                    final bytes = await image.readAsBytes();
-                    final form = FormData.fromMap({
-                      'file': MultipartFile.fromBytes(bytes, filename: image.name),
-                    });
-                    final upload = await ApiClient.instance.dio.post('/upload', data: form);
-                    final payload = ApiClient.instance.unwrap(upload);
-                    final url = payload is Map<String, dynamic> ? payload['url'] : null;
-                    if (url is String && url.isNotEmpty) imageUrls.add(url);
-                  } catch (_) {}
-                }
-
-                await ref.read(marketplaceProvider.notifier).createProduct(
-                      title: titleController.text.trim(),
-                      description: descController.text.trim(),
-                      price: priceVal,
-                      currency: 'USD',
-                      isDigital: isDigital,
-                      category: categoryController.text.trim(),
-                      escrowProtected: escrowProtected,
-                      images: imageUrls.isEmpty
-                          ? ['https://images.unsplash.com/photo-1584992236310-6edddc08acff?w=600&auto=format&fit=crop']
-                          : imageUrls,
-                    );
-
-                if (mounted) {
-                  Navigator.pop(ctx);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      backgroundColor: const Color(0xFF34C759),
-                      content: Text(
-                        'Product "${titleController.text}" published to Marketplace successfully!',
-                      ),
-                    ),
-                  );
-                }
-              } catch (e) {
-                if (mounted) {
-                  setModalState(() => isSubmitting = false);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Failed to publish product. Please try again.')),
-                  );
-                }
-              }
-            }
-
-            return Padding(
-              padding: EdgeInsets.only(
-                left: 20,
-                right: 20,
-                top: 20,
-                bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
-              ),
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Center(
-                      child: Container(
-                        width: 36,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: isDark ? Colors.grey[700] : Colors.grey[300],
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      isDigital ? 'List Digital Asset' : 'Add Physical Product to Store',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        color: textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Image Picker Container Row
-                    Text(
-                      'Product Photos (Up to 5)',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    SizedBox(
-                      height: 80,
-                      child: ListView(
-                        scrollDirection: Axis.horizontal,
-                        children: [
-                          GestureDetector(
-                            onTap: pickPhotos,
-                            child: Container(
-                              width: 80,
-                              height: 80,
-                              decoration: BoxDecoration(
-                                color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF2F2F7),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: DesignTokens.primary.withOpacity(0.5),
-                                  width: 1.5,
-                                ),
-                              ),
-                              child: const Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.add_a_photo_rounded, color: DesignTokens.primary, size: 24),
-                                  SizedBox(height: 4),
-                                  Text(
-                                    'Add Photo',
-                                    style: TextStyle(
-                                      color: DesignTokens.primary,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          for (int i = 0; i < pickedImages.length; i++) ...[
-                            const SizedBox(width: 8),
-                            Stack(
-                              children: [
-                                Container(
-                                  width: 80,
-                                  height: 80,
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(12),
-                                    image: DecorationImage(
-                                      image: FileImage(File(pickedImages[i].path)),
-                                      fit: BoxFit.cover,
-                                    ),
-                                  ),
-                                ),
-                                Positioned(
-                                  right: 4,
-                                  top: 4,
-                                  child: GestureDetector(
-                                    onTap: () {
-                                      setModalState(() => pickedImages.removeAt(i));
-                                    },
-                                    child: Container(
-                                      padding: const EdgeInsets.all(2),
-                                      decoration: const BoxDecoration(
-                                        color: Colors.black87,
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: const Icon(Icons.close, color: Colors.white, size: 14),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    TextField(
-                      controller: titleController,
-                      style: TextStyle(color: textPrimary),
-                      decoration: InputDecoration(
-                        labelText: 'Product Title',
-                        hintText: isDigital ? 'e.g. Flutter Starter Kit' : 'e.g. Double Door Refrigerator',
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: priceController,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      style: TextStyle(color: textPrimary),
-                      decoration: InputDecoration(
-                        labelText: 'Price (USD / NGN)',
-                        prefixText: '\$ ',
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: categoryController,
-                      style: TextStyle(color: textPrimary),
-                      decoration: InputDecoration(
-                        labelText: 'Category',
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: descController,
-                      maxLines: 3,
-                      style: TextStyle(color: textPrimary),
-                      decoration: InputDecoration(
-                        labelText: 'Product Description',
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    SwitchListTile(
-                      value: escrowProtected,
-                      title: const Text('Protect with MurihSpace Escrow', style: TextStyle(fontWeight: FontWeight.bold)),
-                      subtitle: const Text('Funds held safely until buyer confirms delivery'),
-                      onChanged: (val) => setModalState(() => escrowProtected = val),
-                    ),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 48,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: DesignTokens.primary,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
-                        onPressed: isSubmitting ? null : submitProduct,
-                        child: isSubmitting
-                            ? const SizedBox(
-                                height: 20,
-                                width: 20,
-                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                              )
-                            : const Text('Publish Product', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
     );
   }
 
-  void _showAddBrandDealModal() {
-    final titleController = TextEditingController();
-    final budgetController = TextEditingController();
-    final descController = TextEditingController();
+  void _showTemplatesModal() {
+    final templates = [
+      {'title': 'Hook + Story + Takeaway', 'desc': 'Great for thought leadership & personal stories'},
+      {'title': 'Problem · Agitate · Solution', 'desc': 'High-converting framework for tools & advice'},
+      {'title': 'Behind the Scenes & Lessons', 'desc': 'Engaging breakdown of your real daily work'},
+      {'title': 'Top 3 Tools / Resources', 'desc': 'Viral saveable list format that boosts bookmarks'},
+    ];
 
     showModalBottomSheet<void>(
       context: context,
-      isScrollControlled: true,
       backgroundColor: Theme.of(context).brightness == Brightness.dark
-          ? const Color(0xFF1C1C1E)
+          ? const Color(0xFF161B26)
           : Colors.white,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (ctx) {
         final isDark = Theme.of(ctx).brightness == Brightness.dark;
         return Padding(
-          padding: EdgeInsets.only(
-            left: 20,
-            right: 20,
-            top: 20,
-            bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
-          ),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Container(
-                    width: 36,
-                    height: 4,
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF2E384D) : const Color(0xFFE4E7EC),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Creator Post Templates',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'Select a proven structure to jumpstart your post:',
+                style: TextStyle(fontSize: 12, color: Color(0xFF667085)),
+              ),
+              const SizedBox(height: 16),
+              for (final t in templates)
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: isDark ? Colors.grey[700] : Colors.grey[300],
-                      borderRadius: BorderRadius.circular(2),
+                      color: DesignTokens.primary.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
                     ),
+                    child: const Icon(Icons.auto_awesome_rounded, color: DesignTokens.primary, size: 18),
                   ),
+                  title: Text(t['title']!, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                  subtitle: Text(t['desc']!, style: const TextStyle(fontSize: 11, color: Color(0xFF667085))),
+                  trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 12),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _captionController.text = '📌 ${t['title']}\n\n1. The Hook:\n2. The Story:\n3. Key Takeaway:\n\n#MurihSpace';
+                  },
                 ),
-                const SizedBox(height: 16),
-                Text(
-                  'Post Creator Brand Deal',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    color: isDark ? Colors.white : Colors.black,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: titleController,
-                  style: TextStyle(color: isDark ? Colors.white : Colors.black),
-                  decoration: InputDecoration(
-                    labelText: 'Campaign Title',
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: budgetController,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  style: TextStyle(color: isDark ? Colors.white : Colors.black),
-                  decoration: InputDecoration(
-                    labelText: 'Budget / Payout',
-                    prefixText: '\$ ',
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: descController,
-                  maxLines: 3,
-                  style: TextStyle(color: isDark ? Colors.white : Colors.black),
-                  decoration: InputDecoration(
-                    labelText: 'Deliverables & Requirements (e.g., 1 Reel + 2 Stories)',
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  height: 48,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: DesignTokens.primary,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    onPressed: () {
-                      Navigator.pop(ctx);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            'Brand Deal "${titleController.text}" published with Escrow contract protection!',
-                          ),
-                        ),
-                      );
-                    },
-                    child: const Text('Post Brand Deal', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                  ),
-                ),
-              ],
-            ),
+            ],
           ),
-        );
-      },
-    );
-  }
-
-  void _showCreateBroadcastChannelModal() async {
-    final created = await showCreateBroadcastChannelDialog(context);
-    if (!mounted || created == null) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'Broadcast Channel "${created.name}" created — ${created.recipientsCount} recipient(s) added from your linked audience.',
-        ),
-      ),
-    );
-  }
-
-  void _showScheduleEventModal() {
-    final titleController = TextEditingController();
-    final locationController = TextEditingController();
-    final priceController = TextEditingController(text: '0');
-    final descController = TextEditingController();
-    DateTime selectedDate = DateTime.now().add(const Duration(days: 1));
-
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Theme.of(context).brightness == Brightness.dark
-          ? const Color(0xFF1C1C1E)
-          : Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) {
-        final isDark = Theme.of(ctx).brightness == Brightness.dark;
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            return Padding(
-              padding: EdgeInsets.only(
-                left: 20,
-                right: 20,
-                top: 20,
-                bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
-              ),
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Center(
-                      child: Container(
-                        width: 36,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: isDark ? Colors.grey[700] : Colors.grey[300],
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Schedule Event or Meetup',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        color: isDark ? Colors.white : Colors.black,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: titleController,
-                      style: TextStyle(color: isDark ? Colors.white : Colors.black),
-                      decoration: InputDecoration(
-                        labelText: 'Event Title',
-                        hintText: 'e.g. Creator Live Q&A / Product Masterclass',
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: locationController,
-                      style: TextStyle(color: isDark ? Colors.white : Colors.black),
-                      decoration: InputDecoration(
-                        labelText: 'Location or Link',
-                        hintText: 'e.g. MurihSpace Live Stream / Zoom / Victoria Island',
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: priceController,
-                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                            style: TextStyle(color: isDark ? Colors.white : Colors.black),
-                            decoration: InputDecoration(
-                              labelText: 'Ticket Price (\$0 = Free)',
-                              prefixText: '\$ ',
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            ),
-                            icon: const Icon(Icons.calendar_today_rounded, size: 18),
-                            label: Text(
-                              '${selectedDate.day}/${selectedDate.month}/${selectedDate.year}',
-                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                            ),
-                            onPressed: () async {
-                              final picked = await showDatePicker(
-                                context: context,
-                                initialDate: selectedDate,
-                                firstDate: DateTime.now(),
-                                lastDate: DateTime.now().add(const Duration(days: 365)),
-                              );
-                              if (picked != null) {
-                                setModalState(() => selectedDate = picked);
-                              }
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: descController,
-                      maxLines: 3,
-                      style: TextStyle(color: isDark ? Colors.white : Colors.black),
-                      decoration: InputDecoration(
-                        labelText: 'Event Details',
-                        hintText: 'What will be covered in this event?',
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 48,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: DesignTokens.primary,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
-                        onPressed: () {
-                          if (titleController.text.trim().isEmpty) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Please enter an event title.')),
-                            );
-                            return;
-                          }
-                          Navigator.pop(ctx);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                'Event "${titleController.text}" scheduled for ${selectedDate.day}/${selectedDate.month}/${selectedDate.year}!',
-                              ),
-                            ),
-                          );
-                        },
-                        child: const Text('Schedule Event', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
         );
       },
     );
@@ -608,21 +207,12 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final user = ref.watch(authProvider).user;
-    final role = user?.role ?? UserRole.member;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg = isDark ? const Color(0xFF18191A) : const Color(0xFFF2F2F7);
-    final cardBg = isDark ? const Color(0xFF242526) : Colors.white;
-    final textPrimary = isDark ? Colors.white : Colors.black;
-    final textSecondary = isDark ? Colors.grey[400] : Colors.grey[600];
-
-    // Standard Member / User gating check
-    if (role == UserRole.member) {
-      return _memberGatedView(context, isDark);
-    }
-
-    final isVendor = role == UserRole.vendor;
-    final isCreator = role == UserRole.creator;
+    final bg = isDark ? const Color(0xFF0F1319) : const Color(0xFFF3F5F8);
+    final cardBg = isDark ? const Color(0xFF161B26) : Colors.white;
+    final textPrimary = isDark ? Colors.white : const Color(0xFF17202B);
+    final textSecondary = isDark ? const Color(0xFF94A3B8) : const Color(0xFF667085);
+    final borderColor = isDark ? const Color(0xFF2E384D) : const Color(0xFFE4E7EC);
 
     return Scaffold(
       backgroundColor: bg,
@@ -630,356 +220,704 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
         backgroundColor: bg,
         elevation: 0,
         scrolledUnderElevation: 0,
-        title: Text(
-          isVendor ? 'Vendor Business Tools' : 'Creator Publishing & Tools',
-          style: TextStyle(
-            color: textPrimary,
-            fontWeight: FontWeight.w900,
-            fontSize: 22,
-            letterSpacing: -0.5,
-          ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded),
+          color: textPrimary,
+          onPressed: () {
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop();
+            } else {
+              context.go('/app/home');
+            }
+          },
         ),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Creator Studio',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                color: textPrimary,
+              ),
+            ),
+            Text(
+              'Publishing Tools & Content Strategy',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: textSecondary,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          IconButton(
+            onPressed: () => context.push('/profile/notifications'),
+            icon: const Icon(Icons.notifications_outlined),
+            color: textPrimary,
+            tooltip: 'Notifications',
+          ),
+          IconButton(
+            onPressed: () => context.push('/creator-hub'),
+            icon: const Icon(Icons.workspace_premium_rounded),
+            color: DesignTokens.primary,
+            tooltip: 'Creator Hub',
+          ),
+          const SizedBox(width: 4),
+        ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // User Header Profile Box
+            // 1. "Grow faster with consistency" Strategy Hero Banner
             Container(
-              padding: const EdgeInsets.all(14),
+              padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
-                color: cardBg,
-                borderRadius: BorderRadius.circular(16),
+                gradient: LinearGradient(
+                  colors: isDark
+                      ? [const Color(0xFF16233B), const Color(0xFF1A3365)]
+                      : [const Color(0xFFE8F1FD), const Color(0xFFD6E4FA)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(
+                  color: DesignTokens.primary.withValues(alpha: 0.3),
+                ),
               ),
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  CircleAvatar(
-                    radius: 20,
-                    backgroundColor: DesignTokens.primary,
-                    child: Icon(Icons.person, color: Colors.white, size: 22),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          user?.name ?? 'MurihSpace User',
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: const BoxDecoration(
+                              color: DesignTokens.primary,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.bolt_rounded, color: Colors.white, size: 16),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Grow Faster with Consistency',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
+                              color: isDark ? Colors.white : const Color(0xFF17202B),
+                            ),
+                          ),
+                        ],
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF16A34A).withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Text(
+                          '+24% Lift',
                           style: TextStyle(
-                            fontWeight: FontWeight.w800,
-                            fontSize: 16,
-                            color: textPrimary,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF16A34A),
                           ),
                         ),
-                        Text(
-                          '@${user?.username ?? 'user'} · ${role.label}',
-                          style: TextStyle(fontSize: 12, color: textSecondary),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Weekly Goal: 4 of 5 posts scheduled',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: isDark ? const Color(0xFFCBD5E1) : const Color(0xFF475569),
                         ),
-                      ],
+                      ),
+                      const Text(
+                        '80%',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          color: DesignTokens.primary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(6),
+                    child: const LinearProgressIndicator(
+                      value: 0.8,
+                      minHeight: 8,
+                      backgroundColor: Colors.white24,
+                      valueColor: AlwaysStoppedAnimation<Color>(DesignTokens.primary),
                     ),
                   ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: DesignTokens.primary.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      role.label,
-                      style: const TextStyle(
-                        color: DesignTokens.primary,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                      ),
+                  const SizedBox(height: 10),
+                  Text(
+                    'Tip: Morning releases (08:00 - 11:00) yield 3.2x higher discovery conversions in your audience timezone.',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
                     ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 16),
-
-            // FOR YOU: Create Your Ads Today Card — Premium Clean Design
-            Builder(builder: (context) {
-              final isDarkCard = Theme.of(context).brightness == Brightness.dark;
-              final cardBg = isDarkCard ? const Color(0xFF1A1D27) : const Color(0xFFF8FAFC);
-              final borderColor = isDarkCard ? const Color(0xFF2E3347) : const Color(0xFFDDE3EF);
-              final titleColor = isDarkCard ? Colors.white : const Color(0xFF0D1117);
-              final subtitleColor = isDarkCard ? const Color(0xFF8B92A5) : const Color(0xFF5A6478);
-
-              return Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: cardBg,
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: borderColor, width: 1),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(isDarkCard ? 0.25 : 0.06),
-                      blurRadius: 12,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Left accent bar
-                    Container(
-                      width: 3,
-                      height: 80,
-                      margin: const EdgeInsets.only(right: 14, top: 2),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF00C9A7),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                    ),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF00C9A7).withOpacity(0.12),
-                                  borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(
-                                    color: const Color(0xFF00C9A7).withOpacity(0.3),
-                                    width: 1,
-                                  ),
-                                ),
-                                child: const Text(
-                                  'FOR YOU',
-                                  style: TextStyle(
-                                    color: Color(0xFF00C9A7),
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: 9,
-                                    letterSpacing: 0.8,
-                                  ),
-                                ),
-                              ),
-                              Icon(
-                                Icons.ads_click_rounded,
-                                color: const Color(0xFF00C9A7).withOpacity(0.7),
-                                size: 20,
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 10),
-                          Text(
-                            'Create Your Ads Today',
-                            style: TextStyle(
-                              color: titleColor,
-                              fontSize: 17,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: -0.3,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Boost your catalog products, drive 5x more conversions, and convert chats into escrow sales.',
-                            style: TextStyle(color: subtitleColor, fontSize: 12, height: 1.35),
-                          ),
-                          const SizedBox(height: 14),
-                          SizedBox(
-                            width: double.infinity,
-                            height: 42,
-                            child: ElevatedButton(
-                              onPressed: () => context.push('/ads-manager'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF00C9A7),
-                                foregroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                elevation: 0,
-                              ),
-                              child: const Text(
-                                'Launch Ads & Catalog Promos',
-                                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }),
             const SizedBox(height: 18),
 
-            // Quick Creation Action Grid Header
+            // 2. Quick Publishing Tools Grid (6 interactive options)
             Text(
-              'What would you like to create?',
+              'Publishing Tools',
               style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w800,
-                color: textPrimary,
-              ),
-            ),
-            const SizedBox(height: 12),
-
-            // Creation Options Grid (Role-Tailored)
-            GridView.count(
-              crossAxisCount: 2,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-              childAspectRatio: 1.45,
-              children: [
-                _createGridCard(
-                  icon: Icons.article_rounded,
-                  iconColor: DesignTokens.primary,
-                  title: 'New Post',
-                  subtitle: 'Share to feed',
-                  isDark: isDark,
-                  onTap: () => showPostComposer(context),
-                ),
-                _createGridCard(
-                  icon: Icons.ads_click_rounded,
-                  iconColor: const Color(0xFF34C759),
-                  title: 'Sponsored Ads',
-                  subtitle: 'Conversions & catalog',
-                  isDark: isDark,
-                  onTap: () => context.push('/ads-manager'),
-                ),
-                _createGridCard(
-                  icon: Icons.storefront_rounded,
-                  iconColor: const Color(0xFFFF3B30),
-                  title: isVendor ? 'List Products' : 'Add Digital Product',
-                  subtitle: isVendor ? 'Physical & escrow catalog' : 'Digital download & courses',
-                  isDark: isDark,
-                  onTap: () => _showAddProductModal(!isVendor),
-                ),
-                _createGridCard(
-                  icon: Icons.sensors_rounded,
-                  iconColor: const Color(0xFFFF2D55),
-                  title: isVendor ? 'Live Shopping' : 'Go Live Stream',
-                  subtitle: isVendor ? 'Sell live with products' : 'Stream, chat & gifts',
-                  isDark: isDark,
-                  onTap: () => GoLiveSetupDialog.show(context),
-                ),
-                _createGridCard(
-                  icon: Icons.video_camera_front_rounded,
-                  iconColor: const Color(0xFF5856D6),
-                  title: 'Video Meeting',
-                  subtitle: 'Conference & audio room',
-                  isDark: isDark,
-                  onTap: () => context.push('/app/conference'),
-                ),
-                if (isCreator)
-                  _createGridCard(
-                    icon: Icons.handshake_rounded,
-                    iconColor: const Color(0xFFFF9500),
-                    title: 'Post Brand Deal',
-                    subtitle: 'Creator sponsorship',
-                    isDark: isDark,
-                    onTap: _showAddBrandDealModal,
-                  ),
-                if (isCreator)
-                  _createGridCard(
-                    icon: Icons.photo_camera_rounded,
-                    iconColor: const Color(0xFF8B5CF6),
-                    title: 'Disappearing Story',
-                    subtitle: 'Disappears in 24h',
-                    isDark: isDark,
-                    onTap: () => showStoryComposerSheet(context),
-                  ),
-                if ((isCreator || isVendor) && Permissions.roleHas(role, 'community.create'))
-                  _createGridCard(
-                    icon: Icons.group_add_rounded,
-                    iconColor: const Color(0xFF5856D6),
-                    title: 'New Community',
-                    subtitle: 'Build a space',
-                    isDark: isDark,
-                    onTap: () => showCreateCommunityDialog(context),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 20),
-
-            // Inset Grouped Section for Secondary Creations
-            Text(
-              'More Business & Publishing Tools',
-              style: TextStyle(
-                fontSize: 16,
+                fontSize: 15,
                 fontWeight: FontWeight.w800,
                 color: textPrimary,
               ),
             ),
             const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: _toolCard(
+                    icon: Icons.edit_note_rounded,
+                    title: 'Create Post',
+                    subtitle: 'Rich composer',
+                    color: DesignTokens.primary,
+                    isDark: isDark,
+                    cardBg: cardBg,
+                    borderColor: borderColor,
+                    textPrimary: textPrimary,
+                    textSecondary: textSecondary,
+                    onTap: () => showPostComposer(context),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _toolCard(
+                    icon: Icons.video_collection_rounded,
+                    title: 'Content Library',
+                    subtitle: 'Reels & drafts',
+                    color: const Color(0xFF7C3AED),
+                    isDark: isDark,
+                    cardBg: cardBg,
+                    borderColor: borderColor,
+                    textPrimary: textPrimary,
+                    textSecondary: textSecondary,
+                    onTap: () => context.push('/app/profile'),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: _toolCard(
+                    icon: Icons.calendar_month_rounded,
+                    title: 'Post Schedule',
+                    subtitle: 'Planned timeline',
+                    color: const Color(0xFF16A34A),
+                    isDark: isDark,
+                    cardBg: cardBg,
+                    borderColor: borderColor,
+                    textPrimary: textPrimary,
+                    textSecondary: textSecondary,
+                    onTap: () {
+                      setState(() => _isScheduled = true);
+                    },
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _toolCard(
+                    icon: Icons.auto_awesome_rounded,
+                    title: 'Templates',
+                    subtitle: 'Viral post hooks',
+                    color: const Color(0xFFD97706),
+                    isDark: isDark,
+                    cardBg: cardBg,
+                    borderColor: borderColor,
+                    textPrimary: textPrimary,
+                    textSecondary: textSecondary,
+                    onTap: _showTemplatesModal,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+
+            // 3. Fast Publishing Suite Card (In-Screen Studio)
             Container(
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: cardBg,
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: borderColor),
               ),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  ListTile(
-                    leading: const Icon(Icons.mark_chat_unread_rounded, color: DesignTokens.primary),
-                    title: Text('Automated Greeting Message', style: TextStyle(fontWeight: FontWeight.w700, color: textPrimary)),
-                    subtitle: Text('Auto-reply to incoming customer chats', style: TextStyle(fontSize: 12, color: textSecondary)),
-                    trailing: const Icon(Icons.chevron_right_rounded),
-                    onTap: () => showAutomatedGreetingSheet(context),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Compose & Publish',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                          color: textPrimary,
+                        ),
+                      ),
+                      // Audience Selector Dropdown
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: isDark ? const Color(0xFF1E2638) : const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: borderColor),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: _selectedAudience,
+                            isDense: true,
+                            icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 16),
+                            items: const [
+                              DropdownMenuItem(value: 'Public', child: Text('Public', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
+                              DropdownMenuItem(value: 'Followers', child: Text('Followers', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
+                              DropdownMenuItem(value: 'Exclusive', child: Text('Exclusive', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
+                            ],
+                            onChanged: (val) {
+                              if (val != null) setState(() => _selectedAudience = val);
+                            },
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                  Divider(height: 1, color: isDark ? const Color(0xFF3A3B3C) : const Color(0xFFE4E6EB)),
-                  ListTile(
-                    leading: Icon(isVendor ? Icons.inventory_2_rounded : Icons.file_present_rounded, color: const Color(0xFF8B5CF6)),
-                    title: Text(isVendor ? 'List Products' : 'List Digital Asset / Starter Kit', style: TextStyle(fontWeight: FontWeight.w700, color: textPrimary)),
-                    subtitle: Text(isVendor ? 'Add physical store products to marketplace' : 'Templates, code, e-books', style: TextStyle(fontSize: 12, color: textSecondary)),
-                    trailing: const Icon(Icons.chevron_right_rounded),
-                    onTap: () => _showAddProductModal(!isVendor),
+                  const SizedBox(height: 14),
+
+                  // Format Pills: Photo, Video, Live, Poll
+                  Row(
+                    children: [
+                      _formatPill(
+                        label: 'Photo',
+                        icon: Icons.image_rounded,
+                        color: const Color(0xFF16A34A),
+                        selected: _selectedFormat == 'Photo',
+                        isDark: isDark,
+                        onTap: () => setState(() => _selectedFormat = 'Photo'),
+                      ),
+                      const SizedBox(width: 8),
+                      _formatPill(
+                        label: 'Video',
+                        icon: Icons.videocam_rounded,
+                        color: const Color(0xFFDC2626),
+                        selected: _selectedFormat == 'Video',
+                        isDark: isDark,
+                        onTap: () => setState(() => _selectedFormat = 'Video'),
+                      ),
+                      const SizedBox(width: 8),
+                      _formatPill(
+                        label: 'Live',
+                        icon: Icons.sensors_rounded,
+                        color: const Color(0xFF7C3AED),
+                        selected: _selectedFormat == 'Live',
+                        isDark: isDark,
+                        onTap: () => context.push('/live/start'),
+                      ),
+                      const SizedBox(width: 8),
+                      _formatPill(
+                        label: 'Poll',
+                        icon: Icons.poll_rounded,
+                        color: DesignTokens.primary,
+                        selected: _selectedFormat == 'Poll',
+                        isDark: isDark,
+                        onTap: () => showPostComposer(context),
+                      ),
+                    ],
                   ),
-                  if (isCreator) ...[
-                    Divider(height: 1, color: isDark ? const Color(0xFF3A3B3C) : const Color(0xFFE4E6EB)),
-                    ListTile(
-                      leading: const Icon(Icons.campaign_rounded, color: Color(0xFFFF9500)),
-                      title: Text('Create Broadcast Channel', style: TextStyle(fontWeight: FontWeight.w700, color: textPrimary)),
-                      subtitle: Text('1-to-many updates for followers', style: TextStyle(fontSize: 12, color: textSecondary)),
-                      trailing: const Icon(Icons.chevron_right_rounded),
-                      onTap: _showCreateBroadcastChannelModal,
+                  const SizedBox(height: 14),
+
+                  // Media Carousel Attachments
+                  if (_selectedMedia.isNotEmpty) ...[
+                    SizedBox(
+                      height: 90,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: _selectedMedia.length + 1,
+                        separatorBuilder: (_, _) => const SizedBox(width: 10),
+                        itemBuilder: (ctx, i) {
+                          if (i == _selectedMedia.length) {
+                            return GestureDetector(
+                              onTap: _pickMedia,
+                              child: Container(
+                                width: 80,
+                                height: 90,
+                                decoration: BoxDecoration(
+                                  color: isDark ? const Color(0xFF1E2638) : const Color(0xFFF1F5F9),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: borderColor),
+                                ),
+                                child: const Center(
+                                  child: Icon(Icons.add_photo_alternate_rounded, color: DesignTokens.primary),
+                                ),
+                              ),
+                            );
+                          }
+                          final f = _selectedMedia[i];
+                          return Stack(
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: Image.file(
+                                  File(f.path),
+                                  width: 80,
+                                  height: 90,
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                              Positioned(
+                                top: 4,
+                                right: 4,
+                                child: GestureDetector(
+                                  onTap: () => setState(() => _selectedMedia.removeAt(i)),
+                                  child: Container(
+                                    padding: const EdgeInsets.all(2),
+                                    decoration: const BoxDecoration(
+                                      color: Colors.black87,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(Icons.close_rounded, size: 14, color: Colors.white),
+                                  ),
+                                ),
+                              ),
+                              Positioned(
+                                bottom: 4,
+                                left: 4,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withValues(alpha: 0.6),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: const Text('0:45', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
+                                ),
+                              ),
+                            ],
+                          );
+                        },
+                      ),
                     ),
-                    Divider(height: 1, color: isDark ? const Color(0xFF3A3B3C) : const Color(0xFFE4E6EB)),
-                    ListTile(
-                      leading: const Icon(Icons.event_rounded, color: Color(0xFF34C759)),
-                      title: Text('Schedule Event or Meetup', style: TextStyle(fontWeight: FontWeight.w700, color: textPrimary)),
-                      subtitle: Text('Virtual conference or in-person meetup for creators', style: TextStyle(fontSize: 12, color: textSecondary)),
-                      trailing: const Icon(Icons.chevron_right_rounded),
-                      onTap: _showScheduleEventModal,
+                    const SizedBox(height: 12),
+                  ] else ...[
+                    GestureDetector(
+                      onTap: _pickMedia,
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(vertical: 20),
+                        decoration: BoxDecoration(
+                          color: isDark ? const Color(0xFF1E2638) : const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: borderColor, style: BorderStyle.solid),
+                        ),
+                        child: Column(
+                          children: [
+                            const Icon(Icons.cloud_upload_outlined, size: 30, color: DesignTokens.primary),
+                            const SizedBox(height: 6),
+                            Text(
+                              'Tap to upload photos or videos',
+                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: textPrimary),
+                            ),
+                            Text(
+                              'Supports high-resolution images & short video reels',
+                              style: TextStyle(fontSize: 10, color: textSecondary),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
+                    const SizedBox(height: 12),
                   ],
-                  if (isCreator || isVendor) ...[
-                    Divider(height: 1, color: isDark ? const Color(0xFF3A3B3C) : const Color(0xFFE4E6EB)),
-                    ListTile(
-                      leading: const Icon(Icons.sensors_rounded, color: Color(0xFFFF2D55)),
-                      title: Text(isVendor ? 'Host Live Shopping Stream' : 'Live Broadcast Studio', style: TextStyle(fontWeight: FontWeight.w700, color: textPrimary)),
-                      subtitle: Text(isVendor ? 'Showcase & sell products in live stream' : 'Host stream with real-time chat, reactions & gifts', style: TextStyle(fontSize: 12, color: textSecondary)),
-                      trailing: const Icon(Icons.chevron_right_rounded),
-                      onTap: () => GoLiveSetupDialog.show(context),
+
+                  // Caption Input
+                  TextField(
+                    controller: _captionController,
+                    maxLines: 4,
+                    style: TextStyle(color: textPrimary, fontSize: 14),
+                    decoration: InputDecoration(
+                      hintText: "Write your caption, share insights, or add a hook...",
+                      hintStyle: TextStyle(color: textSecondary, fontSize: 13),
+                      filled: true,
+                      fillColor: isDark ? const Color(0xFF1E2638) : const Color(0xFFF8FAFC),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: borderColor),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: borderColor),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: DesignTokens.primary, width: 1.5),
+                      ),
                     ),
-                    Divider(height: 1, color: isDark ? const Color(0xFF3A3B3C) : const Color(0xFFE4E6EB)),
-                    ListTile(
-                      leading: const Icon(Icons.video_camera_front_rounded, color: Color(0xFF5856D6)),
-                      title: Text('Conference & Meeting Room', style: TextStyle(fontWeight: FontWeight.w700, color: textPrimary)),
-                      subtitle: Text('Start instant video meeting or schedule conference', style: TextStyle(fontSize: 12, color: textSecondary)),
-                      trailing: const Icon(Icons.chevron_right_rounded),
-                      onTap: () => context.push('/app/conference'),
+                  ),
+                  const SizedBox(height: 8),
+
+                  // AI Caption Generator & Hashtags
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      TextButton.icon(
+                        onPressed: _aiGenerating ? null : _generateAiCaption,
+                        icon: _aiGenerating
+                            ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 1.5))
+                            : const Icon(Icons.auto_awesome_rounded, size: 16, color: DesignTokens.primary),
+                        label: Text(
+                          _aiGenerating ? 'Generating...' : 'AI Caption Assistant',
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: DesignTokens.primary),
+                        ),
+                      ),
+                      Text(
+                        '${_captionController.text.length} / 2,200',
+                        style: TextStyle(fontSize: 11, color: textSecondary),
+                      ),
+                    ],
+                  ),
+
+                  // Suggested Hashtags Pills
+                  SizedBox(
+                    height: 32,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _suggestedHashtags.length,
+                      separatorBuilder: (_, _) => const SizedBox(width: 6),
+                      itemBuilder: (ctx, i) {
+                        final tag = _suggestedHashtags[i];
+                        return GestureDetector(
+                          onTap: () => _addHashtag(tag),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: isDark ? const Color(0xFF1E2638) : const Color(0xFFE8F1FD),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Text(
+                              tag,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: DesignTokens.primary,
+                              ),
+                            ),
+                          ),
+                        );
+                      },
                     ),
-                    Divider(height: 1, color: isDark ? const Color(0xFF3A3B3C) : const Color(0xFFE4E6EB)),
-                    ListTile(
-                      leading: const Icon(Icons.groups_rounded, color: Color(0xFF5856D6)),
-                      title: Text('Manage Communities & Groups', style: TextStyle(fontWeight: FontWeight.w700, color: textPrimary)),
-                      subtitle: Text('Manage members, requests, and group settings', style: TextStyle(fontSize: 12, color: textSecondary)),
-                      trailing: const Icon(Icons.chevron_right_rounded),
-                      onTap: () => context.push('/app/communities'),
+                  ),
+                  const SizedBox(height: 16),
+                  Divider(height: 1, color: borderColor),
+                  const SizedBox(height: 12),
+
+                  // Schedule Post Switch
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(
+                      'Schedule Post',
+                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: textPrimary),
                     ),
-                  ],
+                    subtitle: Text(
+                      _isScheduled
+                          ? 'Publishing on ${_scheduledDate.day}/${_scheduledDate.month} at ${_scheduledDate.hour}:${_scheduledDate.minute.toString().padLeft(2, '0')}'
+                          : 'Set custom time for peak audience discovery',
+                      style: TextStyle(fontSize: 12, color: textSecondary),
+                    ),
+                    value: _isScheduled,
+                    activeThumbColor: DesignTokens.primary,
+                    activeTrackColor: DesignTokens.primary.withValues(alpha: 0.4),
+                    onChanged: (val) async {
+                      if (val) {
+                        final pickedDate = await showDatePicker(
+                          context: context,
+                          initialDate: _scheduledDate,
+                          firstDate: DateTime.now(),
+                          lastDate: DateTime.now().add(const Duration(days: 60)),
+                        );
+                        if (pickedDate == null || !context.mounted) return;
+                        final pickedTime = await showTimePicker(
+                          context: context,
+                          initialTime: TimeOfDay.fromDateTime(_scheduledDate),
+                        );
+                        if (pickedTime != null && context.mounted) {
+                          setState(() {
+                            _scheduledDate = DateTime(
+                              pickedDate.year,
+                              pickedDate.month,
+                              pickedDate.day,
+                              pickedTime.hour,
+                              pickedTime.minute,
+                            );
+                            _isScheduled = true;
+                          });
+                          return;
+                        }
+                      }
+                      setState(() => _isScheduled = val);
+                    },
+                  ),
+                  const SizedBox(height: 14),
+
+                  // Action Buttons
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () {
+                            _captionController.clear();
+                            _selectedMedia.clear();
+                            setState(() {});
+                          },
+                          style: OutlinedButton.styleFrom(
+                            side: BorderSide(color: borderColor),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                          ),
+                          child: Text(
+                            'Save Draft',
+                            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: textPrimary),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        flex: 2,
+                        child: ElevatedButton(
+                          onPressed: _isPublishing ? null : _submitPost,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: DesignTokens.primary,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                          ),
+                          child: _isPublishing
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                                )
+                              : Text(
+                                  _isScheduled ? 'Schedule Post' : 'Publish Now',
+                                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+                                ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
+            const SizedBox(height: 20),
+
+            // 4. Scheduled Posts Timeline Card
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Upcoming Schedule',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: textPrimary,
+                  ),
+                ),
+                TextButton(
+                  onPressed: () {},
+                  child: const Text('Manage Calendar', style: TextStyle(color: DesignTokens.primary, fontWeight: FontWeight.w700, fontSize: 12)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+
+            for (final sp in _scheduledPosts)
+              Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: cardBg,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: borderColor),
+                ),
+                child: Row(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: Image.network(
+                        sp['thumbnail'] as String,
+                        width: 50,
+                        height: 50,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            sp['title'] as String,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: textPrimary),
+                          ),
+                          const SizedBox(height: 2),
+                          Row(
+                            children: [
+                              Icon(Icons.schedule_rounded, size: 12, color: textSecondary),
+                              const SizedBox(width: 4),
+                              Text(
+                                sp['scheduledTime'] as String,
+                                style: TextStyle(fontSize: 11, color: textSecondary),
+                              ),
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                decoration: BoxDecoration(
+                                  color: DesignTokens.primary.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  sp['format'] as String,
+                                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: DesignTokens.primary),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.more_vert_rounded, size: 18),
+                      color: textSecondary,
+                      onPressed: () {},
+                    ),
+                  ],
+                ),
+              ),
             const SizedBox(height: 24),
           ],
         ),
@@ -987,203 +925,102 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
     );
   }
 
-  Widget _memberGatedView(BuildContext context, bool isDark) {
-    return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF18191A) : const Color(0xFFF2F2F7),
-      appBar: AppBar(
-        backgroundColor: isDark ? const Color(0xFF18191A) : const Color(0xFFF2F2F7),
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        title: Text(
-          'Business Tools',
-          style: TextStyle(
-            color: isDark ? Colors.white : Colors.black,
-            fontWeight: FontWeight.w900,
-            fontSize: 22,
-          ),
+  Widget _toolCard({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Color color,
+    required bool isDark,
+    required Color cardBg,
+    required Color borderColor,
+    required Color textPrimary,
+    required Color textSecondary,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: cardBg,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: borderColor),
         ),
-      ),
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF242526) : Colors.white,
-              borderRadius: BorderRadius.circular(24),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(isDark ? 0.3 : 0.06),
-                  blurRadius: 16,
-                  offset: const Offset(0, 4),
-                ),
-              ],
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: color, size: 20),
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 64,
-                  height: 64,
-                  decoration: BoxDecoration(
-                    color: DesignTokens.primary.withOpacity(0.12),
-                    shape: BoxShape.circle,
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: textPrimary),
                   ),
-                  child: const Icon(Icons.lock_rounded, color: DesignTokens.primary, size: 32),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Business Tools Gated',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
-                    color: isDark ? Colors.white : Colors.black,
+                  const SizedBox(height: 1),
+                  Text(
+                    subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 11, color: textSecondary),
                   ),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  'Business tools, ad campaigns, storefront management, and creator publishing are reserved for Creator & Vendor accounts.\n\nUpgrade your free member account to start selling, posting brand deals, and creating communities.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 13,
-                    height: 1.5,
-                    color: isDark ? Colors.grey[400] : Colors.grey[600],
-                  ),
-                ),
-                const SizedBox(height: 24),
-                SizedBox(
-                  width: double.infinity,
-                  height: 48,
-                  child: ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: DesignTokens.primary,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                    ),
-                    onPressed: () => context.push('/upgrade-account'),
-                    icon: const BrandFavicon(size: 18),
-                    label: const Text(
-                      'Upgrade to Creator or Vendor',
-                      style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                Divider(color: isDark ? Colors.white10 : Colors.black12),
-                const SizedBox(height: 12),
-                Text(
-                  'Looking to join existing events?',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: isDark ? Colors.grey[400] : Colors.grey[600],
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFFFF2D55),
-                          side: const BorderSide(color: Color(0xFFFF2D55), width: 1.2),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
-                        onPressed: () => JoinLiveStreamDialog.show(context),
-                        icon: const Icon(Icons.live_tv_rounded, size: 18),
-                        label: const Text(
-                          'Join Live Stream',
-                          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFF5856D6),
-                          side: const BorderSide(color: Color(0xFF5856D6), width: 1.2),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
-                        onPressed: () => context.push('/app/conference'),
-                        icon: const Icon(Icons.video_camera_front_rounded, size: 18),
-                        label: const Text(
-                          'Join Meeting',
-                          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _createGridCard({
+  Widget _formatPill({
+    required String label,
     required IconData icon,
-    required Color iconColor,
-    required String title,
-    required String subtitle,
+    required Color color,
+    required bool selected,
     required bool isDark,
     required VoidCallback onTap,
   }) {
-    final bg = isDark ? const Color(0xFF242526) : Colors.white;
-    final textPrimary = isDark ? Colors.white : Colors.black;
-    final textSecondary = isDark ? Colors.grey[400] : Colors.grey[600];
-
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: bg,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(isDark ? 0.3 : 0.04),
-              blurRadius: 6,
-              offset: const Offset(0, 2),
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          decoration: BoxDecoration(
+            color: selected
+                ? color.withValues(alpha: 0.15)
+                : (isDark ? const Color(0xFF1E2638) : const Color(0xFFF1F5F9)),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: selected ? color : Colors.transparent,
+              width: 1.2,
             ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: iconColor.withOpacity(0.15),
-                shape: BoxShape.circle,
+          ),
+          child: Column(
+            children: [
+              Icon(icon, size: 18, color: selected ? color : (isDark ? Colors.grey[400] : Colors.grey[600])),
+              const SizedBox(height: 3),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                  color: selected ? color : (isDark ? Colors.grey[400] : Colors.grey[600]),
+                ),
               ),
-              child: Icon(icon, color: iconColor, size: 22),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontWeight: FontWeight.w800,
-                fontSize: 14,
-                color: textPrimary,
-              ),
-            ),
-            Text(
-              subtitle,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 11, color: textSecondary),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

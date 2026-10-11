@@ -11,6 +11,7 @@ import '../components/gift_animation_overlay.dart';
 import '../config/deep_links.dart';
 import '../core/api_client.dart';
 import '../core/design_tokens.dart';
+import '../core/emoji_assets.dart';
 import '../models/chat_models.dart';
 import '../utils/format.dart';
 import 'call_screen.dart';
@@ -204,7 +205,7 @@ class MessageBubble extends StatelessWidget {
                   borderRadius: BorderRadius.circular(24),
                   child: Padding(
                     padding: const EdgeInsets.all(6),
-                    child: Text(emoji, style: const TextStyle(fontSize: 26)),
+                    child: AnimatedEmoji(emoji: emoji, size: 30),
                   ),
                 ),
             ],
@@ -626,14 +627,27 @@ class _ReactionChips extends StatelessWidget {
                         : (isDark ? const Color(0xFF38383A) : const Color(0xFFE5E5EA)),
                   ),
                 ),
-                child: Text(
-                  '${r.emoji} ${r.count}',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: r.byMe
-                        ? DesignTokens.primary
-                        : (isDark ? Colors.white70 : Colors.black87),
-                  ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    AnimatedEmoji(
+                      emoji: r.emoji,
+                      size: 15,
+                      fallbackColor: r.byMe
+                          ? DesignTokens.primary
+                          : (isDark ? Colors.white70 : Colors.black87),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${r.count}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: r.byMe
+                            ? DesignTokens.primary
+                            : (isDark ? Colors.white70 : Colors.black87),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -656,7 +670,7 @@ class _EmojiAction extends StatelessWidget {
       borderRadius: BorderRadius.circular(24),
       child: Padding(
         padding: const EdgeInsets.all(6),
-        child: Text(emoji, style: const TextStyle(fontSize: 24)),
+        child: AnimatedEmoji(emoji: emoji, size: 26),
       ),
     );
   }
@@ -1737,10 +1751,11 @@ class _MessageContentWithLinks extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final matches = _urlRegExp.allMatches(content).toList();
+    final baseStyle = TextStyle(color: textColor, fontSize: 15, height: 1.35);
     if (matches.isEmpty) {
-      return Text(
-        content,
-        style: TextStyle(color: textColor, fontSize: 15, height: 1.35),
+      return Text.rich(
+        TextSpan(children: buildEmojiSpans(content, baseStyle)),
+        style: baseStyle,
       );
     }
 
@@ -1752,11 +1767,8 @@ class _MessageContentWithLinks extends StatelessWidget {
 
     for (final match in matches) {
       if (match.start > lastEnd) {
-        spans.add(
-          TextSpan(
-            text: content.substring(lastEnd, match.start),
-            style: TextStyle(color: textColor, fontSize: 15, height: 1.35),
-          ),
+        spans.addAll(
+          buildEmojiSpans(content.substring(lastEnd, match.start), baseStyle),
         );
       }
 
@@ -1793,11 +1805,8 @@ class _MessageContentWithLinks extends StatelessWidget {
     }
 
     if (lastEnd < content.length) {
-      spans.add(
-        TextSpan(
-          text: content.substring(lastEnd),
-          style: TextStyle(color: textColor, fontSize: 15, height: 1.35),
-        ),
+      spans.addAll(
+        buildEmojiSpans(content.substring(lastEnd), baseStyle),
       );
     }
 

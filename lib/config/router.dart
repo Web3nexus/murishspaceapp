@@ -23,6 +23,8 @@ import '../screens/community_detail_screen.dart';
 import '../screens/community_create_dialog.dart';
 import '../screens/conversation_screen.dart';
 import '../screens/create_screen.dart';
+import '../screens/creator_hub_screen.dart';
+import '../screens/discover_screen.dart';
 import '../screens/forgot_password_screen.dart';
 import '../screens/gifts_screen.dart';
 import '../screens/kyc_screen.dart';
@@ -244,6 +246,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/brand-deals',
         builder: (_, _) => const BrandDealsScreen(),
+      ),
+      GoRoute(
+        path: '/creator-hub',
+        builder: (_, _) => const CreatorHubScreen(),
+      ),
+      GoRoute(
+        path: '/app/creator-hub',
+        builder: (_, _) => const CreatorHubScreen(),
       ),
       GoRoute(
         path: '/ads-manager',
@@ -511,6 +521,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state, navigationShell) =>
             AppShell(navigationShell: navigationShell),
         branches: [
+          // 0: Home (Feed)
           StatefulShellBranch(
             routes: [
               GoRoute(
@@ -518,20 +529,22 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 builder: (context, _) => HomeScreen(
                   onOpenMessages: () {
                     final shell = StatefulNavigationShell.of(context);
-                    shell.goBranch(1);
+                    shell.goBranch(3);
                   },
                 ),
               ),
             ],
           ),
+          // 1: Discover
           StatefulShellBranch(
             routes: [
               GoRoute(
-                path: '/app/chats',
-                builder: (_, _) => const ChatsScreen(),
+                path: '/app/discover',
+                builder: (_, _) => const DiscoverScreen(),
               ),
             ],
           ),
+          // 2: Create (Creator Studio & Publishing)
           StatefulShellBranch(
             routes: [
               GoRoute(
@@ -540,14 +553,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               ),
             ],
           ),
+          // 3: Messages (Chats)
           StatefulShellBranch(
             routes: [
               GoRoute(
-                path: '/app/tab-4',
-                builder: (_, _) => const _RoleAwareFourthBranchScreen(),
+                path: '/app/chats',
+                builder: (_, _) => const ChatsScreen(),
               ),
             ],
           ),
+          // 4: Profile (You)
           StatefulShellBranch(
             routes: [
               GoRoute(
@@ -562,18 +577,3 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   );
   return router;
 });
-
-class _RoleAwareFourthBranchScreen extends ConsumerWidget {
-  const _RoleAwareFourthBranchScreen();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final user = ref.watch(authProvider).user;
-    final role = user?.role ?? UserRole.member;
-
-    if (role == UserRole.creator) {
-      return const CommunitiesScreen();
-    }
-    return const MarketplaceScreen();
-  }
-}

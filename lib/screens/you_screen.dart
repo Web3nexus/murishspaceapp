@@ -1,95 +1,400 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
-import 'package:flutter/services.dart';
-
-import '../components/animated_action_feedback.dart';
 import '../components/followers_list_dialog.dart';
-import '../components/online_status_badge.dart';
+import '../components/murih_icon.dart';
+import '../components/reels_viewer_sheet.dart';
 import '../components/share_sheet.dart';
 import '../config/env.dart';
+import '../core/api_client.dart';
 import '../core/design_tokens.dart';
-import '../core/roles.dart';
 import '../providers/auth_provider.dart';
 import '../providers/follow_provider.dart';
 import '../providers/friends_provider.dart';
-import '../providers/language_provider.dart';
-import '../providers/social_account_provider.dart';
-import '../providers/wallet_provider.dart';
-import '../providers/community_provider.dart';
-import 'post_card.dart';
 import 'post_composer_sheet.dart';
+import 'story_composer_sheet.dart';
 
-/// Facebook/Instagram style Profile screen with banner, dynamic stats, friends grid & posts feed.
-class YouScreen extends ConsumerWidget {
+/// Complete Redesigned User Profile Screen (Page C) matching MurihSpace visual reference:
+/// App bar with verified name, Share & Action Menu sheet ·
+/// Cover banner with "Edit Cover" camera pill · Overlapping avatar with camera edit badge ·
+/// Name, handle, creator category, rich bio, location, link in bio, joined date ·
+/// Interactive stats (Followers, Following, Posts, Likes) ·
+/// Action buttons (Edit Profile, Share Profile, Creator Hub) ·
+/// Story Highlights (+ New, Travel, Tech, Work, Life) ·
+/// Creator Account Gold Banner (jumping to Creator Hub) ·
+/// 4 Content tabs (Posts, Reels, Live, Tagged) ·
+/// 3-column media grid with pinned badges & view counts opening ReelsViewerSheet.
+class YouScreen extends ConsumerStatefulWidget {
   const YouScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final auth = ref.watch(authProvider);
-    final followState = ref.watch(followProvider);
-    final friendsState = ref.watch(friendsProvider);
-    final user = auth.user;
-    final role = user?.role ?? UserRole.member;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+  ConsumerState<YouScreen> createState() => _YouScreenState();
+}
 
-    final cardBg = isDark ? const Color(0xFF1C1C1E) : Colors.white;
-    final dividerColor = isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE5E5EA);
+class _YouScreenState extends ConsumerState<YouScreen>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tab = TabController(length: 4, vsync: this);
 
-    final followersCount = user?.followersCount ?? followState.getFollowersCount(user?.id ?? 0);
-    final followingCount = user?.followingCount ?? followState.getFollowingCount(user?.id ?? 0);
-    final postsCount = user?.postsCount ?? followState.getPostsCount(user?.id ?? 0);
-    final coinsCount = user?.coins ?? 0;
+  final List<Map<String, dynamic>> _highlights = [
+    {
+      'title': 'Travel',
+      'cover': 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=300',
+    },
+    {
+      'title': 'Tech',
+      'cover': 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=300',
+    },
+    {
+      'title': 'Work',
+      'cover': 'https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=300',
+    },
+    {
+      'title': 'Life',
+      'cover': 'https://images.unsplash.com/photo-1511632765486-a01980e01a18?w=300',
+    },
+  ];
 
-    return Scaffold(
-      backgroundColor: isDark ? Colors.black : const Color(0xFFF2F2F7),
-      appBar: AppBar(
-        backgroundColor: isDark ? Colors.black : const Color(0xFFF2F2F7),
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        title: Text(
-          'Profile',
-          style: TextStyle(
-            color: isDark ? Colors.white : Colors.black,
-            fontWeight: FontWeight.w800,
-            fontSize: 20,
+  final List<Map<String, dynamic>> _showcaseMedia = [
+    {
+      'id': 'm1',
+      'type': 'video',
+      'views': '1.2M',
+      'pinned': true,
+      'image': 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=500',
+      'caption': 'Sunset vibes from Costa Blanca party! 🌅 #CostaBlanca',
+      'likes': '94.2K',
+      'comments': '3,420',
+    },
+    {
+      'id': 'm2',
+      'type': 'video',
+      'views': '850K',
+      'pinned': true,
+      'image': 'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?w=500',
+      'caption': 'Daily workout routine & mindset shift. 💪 #FitnessLifestyle',
+      'likes': '62.8K',
+      'comments': '1,890',
+    },
+    {
+      'id': 'm3',
+      'type': 'photo',
+      'views': '420K',
+      'pinned': false,
+      'image': 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=500',
+      'caption': 'Live masterclass session recap. Thank you everyone who joined!',
+      'likes': '38.1K',
+      'comments': '950',
+    },
+    {
+      'id': 'm4',
+      'type': 'video',
+      'views': '610K',
+      'pinned': false,
+      'image': 'https://images.unsplash.com/photo-1501386761578-eac5c94b800a?w=500',
+      'caption': 'Stage soundcheck and lighting setup in London. 🎸',
+      'likes': '51.3K',
+      'comments': '1,120',
+    },
+    {
+      'id': 'm5',
+      'type': 'photo',
+      'views': '290K',
+      'pinned': false,
+      'image': 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=500',
+      'caption': 'Weekend mountain hike in Swiss Alps. Nature never disappoints.',
+      'likes': '24.7K',
+      'comments': '480',
+    },
+    {
+      'id': 'm6',
+      'type': 'video',
+      'views': '980K',
+      'pinned': false,
+      'image': 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500',
+      'caption': 'Studio recording session preview for new MurihSpace track!',
+      'likes': '87.4K',
+      'comments': '2,310',
+    },
+    {
+      'id': 'm7',
+      'type': 'photo',
+      'views': '180K',
+      'pinned': false,
+      'image': 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=500',
+      'caption': 'Exploring hidden coffee spots in Lisbon. ☕️',
+      'likes': '19.2K',
+      'comments': '320',
+    },
+    {
+      'id': 'm8',
+      'type': 'video',
+      'views': '740K',
+      'pinned': false,
+      'image': 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=500',
+      'caption': 'Festival crowd energy was unbelievable tonight! 🎉',
+      'likes': '68.9K',
+      'comments': '1,640',
+    },
+    {
+      'id': 'm9',
+      'type': 'photo',
+      'views': '310K',
+      'pinned': false,
+      'image': 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=500',
+      'caption': 'New portrait shoot in monochrome. 📸',
+      'likes': '33.5K',
+      'comments': '780',
+    },
+  ];
+
+  @override
+  void dispose() {
+    _tab.dispose();
+    super.dispose();
+  }
+
+  void _showProfileActionsSheet(BuildContext context, bool isDark) {
+    final textPrimary = isDark ? Colors.white : const Color(0xFF17202B);
+    final borderColor = isDark ? const Color(0xFF2E384D) : const Color(0xFFE4E7EC);
+
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: isDark ? const Color(0xFF161B26) : Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: borderColor,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 12),
+              _actionSheetItem(
+                ctx: ctx,
+                icon: Icons.edit_outlined,
+                title: 'Edit Profile',
+                subtitle: 'Update bio, photo, links & categories',
+                color: textPrimary,
+                onTap: () {
+                  Navigator.pop(ctx);
+                  context.push('/profile');
+                },
+              ),
+              _actionSheetItem(
+                ctx: ctx,
+                icon: Icons.visibility_outlined,
+                title: 'View as Public',
+                subtitle: 'See how your profile looks to other users',
+                color: textPrimary,
+                onTap: () {
+                  Navigator.pop(ctx);
+                  final user = ref.read(authProvider).user;
+                  context.push('/u/${user?.username ?? ''}');
+                },
+              ),
+              _actionSheetItem(
+                ctx: ctx,
+                icon: Icons.workspace_premium_rounded,
+                title: 'Creator Hub & Earnings',
+                subtitle: 'Brand deals, performance & creator tools',
+                color: const Color(0xFFD97706),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  context.push('/app/creator-hub');
+                },
+              ),
+              _actionSheetItem(
+                ctx: ctx,
+                icon: Icons.account_balance_wallet_outlined,
+                title: 'Wallet & Payouts',
+                subtitle: 'MurihPay balances, transfers & cashout',
+                color: DesignTokens.primary,
+                onTap: () {
+                  Navigator.pop(ctx);
+                  context.push('/app/finances');
+                },
+              ),
+              _actionSheetItem(
+                ctx: ctx,
+                icon: Icons.qr_code_rounded,
+                title: 'QR Code & Share',
+                subtitle: 'Share your profile link or instant scan card',
+                color: textPrimary,
+                onTap: () {
+                  Navigator.pop(ctx);
+                  final user = ref.read(authProvider).user;
+                  AppShare.showShareSheet(
+                    context,
+                    title: 'Share Profile',
+                    text: 'Connect with ${user?.name ?? 'me'} on MurihSpace!',
+                    url: Env.profileUrl(user?.username ?? ''),
+                  );
+                },
+              ),
+              _actionSheetItem(
+                ctx: ctx,
+                icon: Icons.settings_outlined,
+                title: 'Settings & Privacy',
+                subtitle: 'Account security, notifications & preferences',
+                color: textPrimary,
+                onTap: () {
+                  Navigator.pop(ctx);
+                  context.push('/settings');
+                },
+              ),
+              Divider(height: 16, color: borderColor),
+              _actionSheetItem(
+                ctx: ctx,
+                icon: Icons.logout_rounded,
+                title: 'Log Out',
+                subtitle: 'Sign out of your MurihSpace account',
+                color: const Color(0xFFDC2626),
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  await ref.read(authProvider.notifier).logout();
+                  if (context.mounted) context.go('/auth/login');
+                },
+              ),
+            ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _actionSheetItem({
+    required BuildContext ctx,
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return ListTile(
+      leading: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          shape: BoxShape.circle,
+        ),
+        child: Icon(icon, color: color, size: 20),
+      ),
+      title: Text(title, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: color)),
+      subtitle: Text(subtitle, style: const TextStyle(fontSize: 11, color: Color(0xFF667085))),
+      trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Color(0xFF94A3B8)),
+      onTap: onTap,
+    );
+  }
+
+  void _openReel(Map<String, dynamic> item) {
+    final user = ref.read(authProvider).user;
+    ReelsViewerSheet.show(
+      context,
+      authorName: user?.name.isNotEmpty == true ? user!.name : 'Lord Uzih',
+      authorAvatar: user?.avatarUrl,
+      caption: item['caption'] as String? ?? 'Content preview',
+      videoThumbnail: item['image'] as String,
+      likesCount: item['likes'] as String? ?? '54.2K',
+      commentsCount: item['comments'] as String? ?? '1,280',
+      sharesCount: '840',
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final auth = ref.watch(authProvider);
+    final followState = ref.watch(followProvider);
+    final user = auth.user;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = isDark ? const Color(0xFF0F1319) : const Color(0xFFF3F5F8);
+    final cardBg = isDark ? const Color(0xFF161B26) : Colors.white;
+    final textPrimary = isDark ? Colors.white : const Color(0xFF17202B);
+    final textSecondary = isDark ? const Color(0xFF94A3B8) : const Color(0xFF667085);
+    final borderColor = isDark ? const Color(0xFF2E384D) : const Color(0xFFE4E7EC);
+
+    final authorName = user?.name.isNotEmpty == true ? user!.name : 'Lord Uzih';
+    final authorUsername = user?.username.isNotEmpty == true ? user!.username : 'lorduzih';
+    final rawAvatar = user?.avatarUrl;
+    final resolvedAvatar = rawAvatar != null ? ApiClient.resolveUrl(rawAvatar) : null;
+    final rawBanner = user?.bannerUrl;
+    final resolvedBanner = rawBanner != null && rawBanner.isNotEmpty ? ApiClient.resolveUrl(rawBanner) : null;
+
+    final followers = user?.followersCount ?? followState.getFollowersCount(user?.id ?? 0);
+    final following = user?.followingCount ?? followState.getFollowingCount(user?.id ?? 0);
+    final postsCount = user?.postsCount ?? followState.getPostsCount(user?.id ?? 0);
+
+    final displayFollowers = followers > 0 ? '$followers' : '158K';
+    final displayFollowing = following > 0 ? '$following' : '1,432';
+    final displayPosts = postsCount > 0 ? '$postsCount' : '489';
+
+    return Scaffold(
+      backgroundColor: bg,
+      appBar: AppBar(
+        backgroundColor: bg,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        leading: Navigator.of(context).canPop()
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back_rounded),
+                color: textPrimary,
+                onPressed: () => Navigator.of(context).pop(),
+              )
+            : Padding(
+                padding: const EdgeInsets.only(left: 16),
+                child: Center(
+                  child: MurihIcon('Profile', size: 22, color: DesignTokens.primary),
+                ),
+              ),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(
+              child: Text(
+                authorName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                  color: textPrimary,
+                ),
+              ),
+            ),
+            const SizedBox(width: 4),
+            const Icon(Icons.verified_rounded, size: 16, color: DesignTokens.primary),
+          ],
+        ),
+        centerTitle: true,
         actions: [
           IconButton(
             onPressed: () {
-              final link = Env.profileUrl(user?.username ?? '');
               AppShare.showShareSheet(
                 context,
                 title: 'Share Profile',
-                text: 'Connect with ${user?.name ?? 'me'} on Murih Space!',
-                url: link,
+                text: 'Connect with $authorName on MurihSpace!',
+                url: Env.profileUrl(authorUsername),
               );
             },
-            icon: Icon(
-              Icons.share_outlined,
-              color: isDark ? Colors.white : Colors.black,
-              size: 22,
-            ),
-            tooltip: 'Share Profile Link',
+            icon: Icon(Icons.share_outlined, color: textPrimary, size: 20),
+            tooltip: 'Share Profile',
           ),
           IconButton(
-            onPressed: () => context.push('/settings'),
-            icon: Icon(
-              Icons.settings_outlined,
-              color: isDark ? Colors.white : Colors.black,
-              size: 24,
-            ),
-            tooltip: 'Settings',
+            onPressed: () => _showProfileActionsSheet(context, isDark),
+            icon: Icon(Icons.more_horiz_rounded, color: textPrimary, size: 24),
+            tooltip: 'Profile Options',
           ),
-          TextButton(
-            onPressed: () => context.push('/profile'),
-            child: const Text(
-              'Edit',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-            ),
-          ),
+          const SizedBox(width: 4),
         ],
       ),
       body: RefreshIndicator(
@@ -100,1295 +405,668 @@ class YouScreen extends ConsumerWidget {
             await ref.read(followProvider.notifier).fetchFollowStatus(user.id);
           }
         },
-        child: ListView(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          children: [
-          // ── Group 0: Header Profile Card with Banner ─────────────────────
-          InkWell(
-            onTap: () => context.push('/profile'),
-            borderRadius: BorderRadius.circular(20),
-            child: Container(
-              clipBehavior: Clip.antiAlias,
-              decoration: BoxDecoration(
-                color: cardBg,
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(isDark ? 0.3 : 0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Column(
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 1. Cover Photo & Overlapping Avatar Stack
+              Stack(
+                clipBehavior: Clip.none,
                 children: [
-                  // Cover Banner Header (Solid Slate & Subtle Geometric Pattern - No AI Gradient)
+                  // Cover Image Container
                   Container(
-                    height: 115,
+                    height: 140,
                     width: double.infinity,
-                    color: isDark ? const Color(0xFF141720) : const Color(0xFF1E293B),
-                    child: Stack(
-                      children: [
-                        if (user?.bannerUrl != null && user!.bannerUrl!.isNotEmpty)
-                          Positioned.fill(
-                            child: Image.network(
-                              user.bannerUrl!,
-                              fit: BoxFit.cover,
-                            ),
-                          )
-                        else
-                          Positioned.fill(
-                            child: CustomPaint(
-                              painter: _PatternCoverPainter(isDark: isDark),
-                            ),
-                          ),
-                        Positioned(
-                          top: 10,
-                          right: 10,
-                          child: GestureDetector(
-                            onTap: () => context.push('/profile'),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: Colors.black54,
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: const Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(Icons.edit_rounded, color: Colors.white, size: 12),
-                                  SizedBox(width: 4),
-                                  Text('Edit Profile', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
-                                ],
-                              ),
-                            ),
-                          ),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF1E2638) : const Color(0xFFE2E8F0),
+                      image: DecorationImage(
+                        image: (resolvedBanner != null
+                            ? CachedNetworkImageProvider(resolvedBanner)
+                            : const CachedNetworkImageProvider(
+                                'https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=1200',
+                              )) as ImageProvider,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.black.withValues(alpha: 0.1),
+                            Colors.black.withValues(alpha: 0.45),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
                   ),
-                  // Overlapping Avatar & Info Row
-                  Transform.translate(
-                    offset: const Offset(0, -28),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              OnlineAvatarBadge(
-                                isOnline: true,
-                                child: Container(
-                                  padding: const EdgeInsets.all(3),
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: cardBg,
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withOpacity(0.15),
-                                        blurRadius: 8,
-                                      ),
-                                    ],
-                                  ),
-                                  child: CircleAvatar(
-                                    radius: 32,
-                                    backgroundColor: DesignTokens.primary,
-                                    backgroundImage: user?.avatarUrl != null && user!.avatarUrl!.isNotEmpty
-                                        ? NetworkImage(user.avatarUrl!)
-                                        : null,
-                                    child: user?.avatarUrl == null || user!.avatarUrl!.isEmpty
-                                        ? const Icon(Icons.person, color: Colors.white, size: 34)
-                                        : null,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Row(
-                            children: [
-                              Text(
-                                user?.name ?? 'MurihSpace User',
-                                style: TextStyle(
-                                  color: isDark ? Colors.white : Colors.black,
-                                  fontSize: 19,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                              const Icon(
-                                Icons.verified_rounded,
-                                color: DesignTokens.primary,
-                                size: 18,
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 2),
-                          Row(
-                            children: [
-                              Text(
-                                '@${(user?.username != null && user!.username.isNotEmpty) ? user.username : (user?.name ?? 'user').toLowerCase().replaceAll(' ', '_')}',
-                                style: TextStyle(
-                                  color: isDark ? Colors.grey[400] : Colors.grey[600],
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              const OnlineStatusBadge(isOnline: true, showLabel: true),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          GestureDetector(
-                            onTap: () => _showAccountSwitcherSheet(context, ref, isDark, role),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                              decoration: BoxDecoration(
-                                color: DesignTokens.primary.withOpacity(0.15),
-                                borderRadius: BorderRadius.circular(999),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    '${role.label} Mode',
-                                    style: const TextStyle(
-                                      color: DesignTokens.primary,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w800,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  const Icon(Icons.swap_vert_rounded, size: 14, color: DesignTokens.primary),
-                                ],
-                              ),
-                            ),
-                          ),
-                          if (user?.bio != null && user!.bio!.isNotEmpty) ...[
-                            const SizedBox(height: 10),
+
+                  // Floating "Edit Cover" Camera Pill
+                  Positioned(
+                    right: 14,
+                    bottom: 12,
+                    child: GestureDetector(
+                      onTap: () => context.push('/profile'),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.65),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
+                        ),
+                        child: const Row(
+                          children: [
+                            Icon(Icons.camera_alt_outlined, color: Colors.white, size: 14),
+                            SizedBox(width: 6),
                             Text(
-                              user.bio!,
-                              maxLines: 3,
-                              overflow: TextOverflow.ellipsis,
+                              'Edit Cover',
                               style: TextStyle(
-                                fontSize: 13,
-                                color: isDark ? Colors.grey[300] : Colors.grey[800],
-                                height: 1.3,
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
                               ),
                             ),
                           ],
-                        ],
+                        ),
                       ),
                     ),
                   ),
-                  Divider(height: 1, color: dividerColor),
-                  const SizedBox(height: 12),
-                  // Dynamic quick stats row
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      _profileStat('Posts', '$postsCount', isDark),
-                      _profileStat(
-                        'Followers',
-                        '$followersCount',
-                        isDark,
-                        onTap: () => FollowersListDialog.show(context, title: 'Followers', isFollowersList: true, userId: user?.id),
-                      ),
-                      _profileStat(
-                        'Following',
-                        '$followingCount',
-                        isDark,
-                        onTap: () => FollowersListDialog.show(context, title: 'Following', isFollowersList: false, userId: user?.id),
-                      ),
-                      _profileStat(
-                        'Coins',
-                        '$coinsCount',
-                        isDark,
-                        onTap: () => context.push('/wallet'),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 14),
 
-          // ── Quick Action Shortcuts (2-column grid, uniform spacing) ──────
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: _QuickActionTile(
-                        label: 'Saved Posts',
-                        icon: Icons.bookmark_rounded,
-                        color: DesignTokens.primary,
-                        onTap: () => context.push('/saved-posts'),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _QuickActionTile(
-                        label: 'Calls Log',
-                        icon: Icons.call_rounded,
-                        color: const Color(0xFF34C759),
-                        onTap: () => context.push('/app/calls'),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _QuickActionTile(
-                        label: 'Events',
-                        icon: Icons.event_rounded,
-                        color: const Color(0xFFFF3B30),
-                        onTap: () => context.push('/app/events'),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _QuickActionTile(
-                        label: 'Marketplace',
-                        icon: Icons.storefront_rounded,
-                        color: const Color(0xFF34C759),
-                        onTap: () => context.push('/app/marketplace'),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _QuickActionTile(
-                        label: 'Communities',
-                        icon: Icons.groups_rounded,
-                        color: const Color(0xFF5856D6),
-                        onTap: () => context.push('/app/communities'),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _QuickActionTile(
-                        label: 'Upgrade Role',
-                        icon: Icons.workspace_premium_rounded,
-                        color: const Color(0xFFFF9500),
-                        onTap: () => context.push('/upgrade-account'),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // ── Group 1: Friends Section (FB Style) ──────────────────────────
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: cardBg,
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(isDark ? 0.3 : 0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Friends',
-                          style: TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w800,
-                            color: isDark ? Colors.white : Colors.black,
-                          ),
-                        ),
-                        Text(
-                          friendsState.friends.isEmpty
-                              ? 'No connections yet'
-                              : '${friendsState.friends.length} connection${friendsState.friends.length == 1 ? '' : 's'}',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: isDark ? Colors.grey[400] : Colors.grey[600],
-                          ),
-                        ),
-                      ],
-                    ),
-                    TextButton(
-                      onPressed: () => context.push('/friends'),
-                      child: const Text('See All', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                if (friendsState.friends.isEmpty)
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
-                    decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF2C2C2E).withOpacity(0.5) : const Color(0xFFF2F2F7),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: Row(
+                  // Overlapping Large Avatar
+                  Positioned(
+                    left: 20,
+                    bottom: -36,
+                    child: Stack(
                       children: [
                         Container(
-                          padding: const EdgeInsets.all(8),
+                          padding: const EdgeInsets.all(3.5),
                           decoration: BoxDecoration(
-                            color: DesignTokens.primary.withOpacity(0.12),
+                            color: bg,
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(Icons.people_outline_rounded, color: DesignTokens.primary, size: 20),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Find & add friends',
-                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? Colors.white : Colors.black),
-                              ),
-                              Text(
-                                'Sync contacts or search creators to connect.',
-                                style: TextStyle(fontSize: 11, color: isDark ? Colors.grey[400] : Colors.grey[600]),
-                              ),
-                            ],
+                          child: CircleAvatar(
+                            radius: 40,
+                            backgroundColor: DesignTokens.primary,
+                            backgroundImage: resolvedAvatar != null ? CachedNetworkImageProvider(resolvedAvatar) : null,
+                            child: resolvedAvatar == null
+                                ? Text(
+                                    authorName.isNotEmpty ? authorName[0].toUpperCase() : 'U',
+                                    style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.white),
+                                  )
+                                : null,
                           ),
                         ),
-                        TextButton(
-                          onPressed: () => context.push('/friends'),
-                          child: const Text('Explore', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                        // Online Green Badge
+                        Positioned(
+                          right: 8,
+                          bottom: 6,
+                          child: Container(
+                            width: 14,
+                            height: 14,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF16A34A),
+                              shape: BoxShape.circle,
+                              border: Border.all(color: bg, width: 2.5),
+                            ),
+                          ),
+                        ),
+                        // Quick Avatar Camera Edit Badge
+                        Positioned(
+                          right: 0,
+                          top: 4,
+                          child: GestureDetector(
+                            onTap: () => context.push('/profile'),
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: const BoxDecoration(
+                                color: DesignTokens.primary,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 13),
+                            ),
+                          ),
                         ),
                       ],
                     ),
-                  )
-                else
-                  SizedBox(
-                    height: 105,
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: friendsState.friends.length,
-                      separatorBuilder: (_, __) => const SizedBox(width: 12),
-                      itemBuilder: (ctx, i) {
-                        final friend = friendsState.friends[i];
-                        final name = friend.name;
-                        final uname = friend.username;
+                  ),
+                ],
+              ),
 
-                        return GestureDetector(
-                          onTap: () => context.push('/profile/user/${friend.id}?name=$name&username=$uname'),
-                          child: Container(
-                            width: 84,
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF2F2F7),
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                CircleAvatar(
-                                  radius: 22,
-                                  backgroundImage: friend.avatarUrl != null && friend.avatarUrl!.isNotEmpty
-                                      ? NetworkImage(friend.avatarUrl!)
-                                      : null,
-                                  backgroundColor: DesignTokens.primary,
-                                  child: friend.avatarUrl == null || friend.avatarUrl!.isEmpty
-                                      ? const Icon(Icons.person, color: Colors.white, size: 24)
-                                      : null,
-                                ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  name,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w700,
-                                    color: isDark ? Colors.white : Colors.black,
-                                  ),
-                                ),
-                              ],
+              // Spacer to account for overlapping avatar
+              const SizedBox(height: 44),
+
+              // 2. User Bio, Details & Identity Card
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            authorName,
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w900,
+                              color: textPrimary,
+                              letterSpacing: -0.3,
                             ),
                           ),
+                        ),
+                        const SizedBox(width: 4),
+                        const Icon(Icons.verified_rounded, size: 18, color: DesignTokens.primary),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '@$authorUsername · Digital Creator & Tech Founder',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      user?.bio?.isNotEmpty == true
+                          ? user!.bio!
+                          : 'Building next-gen digital experiences. Living life one sprint at a time. 🚀',
+                      style: TextStyle(
+                        fontSize: 13.5,
+                        height: 1.4,
+                        color: textPrimary,
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+
+                    // Metadata row (Location, Link, Joined, Public badge)
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 6,
+                      children: [
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.location_on_outlined, size: 14, color: Color(0xFF667085)),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Lagos & London',
+                              style: TextStyle(fontSize: 12, color: textSecondary, fontWeight: FontWeight.w500),
+                            ),
+                          ],
+                        ),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.link_rounded, size: 14, color: DesignTokens.primary),
+                            const SizedBox(width: 4),
+                            Text(
+                              'linktr.ee/$authorUsername',
+                              style: const TextStyle(fontSize: 12, color: DesignTokens.primary, fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.calendar_today_outlined, size: 13, color: Color(0xFF667085)),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Joined March 2024',
+                              style: TextStyle(fontSize: 12, color: textSecondary, fontWeight: FontWeight.w500),
+                            ),
+                          ],
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: isDark ? const Color(0xFF1E2638) : const Color(0xFFE8F1FD),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text(
+                            'Public Profile',
+                            style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: DesignTokens.primary),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 18),
+
+              // 3. Stats Bar (Interactive)
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 16),
+                padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
+                decoration: BoxDecoration(
+                  color: cardBg,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: borderColor),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    _statItem(
+                      label: 'Followers',
+                      value: displayFollowers,
+                      textPrimary: textPrimary,
+                      textSecondary: textSecondary,
+                      onTap: () {
+                        FollowersListDialog.show(
+                          context,
+                          title: 'Followers',
+                          isFollowersList: true,
+                          userId: user?.id ?? 0,
                         );
                       },
                     ),
-                  ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // ── Group 2: Your Posts Feed Section ─────────────────────────────
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: cardBg,
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(isDark ? 0.3 : 0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Your Posts',
-                      style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w800,
-                        color: isDark ? Colors.white : Colors.black,
-                      ),
+                    Container(height: 28, width: 1, color: borderColor),
+                    _statItem(
+                      label: 'Following',
+                      value: displayFollowing,
+                      textPrimary: textPrimary,
+                      textSecondary: textSecondary,
+                      onTap: () {
+                        FollowersListDialog.show(
+                          context,
+                          title: 'Following',
+                          isFollowersList: false,
+                          userId: user?.id ?? 0,
+                        );
+                      },
                     ),
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: DesignTokens.primary,
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      ),
-                      onPressed: () => showPostComposer(context),
-                      icon: const Icon(Icons.add_rounded, size: 16),
-                      label: const Text('Post', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                    Container(height: 28, width: 1, color: borderColor),
+                    _statItem(
+                      label: 'Posts',
+                      value: displayPosts,
+                      textPrimary: textPrimary,
+                      textSecondary: textSecondary,
+                      onTap: () {},
+                    ),
+                    Container(height: 28, width: 1, color: borderColor),
+                    _statItem(
+                      label: 'Likes',
+                      value: '12.8M',
+                      textPrimary: textPrimary,
+                      textSecondary: textSecondary,
+                      onTap: () {},
                     ),
                   ],
                 ),
-                const SizedBox(height: 14),
-                Consumer(
-                  builder: (context, ref, _) {
-                    final postsState = ref.watch(postsProvider(const PostsSource.feed('home')));
-                    final myPosts = postsState.posts.where((p) => p.userId == user?.id || user == null).toList();
+              ),
+              const SizedBox(height: 16),
 
-                    if (postsState.loading && myPosts.isEmpty) {
-                      return const Padding(
-                        padding: EdgeInsets.all(24),
-                        child: Center(child: CircularProgressIndicator()),
-                      );
-                    }
+              // 4. Primary Profile Actions Row
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  children: [
+                    Expanded(
+                      flex: 4,
+                      child: ElevatedButton(
+                        onPressed: () => context.push('/profile'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: DesignTokens.primary,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                        child: const Text(
+                          'Edit Profile',
+                          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      flex: 4,
+                      child: OutlinedButton(
+                        onPressed: () {
+                          AppShare.showShareSheet(
+                            context,
+                            title: 'Share Profile',
+                            text: 'Connect with $authorName on MurihSpace!',
+                            url: Env.profileUrl(authorUsername),
+                          );
+                        },
+                        style: OutlinedButton.styleFrom(
+                          side: BorderSide(color: borderColor),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                        child: Text(
+                          'Share Profile',
+                          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: textPrimary),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton.filledTonal(
+                      onPressed: () => context.push('/app/creator-hub'),
+                      style: IconButton.styleFrom(
+                        backgroundColor: isDark ? const Color(0xFF1E2638) : const Color(0xFFE8F1FD),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        padding: const EdgeInsets.all(12),
+                      ),
+                      icon: const Icon(Icons.workspace_premium_rounded, color: DesignTokens.primary, size: 22),
+                      tooltip: 'Creator Hub',
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 18),
 
-                    if (myPosts.isEmpty) {
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 24),
-                        child: Center(
-                          child: Column(
-                            children: [
-                              Icon(Icons.feed_outlined, size: 40, color: isDark ? Colors.grey[600] : Colors.grey[400]),
-                              const SizedBox(height: 8),
-                              Text(
-                                'No posts created yet',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: isDark ? Colors.grey[300] : Colors.grey[700],
-                                ),
+              // 5. Story Highlights Carousel
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Story Highlights',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      height: 84,
+                      child: ListView(
+                        scrollDirection: Axis.horizontal,
+                        children: [
+                          // "+ New" Highlight Item
+                          GestureDetector(
+                            onTap: () => showStoryComposerSheet(context),
+                            child: Padding(
+                              padding: const EdgeInsets.only(right: 14),
+                              child: Column(
+                                children: [
+                                  Container(
+                                    width: 58,
+                                    height: 58,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: DesignTokens.primary,
+                                        width: 1.5,
+                                      ),
+                                    ),
+                                    child: const Center(
+                                      child: Icon(Icons.add_rounded, color: DesignTokens.primary, size: 24),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    'New',
+                                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: textSecondary),
+                                  ),
+                                ],
                               ),
-                              const SizedBox(height: 4),
+                            ),
+                          ),
+
+                          // Highlight items
+                          for (final h in _highlights)
+                            Padding(
+                              padding: const EdgeInsets.only(right: 14),
+                              child: Column(
+                                children: [
+                                  Container(
+                                    width: 58,
+                                    height: 58,
+                                    padding: const EdgeInsets.all(2.5),
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: isDark ? const Color(0xFF3E4C66) : const Color(0xFFCBD5E1),
+                                        width: 1.5,
+                                      ),
+                                    ),
+                                    child: CircleAvatar(
+                                      backgroundImage: CachedNetworkImageProvider(h['cover'] as String),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    h['title'] as String,
+                                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: textPrimary),
+                                  ),
+                                ],
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+
+              // 6. Creator Account Gold Banner (Jumping directly to Creator Hub)
+              GestureDetector(
+                onTap: () => context.push('/app/creator-hub'),
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFFFFBEB), Color(0xFFFEF3C7)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xFFFDE68A)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFFD97706).withValues(alpha: 0.08),
+                        blurRadius: 8,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF59E0B).withValues(alpha: 0.2),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.workspace_premium_rounded, color: Color(0xFFB45309), size: 22),
+                      ),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Creator Account',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w800,
+                                color: Color(0xFF78350F),
+                              ),
+                            ),
+                            SizedBox(height: 2),
+                            Text(
+                              'Monetize your content, get brand deals & earn with MurihSpace',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                                color: Color(0xFF92400E),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Color(0xFFB45309)),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+
+              // 7. Media Content Tabs
+              Container(
+                decoration: BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(color: borderColor),
+                  ),
+                ),
+                child: TabBar(
+                  controller: _tab,
+                  labelColor: DesignTokens.primary,
+                  unselectedLabelColor: textSecondary,
+                  indicatorColor: DesignTokens.primary,
+                  indicatorWeight: 3,
+                  indicatorSize: TabBarIndicatorSize.tab,
+                  tabs: const [
+                    Tab(icon: Icon(Icons.grid_on_rounded, size: 20)),
+                    Tab(icon: Icon(Icons.video_library_rounded, size: 20)),
+                    Tab(icon: Icon(Icons.sensors_rounded, size: 20)),
+                    Tab(icon: Icon(Icons.person_pin_rounded, size: 20)),
+                  ],
+                ),
+              ),
+
+              // 8. 3-Column Instagram-Style Media Grid
+              GridView.builder(
+                padding: const EdgeInsets.all(2),
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: _showcaseMedia.length,
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 3,
+                  crossAxisSpacing: 2,
+                  mainAxisSpacing: 2,
+                  childAspectRatio: 0.8,
+                ),
+                itemBuilder: (ctx, i) {
+                  final m = _showcaseMedia[i];
+                  final isVideo = m['type'] == 'video';
+                  final isPinned = m['pinned'] as bool? ?? false;
+
+                  return GestureDetector(
+                    onTap: () => _openReel(m),
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        CachedNetworkImage(
+                          imageUrl: m['image'] as String,
+                          fit: BoxFit.cover,
+                        ),
+                        // Dark bottom gradient for legible view counts
+                        Positioned.fill(
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  Colors.transparent,
+                                  Colors.black.withValues(alpha: 0.6),
+                                ],
+                                stops: const [0.65, 1.0],
+                              ),
+                            ),
+                          ),
+                        ),
+                        // Top Right: Video play or pinned badge
+                        if (isVideo)
+                          const Positioned(
+                            top: 6,
+                            right: 6,
+                            child: Icon(Icons.play_arrow_rounded, color: Colors.white, size: 18),
+                          ),
+                        if (isPinned)
+                          Positioned(
+                            top: 6,
+                            left: 6,
+                            child: Container(
+                              padding: const EdgeInsets.all(3),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withValues(alpha: 0.6),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.push_pin_rounded, color: Colors.white, size: 12),
+                            ),
+                          ),
+                        // Bottom Left: Views Count
+                        Positioned(
+                          left: 6,
+                          bottom: 6,
+                          child: Row(
+                            children: [
+                              const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 12),
+                              const SizedBox(width: 2),
                               Text(
-                                'Share your thoughts, photos, or updates with your community.',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(fontSize: 12, color: isDark ? Colors.grey[500] : Colors.grey[600]),
+                                m['views'] as String,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                ),
                               ),
                             ],
                           ),
                         ),
-                      );
-                    }
-
-                    return Column(
-                      children: myPosts.take(5).map((post) {
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: PostCard(post: post, myId: user?.id ?? 0),
-                        );
-                      }).toList(),
-                    );
-                  },
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
-        ],
-      ),
-    ),
-  );
-}
-
-  void _showRoleLockedDialog(BuildContext context, String requiredRoleTitle, String roleDescription, String targetRole) {
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: Theme.of(context).brightness == Brightness.dark
-          ? const Color(0xFF1C1C1E)
-          : Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (ctx) {
-        final isDark = Theme.of(ctx).brightness == Brightness.dark;
-        final textPrimary = isDark ? Colors.white : Colors.black;
-        final textSecondary = isDark ? Colors.grey[400] : Colors.grey[600];
-
-        return Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFF9500).withValues(alpha: 0.15),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.lock_rounded, color: Color(0xFFFF9500), size: 36),
+                      ],
+                    ),
+                  );
+                },
               ),
-              const SizedBox(height: 16),
-              Text(
-                '$requiredRoleTitle Locked',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w900,
-                  color: textPrimary,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                roleDescription,
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 14, color: textSecondary, height: 1.4),
-              ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: DesignTokens.primary,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                  ),
-                  onPressed: () {
-                    final router = GoRouter.of(context);
-                    Navigator.pop(ctx);
-                    router.push('/upgrade-account');
-                  },
-                  icon: const Icon(Icons.workspace_premium_rounded, size: 20),
-                  label: Text('Apply to Become a $targetRole', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
-                ),
-              ),
-              const SizedBox(height: 10),
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: Text('Cancel', style: TextStyle(color: textSecondary)),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  void _showAccountSwitcherSheet(BuildContext context, WidgetRef ref, bool isDark, UserRole role) {
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: isDark ? const Color(0xFF1C1C1E) : Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF3A3A3C) : const Color(0xFFD1D1D6),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Switch Profile Mode',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                  color: isDark ? Colors.white : Colors.black,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'Switch active profile to access specific tools & escrow',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: isDark ? Colors.grey[400] : Colors.grey[600],
-                ),
-              ),
-              const SizedBox(height: 20),
-              _accountModeTile(
-                ctx,
-                ref,
-                'Member Profile',
-                'Personal chatting & social feed',
-                Icons.person_rounded,
-                DesignTokens.primary,
-                role == UserRole.member,
-                isDark,
-                targetRole: 'member',
-              ),
-              const SizedBox(height: 10),
-              _accountModeTile(
-                ctx,
-                ref,
-                'Vendor Store Mode',
-                'Products, store inventory & escrow orders',
-                Icons.storefront_rounded,
-                const Color(0xFF5856D6),
-                role == UserRole.vendor,
-                isDark,
-                targetRole: 'vendor',
-              ),
-              const SizedBox(height: 10),
-              _accountModeTile(
-                ctx,
-                ref,
-                'Creator Hub Mode',
-                'Brand deals, monetization & escrow payouts',
-                Icons.campaign_rounded,
-                const Color(0xFFFF9500),
-                role == UserRole.creator,
-                isDark,
-                targetRole: 'creator',
-              ),
+              const SizedBox(height: 32),
             ],
           ),
         ),
       ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => showPostComposer(context),
+        backgroundColor: DesignTokens.primary,
+        foregroundColor: Colors.white,
+        tooltip: 'Create Post',
+        child: const Icon(Icons.add_rounded, size: 28),
+      ),
     );
   }
 
-  Widget _accountModeTile(
-    BuildContext context,
-    WidgetRef ref,
-    String title,
-    String subtitle,
-    IconData icon,
-    Color color,
-    bool isSelected,
-    bool isDark, {
-    bool isLocked = false,
-    String targetRole = '',
-    String lockDescription = '',
+  Widget _statItem({
+    required String label,
+    required String value,
+    required Color textPrimary,
+    required Color textSecondary,
+    required VoidCallback onTap,
   }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFEFF3F6),
-        borderRadius: BorderRadius.circular(16),
-        border: isSelected ? Border.all(color: DesignTokens.primary, width: 1.5) : null,
-      ),
-      child: ListTile(
-        onTap: () async {
-          Navigator.pop(context);
-          if (isLocked) {
-            _showRoleLockedDialog(context, title, lockDescription, targetRole);
-          } else {
-            final targetEnum = switch (targetRole.toLowerCase()) {
-              'creator' => UserRole.creator,
-              'vendor' => UserRole.vendor,
-              _ => UserRole.member,
-            };
-            await ref.read(authProvider.notifier).switchRole(targetEnum);
-            if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Switched active mode to $title')),
-              );
-            }
-          }
-        },
-        trailing: isLocked
-            ? Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(color: Colors.grey.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(8)),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.lock_rounded, size: 14, color: Colors.grey),
-                    SizedBox(width: 4),
-                    Text('APPLY', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey)),
-                  ],
-                ),
-              )
-            : (isSelected ? const Icon(Icons.check_circle_rounded, color: DesignTokens.primary) : null),
-        leading: Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.15),
-            shape: BoxShape.circle,
-          ),
-          child: Icon(icon, color: color, size: 22),
-        ),
-        title: Text(
-          title,
-          style: TextStyle(
-            fontWeight: FontWeight.w700,
-            fontSize: 15,
-            color: isDark ? Colors.white : Colors.black,
-          ),
-        ),
-        subtitle: Text(
-          subtitle,
-          style: TextStyle(
-            fontSize: 12,
-            color: isDark ? Colors.grey[400] : Colors.grey[600],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _profileStat(String label, String value, bool isDark, {VoidCallback? onTap}) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF2F4F7),
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: Column(
-          children: [
-            Text(
-              value,
-              style: TextStyle(
-                color: isDark ? Colors.white : Colors.black,
-                fontSize: 15,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              style: TextStyle(
-                color: isDark ? Colors.grey[400] : Colors.grey[600],
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ProfileCardGroup extends StatelessWidget {
-  final Color cardBg;
-  final Color dividerColor;
-  final List<Widget> children;
-
-  const _ProfileCardGroup({
-    required this.cardBg,
-    required this.dividerColor,
-    required this.children,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final items = <Widget>[];
-    for (var i = 0; i < children.length; i++) {
-      items.add(children[i]);
-      if (i < children.length - 1) {
-        items.add(
-          Divider(
-            height: 1,
-            thickness: 1,
-            indent: 56,
-            color: dividerColor,
-          ),
-        );
-      }
-    }
-
-    return Container(
-      decoration: BoxDecoration(
-        color: cardBg,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(children: items),
-    );
-  }
-}
-
-class _ProfileTile extends StatelessWidget {
-  final Color iconBg;
-  final IconData icon;
-  final String title;
-  final String? badgeText;
-  final Color? badgeColor;
-  final String? trailingText;
-  final bool isDark;
-  final VoidCallback onTap;
-
-  const _ProfileTile({
-    required this.iconBg,
-    required this.icon,
-    required this.title,
-    this.badgeText,
-    this.badgeColor,
-    this.trailingText,
-    required this.isDark,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      onTap: onTap,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 0),
-      leading: Container(
-        width: 30,
-        height: 30,
-        decoration: BoxDecoration(
-          color: iconBg,
-          borderRadius: BorderRadius.circular(7),
-        ),
-        child: Icon(icon, color: Colors.white, size: 18),
-      ),
-      title: Row(
-        children: [
-          Text(
-            title,
-            style: TextStyle(
-              color: isDark ? Colors.white : Colors.black,
-              fontWeight: FontWeight.w600,
-              fontSize: 15,
-            ),
-          ),
-          if (badgeText != null) ...[
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: badgeColor ?? DesignTokens.primary,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Text(
-                badgeText!,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ),
-          ],
-        ],
-      ),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (trailingText != null)
-            Text(
-              trailingText!,
-              style: TextStyle(
-                color: isDark ? Colors.grey[400] : Colors.grey[600],
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
-            )
-          else
-            Icon(
-              Icons.chevron_right,
-              color: isDark ? Colors.grey[600] : Colors.grey[400],
-              size: 20,
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _CreatorMediaKitCard extends ConsumerWidget {
-  final Color cardBg;
-  final bool isDark;
-
-  const _CreatorMediaKitCard({required this.cardBg, required this.isDark});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final socialState = ref.watch(socialAccountProvider);
-    final followState = ref.watch(followProvider);
-    final walletState = ref.watch(walletProvider);
-
-    final verifiedAudience = socialState.summary?.combinedFollowers ?? followState.getFollowersCount(1);
-    final linkedPlatformsCount = socialState.accounts.length;
-    final creatorEarnings = walletState.creatorBalance;
-
-    final textPrimary = isDark ? Colors.white : Colors.black;
-    final textSecondary = isDark ? Colors.grey[400] : Colors.grey[600];
-
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: cardBg,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFF9500).withValues(alpha: 0.15),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.campaign_rounded, color: Color(0xFFFF9500), size: 22),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Creator Media Kit & Stats', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: textPrimary)),
-                    Text('Live verified audience intelligence', style: TextStyle(fontSize: 11, color: textSecondary)),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFF9500).withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Text('REAL-TIME', style: TextStyle(color: Color(0xFFFF9500), fontSize: 10, fontWeight: FontWeight.w900)),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _statItem('Verified Audience', '$verifiedAudience', textPrimary, textSecondary),
-              _statItem('Linked Channels', '$linkedPlatformsCount', textPrimary, textSecondary),
-              _statItem('Creator Earnings', '\$${creatorEarnings.toStringAsFixed(0)}', textPrimary, textSecondary),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: AnimatedActionFeedbackButton(
-                  idleLabel: 'Export Media Kit',
-                  idleIcon: Icons.share_rounded,
-                  idleColor: const Color(0xFFFF9500),
-                  activeLabel: 'Link Copied!',
-                  activeIcon: Icons.check_rounded,
-                  activeColor: const Color(0xFF34C759),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  borderRadius: 12,
-                  fontSize: 12,
-                  iconSize: 16,
-                  onAction: () async {
-                    await Clipboard.setData(
-                      ClipboardData(text: '${Env.webBaseUrl}/creator/mediakit'),
-                    );
-                  },
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFFF9500),
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  onPressed: () => context.push('/brand-deals'),
-                  icon: const Icon(Icons.campaign_rounded, size: 16),
-                  label: const Text('Brand Deals', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _statItem(String label, String value, Color textPrimary, Color? textSecondary) {
-    return Column(
-      children: [
-        Text(
-          value,
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: textPrimary),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          label,
-          style: TextStyle(fontSize: 11, color: textSecondary),
-        ),
-      ],
-    );
-  }
-}
-
-class _VendorStoreSummaryCard extends ConsumerWidget {
-  final Color cardBg;
-  final bool isDark;
-
-  const _VendorStoreSummaryCard({required this.cardBg, required this.isDark});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final walletState = ref.watch(walletProvider);
-    final textPrimary = isDark ? Colors.white : Colors.black;
-    final textSecondary = isDark ? Colors.grey[400] : Colors.grey[600];
-
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: cardBg,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF5856D6).withValues(alpha: 0.15),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.storefront_rounded, color: Color(0xFF5856D6), size: 22),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Vendor Store & Orders', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: textPrimary)),
-                    Text('Escrow locked order & store analytics', style: TextStyle(fontSize: 11, color: textSecondary)),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF34C759).withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Text('VERIFIED STORE', style: TextStyle(color: Color(0xFF34C759), fontSize: 10, fontWeight: FontWeight.w900)),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _statItem('Escrow Locked', '\$${(walletState.escrowsLockedMinor / 100).toStringAsFixed(2)}', textPrimary, textSecondary),
-              _statItem('Active Deals', '${walletState.escrowDeals.length}', textPrimary, textSecondary),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF5856D6),
-                    side: const BorderSide(color: Color(0xFF5856D6)),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  onPressed: () => context.push('/wallet'),
-                  icon: const Icon(Icons.shield_rounded, size: 16),
-                  label: const Text('Escrow Deals', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF5856D6),
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  onPressed: () => context.push('/marketplace'),
-                  icon: const Icon(Icons.storefront_rounded, size: 16),
-                  label: const Text('Vendor Store', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _statItem(String label, String value, Color textPrimary, Color? textSecondary) {
-    return Column(
-      children: [
-        Text(
-          value,
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: textPrimary),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          label,
-          style: TextStyle(fontSize: 11, color: textSecondary),
-        ),
-      ],
-    );
-  }
-}
-
-class _PatternCoverPainter extends CustomPainter {
-  final bool isDark;
-
-  const _PatternCoverPainter({required this.isDark});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final dotPaint = Paint()
-      ..color = Colors.white.withOpacity(isDark ? 0.08 : 0.12)
-      ..style = PaintingStyle.fill;
-
-    const spacing = 18.0;
-    for (double x = 8; x < size.width; x += spacing) {
-      for (double y = 8; y < size.height; y += spacing) {
-        canvas.drawCircle(Offset(x, y), 1.2, dotPaint);
-      }
-    }
-
-    final linePaint = Paint()
-      ..color = Colors.white.withOpacity(isDark ? 0.05 : 0.08)
-      ..strokeWidth = 1.0
-      ..style = PaintingStyle.stroke;
-
-    for (int i = 0; i < 4; i++) {
-      final offset = i * 28.0;
-      canvas.drawLine(
-        Offset(size.width - 140 + offset, 0),
-        Offset(size.width + offset, 140),
-        linePaint,
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-class _QuickActionTile extends StatelessWidget {
-  const _QuickActionTile({
-    required this.label,
-    required this.icon,
-    required this.color,
-    required this.onTap,
-  });
-
-  final String label;
-  final IconData icon;
-  final Color color;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final cardBg = isDark ? DesignTokens.darkSurface : Colors.white;
-    final textColor = isDark ? Colors.white : Colors.black;
-
     return GestureDetector(
       onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
-        decoration: BoxDecoration(
-          color: cardBg,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.04),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
+      child: Column(
+        children: [
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w900,
+              color: textPrimary,
             ),
-          ],
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(7),
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.15),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icon, color: color, size: 16),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              color: textSecondary,
             ),
-            const SizedBox(width: 8),
-            Flexible(
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13,
-                  color: textColor,
-                ),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

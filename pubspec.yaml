@@ -63,6 +63,7 @@ dependencies:
   flutter_callkit_incoming: ^3.1.5
   in_app_purchase: ^3.2.0
   font_awesome_flutter: ^11.0.0
+  flutter_svg: ^2.3.0
 
 dev_dependencies:
   flutter_test:
@@ -100,6 +101,7 @@ flutter:
     - assets/images/brand/
     - assets/images/murihspace-live-logo.png
     - assets/sounds/
+    - assets/icons/
 
   # To add assets to your application, add an assets section, like this:
   # assets:
