@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../core/api_client.dart';
+import '../core/design_tokens.dart';
 
 class CommunityShareItem {
   final int id;
@@ -251,7 +252,7 @@ class _ShareCommunitySheetState extends State<ShareCommunitySheet> {
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(fontSize: 12, color: textSecondary),
                     ),
-                    trailing: const Icon(Icons.send_rounded, size: 18, color: Color(0xFF007AFF)),
+                    trailing: const Icon(Icons.send_rounded, size: 18, color: DesignTokens.primary),
                     onTap: () {
                       Navigator.of(context).pop();
                       widget.onSelect(c);

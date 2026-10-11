@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../components/ai_onboarding_wizard_dialog.dart';
 import '../components/brand.dart';
+import '../core/design_tokens.dart';
 import '../core/roles.dart';
 import '../providers/auth_provider.dart';
 
@@ -175,8 +176,8 @@ class _BottomBar extends StatelessWidget {
           size: 22,
           isDark: isDark,
           color: selected
-              ? const Color(0xFF007AFF)
-              : (isDark ? Colors.white : const Color(0xFF007AFF)),
+              ? DesignTokens.primary
+              : (isDark ? Colors.white : DesignTokens.primary),
         ),
       ),
       centerItem,
@@ -218,7 +219,7 @@ class _BottomBar extends StatelessWidget {
 
   Widget _barItem(BuildContext context, _BarItem item, int index, bool isDark) {
     final selected = index == currentIndex;
-    final activeColor = const Color(0xFF007AFF);
+    final activeColor = DesignTokens.primary;
     final inactiveColor = isDark ? const Color(0xFF8E8E93) : const Color(0xFF8E8E93);
 
     return InkWell(

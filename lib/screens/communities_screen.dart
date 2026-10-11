@@ -187,9 +187,9 @@ class _CommunitiesScreenState extends ConsumerState<CommunitiesScreen>
               const SizedBox(height: 8),
               TabBar(
                 controller: _tab,
-                labelColor: const Color(0xFF007AFF),
+                labelColor: DesignTokens.primary,
                 unselectedLabelColor: isDark ? const Color(0xFF8E8E93) : const Color(0xFF61758A),
-                indicatorColor: const Color(0xFF007AFF),
+                indicatorColor: DesignTokens.primary,
                 indicatorWeight: 3,
                 indicatorSize: TabBarIndicatorSize.label,
                 labelStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
@@ -625,7 +625,7 @@ class _CreatorActionRow extends StatelessWidget {
             child: FilledButton.icon(
               onPressed: onCreateCommunity,
               style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFF007AFF),
+                backgroundColor: DesignTokens.primary,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -662,10 +662,10 @@ class _MemberGuidance extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: const Color(0xFF007AFF).withValues(alpha: 0.12),
+              color: DesignTokens.primary.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: const Icon(Icons.info_outline_rounded, color: Color(0xFF007AFF), size: 20),
+            child: const Icon(Icons.info_outline_rounded, color: DesignTokens.primary, size: 20),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -698,13 +698,13 @@ class _MemberGuidance extends StatelessWidget {
                       Text(
                         'Discover spaces',
                         style: TextStyle(
-                          color: Color(0xFF007AFF),
+                          color: DesignTokens.primary,
                           fontWeight: FontWeight.bold,
                           fontSize: 12,
                         ),
                       ),
                       SizedBox(width: 4),
-                      Icon(Icons.arrow_forward_rounded, size: 14, color: Color(0xFF007AFF)),
+                      Icon(Icons.arrow_forward_rounded, size: 14, color: DesignTokens.primary),
                     ],
                   ),
                 ],
@@ -1180,10 +1180,10 @@ void showRoleRestrictedCommunitySheet(BuildContext context) {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF007AFF).withValues(alpha: 0.12),
+                    color: DesignTokens.primary.withValues(alpha: 0.12),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.groups_rounded, color: Color(0xFF007AFF), size: 26),
+                  child: const Icon(Icons.groups_rounded, color: DesignTokens.primary, size: 26),
                 ),
                 const SizedBox(width: 14),
                 const Expanded(
@@ -1197,7 +1197,7 @@ void showRoleRestrictedCommunitySheet(BuildContext context) {
                       SizedBox(height: 2),
                       Text(
                         'Reserved for Creators & Vendors',
-                        style: TextStyle(color: Color(0xFF007AFF), fontWeight: FontWeight.w600, fontSize: 13),
+                        style: TextStyle(color: DesignTokens.primary, fontWeight: FontWeight.w600, fontSize: 13),
                       ),
                     ],
                   ),
@@ -1225,7 +1225,7 @@ void showRoleRestrictedCommunitySheet(BuildContext context) {
               height: 48,
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF007AFF),
+                  backgroundColor: DesignTokens.primary,
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                 ),
@@ -1261,7 +1261,7 @@ Widget _roleFeatureRow(IconData icon, String text, bool isDark) {
   return Row(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      Icon(icon, size: 18, color: const Color(0xFF007AFF)),
+      Icon(icon, size: 18, color: DesignTokens.primary),
       const SizedBox(width: 10),
       Expanded(
         child: Text(

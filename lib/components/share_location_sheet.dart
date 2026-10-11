@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
+import '../core/design_tokens.dart';
 
 class LocationShareData {
   final double latitude;
@@ -219,7 +220,7 @@ class _ShareLocationSheetState extends State<ShareLocationSheet> {
                     const SizedBox(height: 14),
                     ElevatedButton(
                       onPressed: _requestAndGetLocation,
-                      style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF007AFF)),
+                      style: ElevatedButton.styleFrom(backgroundColor: DesignTokens.primary),
                       child: const Text('Try Again', style: TextStyle(color: Colors.white)),
                     ),
                   ],
@@ -271,7 +272,7 @@ class _ShareLocationSheetState extends State<ShareLocationSheet> {
                       Container(
                         padding: const EdgeInsets.all(10),
                         decoration: const BoxDecoration(
-                          color: Color(0xFF007AFF),
+                          color: DesignTokens.primary,
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(Icons.radar_rounded, color: Colors.white, size: 20),
@@ -319,7 +320,7 @@ class _ShareLocationSheetState extends State<ShareLocationSheet> {
                       icon: const Icon(Icons.share_location_rounded, size: 18),
                       label: Text('Share Live Location for ${_durationText(_selectedLiveMinutes)}'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF007AFF),
+                        backgroundColor: DesignTokens.primary,
                         foregroundColor: Colors.white,
                         elevation: 0,
                         padding: const EdgeInsets.symmetric(vertical: 12),
@@ -351,11 +352,11 @@ class _ShareLocationSheetState extends State<ShareLocationSheet> {
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
             color: selected
-                ? const Color(0xFF007AFF)
+                ? DesignTokens.primary
                 : (isDark ? const Color(0xFF3A3A3C) : Colors.white),
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
-              color: selected ? const Color(0xFF007AFF) : Colors.transparent,
+              color: selected ? DesignTokens.primary : Colors.transparent,
               width: 1.5,
             ),
           ),

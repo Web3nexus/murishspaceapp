@@ -217,12 +217,12 @@ Future<Community?> showCreateCommunityDialog(BuildContext context) async {
                           children: [
                             CircleAvatar(
                               radius: 32,
-                              backgroundColor: const Color(0xFF007AFF).withOpacity(0.15),
+                              backgroundColor: DesignTokens.primary.withOpacity(0.15),
                               backgroundImage: logoUrl != null ? NetworkImage(logoUrl!) : null,
                               child: isUploadingLogo
                                   ? const CircularProgressIndicator(strokeWidth: 2)
                                   : (logoUrl == null
-                                      ? const Icon(Icons.add_a_photo_rounded, color: Color(0xFF007AFF), size: 24)
+                                      ? const Icon(Icons.add_a_photo_rounded, color: DesignTokens.primary, size: 24)
                                       : null),
                             ),
                             Positioned(
@@ -231,7 +231,7 @@ Future<Community?> showCreateCommunityDialog(BuildContext context) async {
                               child: Container(
                                 padding: const EdgeInsets.all(4),
                                 decoration: const BoxDecoration(
-                                  color: Color(0xFF007AFF),
+                                  color: DesignTokens.primary,
                                   shape: BoxShape.circle,
                                 ),
                                 child: const Icon(Icons.camera_alt_rounded, size: 12, color: Colors.white),
@@ -349,7 +349,7 @@ Future<Community?> showCreateCommunityDialog(BuildContext context) async {
                     height: 50,
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF007AFF),
+                        backgroundColor: DesignTokens.primary,
                         foregroundColor: Colors.white,
                         elevation: 0,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -583,10 +583,10 @@ class _CreateBroadcastSheetState extends ConsumerState<_CreateBroadcastSheet> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF007AFF).withValues(alpha: 0.15),
+                    color: DesignTokens.primary.withValues(alpha: 0.15),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.campaign_rounded, color: Color(0xFF007AFF), size: 24),
+                  child: const Icon(Icons.campaign_rounded, color: DesignTokens.primary, size: 24),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -774,7 +774,7 @@ class _CreateBroadcastSheetState extends ConsumerState<_CreateBroadcastSheet> {
               height: 50,
               child: ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF007AFF),
+                  backgroundColor: DesignTokens.primary,
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                 ),
@@ -819,7 +819,7 @@ class _LinkOptionTile extends StatelessWidget {
     final enabled = onTap != null;
 
     return Material(
-      color: selected ? const Color(0xFF007AFF).withValues(alpha: 0.12) : cardBg,
+      color: selected ? DesignTokens.primary.withValues(alpha: 0.12) : cardBg,
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
@@ -829,7 +829,7 @@ class _LinkOptionTile extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
-              color: selected ? const Color(0xFF007AFF) : Colors.transparent,
+              color: selected ? DesignTokens.primary : Colors.transparent,
               width: 1.5,
             ),
           ),
@@ -837,7 +837,7 @@ class _LinkOptionTile extends StatelessWidget {
             children: [
               Icon(
                 icon,
-                color: enabled ? const Color(0xFF007AFF) : Colors.grey,
+                color: enabled ? DesignTokens.primary : Colors.grey,
                 size: 22,
               ),
               const SizedBox(width: 12),
@@ -863,7 +863,7 @@ class _LinkOptionTile extends StatelessWidget {
               ),
               Icon(
                 selected ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
-                color: selected ? const Color(0xFF007AFF) : Colors.grey,
+                color: selected ? DesignTokens.primary : Colors.grey,
                 size: 20,
               ),
             ],

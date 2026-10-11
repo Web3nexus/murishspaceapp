@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/design_tokens.dart';
 import '../providers/auth_provider.dart';
 import '../providers/follow_provider.dart';
 
@@ -167,9 +168,9 @@ class _FollowersListDialogState extends ConsumerState<FollowersListDialog> {
                               contentPadding: EdgeInsets.zero,
                               leading: CircleAvatar(
                                 backgroundImage: user.avatarUrl.isNotEmpty ? NetworkImage(user.avatarUrl) : null,
-                                backgroundColor: const Color(0xFF007AFF).withOpacity(0.15),
+                                backgroundColor: DesignTokens.primary.withOpacity(0.15),
                                 child: user.avatarUrl.isEmpty
-                                    ? const Icon(Icons.person, color: Color(0xFF007AFF), size: 22)
+                                    ? const Icon(Icons.person, color: DesignTokens.primary, size: 22)
                                     : null,
                               ),
                               title: Row(
@@ -183,7 +184,7 @@ class _FollowersListDialogState extends ConsumerState<FollowersListDialog> {
                                   ),
                                   if (user.isVerified) ...[
                                     const SizedBox(width: 4),
-                                    const Icon(Icons.verified_rounded, color: Color(0xFF007AFF), size: 16),
+                                    const Icon(Icons.verified_rounded, color: DesignTokens.primary, size: 16),
                                   ],
                                 ],
                               ),
@@ -210,7 +211,7 @@ class _FollowersListDialogState extends ConsumerState<FollowersListDialog> {
                                             )
                                           : ElevatedButton(
                                               style: ElevatedButton.styleFrom(
-                                                backgroundColor: const Color(0xFF007AFF),
+                                                backgroundColor: DesignTokens.primary,
                                                 foregroundColor: Colors.white,
                                                 elevation: 0,
                                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../components/ui_states.dart';
+import '../core/design_tokens.dart';
 import '../models/notification_models.dart';
 import '../providers/notifications_provider.dart';
 
@@ -37,7 +38,7 @@ class NotificationsScreen extends ConsumerWidget {
               onPressed: () => notifier.markAllRead(),
               child: const Text(
                 'Mark all read',
-                style: TextStyle(color: Color(0xFF007AFF), fontWeight: FontWeight.bold),
+                style: TextStyle(color: DesignTokens.primary, fontWeight: FontWeight.bold),
               ),
             ),
         ],
@@ -118,7 +119,7 @@ class _NotificationTile extends StatelessWidget {
 
     // Resolve icon & accent color
     IconData icon = Icons.notifications_rounded;
-    Color accentColor = const Color(0xFF007AFF);
+    Color accentColor = DesignTokens.primary;
 
     if (type.contains('role_upgrade_approved') || type.contains('creator') || type.contains('vendor')) {
       icon = Icons.workspace_premium_rounded;
@@ -128,7 +129,7 @@ class _NotificationTile extends StatelessWidget {
       accentColor = const Color(0xFF34C759);
     } else if (type.contains('kyc_requested') || type.contains('kyc')) {
       icon = Icons.shield_rounded;
-      accentColor = const Color(0xFF007AFF);
+      accentColor = DesignTokens.primary;
     } else if (type.contains('gift')) {
       icon = Icons.card_giftcard_rounded;
       accentColor = const Color(0xFFFF2D55);
@@ -137,7 +138,7 @@ class _NotificationTile extends StatelessWidget {
       accentColor = const Color(0xFF10B981);
     } else if (type.contains('message') || type.contains('chat')) {
       icon = Icons.chat_bubble_rounded;
-      accentColor = const Color(0xFF007AFF);
+      accentColor = DesignTokens.primary;
     }
 
     final channelName = isOfficial ? 'Murih Notifications Official' : (notification.senderName ?? 'Notification');
@@ -149,7 +150,7 @@ class _NotificationTile extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          color: unread ? (isDark ? const Color(0xFF2C2C2E).withOpacity(0.5) : const Color(0xFF007AFF).withOpacity(0.04)) : Colors.transparent,
+          color: unread ? (isDark ? const Color(0xFF2C2C2E).withOpacity(0.5) : DesignTokens.primary.withOpacity(0.04)) : Colors.transparent,
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -184,7 +185,7 @@ class _NotificationTile extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
-                            color: isOfficial ? const Color(0xFF007AFF) : (isDark ? Colors.grey[300] : Colors.grey[800]),
+                            color: isOfficial ? DesignTokens.primary : (isDark ? Colors.grey[300] : Colors.grey[800]),
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -195,7 +196,7 @@ class _NotificationTile extends StatelessWidget {
                         const Icon(
                           Icons.verified_rounded,
                           size: 15,
-                          color: Color(0xFF007AFF),
+                          color: DesignTokens.primary,
                         ),
                       ],
                       if (notification.createdAt != null) ...[
@@ -253,12 +254,12 @@ class _NotificationTile extends StatelessWidget {
                           decoration: BoxDecoration(
                             color: isDark ? const Color(0xFF1C2433) : const Color(0xFFEFF6FF),
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: const Color(0xFF007AFF).withValues(alpha: 0.4)),
+                            border: Border.all(color: DesignTokens.primary.withValues(alpha: 0.4)),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(Icons.key_rounded, size: 16, color: Color(0xFF007AFF)),
+                              const Icon(Icons.key_rounded, size: 16, color: DesignTokens.primary),
                               const SizedBox(width: 8),
                               Text(
                                 code,
@@ -267,7 +268,7 @@ class _NotificationTile extends StatelessWidget {
                                   fontWeight: FontWeight.w900,
                                   fontSize: 16,
                                   letterSpacing: 2.0,
-                                  color: Color(0xFF007AFF),
+                                  color: DesignTokens.primary,
                                 ),
                               ),
                               const SizedBox(width: 12),
@@ -283,7 +284,7 @@ class _NotificationTile extends StatelessWidget {
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFF007AFF),
+                                    color: DesignTokens.primary,
                                     borderRadius: BorderRadius.circular(6),
                                   ),
                                   child: const Row(
@@ -315,7 +316,7 @@ class _NotificationTile extends StatelessWidget {
                 width: 9,
                 height: 9,
                 decoration: const BoxDecoration(
-                  color: Color(0xFF007AFF),
+                  color: DesignTokens.primary,
                   shape: BoxShape.circle,
                 ),
               ),

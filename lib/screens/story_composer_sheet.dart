@@ -1,3 +1,4 @@
+import '../core/design_tokens.dart';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -154,7 +155,7 @@ class _StoryComposerContentState extends ConsumerState<_StoryComposerContent> {
                           style: TextStyle(
                             fontWeight: FontWeight.w900,
                             fontSize: 16,
-                            color: Color(0xFF007AFF),
+                            color: DesignTokens.primary,
                           ),
                         ),
                 ),
@@ -172,7 +173,7 @@ class _StoryComposerContentState extends ConsumerState<_StoryComposerContent> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.people_alt_rounded, size: 14, color: Color(0xFF007AFF)),
+                const Icon(Icons.people_alt_rounded, size: 14, color: DesignTokens.primary),
                 const SizedBox(width: 6),
                 Text(
                   'Visible to: $_privacyTarget',
@@ -287,7 +288,7 @@ class _StoryComposerContentState extends ConsumerState<_StoryComposerContent> {
                                     decoration: BoxDecoration(
                                       shape: BoxShape.circle,
                                       border: Border.all(
-                                        color: isSel ? const Color(0xFF007AFF) : Colors.white,
+                                        color: isSel ? DesignTokens.primary : Colors.white,
                                         width: isSel ? 3 : 1.5,
                                       ),
                                     ),

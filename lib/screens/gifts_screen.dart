@@ -1,3 +1,4 @@
+import '../core/design_tokens.dart';
 import 'dart:ui';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
@@ -317,7 +318,7 @@ class _GiftsScreenState extends ConsumerState<GiftsScreen> {
                                   'Top Up',
                                   style: TextStyle(
                                     fontWeight: FontWeight.w800,
-                                    color: Color(0xFF007AFF),
+                                    color: DesignTokens.primary,
                                     fontSize: 12,
                                   ),
                                 ),
@@ -352,7 +353,7 @@ class _GiftsScreenState extends ConsumerState<GiftsScreen> {
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(14),
-                            borderSide: const BorderSide(color: Color(0xFF007AFF), width: 1.5),
+                            borderSide: const BorderSide(color: DesignTokens.primary, width: 1.5),
                           ),
                         ),
                       ),
@@ -381,7 +382,7 @@ class _GiftsScreenState extends ConsumerState<GiftsScreen> {
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(14),
-                            borderSide: const BorderSide(color: Color(0xFF007AFF), width: 1.5),
+                            borderSide: const BorderSide(color: DesignTokens.primary, width: 1.5),
                           ),
                         ),
                       ),
@@ -392,7 +393,7 @@ class _GiftsScreenState extends ConsumerState<GiftsScreen> {
                         children: [
                           Checkbox(
                             value: _isAnonymous,
-                            activeColor: const Color(0xFF007AFF),
+                            activeColor: DesignTokens.primary,
                             onChanged: (v) => setState(() => _isAnonymous = v ?? false),
                           ),
                           GestureDetector(
@@ -415,7 +416,7 @@ class _GiftsScreenState extends ConsumerState<GiftsScreen> {
                         child: ElevatedButton(
                           onPressed: (_sending || !hasEnoughCoins) ? null : _send,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF007AFF),
+                            backgroundColor: DesignTokens.primary,
                             foregroundColor: Colors.white,
                             disabledBackgroundColor: Colors.grey.withValues(alpha: 0.25),
                             disabledForegroundColor: Colors.white38,
@@ -503,7 +504,7 @@ class _GiftsScreenState extends ConsumerState<GiftsScreen> {
                       ),
                     ),
                     const SizedBox(width: 4),
-                    const Icon(Icons.add_circle, size: 14, color: Color(0xFF007AFF)),
+                    const Icon(Icons.add_circle, size: 14, color: DesignTokens.primary),
                   ],
                 ),
               ),
@@ -526,7 +527,7 @@ class _GiftsScreenState extends ConsumerState<GiftsScreen> {
                 child: LiquidGlassCard(
                   borderRadius: 22,
                   blurSigma: 18,
-                  tintColor: const Color(0xFF007AFF),
+                  tintColor: DesignTokens.primary,
                   isDark: isDark,
                   padding: const EdgeInsets.all(18),
                   child: Row(
@@ -574,7 +575,7 @@ class _GiftsScreenState extends ConsumerState<GiftsScreen> {
                           WalletSheet.show(context);
                         },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF007AFF),
+                          backgroundColor: DesignTokens.primary,
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                           minimumSize: Size.zero,
@@ -617,14 +618,14 @@ class _GiftsScreenState extends ConsumerState<GiftsScreen> {
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                         decoration: BoxDecoration(
                           color: isSelected
-                              ? const Color(0xFF007AFF).withValues(alpha: isDark ? 0.35 : 0.15)
+                              ? DesignTokens.primary.withValues(alpha: isDark ? 0.35 : 0.15)
                               : (isDark
                                   ? Colors.white.withValues(alpha: 0.05)
                                   : Colors.black.withValues(alpha: 0.04)),
                           borderRadius: BorderRadius.circular(14),
                           border: Border.all(
                             color: isSelected
-                                ? const Color(0xFF007AFF)
+                                ? DesignTokens.primary
                                 : (isDark
                                     ? Colors.white.withValues(alpha: 0.12)
                                     : Colors.black.withValues(alpha: 0.08)),
@@ -638,7 +639,7 @@ class _GiftsScreenState extends ConsumerState<GiftsScreen> {
                               fontSize: 13,
                               fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
                               color: isSelected
-                                  ? const Color(0xFF007AFF)
+                                  ? DesignTokens.primary
                                   : (isDark ? Colors.white70 : const Color(0xFF334155)),
                             ),
                           ),

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../components/brand.dart';
 import '../core/api_client.dart';
+import '../core/design_tokens.dart';
 import '../providers/auth_provider.dart';
 
 /// 3-Step Professional AI Setup Wizard & Social Follower Tally for Mobile App.
@@ -104,7 +105,7 @@ class _AiOnboardingWizardDialogState extends ConsumerState<AiOnboardingWizardDia
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Account Setup Completed. Profile and verification recorded.'),
-            backgroundColor: Color(0xFF007AFF),
+            backgroundColor: DesignTokens.primary,
           ),
         );
         context.go('/app/home');
@@ -187,10 +188,10 @@ class _AiOnboardingWizardDialogState extends ConsumerState<AiOnboardingWizardDia
                   return FilterChip(
                     label: Text(interest),
                     selected: isSelected,
-                    selectedColor: const Color(0xFF007AFF).withValues(alpha: 0.15),
-                    checkmarkColor: const Color(0xFF007AFF),
+                    selectedColor: DesignTokens.primary.withValues(alpha: 0.15),
+                    checkmarkColor: DesignTokens.primary,
                     labelStyle: TextStyle(
-                      color: isSelected ? const Color(0xFF007AFF) : textPrimary,
+                      color: isSelected ? DesignTokens.primary : textPrimary,
                       fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                     ),
                     onSelected: (val) {
@@ -216,7 +217,7 @@ class _AiOnboardingWizardDialogState extends ConsumerState<AiOnboardingWizardDia
                 decoration: InputDecoration(
                   labelText: 'Social Profile URL (Instagram, X, YouTube)',
                   hintText: 'https://instagram.com/yourhandle',
-                  prefixIcon: const Icon(Icons.link_rounded, color: Color(0xFF007AFF)),
+                  prefixIcon: const Icon(Icons.link_rounded, color: DesignTokens.primary),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
                 ),
               ),
@@ -227,15 +228,15 @@ class _AiOnboardingWizardDialogState extends ConsumerState<AiOnboardingWizardDia
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    side: const BorderSide(color: Color(0xFF007AFF)),
+                    side: const BorderSide(color: DesignTokens.primary),
                   ),
                   onPressed: _verifyingSocial ? null : _verifyAndTallySocial,
                   icon: _verifyingSocial
                       ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                      : const Icon(Icons.sync_rounded, color: Color(0xFF007AFF)),
+                      : const Icon(Icons.sync_rounded, color: DesignTokens.primary),
                   label: Text(
                     _verifyingSocial ? 'Inspecting Profile & Tallying Followers…' : 'Verify Profile & Tally Followers',
-                    style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF007AFF)),
+                    style: const TextStyle(fontWeight: FontWeight.bold, color: DesignTokens.primary),
                   ),
                 ),
               ),
@@ -308,7 +309,7 @@ class _AiOnboardingWizardDialogState extends ConsumerState<AiOnboardingWizardDia
                   flex: 2,
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF007AFF),
+                      backgroundColor: DesignTokens.primary,
                       foregroundColor: Colors.white,
                       elevation: 0,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),

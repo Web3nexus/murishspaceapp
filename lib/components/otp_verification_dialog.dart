@@ -1,3 +1,4 @@
+import '../core/design_tokens.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -104,7 +105,7 @@ class _OtpVerificationDialogState extends ConsumerState<OtpVerificationDialog> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('New OTP sent via SMS to ${widget.phoneNumber}!'),
-        backgroundColor: const Color(0xFF007AFF),
+        backgroundColor: DesignTokens.primary,
       ),
     );
   }
@@ -175,7 +176,7 @@ class _OtpVerificationDialogState extends ConsumerState<OtpVerificationDialog> {
             ),
             child: Row(
               children: [
-                const Icon(Icons.phone_iphone_rounded, size: 20, color: Color(0xFF007AFF)),
+                const Icon(Icons.phone_iphone_rounded, size: 20, color: DesignTokens.primary),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
@@ -239,7 +240,7 @@ class _OtpVerificationDialogState extends ConsumerState<OtpVerificationDialog> {
                   onTap: _resendSms,
                   child: const Text(
                     'Resend SMS',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: Color(0xFF007AFF)),
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: DesignTokens.primary),
                   ),
                 ),
             ],

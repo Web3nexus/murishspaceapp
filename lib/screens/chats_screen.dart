@@ -50,12 +50,12 @@ class ChatsScreen extends ConsumerWidget {
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               ),
-              icon: const Icon(Icons.person_add_rounded, size: 16, color: Color(0xFF007AFF)),
+              icon: const Icon(Icons.person_add_rounded, size: 16, color: DesignTokens.primary),
               label: const Text(
                 'Requests',
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF007AFF),
+                  color: DesignTokens.primary,
                   fontSize: 12,
                 ),
               ),
@@ -301,7 +301,7 @@ class _ChatBodyState extends ConsumerState<_ChatBody> {
                       child: const Icon(
                         Icons.bookmark_rounded,
                         size: 18,
-                        color: Color(0xFF007AFF),
+                        color: DesignTokens.primary,
                       ),
                     ),
                   ),
@@ -335,12 +335,12 @@ class _ChatBodyState extends ConsumerState<_ChatBody> {
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                           decoration: BoxDecoration(
                             color: selected
-                                ? const Color(0xFF007AFF)
+                                ? DesignTokens.primary
                                 : (isDark ? const Color(0xFF2C2C2E) : const Color(0xFFEFF3F6)),
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(
                               color: selected
-                                  ? const Color(0xFF007AFF)
+                                  ? DesignTokens.primary
                                   : (isDark ? Colors.grey[800]! : Colors.transparent),
                               width: 1,
                             ),
@@ -562,7 +562,7 @@ class _ConversationTile extends ConsumerWidget {
                     Row(
                       children: [
                         if (conversation.isPinned) ...[
-                          const Icon(Icons.push_pin_rounded, size: 14, color: Color(0xFF007AFF)),
+                          const Icon(Icons.push_pin_rounded, size: 14, color: DesignTokens.primary),
                           const SizedBox(width: 4),
                         ],
                         if (conversation.isMuted) ...[
@@ -668,7 +668,7 @@ class _ConversationTile extends ConsumerWidget {
             ListTile(
               leading: Icon(
                 conversation.isPinned ? Icons.push_pin_outlined : Icons.push_pin_rounded,
-                color: const Color(0xFF007AFF),
+                color: DesignTokens.primary,
               ),
               title: Text(
                 conversation.isPinned ? 'Unpin chat' : 'Pin chat',
@@ -757,10 +757,10 @@ class _ConversationTile extends ConsumerWidget {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF007AFF).withOpacity(0.15),
+                      color: DesignTokens.primary.withOpacity(0.15),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.push_pin_rounded, color: Color(0xFF007AFF), size: 30),
+                    child: const Icon(Icons.push_pin_rounded, color: DesignTokens.primary, size: 30),
                   ),
                   const SizedBox(height: 16),
                   Text(
@@ -781,7 +781,7 @@ class _ConversationTile extends ConsumerWidget {
                     height: 48,
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF007AFF),
+                        backgroundColor: DesignTokens.primary,
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                       ),
@@ -853,27 +853,42 @@ class _Avatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final avatarUrl = conversation.avatarUrl;
-    final isDirectChat = conversation.type != 'community';
+    // Presence dots only apply to one-to-one chats; communities, groups, saved
+    // messages, and system threads must never show a contact's online state.
+    final isDirectChat = conversation.type == 'direct' && conversation.otherUser != null;
+    final isOnline = isDirectChat ? (conversation.otherUser?.isOnline ?? false) : false;
 
     return OnlineAvatarBadge(
-      isOnline: isDirectChat && (conversation.otherUser?.isOnline ?? false),
+      isOnline: isOnline,
+      showInactive: isDirectChat,
       badgeSize: 12,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          CircleAvatar(
-            radius: 26,
-            backgroundColor: unread ? DesignTokens.primary : DesignTokens.primarySoft,
-            backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
-                ? CachedNetworkImageProvider(avatarUrl)
-                : null,
-            child: avatarUrl == null || avatarUrl.isEmpty
-                ? Icon(
-                    Icons.person,
-                    color: unread ? Colors.white : DesignTokens.primaryDark,
-                    size: 28,
-                  )
-                : null,
+          Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? DesignTokens.darkBorder.withValues(alpha: 0.6)
+                    : DesignTokens.lightBorder,
+                width: 1.0,
+              ),
+            ),
+            child: CircleAvatar(
+              radius: 26,
+              backgroundColor: unread ? DesignTokens.primary : DesignTokens.primarySoft,
+              backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
+                  ? CachedNetworkImageProvider(avatarUrl)
+                  : null,
+              child: avatarUrl == null || avatarUrl.isEmpty
+                  ? Icon(
+                      Icons.person,
+                      color: unread ? Colors.white : DesignTokens.primaryDark,
+                      size: 28,
+                    )
+                  : null,
+            ),
           ),
           if (unread)
             const Positioned(
@@ -996,7 +1011,7 @@ class _ActiveFriendsRow extends ConsumerWidget {
           'name': u.name.isNotEmpty ? u.name : 'Friend',
           'username': u.username,
           'avatarUrl': ApiClient.resolveUrl(u.avatarUrl),
-          'color': 0xFF007AFF,
+          'color': 0xFF38A8D8,
           'isOnline': u.isOnline,
           'conversationId': conv.id,
         });
@@ -1027,7 +1042,7 @@ class _ActiveFriendsRow extends ConsumerWidget {
           'name': friend.name.isNotEmpty ? friend.name : 'Friend',
           'username': friend.username,
           'avatarUrl': ApiClient.resolveUrl(friend.avatarUrl),
-          'color': 0xFF007AFF,
+          'color': 0xFF38A8D8,
           'isOnline': friend.isOnline,
           'conversationId': null,
         });
@@ -1079,7 +1094,7 @@ class _ActiveFriendsRow extends ConsumerWidget {
               final isCommunity = (friend['isCommunity'] as bool?) ?? false;
               final communityId = (friend['communityId'] as num?)?.toInt();
               final conversationId = (friend['conversationId'] as num?)?.toInt();
-              final colorInt = (friend['color'] as num?)?.toInt() ?? 0xFF007AFF;
+              final colorInt = (friend['color'] as num?)?.toInt() ?? 0xFF38A8D8;
               final color = Color(colorInt);
 
               return GestureDetector(
@@ -1207,10 +1222,10 @@ class _SystemBroadcastTile extends ConsumerWidget {
                         Container(
                           padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF007AFF).withValues(alpha: 0.15),
+                            color: DesignTokens.primary.withValues(alpha: 0.15),
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(Icons.campaign_rounded, color: Color(0xFF007AFF), size: 24),
+                          child: const Icon(Icons.campaign_rounded, color: DesignTokens.primary, size: 24),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
@@ -1224,7 +1239,7 @@ class _SystemBroadcastTile extends ConsumerWidget {
                                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: textPrimary),
                                   ),
                                   const SizedBox(width: 6),
-                                  const Icon(Icons.verified_rounded, color: Color(0xFF007AFF), size: 16),
+                                  const Icon(Icons.verified_rounded, color: DesignTokens.primary, size: 16),
                                 ],
                               ),
                               Text('Platform updates, security alerts & OTP receipts', style: TextStyle(fontSize: 12, color: textSecondary)),
@@ -1249,10 +1264,10 @@ class _SystemBroadcastTile extends ConsumerWidget {
                                     Container(
                                       padding: const EdgeInsets.all(16),
                                       decoration: BoxDecoration(
-                                        color: const Color(0xFF007AFF).withValues(alpha: 0.1),
+                                        color: DesignTokens.primary.withValues(alpha: 0.1),
                                         shape: BoxShape.circle,
                                       ),
-                                      child: const Icon(Icons.campaign_outlined, size: 36, color: Color(0xFF007AFF)),
+                                      child: const Icon(Icons.campaign_outlined, size: 36, color: DesignTokens.primary),
                                     ),
                                     const SizedBox(height: 14),
                                     Text('No System Broadcasts', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: textPrimary)),
@@ -1398,7 +1413,7 @@ class _SystemBroadcastTile extends ConsumerWidget {
             ListTile(
               leading: Icon(
                 bState.isPinned ? Icons.push_pin_outlined : Icons.push_pin_rounded,
-                color: const Color(0xFF007AFF),
+                color: DesignTokens.primary,
               ),
               title: Text(
                 bState.isPinned ? 'Unpin Official Broadcast thread' : 'Pin Official Broadcast thread to top',
@@ -1438,7 +1453,7 @@ class _SystemBroadcastTile extends ConsumerWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          color: const Color(0xFF007AFF).withValues(alpha: isDark ? 0.12 : 0.06),
+          color: DesignTokens.primary.withValues(alpha: isDark ? 0.12 : 0.06),
         ),
         child: Row(
           children: [
@@ -1447,7 +1462,7 @@ class _SystemBroadcastTile extends ConsumerWidget {
               height: 50,
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [Color(0xFF007AFF), Color(0xFF5856D6)],
+                  colors: [DesignTokens.primary, Color(0xFF5856D6)],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
@@ -1467,19 +1482,19 @@ class _SystemBroadcastTile extends ConsumerWidget {
                         style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: textPrimary),
                       ),
                       const SizedBox(width: 4),
-                      const Icon(Icons.verified_rounded, color: Color(0xFF007AFF), size: 16),
+                      const Icon(Icons.verified_rounded, color: DesignTokens.primary, size: 16),
                       if (bState.isPinned) ...[
                         const SizedBox(width: 4),
-                        const Icon(Icons.push_pin_rounded, color: Color(0xFF007AFF), size: 13),
+                        const Icon(Icons.push_pin_rounded, color: DesignTokens.primary, size: 13),
                       ],
                       const Spacer(),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF007AFF).withValues(alpha: 0.15),
+                          color: DesignTokens.primary.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: const Text('OFFICIAL', style: TextStyle(color: Color(0xFF007AFF), fontWeight: FontWeight.w900, fontSize: 9)),
+                        child: const Text('OFFICIAL', style: TextStyle(color: DesignTokens.primary, fontWeight: FontWeight.w900, fontSize: 9)),
                       ),
                     ],
                   ),
@@ -1488,7 +1503,7 @@ class _SystemBroadcastTile extends ConsumerWidget {
                     bState.messages.isNotEmpty ? bState.messages.first.title : 'Official System Broadcasts & Security Alerts',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 13, color: bState.unreadCount > 0 ? const Color(0xFF007AFF) : textSecondary, fontWeight: bState.unreadCount > 0 ? FontWeight.bold : FontWeight.normal),
+                    style: TextStyle(fontSize: 13, color: bState.unreadCount > 0 ? DesignTokens.primary : textSecondary, fontWeight: bState.unreadCount > 0 ? FontWeight.bold : FontWeight.normal),
                   ),
                 ],
               ),

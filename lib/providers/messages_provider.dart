@@ -391,7 +391,7 @@ class ConversationMessagesNotifier extends Notifier<ConversationMessagesState> {
     }
   }
 
-  Future<void> deleteMessage(int messageId, {bool forEveryone = false}) async {
+  Future<bool> deleteMessage(int messageId, {bool forEveryone = false}) async {
     final before = state.messages;
     state = state.copyWith(
       messages: before.where((m) => m.id != messageId).toList(),
@@ -401,8 +401,10 @@ class ConversationMessagesNotifier extends Notifier<ConversationMessagesState> {
         '/conversations/$_effectiveConversationId/messages/$messageId',
         queryParameters: {'mode': forEveryone ? 'everyone' : 'me'},
       );
+      return true;
     } catch (_) {
       state = state.copyWith(messages: before);
+      return false;
     }
   }
 

@@ -71,6 +71,10 @@ class CallSessionManager extends ChangeNotifier {
   bool _isVideo = false;
   bool _isIncoming = false;
   bool _isAccepted = false;
+  bool _hasEndedBackendCall = false;
+  // Bumped whenever a session is torn down so in-flight async work (e.g. the
+  // /calls/initiate response) can detect it no longer owns the session.
+  int _sessionToken = 0;
 
   // Duration & Timers
   int _callSeconds = 0;
@@ -133,11 +137,18 @@ class CallSessionManager extends ChangeNotifier {
     int? conversationId,
     VoidCallback? onInitiateFailed,
   }) {
-    if (isActive && _activeCallId != null && _activeCallId == callId) {
-      // Reattaching to existing ongoing call
-      _isMinimized = false;
-      notifyListeners();
-      return;
+    if (isActive) {
+      // Only reattach when the call identity actually matches. A bare
+      // `callId == null` short-circuit previously collapsed *any* newly
+      // initiated call onto whatever was already active.
+      final sameCall = callId != null && _activeCallId == callId;
+      final sameRecipient =
+          recipientId != null && _recipientId != null && _recipientId == recipientId;
+      if (sameCall || sameRecipient) {
+        _isMinimized = false;
+        notifyListeners();
+        return;
+      }
     }
 
     // Clean up any stale session
@@ -199,16 +210,37 @@ class CallSessionManager extends ChangeNotifier {
   }
 
   Future<void> _initiateBackendCall({VoidCallback? onFailed}) async {
+    // Snapshot the session this request belongs to. If the session is torn down
+    // or replaced while the HTTP request is in flight, the response must not be
+    // allowed to mutate the (now different) active call.
+    final token = _sessionToken;
+    final recipientId = _recipientId;
+    final conversationId = _conversationId;
+    final isVideo = _isVideo;
     try {
       final res = await ApiClient.instance.dio.post('/calls/initiate', data: {
-        'recipient_id': _recipientId,
-        'type': _isVideo ? 'video' : 'audio',
-        'conversation_id': _conversationId,
+        'recipient_id': recipientId,
+        'type': isVideo ? 'video' : 'audio',
+        'conversation_id': conversationId,
       });
       final unwrapped = ApiClient.instance.unwrap(res);
       final data = unwrapped is Map<String, dynamic> ? unwrapped : <String, dynamic>{};
       final callData = data['call'] is Map<String, dynamic> ? data['call'] as Map<String, dynamic> : data;
-      _activeCallId = (callData['id'] as num?)?.toInt();
+      final newCallId = (callData['id'] as num?)?.toInt();
+
+      // Guard: If the user hung up, cancelled, or started another call while the
+      // HTTP request was in flight, immediately terminate the orphaned backend
+      // call so the other person does NOT keep ringing!
+      if (token != _sessionToken || !isActive) {
+        if (newCallId != null && newCallId > 0) {
+          try {
+            await ApiClient.instance.dio.post('/calls/$newCallId/end', data: {'duration': 0});
+          } catch (_) {}
+        }
+        return;
+      }
+
+      _activeCallId = newCallId;
       _startStatusPolling();
       notifyListeners();
     } catch (e) {
@@ -589,28 +621,35 @@ class CallSessionManager extends ChangeNotifier {
   }
 
   void endCall() {
+    if (_status == CallStatus.ended) return;
+
     HapticFeedback.mediumImpact();
     SoundService.instance.stopRinging();
     _callTimer?.cancel();
     _statusPollTimer?.cancel();
+    _connectingTimeoutTimer?.cancel();
+    _ringingTimeoutTimer?.cancel();
     _listener?.dispose();
     _listener = null;
+
+    final callIdToEnd = _activeCallId;
+    if (!_hasEndedBackendCall && callIdToEnd != null && callIdToEnd > 0) {
+      _hasEndedBackendCall = true;
+      try {
+        ApiClient.instance.dio.post('/calls/$callIdToEnd/end', data: {'duration': _callSeconds});
+      } catch (_) {}
+    }
+
     _room?.disconnect();
     _room?.dispose();
     _room = null;
-
-    if (_activeCallId != null && _activeCallId! > 0) {
-      try {
-        ApiClient.instance.dio.post('/calls/$_activeCallId/end', data: {'duration': _callSeconds});
-      } catch (_) {}
-    }
 
     _status = CallStatus.ended;
     _statusMessage = 'Call ended';
     _isMinimized = false;
     notifyListeners();
 
-    Future.delayed(const Duration(milliseconds: 400), () {
+    Future.delayed(const Duration(milliseconds: 300), () {
       _cleanupSession();
     });
   }
@@ -694,11 +733,25 @@ class CallSessionManager extends ChangeNotifier {
     notifyListeners();
   }
 
-  void minimizeCall(BuildContext context) {
+  void minimizeCall([BuildContext? context]) {
     if (!isActive) return;
     _isMinimized = true;
     notifyListeners();
-    Navigator.of(context).maybePop();
+    if (context != null) {
+      try {
+        final nav = Navigator.of(context);
+        if (nav.canPop()) {
+          nav.pop();
+          return;
+        }
+      } catch (_) {}
+    }
+    try {
+      final rootNav = rootNavigatorKey.currentState;
+      if (rootNav != null && rootNav.canPop()) {
+        rootNav.pop();
+      }
+    } catch (_) {}
   }
 
   void restoreCall(BuildContext context) {
@@ -742,13 +795,21 @@ class CallSessionManager extends ChangeNotifier {
 
     if (broadcast && _room != null && _room!.connectionState == ConnectionState.connected) {
       try {
-        final payload = jsonEncode({'type': 'reaction', 'emoji': emoji});
-        _room!.localParticipant?.publishData(utf8.encode(payload));
-      } catch (_) {}
+        final lp = _room!.localParticipant;
+        if (lp != null) {
+          final payload = jsonEncode({'type': 'reaction', 'emoji': emoji});
+          lp.publishData(utf8.encode(payload), reliable: false).catchError((e) {
+            debugPrint('[CallSessionManager] publishData reaction ignored error: $e');
+          });
+        }
+      } catch (e) {
+        debugPrint('[CallSessionManager] sendReaction ignored error: $e');
+      }
     }
   }
 
   void _cleanupSession({bool notify = true}) {
+    _sessionToken++;
     _connectingTimeoutTimer?.cancel();
     _ringingTimeoutTimer?.cancel();
     _statusPollTimer?.cancel();
@@ -772,6 +833,7 @@ class CallSessionManager extends ChangeNotifier {
     _remoteVideoTrack = null;
     _status = CallStatus.idle;
     _isMinimized = false;
+    _hasEndedBackendCall = false;
     _callSeconds = 0;
     _startedAt = null;
     _activeReactions.clear();

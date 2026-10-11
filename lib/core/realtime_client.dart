@@ -138,12 +138,17 @@ class ReverbClient {
   }
 
   Future<void> _sendSubscribe(String channel) async {
-    final auth = await _authorize(channel);
-    if (auth == null) {
-      _log('Subscription auth failed for $channel; will retry upon reconnect');
-      return;
+    final isPrivate = channel.startsWith('private-') || channel.startsWith('presence-');
+    if (isPrivate) {
+      final auth = await _authorize(channel);
+      if (auth == null) {
+        _log('Subscription auth failed for $channel; will retry upon reconnect');
+        return;
+      }
+      _send('pusher:subscribe', {'channel': channel, 'auth': auth});
+    } else {
+      _send('pusher:subscribe', {'channel': channel});
     }
-    _send('pusher:subscribe', {'channel': channel, 'auth': auth});
   }
 
   Future<String?> _authorize(String channel) async {

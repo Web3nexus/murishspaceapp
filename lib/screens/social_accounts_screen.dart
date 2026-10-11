@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../components/app_bottom_sheet.dart';
 import '../components/ui_states.dart';
+import '../core/design_tokens.dart';
 import '../providers/social_account_provider.dart';
 
 /// Redesigned Connect Social Profiles & Creator Audience Verification Center.
@@ -183,13 +184,13 @@ class _SocialAccountsScreenState extends ConsumerState<SocialAccountsScreen> {
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF007AFF).withValues(alpha: 0.1),
+                        color: DesignTokens.primary.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: const Color(0xFF007AFF).withValues(alpha: 0.3)),
+                        border: Border.all(color: DesignTokens.primary.withValues(alpha: 0.3)),
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.verified_rounded, color: Color(0xFF007AFF), size: 20),
+                          const Icon(Icons.verified_rounded, color: DesignTokens.primary, size: 20),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
@@ -294,7 +295,7 @@ class _SocialAccountsScreenState extends ConsumerState<SocialAccountsScreen> {
             child: const Text(
               'Done',
               style: TextStyle(
-                color: Color(0xFF007AFF),
+                color: DesignTokens.primary,
                 fontWeight: FontWeight.w800,
                 fontSize: 16,
               ),
@@ -314,14 +315,14 @@ class _SocialAccountsScreenState extends ConsumerState<SocialAccountsScreen> {
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
-                        colors: [Color(0xFF007AFF), Color(0xFF5856D6)],
+                        colors: [DesignTokens.primary, Color(0xFF5856D6)],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
                       borderRadius: BorderRadius.circular(22),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF007AFF).withValues(alpha: 0.3),
+                          color: DesignTokens.primary.withValues(alpha: 0.3),
                           blurRadius: 12,
                           offset: const Offset(0, 4),
                         ),
@@ -483,7 +484,7 @@ class _SocialAccountsScreenState extends ConsumerState<SocialAccountsScreen> {
                           ] else ...[
                             ElevatedButton(
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF007AFF),
+                                backgroundColor: DesignTokens.primary,
                                 foregroundColor: Colors.white,
                                 elevation: 0,
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -505,7 +506,7 @@ class _SocialAccountsScreenState extends ConsumerState<SocialAccountsScreen> {
                     height: 52,
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF007AFF),
+                        backgroundColor: DesignTokens.primary,
                         foregroundColor: Colors.white,
                         elevation: 0,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),

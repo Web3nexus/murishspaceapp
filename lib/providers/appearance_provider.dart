@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../core/design_tokens.dart';
 
 enum AppThemeMode { system, light, dark, oled }
 
@@ -13,7 +14,7 @@ class AppearanceState {
   AppearanceState({
     this.themeMode = AppThemeMode.system,
     this.fontSize = 15.0,
-    this.bubbleColor = const Color(0xFF007AFF),
+    this.bubbleColor = DesignTokens.primary,
     this.wallpaperName = 'Classic Doodle',
   });
 

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../core/design_tokens.dart';
 import '../providers/auth_provider.dart';
 import '../providers/greeting_provider.dart';
 
@@ -128,12 +129,12 @@ class __AutomatedGreetingContentState
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF007AFF).withOpacity(0.12),
+                      color: DesignTokens.primary.withOpacity(0.12),
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(
                       Icons.mark_chat_unread_rounded,
-                      color: Color(0xFF007AFF),
+                      color: DesignTokens.primary,
                       size: 22,
                     ),
                   ),
@@ -261,13 +262,13 @@ class __AutomatedGreetingContentState
                         padding: const EdgeInsets.symmetric(
                             horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF007AFF).withOpacity(0.12),
+                          color: DesignTokens.primary.withOpacity(0.12),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: const Text(
                           '{name}',
                           style: TextStyle(
-                              color: Color(0xFF007AFF),
+                              color: DesignTokens.primary,
                               fontSize: 12,
                               fontWeight: FontWeight.bold),
                         ),
@@ -280,13 +281,13 @@ class __AutomatedGreetingContentState
                         padding: const EdgeInsets.symmetric(
                             horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF007AFF).withOpacity(0.12),
+                          color: DesignTokens.primary.withOpacity(0.12),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: const Text(
                           '{time}',
                           style: TextStyle(
-                              color: Color(0xFF007AFF),
+                              color: DesignTokens.primary,
                               fontSize: 12,
                               fontWeight: FontWeight.bold),
                         ),
@@ -340,7 +341,7 @@ class __AutomatedGreetingContentState
                       padding: const EdgeInsets.symmetric(
                           horizontal: 14, vertical: 10),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF007AFF),
+                        color: DesignTokens.primary,
                         borderRadius: const BorderRadius.only(
                           topLeft: Radius.circular(16),
                           topRight: Radius.circular(16),
@@ -371,7 +372,7 @@ class __AutomatedGreetingContentState
                 child: ElevatedButton(
                   onPressed: _isSaving ? null : _save,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF007AFF),
+                    backgroundColor: DesignTokens.primary,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),

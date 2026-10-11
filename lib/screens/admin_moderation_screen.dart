@@ -329,7 +329,7 @@ class _AdminModerationScreenState extends ConsumerState<AdminModerationScreen>
                       min: 1.0,
                       max: 15.0,
                       divisions: 14,
-                      activeColor: const Color(0xFF007AFF),
+                      activeColor: DesignTokens.primary,
                       label: '${moderationState.brandDealEscrowFeePercentage.toStringAsFixed(1)}%',
                       onChanged: (val) {
                         ref.read(adminModerationProvider.notifier).updateBrandDealSettings(feePct: val);
@@ -343,7 +343,7 @@ class _AdminModerationScreenState extends ConsumerState<AdminModerationScreen>
                 '1. Anti-Fraud & Scam Policy',
                 'MurihSpace strictly prohibits all forms of fraudulent activities, fake payment proofs, off-platform payment solicitations, and deceptive schemes. All transactions must pass through MurihSpace Escrow.',
                 Icons.security_rounded,
-                const Color(0xFF007AFF),
+                DesignTokens.primary,
                 cardBg,
                 textPrimary,
                 textSecondary,
@@ -419,12 +419,12 @@ class _AdminModerationScreenState extends ConsumerState<AdminModerationScreen>
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: (isFlagged ? const Color(0xFFFF3B30) : const Color(0xFF007AFF)).withValues(alpha: 0.15),
+                  color: (isFlagged ? const Color(0xFFFF3B30) : DesignTokens.primary).withValues(alpha: 0.15),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
                   isFlagged ? Icons.warning_amber_rounded : Icons.receipt_long_rounded,
-                  color: isFlagged ? const Color(0xFFFF3B30) : const Color(0xFF007AFF),
+                  color: isFlagged ? const Color(0xFFFF3B30) : DesignTokens.primary,
                   size: 22,
                 ),
               ),
@@ -440,7 +440,7 @@ class _AdminModerationScreenState extends ConsumerState<AdminModerationScreen>
               ),
               Text(
                 tx.amount,
-                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Color(0xFF007AFF)),
+                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: DesignTokens.primary),
               ),
             ],
           ),

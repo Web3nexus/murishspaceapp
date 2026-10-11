@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../components/ui_states.dart';
 import '../components/liquid_glass.dart';
 import '../core/currency_formatter.dart';
+import '../core/design_tokens.dart';
 import '../providers/auth_provider.dart';
 import '../providers/gifts_provider.dart';
 import '../providers/security_provider.dart';
@@ -135,10 +136,10 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF007AFF).withValues(alpha: 0.15),
+                      color: DesignTokens.primary.withValues(alpha: 0.15),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.shield_rounded, color: Color(0xFF007AFF), size: 24),
+                    child: const Icon(Icons.shield_rounded, color: DesignTokens.primary, size: 24),
                   ),
                   const SizedBox(width: 12),
                   Text(
@@ -188,7 +189,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                 height: 50,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF007AFF),
+                    backgroundColor: DesignTokens.primary,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                   ),
@@ -364,10 +365,10 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF007AFF).withValues(alpha: 0.12),
+                          color: DesignTokens.primary.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: const Text('Locked Rate · 15m', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF007AFF))),
+                        child: const Text('Locked Rate · 15m', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: DesignTokens.primary)),
                       ),
                     ],
                   ),
@@ -431,7 +432,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                     decoration: BoxDecoration(
                       color: isDark ? const Color(0xFF242C38) : const Color(0xFFF0F5FF),
                       borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: const Color(0xFF007AFF).withValues(alpha: 0.2)),
+                      border: Border.all(color: DesignTokens.primary.withValues(alpha: 0.2)),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -468,7 +469,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                     width: double.infinity,
                     height: 50,
                     child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF007AFF), foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
+                      style: ElevatedButton.styleFrom(backgroundColor: DesignTokens.primary, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
                       onPressed: () async {
                         final usdCents = (usdAmount * 100).toInt();
                         await ref.read(walletProvider.notifier).deposit(amount: usdCents, currency: 'USD');
@@ -533,7 +534,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
               const SizedBox(height: 24),
               ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF007AFF),
+                  backgroundColor: DesignTokens.primary,
                   foregroundColor: Colors.white,
                   minimumSize: const Size(double.infinity, 48),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -793,7 +794,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
         ),
         actions: [
           IconButton(
-            icon: Icon(_hideBalance ? Icons.visibility_off_rounded : Icons.visibility_rounded, color: const Color(0xFF007AFF)),
+            icon: Icon(_hideBalance ? Icons.visibility_off_rounded : Icons.visibility_rounded, color: DesignTokens.primary),
             onPressed: () => setState(() => _hideBalance = !_hideBalance),
             tooltip: 'Hide balance',
           ),
@@ -806,9 +807,9 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
         bottom: TabBar(
           controller: _tab,
           isScrollable: true,
-          labelColor: const Color(0xFF007AFF),
+          labelColor: DesignTokens.primary,
           unselectedLabelColor: textSecondary,
-          indicatorColor: const Color(0xFF007AFF),
+          indicatorColor: DesignTokens.primary,
           indicatorWeight: 3,
           labelStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
           unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
@@ -845,7 +846,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                     Text('Active Escrow Agreements', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: textPrimary)),
                     TextButton(
                       onPressed: () => _tab.animateTo(1),
-                      child: const Text('View All >', style: TextStyle(color: Color(0xFF007AFF), fontWeight: FontWeight.bold)),
+                      child: const Text('View All >', style: TextStyle(color: DesignTokens.primary, fontWeight: FontWeight.bold)),
                     ),
                   ],
                 ),
@@ -865,7 +866,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                   Text('Escrow Contracts Hub', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: textPrimary)),
                   ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF007AFF),
+                      backgroundColor: DesignTokens.primary,
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
@@ -969,7 +970,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
     final localCurrency = activeWallet?.localCurrency ?? 'USD';
 
     final cardTints = [
-      const Color(0xFF007AFF), // System: subtle sapphire refraction
+      DesignTokens.primary, // System: subtle sapphire refraction
       const Color(0xFF8B5CF6), // Creator: subtle amethyst refraction
       const Color(0xFF10B981), // Business: subtle emerald refraction
     ];
@@ -1124,7 +1125,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
   Widget _buildQuickActionGrid(bool isDark) {
     return Row(
       children: [
-        Expanded(child: _quickActionButton(icon: Icons.add_rounded, label: 'Deposit', color: const Color(0xFF007AFF), onTap: _openDepositModal, isDark: isDark)),
+        Expanded(child: _quickActionButton(icon: Icons.add_rounded, label: 'Deposit', color: DesignTokens.primary, onTap: _openDepositModal, isDark: isDark)),
         const SizedBox(width: 8),
         Expanded(child: _quickActionButton(icon: Icons.south_west_rounded, label: 'Withdraw', color: const Color(0xFF34C759), onTap: _openWithdrawModal, isDark: isDark)),
         const SizedBox(width: 8),
@@ -1167,16 +1168,16 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF007AFF).withValues(alpha: 0.12),
+        color: DesignTokens.primary.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFF007AFF).withValues(alpha: 0.3)),
+        border: Border.all(color: DesignTokens.primary.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(10),
             decoration: const BoxDecoration(
-              color: Color(0xFF007AFF),
+              color: DesignTokens.primary,
               shape: BoxShape.circle,
             ),
             child: const Icon(Icons.shield_rounded, color: Colors.white, size: 20),
@@ -1232,7 +1233,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                   ],
                 ),
               ),
-              Text(c['amount'] as String, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Color(0xFF007AFF))),
+              Text(c['amount'] as String, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: DesignTokens.primary)),
             ],
           ),
           const SizedBox(height: 12),
@@ -1287,8 +1288,8 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
             children: [
               Container(
                 padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(color: const Color(0xFF007AFF).withValues(alpha: 0.15), borderRadius: BorderRadius.circular(12)),
-                child: Icon(isSystem ? Icons.savings_rounded : Icons.business_center_rounded, color: const Color(0xFF007AFF)),
+                decoration: BoxDecoration(color: DesignTokens.primary.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(12)),
+                child: Icon(isSystem ? Icons.savings_rounded : Icons.business_center_rounded, color: DesignTokens.primary),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -1305,7 +1306,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                 children: [
                   Text(
                     CurrencyFormatter.format(wallet.available, wallet.currency),
-                    style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Color(0xFF007AFF)),
+                    style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: DesignTokens.primary),
                   ),
                   if (wallet.localFormatted.isNotEmpty && wallet.currency == 'USD')
                     Text(
@@ -1334,7 +1335,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
       decoration: BoxDecoration(
         color: cardBg,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFF007AFF).withValues(alpha: 0.25)),
+        border: Border.all(color: DesignTokens.primary.withValues(alpha: 0.25)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1343,8 +1344,8 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
             children: [
               Container(
                 padding: const EdgeInsets.all(9),
-                decoration: BoxDecoration(color: const Color(0xFF007AFF).withValues(alpha: 0.15), borderRadius: BorderRadius.circular(12)),
-                child: const Icon(Icons.edit_rounded, color: Color(0xFF007AFF), size: 20),
+                decoration: BoxDecoration(color: DesignTokens.primary.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(12)),
+                child: const Icon(Icons.edit_rounded, color: DesignTokens.primary, size: 20),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -1381,7 +1382,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                 height: 50,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF007AFF),
+                    backgroundColor: DesignTokens.primary,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                     padding: const EdgeInsets.symmetric(horizontal: 18),
@@ -1448,7 +1449,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
             ),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF007AFF), foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+            style: ElevatedButton.styleFrom(backgroundColor: DesignTokens.primary, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
             onPressed: _buying?.id == pack.id ? null : () => _buy(pack),
             child: _buying?.id == pack.id
                 ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))

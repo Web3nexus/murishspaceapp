@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/api_client.dart';
+import '../core/design_tokens.dart';
 
 enum DeviceType { phone, desktop, tablet, web }
 
@@ -80,7 +81,7 @@ class DeviceSession {
       case DeviceType.phone:
         return const Color(0xFF34C759);
       case DeviceType.desktop:
-        return const Color(0xFF007AFF);
+        return DesignTokens.primary;
       case DeviceType.tablet:
         return const Color(0xFFAF52DE);
       case DeviceType.web:

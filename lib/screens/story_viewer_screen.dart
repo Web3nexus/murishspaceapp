@@ -1,3 +1,4 @@
+import '../core/design_tokens.dart';
 import 'dart:async';
 import 'dart:io';
 
@@ -107,7 +108,7 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('Reply sent to ${widget.group.userName}'),
-        backgroundColor: const Color(0xFF007AFF),
+        backgroundColor: DesignTokens.primary,
         duration: const Duration(seconds: 2),
       ),
     );
@@ -268,7 +269,7 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> {
                             children: [
                               CircleAvatar(
                                 radius: 18,
-                                backgroundColor: const Color(0xFF007AFF),
+                                backgroundColor: DesignTokens.primary,
                                 backgroundImage: hasAuthorAvatar
                                     ? CachedNetworkImageProvider(resolvedAuthorAvatar)
                                     : null,
@@ -406,7 +407,7 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> {
                                 const SizedBox(width: 8),
                                 CircleAvatar(
                                   radius: 22,
-                                  backgroundColor: const Color(0xFF007AFF),
+                                  backgroundColor: DesignTokens.primary,
                                   child: IconButton(
                                     icon: const Icon(Icons.send_rounded, color: Colors.white, size: 18),
                                     onPressed: _sendReply,

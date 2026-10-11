@@ -1,3 +1,4 @@
+import '../core/design_tokens.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -155,10 +156,10 @@ class _ChangePhoneScreenState extends ConsumerState<ChangePhoneScreen> {
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF007AFF).withOpacity(0.12),
+                        color: DesignTokens.primary.withOpacity(0.12),
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.phone_iphone_rounded, color: Color(0xFF007AFF), size: 20),
+                      child: const Icon(Icons.phone_iphone_rounded, color: DesignTokens.primary, size: 20),
                     ),
                     const SizedBox(width: 12),
                     Column(
@@ -213,7 +214,7 @@ class _ChangePhoneScreenState extends ConsumerState<ChangePhoneScreen> {
               height: 50,
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF007AFF),
+                  backgroundColor: DesignTokens.primary,
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                 ),
@@ -270,7 +271,7 @@ class _ChangePhoneScreenState extends ConsumerState<ChangePhoneScreen> {
                       : 'Resend Verification Code',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    color: _resendCountdown > 0 ? textSecondary : const Color(0xFF007AFF),
+                    color: _resendCountdown > 0 ? textSecondary : DesignTokens.primary,
                   ),
                 ),
               ),

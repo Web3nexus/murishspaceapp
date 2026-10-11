@@ -1,3 +1,4 @@
+import '../core/design_tokens.dart';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
@@ -253,26 +254,26 @@ class _PostComposerState extends ConsumerState<_PostComposer> {
                     ListTile(
                       leading: CircleAvatar(
                         radius: 20,
-                        backgroundColor: const Color(0xFF007AFF).withValues(alpha: 0.15),
+                        backgroundColor: DesignTokens.primary.withValues(alpha: 0.15),
                         backgroundImage: user?.avatarUrl != null && user!.avatarUrl!.isNotEmpty
                             ? NetworkImage(user.avatarUrl!)
                             : null,
                         child: user?.avatarUrl == null || user!.avatarUrl!.isEmpty
-                            ? const Icon(Icons.person, color: Color(0xFF007AFF), size: 22)
+                            ? const Icon(Icons.person, color: DesignTokens.primary, size: 22)
                             : null,
                       ),
                       title: Text(
                         'My Public Profile / Wall',
                         style: TextStyle(
                           fontWeight: _communityId == null ? FontWeight.w800 : FontWeight.w600,
-                          color: _communityId == null ? const Color(0xFF007AFF) : (isDark ? Colors.white : Colors.black),
+                          color: _communityId == null ? DesignTokens.primary : (isDark ? Colors.white : Colors.black),
                         ),
                       ),
                       subtitle: Text(
                         'Public • Visible to everyone on feed',
                         style: TextStyle(fontSize: 12, color: isDark ? Colors.grey[400] : Colors.grey[600]),
                       ),
-                      trailing: _communityId == null ? const Icon(Icons.check_circle_rounded, color: Color(0xFF007AFF)) : null,
+                      trailing: _communityId == null ? const Icon(Icons.check_circle_rounded, color: DesignTokens.primary) : null,
                       onTap: () {
                         setState(() {
                           _communityId = null;
@@ -286,26 +287,26 @@ class _PostComposerState extends ConsumerState<_PostComposer> {
                       ListTile(
                         leading: CircleAvatar(
                           radius: 20,
-                          backgroundColor: const Color(0xFF007AFF).withValues(alpha: 0.15),
+                          backgroundColor: DesignTokens.primary.withValues(alpha: 0.15),
                           backgroundImage: comm.logoUrl != null && comm.logoUrl!.isNotEmpty
                               ? NetworkImage(comm.logoUrl!)
                               : null,
                           child: comm.logoUrl == null || comm.logoUrl!.isEmpty
-                              ? const Icon(Icons.person, color: Color(0xFF007AFF), size: 22)
+                              ? const Icon(Icons.person, color: DesignTokens.primary, size: 22)
                               : null,
                         ),
                         title: Text(
                           comm.name,
                           style: TextStyle(
                             fontWeight: _communityId == comm.id ? FontWeight.w800 : FontWeight.w600,
-                            color: _communityId == comm.id ? const Color(0xFF007AFF) : (isDark ? Colors.white : Colors.black),
+                            color: _communityId == comm.id ? DesignTokens.primary : (isDark ? Colors.white : Colors.black),
                           ),
                         ),
                         subtitle: Text(
                           '${comm.membersCount} members • ${comm.visibility == "private" ? "Private" : "Public"}',
                           style: TextStyle(fontSize: 12, color: isDark ? Colors.grey[400] : Colors.grey[600]),
                         ),
-                        trailing: _communityId == comm.id ? const Icon(Icons.check_circle_rounded, color: Color(0xFF007AFF)) : null,
+                        trailing: _communityId == comm.id ? const Icon(Icons.check_circle_rounded, color: DesignTokens.primary) : null,
                         onTap: () {
                           setState(() {
                             _communityId = comm.id;
@@ -383,24 +384,24 @@ class _PostComposerState extends ConsumerState<_PostComposer> {
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
           color: selected
-              ? const Color(0xFF007AFF).withValues(alpha: 0.15)
+              ? DesignTokens.primary.withValues(alpha: 0.15)
               : (isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF2F4F7)),
           shape: BoxShape.circle,
         ),
-        child: Icon(icon, color: selected ? const Color(0xFF007AFF) : (isDark ? Colors.white : Colors.black87), size: 20),
+        child: Icon(icon, color: selected ? DesignTokens.primary : (isDark ? Colors.white : Colors.black87), size: 20),
       ),
       title: Text(
         title,
         style: TextStyle(
           fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
-          color: selected ? const Color(0xFF007AFF) : (isDark ? Colors.white : Colors.black),
+          color: selected ? DesignTokens.primary : (isDark ? Colors.white : Colors.black),
         ),
       ),
       subtitle: Text(
         subtitle,
         style: TextStyle(fontSize: 12, color: isDark ? Colors.grey[400] : Colors.grey[600]),
       ),
-      trailing: selected ? const Icon(Icons.check_circle_rounded, color: Color(0xFF007AFF)) : null,
+      trailing: selected ? const Icon(Icons.check_circle_rounded, color: DesignTokens.primary) : null,
       onTap: () {
         setState(() => _privacy = value);
         Navigator.pop(ctx);
@@ -499,10 +500,10 @@ class _PostComposerState extends ConsumerState<_PostComposer> {
                     const SizedBox(height: 14),
                     if (searchCtrl.text.trim().isNotEmpty && !filtered.contains(searchCtrl.text.trim())) ...[
                       ListTile(
-                        leading: const Icon(Icons.add_location_alt_rounded, color: Color(0xFF007AFF)),
+                        leading: const Icon(Icons.add_location_alt_rounded, color: DesignTokens.primary),
                         title: Text(
                           'Use "${searchCtrl.text.trim()}"',
-                          style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF007AFF)),
+                          style: const TextStyle(fontWeight: FontWeight.w700, color: DesignTokens.primary),
                         ),
                         onTap: () {
                           setState(() => _locationController.text = searchCtrl.text.trim());
@@ -642,7 +643,7 @@ class _PostComposerState extends ConsumerState<_PostComposer> {
                         decoration: BoxDecoration(
                           gradient: canSubmit
                               ? const LinearGradient(
-                                  colors: [Color(0xFF007AFF), Color(0xFF5856D6)],
+                                  colors: [DesignTokens.primary, Color(0xFF5856D6)],
                                   begin: Alignment.topLeft,
                                   end: Alignment.bottomRight,
                                 )
@@ -652,7 +653,7 @@ class _PostComposerState extends ConsumerState<_PostComposer> {
                           boxShadow: canSubmit
                               ? [
                                   BoxShadow(
-                                    color: const Color(0xFF007AFF).withValues(alpha: 0.35),
+                                    color: DesignTokens.primary.withValues(alpha: 0.35),
                                     blurRadius: 8,
                                     offset: const Offset(0, 3),
                                   )
@@ -698,12 +699,12 @@ class _PostComposerState extends ConsumerState<_PostComposer> {
                   children: [
                     CircleAvatar(
                       radius: 22,
-                      backgroundColor: const Color(0xFF007AFF).withValues(alpha: 0.15),
+                      backgroundColor: DesignTokens.primary.withValues(alpha: 0.15),
                       backgroundImage: user?.avatarUrl != null && user!.avatarUrl!.isNotEmpty
                           ? NetworkImage(user.avatarUrl!)
                           : null,
                       child: user?.avatarUrl == null || user!.avatarUrl!.isEmpty
-                          ? const Icon(Icons.person, color: Color(0xFF007AFF), size: 24)
+                          ? const Icon(Icons.person, color: DesignTokens.primary, size: 24)
                           : null,
                     ),
                     const SizedBox(width: 12),
@@ -725,7 +726,7 @@ class _PostComposerState extends ConsumerState<_PostComposer> {
                                     alignment: PlaceholderAlignment.middle,
                                     child: Padding(
                                       padding: EdgeInsets.only(left: 4),
-                                      child: Icon(Icons.verified_rounded, color: Color(0xFF007AFF), size: 15),
+                                      child: Icon(Icons.verified_rounded, color: DesignTokens.primary, size: 15),
                                     ),
                                   ),
                                 if (locationText.isNotEmpty) ...[
@@ -769,7 +770,7 @@ class _PostComposerState extends ConsumerState<_PostComposer> {
                                       Icon(
                                         _communityId == null ? Icons.public_rounded : Icons.groups_rounded,
                                         size: 13,
-                                        color: const Color(0xFF007AFF),
+                                        color: DesignTokens.primary,
                                       ),
                                       const SizedBox(width: 5),
                                       Text(
@@ -990,14 +991,14 @@ class _PostComposerState extends ConsumerState<_PostComposer> {
                     decoration: BoxDecoration(
                       color: cardBg,
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: const Color(0xFF007AFF).withValues(alpha: 0.3)),
+                      border: Border.all(color: DesignTokens.primary.withValues(alpha: 0.3)),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
                           children: [
-                            const Icon(Icons.poll_rounded, color: Color(0xFF007AFF), size: 18),
+                            const Icon(Icons.poll_rounded, color: DesignTokens.primary, size: 18),
                             const SizedBox(width: 8),
                             Text(
                               'Poll Question & Choices',
@@ -1098,19 +1099,19 @@ class _PostComposerState extends ConsumerState<_PostComposer> {
                               child: FilterChip(
                                 label: Text('#$tag'),
                                 selected: _selectedTags.contains(tag),
-                                selectedColor: const Color(0xFF007AFF).withValues(alpha: 0.18),
-                                checkmarkColor: const Color(0xFF007AFF),
+                                selectedColor: DesignTokens.primary.withValues(alpha: 0.18),
+                                checkmarkColor: DesignTokens.primary,
                                 labelStyle: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w700,
                                   color: _selectedTags.contains(tag)
-                                      ? const Color(0xFF007AFF)
+                                      ? DesignTokens.primary
                                       : (isDark ? Colors.grey[300] : Colors.grey[700]),
                                 ),
                                 backgroundColor: cardBg,
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                                 side: BorderSide(
-                                  color: _selectedTags.contains(tag) ? const Color(0xFF007AFF) : borderColor,
+                                  color: _selectedTags.contains(tag) ? DesignTokens.primary : borderColor,
                                 ),
                                 onSelected: (_) => _toggleTag(tag),
                               ),
@@ -1163,7 +1164,7 @@ class _PostComposerState extends ConsumerState<_PostComposer> {
                 IconButton(
                   icon: Icon(
                     Icons.poll_rounded,
-                    color: _postType == 'poll' ? const Color(0xFF007AFF) : const Color(0xFF20C997),
+                    color: _postType == 'poll' ? DesignTokens.primary : const Color(0xFF20C997),
                     size: 23,
                   ),
                   tooltip: 'Create Poll',

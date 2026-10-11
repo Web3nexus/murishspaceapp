@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/design_tokens.dart';
 import '../core/roles.dart';
 import '../providers/auth_provider.dart';
 
@@ -179,7 +180,7 @@ class BrandFavicon extends StatelessWidget {
   Widget build(BuildContext context) {
     final themeDark = Theme.of(context).brightness == Brightness.dark;
     final dark = isDark ?? themeDark;
-    final defaultColor = color ?? (dark ? Colors.white : const Color(0xFF007AFF));
+    final defaultColor = color ?? (dark ? Colors.white : DesignTokens.primary);
 
     // In Light Mode (dark == false), use blue icon (BrandAssets.iconLight)
     // In Dark Mode (dark == true), use white icon (BrandAssets.iconDark)

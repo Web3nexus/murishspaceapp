@@ -1,3 +1,4 @@
+import '../core/design_tokens.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -85,7 +86,7 @@ class CallRecord {
       case CallDirection.incoming:
         return Colors.green;
       case CallDirection.outgoing:
-        return const Color(0xFF007AFF);
+        return DesignTokens.primary;
       case CallDirection.missed:
         return const Color(0xFFFF3B30);
     }

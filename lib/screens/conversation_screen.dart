@@ -45,6 +45,9 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
   XFile? _pendingImage;
   Message? _replyTo;
 
+  bool _selectionMode = false;
+  final Set<int> _selectedIds = {};
+
   @override
   void initState() {
     super.initState();
@@ -364,32 +367,53 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
         : 'FUNDS LOCKED IN ESCROW';
 
     return Scaffold(
-      appBar: AppBar(
-        title: _ConversationTitle(conversationId: widget.conversationId),
-        actions: [
-          IconButton(
-            onPressed: () => _startCall(false),
-            icon: const Icon(Icons.call_rounded, color: Color(0xFF34C759)),
-            tooltip: 'Voice Call',
-          ),
-          IconButton(
-            onPressed: () => _startCall(true),
-            icon: const Icon(Icons.videocam_rounded, color: Color(0xFF007AFF)),
-            tooltip: 'Video Call',
-          ),
-          IconButton(
-            onPressed: () => _openChatMenu(),
-            icon: const Icon(Icons.more_horiz),
-          ),
-        ],
-      ),
+      appBar: _selectionMode
+          ? AppBar(
+              leading: IconButton(
+                onPressed: _exitSelectionMode,
+                icon: const Icon(Icons.close),
+                tooltip: 'Cancel selection',
+              ),
+              title: Text('${_selectedIds.length} selected'),
+              actions: [
+                IconButton(
+                  onPressed: () => _selectAllMessages(state.messages),
+                  icon: const Icon(Icons.select_all),
+                  tooltip: 'Select all',
+                ),
+                IconButton(
+                  onPressed: _selectedIds.isEmpty ? null : _deleteSelected,
+                  icon: const Icon(Icons.delete_outline),
+                  tooltip: 'Delete selected',
+                ),
+              ],
+            )
+          : AppBar(
+              title: _ConversationTitle(conversationId: widget.conversationId),
+              actions: [
+                IconButton(
+                  onPressed: () => _startCall(false),
+                  icon: const Icon(Icons.call_rounded, color: Color(0xFF34C759)),
+                  tooltip: 'Voice Call',
+                ),
+                IconButton(
+                  onPressed: () => _startCall(true),
+                  icon: const Icon(Icons.videocam_rounded, color: DesignTokens.primary),
+                  tooltip: 'Video Call',
+                ),
+                IconButton(
+                  onPressed: () => _openChatMenu(),
+                  icon: const Icon(Icons.more_horiz),
+                ),
+              ],
+            ),
       body: Column(
         children: [
           if (isEscrowActive)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: const BoxDecoration(
-                color: Color(0xFF007AFF),
+                color: DesignTokens.primary,
               ),
               child: Row(
                 children: [
@@ -492,6 +516,9 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                   message: msg,
                   myId: ref.watch(authProvider).user?.id,
                   showSenderName: isGroup,
+                  selectionMode: _selectionMode,
+                  selected: _selectedIds.contains(msg.id),
+                  onToggleSelect: () => _handleSelectTap(msg),
                   onReact: (emoji) => _toggleReaction(msg, emoji),
                   onReply: () => setState(() => _replyTo = msg),
                   onDelete: (forEveryone) => _deleteMessage(msg, forEveryone),
@@ -519,6 +546,9 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                 message: msg,
                 myId: ref.watch(authProvider).user?.id,
                 showSenderName: isGroup,
+                selectionMode: _selectionMode,
+                selected: _selectedIds.contains(msg.id),
+                onToggleSelect: () => _handleSelectTap(msg),
                 onReact: (emoji) => _toggleReaction(msg, emoji),
                 onReply: () => setState(() => _replyTo = msg),
                 onDelete: (forEveryone) => _deleteMessage(msg, forEveryone),
@@ -573,26 +603,112 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
   }
 
   Future<void> _deleteMessage(Message message, bool forEveryone) async {
+    if (_isConversationLocked()) {
+      await _showLockedNotice();
+      return;
+    }
+
+    final ok = await ref
+        .read(conversationMessagesProvider(widget.conversationId).notifier)
+        .deleteMessage(message.id, forEveryone: forEveryone);
+    if (!ok && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not delete this message.')),
+      );
+    }
+  }
+
+  bool _isConversationLocked() {
     final conversation = ref
         .read(conversationsProvider)
         .conversations
         .where((c) => c.id == widget.conversationId)
         .firstOrNull;
-    final isEscrowActive = conversation?.hasActiveEscrow ?? false;
-    if (isEscrowActive) {
-      await AppBottomSheet.showNotice(
-        context: context,
-        title: 'Messages Locked',
-        message: 'Messages in active Escrow transactions or Brand Deals cannot be deleted until all funds are released or closed.',
-        actionText: 'Understood',
-        icon: Icons.lock_rounded,
-      );
+    if (conversation == null) return false;
+    return conversation.hasActiveEscrow || conversation.type == 'marketplace';
+  }
+
+  Future<void> _showLockedNotice() {
+    return AppBottomSheet.showNotice(
+      context: context,
+      title: 'Messages Locked',
+      message: 'Messages in active Escrow transactions or Brand Deals cannot be deleted until all funds are released or closed.',
+      actionText: 'Understood',
+      icon: Icons.lock_rounded,
+    );
+  }
+
+  void _enterSelectionMode(Message message) {
+    setState(() {
+      _selectionMode = true;
+      _selectedIds.add(message.id);
+    });
+  }
+
+  void _handleSelectTap(Message message) {
+    if (_selectionMode) {
+      _toggleSelected(message);
+    } else {
+      _enterSelectionMode(message);
+    }
+  }
+
+  void _exitSelectionMode() {
+    setState(() {
+      _selectionMode = false;
+      _selectedIds.clear();
+    });
+  }
+
+  void _toggleSelected(Message message) {
+    setState(() {
+      if (_selectedIds.contains(message.id)) {
+        _selectedIds.remove(message.id);
+      } else {
+        _selectedIds.add(message.id);
+      }
+      if (_selectedIds.isEmpty) _selectionMode = false;
+    });
+  }
+
+  void _selectAllMessages(List<Message> messages) {
+    setState(() {
+      _selectedIds
+        ..clear()
+        ..addAll(messages.where((m) => !m.deleted && m.id > 0).map((m) => m.id));
+    });
+  }
+
+  Future<void> _deleteSelected() async {
+    if (_selectedIds.isEmpty) return;
+    if (_isConversationLocked()) {
+      await _showLockedNotice();
       return;
     }
-
-    await ref
-        .read(conversationMessagesProvider(widget.conversationId).notifier)
-        .deleteMessage(message.id, forEveryone: forEveryone);
+    final ids = _selectedIds.where((id) => id > 0).toList();
+    if (ids.isEmpty) {
+      setState(() {
+        _selectionMode = false;
+        _selectedIds.clear();
+      });
+      return;
+    }
+    final notifier = ref.read(conversationMessagesProvider(widget.conversationId).notifier);
+    var failed = 0;
+    for (final id in ids) {
+      final ok = await notifier.deleteMessage(id, forEveryone: false);
+      if (!ok) failed++;
+    }
+    if (!mounted) return;
+    setState(() {
+      _selectionMode = false;
+      _selectedIds.clear();
+    });
+    if (failed > 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$failed message${failed == 1 ? '' : 's'} could not be deleted.')),
+      );
+    }
   }
 
   Future<void> _forwardMessage(Message message) async {
@@ -644,7 +760,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: const Icon(Icons.info_outline_rounded, color: Color(0xFF007AFF)),
+              leading: const Icon(Icons.info_outline_rounded, color: DesignTokens.primary),
               title: Text(conversation?.type == 'community' ? 'Community Info & Settings' : 'Contact Info & Settings'),
               onTap: () {
                 Navigator.pop(context);
@@ -722,14 +838,26 @@ class _ConversationTitle extends ConsumerWidget {
         children: [
           OnlineAvatarBadge(
             isOnline: isOnline,
+            showInactive: !isCommunity,
             badgeSize: 10,
-            child: CircleAvatar(
-              radius: 16,
-              backgroundColor: DesignTokens.primarySoft,
-              backgroundImage: avatar != null && avatar.isNotEmpty ? NetworkImage(avatar) : null,
-              child: avatar == null || avatar.isEmpty
-                  ? const Icon(Icons.person, color: DesignTokens.primaryDark, size: 18)
-                  : null,
+            child: Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? DesignTokens.darkBorder.withValues(alpha: 0.6)
+                      : DesignTokens.lightBorder,
+                  width: 1.0,
+                ),
+              ),
+              child: CircleAvatar(
+                radius: 16,
+                backgroundColor: DesignTokens.primarySoft,
+                backgroundImage: avatar != null && avatar.isNotEmpty ? NetworkImage(avatar) : null,
+                child: avatar == null || avatar.isEmpty
+                    ? const Icon(Icons.person, color: DesignTokens.primaryDark, size: 18)
+                    : null,
+              ),
             ),
           ),
           const SizedBox(width: 10),
@@ -888,7 +1016,7 @@ class _TypingDotsState extends State<_TypingDots> with SingleTickerProviderState
                     height: 5.5,
                     decoration: const BoxDecoration(
                       shape: BoxShape.circle,
-                      color: Color(0xFF007AFF),
+                      color: DesignTokens.primary,
                     ),
                   ),
                 ),

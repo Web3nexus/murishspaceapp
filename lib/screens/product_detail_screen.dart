@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../config/env.dart';
 import '../config/deep_links.dart';
+import '../core/design_tokens.dart';
 import '../providers/chat_provider.dart';
 import '../providers/marketplace_provider.dart';
 
@@ -52,7 +53,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Chat opened with $sellerName for "$title"'),
-          backgroundColor: const Color(0xFF007AFF),
+          backgroundColor: DesignTokens.primary,
         ),
       );
     }
@@ -69,7 +70,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
               ? '🔔 Price drop & listing alerts activated for this item category!'
               : '🔕 Price alerts muted for this item.',
         ),
-        backgroundColor: const Color(0xFF007AFF),
+        backgroundColor: DesignTokens.primary,
       ),
     );
   }
@@ -104,7 +105,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                 const Text('Share Product', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
                 const SizedBox(height: 12),
                 ListTile(
-                  leading: const Icon(Icons.copy_rounded, color: Color(0xFF007AFF)),
+                  leading: const Icon(Icons.copy_rounded, color: DesignTokens.primary),
                   title: const Text('Copy Deep Link', style: TextStyle(fontWeight: FontWeight.bold)),
                   subtitle: Text(link, maxLines: 1, overflow: TextOverflow.ellipsis),
                   onTap: () {
@@ -165,7 +166,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Row(
           children: [
-            const Icon(Icons.location_on_rounded, color: Color(0xFF007AFF)),
+            const Icon(Icons.location_on_rounded, color: DesignTokens.primary),
             const SizedBox(width: 10),
             const Expanded(child: Text('Enable Location Access?')),
           ],
@@ -180,7 +181,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF007AFF),
+              backgroundColor: DesignTokens.primary,
               foregroundColor: Colors.white,
             ),
             onPressed: () => Navigator.pop(ctx, true),
@@ -282,7 +283,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                 height: 48,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF007AFF),
+                    backgroundColor: DesignTokens.primary,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
@@ -413,7 +414,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                             style: const TextStyle(
                               fontWeight: FontWeight.w900,
                               fontSize: 18,
-                              color: Color(0xFF007AFF),
+                              color: DesignTokens.primary,
                             ),
                           ),
                         ],
@@ -439,7 +440,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                   height: 48,
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF007AFF),
+                      backgroundColor: DesignTokens.primary,
                       foregroundColor: Colors.white,
                       elevation: 0,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -591,7 +592,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                           style: const TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.w900,
-                            color: Color(0xFF007AFF),
+                            color: DesignTokens.primary,
                           ),
                         ),
                         const SizedBox(height: 4),
@@ -613,7 +614,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                             children: [
                               Row(
                                 children: [
-                                  const Icon(Icons.chat_bubble_rounded, color: Color(0xFF007AFF), size: 18),
+                                  const Icon(Icons.chat_bubble_rounded, color: DesignTokens.primary, size: 18),
                                   const SizedBox(width: 8),
                                   Text(
                                     'Message seller',
@@ -649,7 +650,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                                   const SizedBox(width: 8),
                                   ElevatedButton(
                                     style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color(0xFF007AFF),
+                                      backgroundColor: DesignTokens.primary,
                                       foregroundColor: Colors.white,
                                       elevation: 0,
                                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
@@ -740,7 +741,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                           children: [
                             CircleAvatar(
                               radius: 24,
-                              backgroundColor: const Color(0xFF007AFF),
+                              backgroundColor: DesignTokens.primary,
                               child: Icon(Icons.person, color: Colors.white, size: 26),
                             ),
                             const SizedBox(width: 12),
@@ -759,7 +760,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                                         ),
                                       ),
                                       const SizedBox(width: 4),
-                                      const Icon(Icons.check_circle_rounded, color: Color(0xFF007AFF), size: 16),
+                                      const Icon(Icons.check_circle_rounded, color: DesignTokens.primary, size: 16),
                                     ],
                                   ),
                                   Text(
@@ -773,7 +774,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: _isFollowingSeller
                                     ? (isDark ? const Color(0xFF3A3B3C) : const Color(0xFFE4E6EB))
-                                    : const Color(0xFF007AFF),
+                                    : DesignTokens.primary,
                                 foregroundColor: _isFollowingSeller
                                     ? (isDark ? Colors.white : Colors.black)
                                     : Colors.white,
@@ -854,11 +855,11 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                                           Container(
                                             padding: const EdgeInsets.all(8),
                                             decoration: BoxDecoration(
-                                              color: const Color(0xFF007AFF),
+                                              color: DesignTokens.primary,
                                               shape: BoxShape.circle,
                                               boxShadow: [
                                                 BoxShadow(
-                                                  color: const Color(0xFF007AFF).withOpacity(0.4),
+                                                  color: DesignTokens.primary.withOpacity(0.4),
                                                   blurRadius: 12,
                                                 ),
                                               ],
@@ -921,7 +922,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                                           style: ElevatedButton.styleFrom(
                                             backgroundColor: _hasLocationPermission
                                                 ? (isDark ? const Color(0xFF3A3B3C) : const Color(0xFFE4E6EB))
-                                                : const Color(0xFF007AFF),
+                                                : DesignTokens.primary,
                                             foregroundColor: _hasLocationPermission
                                                 ? (isDark ? Colors.white : Colors.black)
                                                 : Colors.white,
@@ -952,7 +953,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                                       ),
                                       child: Row(
                                         children: [
-                                          const Icon(Icons.info_outline_rounded, size: 16, color: Color(0xFF007AFF)),
+                                          const Icon(Icons.info_outline_rounded, size: 16, color: DesignTokens.primary),
                                           const SizedBox(width: 8),
                                           Expanded(
                                             child: Text(
@@ -1001,7 +1002,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                 height: 48,
                 child: ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF007AFF),
+                    backgroundColor: DesignTokens.primary,
                     foregroundColor: Colors.white,
                     elevation: 0,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -1029,7 +1030,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     required VoidCallback onTap,
   }) {
     final bg = isDark ? const Color(0xFF3A3B3C) : const Color(0xFFE4E6EB);
-    final iconColor = active ? const Color(0xFF007AFF) : (isDark ? Colors.white : Colors.black);
+    final iconColor = active ? DesignTokens.primary : (isDark ? Colors.white : Colors.black);
 
     return InkWell(
       onTap: onTap,
@@ -1108,7 +1109,7 @@ class _ProductLocationMapPainter extends CustomPainter {
       ..style = PaintingStyle.stroke;
 
     final radiusPaint = Paint()
-      ..color = const Color(0xFF007AFF).withOpacity(0.18)
+      ..color = DesignTokens.primary.withOpacity(0.18)
       ..style = PaintingStyle.fill;
 
     // Draw Map Grid Roads

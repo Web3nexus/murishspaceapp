@@ -1,3 +1,4 @@
+import '../core/design_tokens.dart';
 import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
@@ -34,7 +35,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   late TextEditingController _phoneController;
 
   DateTime? _selectedBirthday;
-  Color _selectedAccentColor = const Color(0xFF007AFF);
+  Color _selectedAccentColor = DesignTokens.primary;
   String _accentColorName = 'Murih Electric Blue';
   bool _isSaving = false;
   String? _error;
@@ -124,7 +125,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   final List<Map<String, dynamic>> _accentColors = [
-    {'name': 'Murih Electric Blue', 'color': const Color(0xFF007AFF)},
+    {'name': 'Murih Electric Blue', 'color': DesignTokens.primary},
     {'name': 'Royal Indigo', 'color': const Color(0xFF5856D6)},
     {'name': 'Emerald Green', 'color': const Color(0xFF34C759)},
     {'name': 'Sunset Orange', 'color': const Color(0xFFFF9500)},

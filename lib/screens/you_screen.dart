@@ -9,6 +9,7 @@ import '../components/followers_list_dialog.dart';
 import '../components/online_status_badge.dart';
 import '../components/share_sheet.dart';
 import '../config/env.dart';
+import '../core/design_tokens.dart';
 import '../core/roles.dart';
 import '../providers/auth_provider.dart';
 import '../providers/follow_provider.dart';
@@ -193,7 +194,7 @@ class YouScreen extends ConsumerWidget {
                                   ),
                                   child: CircleAvatar(
                                     radius: 32,
-                                    backgroundColor: const Color(0xFF007AFF),
+                                    backgroundColor: DesignTokens.primary,
                                     backgroundImage: user?.avatarUrl != null && user!.avatarUrl!.isNotEmpty
                                         ? NetworkImage(user.avatarUrl!)
                                         : null,
@@ -219,7 +220,7 @@ class YouScreen extends ConsumerWidget {
                               const SizedBox(width: 4),
                               const Icon(
                                 Icons.verified_rounded,
-                                color: Color(0xFF007AFF),
+                                color: DesignTokens.primary,
                                 size: 18,
                               ),
                             ],
@@ -245,7 +246,7 @@ class YouScreen extends ConsumerWidget {
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF007AFF).withOpacity(0.15),
+                                color: DesignTokens.primary.withOpacity(0.15),
                                 borderRadius: BorderRadius.circular(999),
                               ),
                               child: Row(
@@ -254,13 +255,13 @@ class YouScreen extends ConsumerWidget {
                                   Text(
                                     '${role.label} Mode',
                                     style: const TextStyle(
-                                      color: Color(0xFF007AFF),
+                                      color: DesignTokens.primary,
                                       fontSize: 11,
                                       fontWeight: FontWeight.w800,
                                     ),
                                   ),
                                   const SizedBox(width: 4),
-                                  const Icon(Icons.swap_vert_rounded, size: 14, color: Color(0xFF007AFF)),
+                                  const Icon(Icons.swap_vert_rounded, size: 14, color: DesignTokens.primary),
                                 ],
                               ),
                             ),
@@ -341,10 +342,10 @@ class YouScreen extends ConsumerWidget {
                         Container(
                           padding: const EdgeInsets.all(6),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF007AFF).withOpacity(0.15),
+                            color: DesignTokens.primary.withOpacity(0.15),
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(Icons.bookmark_rounded, color: Color(0xFF007AFF), size: 16),
+                          child: const Icon(Icons.bookmark_rounded, color: DesignTokens.primary, size: 16),
                         ),
                         const SizedBox(width: 8),
                         Text(
@@ -619,10 +620,10 @@ const SizedBox(height: 10),
                         Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF007AFF).withOpacity(0.12),
+                            color: DesignTokens.primary.withOpacity(0.12),
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(Icons.people_outline_rounded, color: Color(0xFF007AFF), size: 20),
+                          child: const Icon(Icons.people_outline_rounded, color: DesignTokens.primary, size: 20),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
@@ -676,7 +677,7 @@ const SizedBox(height: 10),
                                   backgroundImage: friend.avatarUrl != null && friend.avatarUrl!.isNotEmpty
                                       ? NetworkImage(friend.avatarUrl!)
                                       : null,
-                                  backgroundColor: const Color(0xFF007AFF),
+                                  backgroundColor: DesignTokens.primary,
                                   child: friend.avatarUrl == null || friend.avatarUrl!.isEmpty
                                       ? const Icon(Icons.person, color: Colors.white, size: 24)
                                       : null,
@@ -734,7 +735,7 @@ const SizedBox(height: 10),
                     ),
                     ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF007AFF),
+                        backgroundColor: DesignTokens.primary,
                         foregroundColor: Colors.white,
                         elevation: 0,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -854,7 +855,7 @@ const SizedBox(height: 10),
                 height: 50,
                 child: ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF007AFF),
+                    backgroundColor: DesignTokens.primary,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                   ),
@@ -924,7 +925,7 @@ const SizedBox(height: 10),
                 'Member Profile',
                 'Personal chatting & social feed',
                 Icons.person_rounded,
-                const Color(0xFF007AFF),
+                DesignTokens.primary,
                 role == UserRole.member,
                 isDark,
                 targetRole: 'member',
@@ -977,7 +978,7 @@ const SizedBox(height: 10),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFEFF3F6),
         borderRadius: BorderRadius.circular(16),
-        border: isSelected ? Border.all(color: const Color(0xFF007AFF), width: 1.5) : null,
+        border: isSelected ? Border.all(color: DesignTokens.primary, width: 1.5) : null,
       ),
       child: ListTile(
         onTap: () async {
@@ -1011,7 +1012,7 @@ const SizedBox(height: 10),
                   ],
                 ),
               )
-            : (isSelected ? const Icon(Icons.check_circle_rounded, color: Color(0xFF007AFF)) : null),
+            : (isSelected ? const Icon(Icons.check_circle_rounded, color: DesignTokens.primary) : null),
         leading: Container(
           width: 40,
           height: 40,
@@ -1164,7 +1165,7 @@ class _ProfileTile extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
-                color: badgeColor ?? const Color(0xFF007AFF),
+                color: badgeColor ?? DesignTokens.primary,
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
@@ -1399,9 +1400,8 @@ class _VendorStoreSummaryCard extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _statItem('Escrow Locked', '\$${walletState.businessEscrowBalance.toStringAsFixed(0)}', textPrimary, textSecondary),
+              _statItem('Escrow Locked', '\$${(walletState.escrowsLockedMinor / 100).toStringAsFixed(2)}', textPrimary, textSecondary),
               _statItem('Active Deals', '${walletState.escrowDeals.length}', textPrimary, textSecondary),
-              _statItem('Vendor Rating', '4.9 ⭐', textPrimary, textSecondary),
             ],
           ),
           const SizedBox(height: 16),

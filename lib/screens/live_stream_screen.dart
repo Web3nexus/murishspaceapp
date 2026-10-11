@@ -1,3 +1,4 @@
+import '../core/design_tokens.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
@@ -21,10 +22,12 @@ import '../components/send_gift_dialog.dart';
 import '../config/env.dart';
 import '../core/api_client.dart';
 import '../core/roles.dart';
+import '../core/realtime_client.dart';
 import '../models/chat_models.dart';
 import '../providers/auth_provider.dart';
 import '../providers/chat_provider.dart';
 import '../providers/messages_provider.dart';
+import '../providers/realtime_provider.dart';
 import '../providers/wallet_provider.dart';
 
 /// Full Interactive Live Streaming Stage with Native Hardware Camera Preview,
@@ -147,6 +150,12 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
   // Floating Hearts Animation State
   final List<_FloatingHeart> _hearts = [];
   final Random _random = Random();
+
+  StreamSubscription<RealtimeEvent>? _realtimeSub;
+  String? _subscribedLiveChannel;
+  int _pendingLikesBatch = 0;
+  Timer? _likeDebounceTimer;
+  Map<String, dynamic>? _pinnedComment;
 
   Timer? _metricsTimer;
   String? _connectionError;
@@ -302,6 +311,10 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
                 liveKitData['is_publisher'] == 1,
           );
         }
+      }
+
+      if (_activeStreamId != null) {
+        _subscribeToRealtimeChannel(_activeStreamId!);
       }
 
       await _pollLiveMetricsAndChat();
@@ -714,7 +727,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
             'name': user?['name'] ?? 'Viewer',
             'role': user?['role'] ?? 'Member',
             'msg': m['message'] ?? '',
-            'color': const Color(0xFF007AFF),
+            'color': DesignTokens.primary,
           };
         }).toList();
 
@@ -756,6 +769,15 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
     unawaited(_leaveViewerStream());
     unawaited(_disconnectLiveKit());
     _metricsTimer?.cancel();
+    _likeDebounceTimer?.cancel();
+    _likeDebounceTimer = null;
+    // Flush the like batch pending in the debounce window so likes aren't lost
+    // when the viewer leaves mid-rap.
+    unawaited(_flushPendingLikes());
+    _realtimeSub?.cancel();
+    if (_subscribedLiveChannel != null) {
+      ref.read(realtimeProvider).unsubscribe(_subscribedLiveChannel!);
+    }
     _chatCtrl.dispose();
     _chatFocusNode.dispose();
     _scrollController.dispose();
@@ -825,7 +847,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
         'msg': text,
         'color': widget.isHost
             ? const Color(0xFFFF3B30)
-            : const Color(0xFF007AFF),
+            : DesignTokens.primary,
       });
       _chatCtrl.clear();
     });
@@ -840,13 +862,16 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
     _scrollToBottom();
   }
 
-  Future<void> _addHeart({double? x, double? y}) async {
+  void _spawnVisualHeart({double? x, double? y}) {
+    if (!mounted) return;
+    if (_hearts.length > 25) {
+      _hearts.removeAt(0);
+    }
     final screenSize = MediaQuery.of(context).size;
-    final startX = x ?? (screenSize.width - 48 + (_random.nextDouble() * 24 - 12));
+    final startX = x ?? (screenSize.width - 50 + (_random.nextDouble() * 30 - 15));
     final startY = y ?? (screenSize.height - 120);
 
     setState(() {
-      _likesCount += 1;
       _hearts.add(
         _FloatingHeart(
           id: DateTime.now().microsecondsSinceEpoch + _random.nextInt(1000),
@@ -860,20 +885,176 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
             Color(0xFFAF52DE),
             Color(0xFF5856D6),
             Color(0xFF30D158),
-            Color(0xFF007AFF),
+            DesignTokens.primary,
           ][_random.nextInt(8)],
-          swayAmplitude: 12.0 + _random.nextDouble() * 12.0,
+          swayAmplitude: 14.0 + _random.nextDouble() * 14.0,
           swayPhase: _random.nextDouble() * 2 * pi,
           size: 26.0 + _random.nextDouble() * 10.0,
         ),
       );
     });
+  }
 
-    if (_activeStreamId != null) {
+  void _addHeart({double? x, double? y}) {
+    _spawnVisualHeart(x: x, y: y);
+    setState(() => _likesCount += 1);
+
+    _pendingLikesBatch += 1;
+    _likeDebounceTimer?.cancel();
+    _likeDebounceTimer = Timer(const Duration(milliseconds: 400), () {
+      unawaited(_flushPendingLikes());
+    });
+  }
+
+  Future<void> _flushPendingLikes() async {
+    final count = _pendingLikesBatch;
+    _pendingLikesBatch = 0;
+    if (_activeStreamId != null && count > 0) {
       try {
         final api = ref.read(apiClientProvider);
-        await api.post('/live/$_activeStreamId/like', data: {'count': 1});
+        await api.post('/live/$_activeStreamId/like', data: {'count': count});
       } catch (_) {}
+    }
+  }
+
+  void _subscribeToRealtimeChannel(int streamId) {
+    if (_subscribedLiveChannel == 'live-stream.$streamId') return;
+    if (_subscribedLiveChannel != null) {
+      ref.read(realtimeProvider).unsubscribe(_subscribedLiveChannel!);
+    }
+    _subscribedLiveChannel = 'live-stream.$streamId';
+    final realtime = ref.read(realtimeProvider);
+    realtime.subscribe(_subscribedLiveChannel!);
+
+    _realtimeSub?.cancel();
+    _realtimeSub = realtime.events.listen((event) {
+      if (event.channel != _subscribedLiveChannel) return;
+      final eventName = event.event.replaceFirst(RegExp(r'^\.+'), '');
+      final data = event.data is Map ? Map<String, dynamic>.from(event.data as Map) : <String, dynamic>{};
+
+      if (eventName == 'LiveStreamLiked' || event.event.contains('LiveStreamLiked')) {
+        _handleRealtimeLike(data);
+      } else if (eventName == 'LiveStreamGiftSent' || event.event.contains('LiveStreamGiftSent')) {
+        _handleRealtimeGift(data);
+      } else if (eventName == 'LiveStreamChatMessage' || event.event.contains('LiveStreamChatMessage')) {
+        _handleRealtimeChatMessage(data);
+      } else if (eventName == 'LiveStreamProductPinned' || event.event.contains('LiveStreamProductPinned')) {
+        _handleRealtimeProductPinned(data);
+      } else if (eventName == 'LiveStreamProductUnpinned' || event.event.contains('LiveStreamProductUnpinned')) {
+        _handleRealtimeProductUnpinned();
+      } else if (eventName == 'LiveStreamCommentPinned' || event.event.contains('LiveStreamCommentPinned')) {
+        _handleRealtimeCommentPinned(data);
+      } else if (eventName == 'LiveStreamCommentUnpinned' || event.event.contains('LiveStreamCommentUnpinned')) {
+        _handleRealtimeCommentUnpinned();
+      } else if (eventName == 'LiveStreamViewerCountUpdated' || event.event.contains('LiveStreamViewerCountUpdated')) {
+        _handleRealtimeViewerCount(data);
+      }
+    });
+  }
+
+  void _handleRealtimeLike(Map<String, dynamic> data) {
+    if (!mounted) return;
+    final totalLikes = (data['total_likes'] as num?)?.toInt();
+    final count = (data['count'] as num?)?.toInt() ?? 1;
+
+    setState(() {
+      if (totalLikes != null) {
+        _likesCount = totalLikes;
+      } else {
+        _likesCount += count;
+      }
+      final spawnCount = min(count, 5);
+      for (int i = 0; i < spawnCount; i++) {
+        _spawnVisualHeart();
+      }
+    });
+  }
+
+  void _handleRealtimeGift(Map<String, dynamic> data) {
+    if (!mounted) return;
+    final totalCoins = (data['total_coins_earned'] as num?)?.toInt();
+    final gift = data['gift'] is Map ? Map<String, dynamic>.from(data['gift'] as Map) : <String, dynamic>{};
+    final sender = data['sender'] is Map ? Map<String, dynamic>.from(data['sender'] as Map) : <String, dynamic>{};
+
+    final giftName = gift['name']?.toString() ?? 'Virtual Gift';
+    final senderName = sender['name']?.toString() ?? 'Someone';
+    final coinPrice = (gift['coin_price'] as num?)?.toInt() ?? 100;
+    final animType = gift['animation_tier']?.toString() ??
+        (coinPrice >= 1000 ? 'full_screen' : (coinPrice >= 400 ? 'premium' : 'standard'));
+
+    setState(() {
+      if (totalCoins != null) {
+        _totalGiftsCoins = totalCoins;
+      }
+    });
+
+    ref.read(giftAnimationProvider.notifier).play(
+      GiftAnimationData(
+        giftName: giftName,
+        iconEmoji: '🎁',
+        iconUrl: gift['icon_url']?.toString(),
+        coinPrice: coinPrice,
+        senderName: senderName,
+        recipientName: _effectiveHostName,
+        animationType: animType,
+      ),
+    );
+  }
+
+  void _handleRealtimeChatMessage(Map<String, dynamic> data) {
+    if (!mounted) return;
+    final msg = data['message'] is Map ? Map<String, dynamic>.from(data['message'] as Map) : <String, dynamic>{};
+    final msgId = msg['id'];
+    if (msgId != null && _seenGiftMessageIds.contains(msgId)) return;
+    if (msgId != null) _seenGiftMessageIds.add(msgId);
+
+    final user = msg['user'] is Map ? Map<String, dynamic>.from(msg['user'] as Map) : <String, dynamic>{};
+    final userName = user['name']?.toString() ?? 'Viewer';
+    final text = msg['message']?.toString() ?? '';
+    final isHost = user['role'] == 'creator' || user['id'] == _hostUserId;
+
+    setState(() {
+      _chatMessages.add({
+        'id': msgId,
+        'name': userName,
+        'role': isHost ? 'Host' : (msg['gift_id'] != null ? 'Gift' : 'Viewer'),
+        'msg': text,
+        'avatar': user['avatar_url'] ?? user['avatar'],
+        'color': isHost ? const Color(0xFFFF2D55) : DesignTokens.primary,
+      });
+    });
+    _scrollToBottom();
+  }
+
+  void _handleRealtimeProductPinned(Map<String, dynamic> data) {
+    if (!mounted) return;
+    final product = data['product'] is Map ? Map<String, dynamic>.from(data['product'] as Map) : null;
+    if (product != null) {
+      _applyPinnedProduct(product);
+    }
+  }
+
+  void _handleRealtimeProductUnpinned() {
+    if (!mounted) return;
+    setState(() => _pinnedProduct = null);
+  }
+
+  void _handleRealtimeCommentPinned(Map<String, dynamic> data) {
+    if (!mounted) return;
+    final comment = data['comment'] is Map ? Map<String, dynamic>.from(data['comment'] as Map) : null;
+    setState(() => _pinnedComment = comment);
+  }
+
+  void _handleRealtimeCommentUnpinned() {
+    if (!mounted) return;
+    setState(() => _pinnedComment = null);
+  }
+
+  void _handleRealtimeViewerCount(Map<String, dynamic> data) {
+    if (!mounted) return;
+    final count = (data['viewers_count'] as num?)?.toInt();
+    if (count != null) {
+      setState(() => _viewerCount = count);
     }
   }
 
@@ -1119,7 +1300,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
                   children: [
                     _ShareOptionItem(
                       icon: Icons.person_add_alt_1_rounded,
-                      color: const Color(0xFF007AFF),
+                      color: DesignTokens.primary,
                       label: 'Friends',
                       onTap: () {
                         Navigator.pop(ctx);
@@ -1280,7 +1461,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
                     children: [
                       const Icon(
                         Icons.link_rounded,
-                        color: Color(0xFF007AFF),
+                        color: DesignTokens.primary,
                         size: 20,
                       ),
                       const SizedBox(width: 10),
@@ -1646,9 +1827,46 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
               bottom: viewInsetsBottom + 66,
               left: 16,
               width: min(MediaQuery.of(context).size.width * 0.78, 300),
-              child: SizedBox(
-                height: isKeyboardOpen ? 130 : 210,
-                child: ShaderMask(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (_pinnedComment != null) ...[
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 6),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: DesignTokens.primary.withValues(alpha: 0.35),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: DesignTokens.primary.withValues(alpha: 0.6),
+                          width: 0.8,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.push_pin, size: 12, color: Color(0xFF64D2FF)),
+                          const SizedBox(width: 5),
+                          Flexible(
+                            child: Text(
+                              '${_pinnedComment!['user']?['name'] ?? 'Viewer'}: ${_pinnedComment!['message'] ?? ''}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  SizedBox(
+                    height: isKeyboardOpen ? 130 : 210,
+                    child: ShaderMask(
                   shaderCallback: (bounds) => const LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
@@ -1747,8 +1965,10 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
                   ),
                 ),
               ),
-              ),
             ),
+          ],
+        ),
+      ),
 
             // 6. Facebook-Style Bottom Controls & High-Contrast Chat Input Bar
             Positioned(
@@ -1770,7 +1990,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
                         borderRadius: BorderRadius.circular(23),
                         border: Border.all(
                           color: _chatFocusNode.hasFocus
-                              ? const Color(0xFF007AFF)
+                              ? DesignTokens.primary
                               : Colors.white.withValues(alpha: 0.25),
                           width: _chatFocusNode.hasFocus ? 1.5 : 1.0,
                         ),
@@ -1787,7 +2007,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
                           Icon(
                             Icons.chat_bubble_outline_rounded,
                             color: _chatFocusNode.hasFocus
-                                ? const Color(0xFF007AFF)
+                                ? DesignTokens.primary
                                 : Colors.white70,
                             size: 18,
                           ),
@@ -1797,9 +2017,9 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
                               data: ThemeData.dark().copyWith(
                                 textSelectionTheme:
                                     const TextSelectionThemeData(
-                                      cursorColor: Color(0xFF007AFF),
+                                      cursorColor: DesignTokens.primary,
                                       selectionColor: Color(0x66007AFF),
-                                      selectionHandleColor: Color(0xFF007AFF),
+                                      selectionHandleColor: DesignTokens.primary,
                                     ),
                               ),
                               child: TextField(
@@ -1810,7 +2030,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
                                 ),
-                                cursorColor: const Color(0xFF007AFF),
+                                cursorColor: DesignTokens.primary,
                                 cursorWidth: 2.0,
                                 decoration: const InputDecoration(
                                   hintText: 'Say something live…',
@@ -1840,7 +2060,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
                               child: Container(
                                 padding: const EdgeInsets.all(6),
                                 decoration: const BoxDecoration(
-                                  color: Color(0xFF007AFF),
+                                  color: DesignTokens.primary,
                                   shape: BoxShape.circle,
                                 ),
                                 child: const Icon(
@@ -2386,25 +2606,25 @@ class _LiveShareRecipientSheetState
                   height: 20,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    color: Color(0xFF007AFF),
+                    color: DesignTokens.primary,
                   ),
                 )
               : Container(
                   key: const ValueKey('send'),
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF007AFF).withValues(alpha: 0.12),
+                    color: DesignTokens.primary.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.send_rounded, color: Color(0xFF007AFF), size: 14),
+                      Icon(Icons.send_rounded, color: DesignTokens.primary, size: 14),
                       SizedBox(width: 4),
                       Text(
                         'Send',
                         style: TextStyle(
-                          color: Color(0xFF007AFF),
+                          color: DesignTokens.primary,
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
                         ),
@@ -2584,7 +2804,7 @@ class _LiveShareRecipientSheetState
                             ? const Color(0xFF34C759)
                             : widget.conversationTypes.contains('community')
                             ? const Color(0xFFFF9500)
-                            : const Color(0xFF007AFF),
+                            : DesignTokens.primary,
                       ),
                       title: Text(
                         c.title,
@@ -2636,9 +2856,7 @@ class _LiveShareRecipientSheetState
                           ),
                           leading: CircleAvatar(
                             radius: 20,
-                            backgroundColor: const Color(
-                              0xFF007AFF,
-                            ).withValues(alpha: 0.12),
+                            backgroundColor: DesignTokens.primary.withValues(alpha: 0.12),
                             backgroundImage:
                                 u.avatarUrl != null && u.avatarUrl!.isNotEmpty
                                 ? NetworkImage(u.avatarUrl!)
@@ -2646,7 +2864,7 @@ class _LiveShareRecipientSheetState
                             child: u.avatarUrl == null || u.avatarUrl!.isEmpty
                                 ? const Icon(
                                     Icons.person,
-                                    color: Color(0xFF007AFF),
+                                    color: DesignTokens.primary,
                                     size: 20,
                                   )
                                 : null,
@@ -3002,9 +3220,7 @@ class _LiveProductBuySheetState extends ConsumerState<_LiveProductBuySheet> {
                           ),
                           decoration: BoxDecoration(
                             color: _isDigital
-                                ? const Color(
-                                    0xFF007AFF,
-                                  ).withValues(alpha: 0.15)
+                                ? DesignTokens.primary.withValues(alpha: 0.15)
                                 : const Color(
                                     0xFF34C759,
                                   ).withValues(alpha: 0.15),
@@ -3018,7 +3234,7 @@ class _LiveProductBuySheetState extends ConsumerState<_LiveProductBuySheet> {
                               fontSize: 9,
                               fontWeight: FontWeight.w700,
                               color: _isDigital
-                                  ? const Color(0xFF007AFF)
+                                  ? DesignTokens.primary
                                   : const Color(0xFF34C759),
                             ),
                           ),
@@ -3155,7 +3371,7 @@ class _LiveProductBuySheetState extends ConsumerState<_LiveProductBuySheet> {
                   height: 48,
                   child: ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF007AFF),
+                      backgroundColor: DesignTokens.primary,
                       foregroundColor: Colors.white,
                       elevation: 0,
                       shape: RoundedRectangleBorder(

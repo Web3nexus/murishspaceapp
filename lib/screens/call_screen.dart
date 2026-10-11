@@ -1,3 +1,4 @@
+import '../core/design_tokens.dart';
 import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui';
@@ -6,8 +7,8 @@ import 'package:flutter/material.dart' hide ConnectionState;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:livekit_client/livekit_client.dart';
-
 import '../components/chat_pattern_background.dart';
+import '../config/router.dart';
 import '../core/api_client.dart';
 import '../providers/calls_provider.dart';
 import '../providers/messages_provider.dart';
@@ -60,18 +61,30 @@ class _CallScreenState extends ConsumerState<CallScreen> with TickerProviderStat
   bool _isPipExpanded = false;
   bool _popScheduled = false;
 
-  /// Dismisses the screen for an ended or failed call.
-  ///
-  /// The route is registered with `canPop: false` so that a system back
-  /// minimises instead of hanging up, and `maybePop()` honours that flag —
-  /// which also blocks this screen's own dismissals. `pop()` bypasses
-  /// PopScope, and the guard keeps the post-frame callback from scheduling
-  /// it again on every status notification.
   void _closeScreen() {
-    if (_popScheduled || !mounted) return;
+    // One-shot: many code paths (PopScope, end/decline buttons, the ended/
+    // idle auto-pop post-frame callback) can request a close; without this
+    // guard they stack and pop routes beneath the call screen.
+    if (!mounted || _popScheduled) return;
     _popScheduled = true;
-    final nav = Navigator.of(context);
-    if (nav.canPop()) nav.pop();
+    try {
+      final nav = Navigator.of(context);
+      if (nav.canPop()) {
+        nav.pop();
+        return;
+      }
+    } catch (_) {}
+    try {
+      final rootNav = rootNavigatorKey.currentState;
+      if (rootNav != null && rootNav.canPop()) {
+        rootNav.pop();
+      }
+    } catch (_) {}
+  }
+
+  void _minimize() {
+    CallSessionManager.instance.setMinimized(true);
+    _closeScreen();
   }
 
   @override
@@ -147,14 +160,24 @@ class _CallScreenState extends ConsumerState<CallScreen> with TickerProviderStat
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => _MoreActionsSheet(
+      builder: (sheetContext) => _MoreActionsSheet(
         call: call,
+        onEmojiSelected: (emoji) {
+          call.sendReaction(emoji);
+          if (sheetContext.mounted && Navigator.of(sheetContext).canPop()) {
+            Navigator.of(sheetContext).pop();
+          }
+        },
         onAddPerson: () {
-          Navigator.of(ctx).pop();
+          if (sheetContext.mounted && Navigator.of(sheetContext).canPop()) {
+            Navigator.of(sheetContext).pop();
+          }
           _showAddParticipantSheet();
         },
         onSendMessage: () {
-          Navigator.of(ctx).pop();
+          if (sheetContext.mounted && Navigator.of(sheetContext).canPop()) {
+            Navigator.of(sheetContext).pop();
+          }
           _showInCallMessageSheet(context);
         },
       ),
@@ -192,8 +215,12 @@ class _CallScreenState extends ConsumerState<CallScreen> with TickerProviderStat
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) {
-          // Instead of terminating the call, convert into floating PiP window
-          CallSessionManager.instance.minimizeCall(context);
+          if (CallSessionManager.instance.isActive) {
+            // Instead of terminating the active call, convert into floating PiP window
+            _minimize();
+          } else {
+            _closeScreen();
+          }
         }
       },
       child: ListenableBuilder(
@@ -201,8 +228,8 @@ class _CallScreenState extends ConsumerState<CallScreen> with TickerProviderStat
         builder: (context, _) {
           final call = CallSessionManager.instance;
 
-          // Auto-pop if call has genuinely ended
-          if (call.status == CallStatus.ended) {
+          // Auto-pop if call has ended or idle
+          if (call.status == CallStatus.ended || call.status == CallStatus.idle || call.status == CallStatus.connectionFailed) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               _closeScreen();
             });
@@ -344,12 +371,12 @@ class _CallScreenState extends ConsumerState<CallScreen> with TickerProviderStat
                 border: Border.all(
                   color: isIncoming
                       ? const Color(0xFF34C759)
-                      : const Color(0xFF007AFF).withValues(alpha: 0.6),
+                      : DesignTokens.primary.withValues(alpha: 0.6),
                   width: 3.5,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: (isIncoming ? const Color(0xFF34C759) : const Color(0xFF007AFF))
+                    color: (isIncoming ? const Color(0xFF34C759) : DesignTokens.primary)
                         .withValues(alpha: 0.35),
                     blurRadius: 36,
                     spreadRadius: 8,
@@ -361,7 +388,7 @@ class _CallScreenState extends ConsumerState<CallScreen> with TickerProviderStat
                 children: [
                   CircleAvatar(
                     radius: 64,
-                    backgroundColor: const Color(0xFF007AFF),
+                    backgroundColor: DesignTokens.primary,
                     backgroundImage: hasAvatar ? CachedNetworkImageProvider(call.avatarUrl!) : null,
                     child: !hasAvatar
                         ? const Icon(Icons.person, color: Colors.white, size: 54)
@@ -545,7 +572,7 @@ class _CallScreenState extends ConsumerState<CallScreen> with TickerProviderStat
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
               color: _isPipExpanded
-                  ? const Color(0xFF007AFF)
+                  ? DesignTokens.primary
                   : Colors.white.withValues(alpha: 0.3),
               width: _isPipExpanded ? 2 : 1.5,
             ),
@@ -571,7 +598,7 @@ class _CallScreenState extends ConsumerState<CallScreen> with TickerProviderStat
                 Center(
                   child: CircleAvatar(
                     radius: 24,
-                    backgroundColor: const Color(0xFF007AFF),
+                    backgroundColor: DesignTokens.primary,
                     child: Text(
                       call.contactName.isNotEmpty
                           ? call.contactName.substring(0, 1).toUpperCase()
@@ -664,7 +691,7 @@ class _CallScreenState extends ConsumerState<CallScreen> with TickerProviderStat
                     Center(
                       child: CircleAvatar(
                         radius: 28,
-                        backgroundColor: const Color(0xFF007AFF),
+                        backgroundColor: DesignTokens.primary,
                         child: Text(
                           name.substring(0, name.length >= 2 ? 2 : 1).toUpperCase(),
                           style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
@@ -714,7 +741,7 @@ class _CallScreenState extends ConsumerState<CallScreen> with TickerProviderStat
                 icon: Icons.keyboard_arrow_down_rounded,
                 tooltip: 'Minimize call',
                 onTap: () {
-                  call.minimizeCall(context);
+                  _minimize();
                 },
               ),
               if (isConnected) ...[
@@ -796,13 +823,14 @@ class _CallScreenState extends ConsumerState<CallScreen> with TickerProviderStat
     String? tooltip,
   }) {
     return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTap: () {
         HapticFeedback.lightImpact();
         onTap();
       },
       child: Container(
-        width: 42,
-        height: 42,
+        width: 44,
+        height: 44,
         decoration: BoxDecoration(
           color: const Color(0xFF1E293B).withValues(alpha: 0.85),
           shape: BoxShape.circle,
@@ -818,7 +846,7 @@ class _CallScreenState extends ConsumerState<CallScreen> with TickerProviderStat
             ),
           ],
         ),
-        child: Icon(icon, color: Colors.white, size: 20),
+        child: Icon(icon, color: Colors.white, size: 22),
       ),
     );
   }
@@ -862,7 +890,7 @@ class _CallScreenState extends ConsumerState<CallScreen> with TickerProviderStat
     );
   }
 
-  // Waiting Bottom Bar: Decline/Accept (incoming) or Hang Up (outgoing/connecting)
+  // Waiting Bottom Bar: Decline/Accept (incoming) or Capsule (outgoing/connecting)
   Widget _buildWaitingBottomBar(CallSessionManager call, bool isIncoming, bool isConnecting) {
     if (isIncoming && !isConnecting) {
       return Row(
@@ -874,7 +902,10 @@ class _CallScreenState extends ConsumerState<CallScreen> with TickerProviderStat
             label: 'Decline',
             backgroundColor: const Color(0xFFFF3B30),
             size: 60,
-            onTap: () => call.declineCall(),
+            onTap: () {
+              call.declineCall();
+              _closeScreen();
+            },
           ),
 
           // Accept Button with Glowing Pulse
@@ -893,98 +924,106 @@ class _CallScreenState extends ConsumerState<CallScreen> with TickerProviderStat
       );
     }
 
-    // Outgoing or Connecting state: Prominent End Call button
-    return Center(
-      child: _buildCircleButton(
-        icon: Icons.call_end_rounded,
-        label: isConnecting ? 'Cancel' : 'End Call',
-        backgroundColor: const Color(0xFFFF3B30),
-        size: 64,
-        glowColor: const Color(0x66FF3B30),
-        onTap: () => call.endCall(),
-      ),
-    );
+    // Outgoing or Connecting state: Sleek full-radius capsule with Speaker, (Camera), Mute, Cancel
+    return _buildActiveBottomBar(context, call);
   }
 
-  // Active Bottom Bar: Focused Primary Controls: Mute | Hang Up
+  // Active Bottom Bar: Compact Full-Radius Capsule (Speaker, Camera if video, Mute, Hang Up)
   Widget _buildActiveBottomBar(BuildContext context, CallSessionManager call) {
     return Center(
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(36),
+        borderRadius: BorderRadius.circular(100),
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
               color: const Color(0xFF1E293B).withValues(alpha: 0.92),
-              borderRadius: BorderRadius.circular(36),
+              borderRadius: BorderRadius.circular(100),
               border: Border.all(
                 color: Colors.white.withValues(alpha: 0.16),
                 width: 1.2,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.5),
-                  blurRadius: 24,
-                  offset: const Offset(0, 8),
+                  color: Colors.black.withValues(alpha: 0.45),
+                  blurRadius: 20,
+                  offset: const Offset(0, 6),
                 ),
               ],
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                // 1. Mute Toggle Button
-                _buildBarActionButton(
+                // 1. Speaker Toggle
+                _buildCompactBarButton(
+                  icon: call.isSpeakerOn ? Icons.volume_up_rounded : Icons.volume_down_rounded,
+                  isActive: call.isSpeakerOn,
+                  activeBgColor: Colors.white,
+                  activeIconColor: const Color(0xFF0F172A),
+                  tooltip: call.isSpeakerOn ? 'Speaker On' : 'Speaker Off',
+                  onTap: () => call.toggleSpeaker(),
+                ),
+
+                const SizedBox(width: 14),
+
+                // 2. Camera Toggle (if Video Call)
+                if (call.isVideo) ...[
+                  _buildCompactBarButton(
+                    icon: call.isCameraOff ? Icons.videocam_off_rounded : Icons.videocam_rounded,
+                    isActive: call.isCameraOff,
+                    activeBgColor: const Color(0xFFFF3B30),
+                    activeIconColor: Colors.white,
+                    tooltip: call.isCameraOff ? 'Camera Off' : 'Camera On',
+                    onTap: () => call.toggleCamera(),
+                  ),
+                  const SizedBox(width: 14),
+                ],
+
+                // 3. Mute Toggle
+                _buildCompactBarButton(
                   icon: call.isMuted ? Icons.mic_off_rounded : Icons.mic_rounded,
-                  label: call.isMuted ? 'Unmute' : 'Mute',
                   isActive: call.isMuted,
-                  activeColor: const Color(0xFFFF3B30),
+                  activeBgColor: const Color(0xFFFF3B30),
+                  activeIconColor: Colors.white,
+                  tooltip: call.isMuted ? 'Muted' : 'Unmuted',
                   onTap: () => call.toggleMute(),
                 ),
 
-                const SizedBox(width: 32),
+                const SizedBox(width: 14),
 
-                // 2. Hang Up Button (Prominent Destructive Action)
+                // 4. Hang Up / End Call (Compact 48x48 Red Circle)
                 GestureDetector(
-                  onTap: () => call.endCall(),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 62,
-                        height: 62,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFFFF453A), Color(0xFFD70015)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFFFF3B30).withValues(alpha: 0.55),
-                              blurRadius: 18,
-                              spreadRadius: 1,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: const Icon(
-                          Icons.call_end_rounded,
-                          color: Colors.white,
-                          size: 30,
-                        ),
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () {
+                    HapticFeedback.mediumImpact();
+                    call.endCall();
+                    _closeScreen();
+                  },
+                  child: Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFFF453A), Color(0xFFD70015)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
                       ),
-                      const SizedBox(height: 5),
-                      const Text(
-                        'End',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFFFF3B30).withValues(alpha: 0.5),
+                          blurRadius: 14,
+                          offset: const Offset(0, 3),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.call_end_rounded,
+                      color: Colors.white,
+                      size: 26,
+                    ),
                   ),
                 ),
               ],
@@ -995,56 +1034,47 @@ class _CallScreenState extends ConsumerState<CallScreen> with TickerProviderStat
     );
   }
 
-  Widget _buildBarActionButton({
+  Widget _buildCompactBarButton({
     required IconData icon,
-    required String label,
     required bool isActive,
-    required Color activeColor,
+    required Color activeBgColor,
+    required Color activeIconColor,
     required VoidCallback onTap,
+    String? tooltip,
   }) {
     return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTap: () {
         HapticFeedback.selectionClick();
         onTap();
       },
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 50,
-            height: 50,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: isActive
-                  ? activeColor
-                  : const Color(0xFF334155).withValues(alpha: 0.85),
-              border: Border.all(
-                color: isActive
-                    ? Colors.white.withValues(alpha: 0.35)
-                    : Colors.white.withValues(alpha: 0.16),
-                width: 1,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.25),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Icon(icon, color: Colors.white, size: 22),
+      child: Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: isActive
+              ? activeBgColor
+              : const Color(0xFF334155).withValues(alpha: 0.85),
+          border: Border.all(
+            color: isActive
+                ? Colors.white.withValues(alpha: 0.35)
+                : Colors.white.withValues(alpha: 0.16),
+            width: 1,
           ),
-          const SizedBox(height: 5),
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 11,
-              color: Colors.white,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.2,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.25),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
             ),
-          ),
-        ],
+          ],
+        ),
+        child: Icon(
+          icon,
+          color: isActive ? activeIconColor : Colors.white,
+          size: 22,
+        ),
       ),
     );
   }
@@ -1188,11 +1218,13 @@ class _FloatingReactionBubbleState extends State<_FloatingReactionBubble>
 /// Screen Share, and Messages action
 class _MoreActionsSheet extends StatelessWidget {
   final CallSessionManager call;
+  final ValueChanged<String> onEmojiSelected;
   final VoidCallback onAddPerson;
   final VoidCallback onSendMessage;
 
   const _MoreActionsSheet({
     required this.call,
+    required this.onEmojiSelected,
     required this.onAddPerson,
     required this.onSendMessage,
   });
@@ -1246,8 +1278,7 @@ class _MoreActionsSheet extends StatelessWidget {
                 return GestureDetector(
                   onTap: () {
                     HapticFeedback.lightImpact();
-                    call.sendReaction(emoji);
-                    Navigator.of(context).pop();
+                    onEmojiSelected(emoji);
                   },
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
@@ -1334,7 +1365,7 @@ class _MoreActionsSheet extends StatelessWidget {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: isActive
-                  ? const Color(0xFF007AFF)
+                  ? DesignTokens.primary
                   : const Color(0xFF1E293B),
               border: Border.all(
                 color: Colors.white.withValues(alpha: 0.15),
@@ -1465,10 +1496,10 @@ class _InCallMessageSheetState extends ConsumerState<_InCallMessageSheet> {
               ),
               TextButton.icon(
                 onPressed: widget.onOpenFullChat,
-                icon: const Icon(Icons.open_in_new_rounded, size: 16, color: Color(0xFF007AFF)),
+                icon: const Icon(Icons.open_in_new_rounded, size: 16, color: DesignTokens.primary),
                 label: const Text(
                   'Open Chat',
-                  style: TextStyle(color: Color(0xFF007AFF), fontWeight: FontWeight.bold),
+                  style: TextStyle(color: DesignTokens.primary, fontWeight: FontWeight.bold),
                 ),
               ),
             ],
@@ -1505,7 +1536,7 @@ class _InCallMessageSheetState extends ConsumerState<_InCallMessageSheet> {
                   width: 44,
                   height: 44,
                   decoration: const BoxDecoration(
-                    color: Color(0xFF007AFF),
+                    color: DesignTokens.primary,
                     shape: BoxShape.circle,
                   ),
                   child: _isSending
@@ -1639,7 +1670,7 @@ class _AddParticipantSheetState extends ConsumerState<_AddParticipantSheet> {
               children: [
                 const Row(
                   children: [
-                    Icon(Icons.person_add_rounded, color: Color(0xFF007AFF), size: 22),
+                    Icon(Icons.person_add_rounded, color: DesignTokens.primary, size: 22),
                     SizedBox(width: 8),
                     Text(
                       'Add Person to Call',
@@ -1685,7 +1716,7 @@ class _AddParticipantSheetState extends ConsumerState<_AddParticipantSheet> {
 
           Expanded(
             child: _isLoading
-                ? const Center(child: CircularProgressIndicator(color: Color(0xFF007AFF)))
+                ? const Center(child: CircularProgressIndicator(color: DesignTokens.primary))
                 : _users.isEmpty
                     ? const Center(
                         child: Text(
@@ -1706,7 +1737,7 @@ class _AddParticipantSheetState extends ConsumerState<_AddParticipantSheet> {
 
                           return ListTile(
                             leading: CircleAvatar(
-                              backgroundColor: const Color(0xFF007AFF),
+                              backgroundColor: DesignTokens.primary,
                               backgroundImage: avatar != null && avatar.isNotEmpty
                                   ? CachedNetworkImageProvider(avatar)
                                   : null,
@@ -1724,7 +1755,7 @@ class _AddParticipantSheetState extends ConsumerState<_AddParticipantSheet> {
                             trailing: ElevatedButton(
                               onPressed: isInviting ? null : () => _inviteUser(user),
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF007AFF),
+                                backgroundColor: DesignTokens.primary,
                                 foregroundColor: Colors.white,
                                 elevation: 0,
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),

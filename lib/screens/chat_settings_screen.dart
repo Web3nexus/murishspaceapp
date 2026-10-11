@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/api_client.dart';
+import '../core/design_tokens.dart';
 import '../services/sound_service.dart';
 
 class ChatSettingsScreen extends ConsumerStatefulWidget {
@@ -192,7 +193,7 @@ class _ChatSettingsScreenState extends ConsumerState<ChatSettingsScreen> {
                           width: 36,
                           height: 36,
                           decoration: BoxDecoration(
-                            color: const Color(0xFF007AFF).withOpacity(0.15),
+                            color: DesignTokens.primary.withOpacity(0.15),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: const Center(
@@ -258,7 +259,7 @@ class _ChatSettingsScreenState extends ConsumerState<ChatSettingsScreen> {
                                   child: Text(
                                     'Test',
                                     style: TextStyle(
-                                      color: Color(0xFF007AFF),
+                                      color: DesignTokens.primary,
                                       fontSize: 12,
                                       fontWeight: FontWeight.bold,
                                     ),

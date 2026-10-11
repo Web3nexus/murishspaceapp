@@ -1,3 +1,4 @@
+import '../core/design_tokens.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -113,7 +114,7 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Chat opened with ${user.name}'),
-          backgroundColor: const Color(0xFF007AFF),
+          backgroundColor: DesignTokens.primary,
         ),
       );
     }
@@ -220,7 +221,7 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
                 ),
                 child: Column(
                   children: [
-                    const Icon(Icons.qr_code_2_rounded, size: 180, color: Color(0xFF007AFF)),
+                    const Icon(Icons.qr_code_2_rounded, size: 180, color: DesignTokens.primary),
                     const SizedBox(height: 12),
                     Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.black)),
                     Text('@$username', style: const TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.w600)),
@@ -234,7 +235,7 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
                   Expanded(
                     child: ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF007AFF),
+                        backgroundColor: DesignTokens.primary,
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         padding: const EdgeInsets.symmetric(vertical: 12),
@@ -313,22 +314,22 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.person_add_alt_1_rounded, color: Color(0xFF007AFF)),
+            icon: const Icon(Icons.person_add_alt_1_rounded, color: DesignTokens.primary),
             tooltip: 'Add Friend',
             onPressed: _showAddFriendModal,
           ),
           IconButton(
-            icon: const Icon(Icons.contacts_rounded, color: Color(0xFF007AFF)),
+            icon: const Icon(Icons.contacts_rounded, color: DesignTokens.primary),
             tooltip: 'Sync Phone Contacts',
             onPressed: _showContactPermissionDialog,
           ),
           IconButton(
-            icon: const Icon(Icons.qr_code_scanner_rounded, color: Color(0xFF007AFF)),
+            icon: const Icon(Icons.qr_code_scanner_rounded, color: DesignTokens.primary),
             tooltip: 'My QR Code',
             onPressed: _showMyQrCodeModal,
           ),
           IconButton(
-            icon: const Icon(Icons.share_outlined, color: Color(0xFF007AFF)),
+            icon: const Icon(Icons.share_outlined, color: DesignTokens.primary),
             tooltip: 'Share Profile Link',
             onPressed: _shareProfileLink,
           ),
@@ -374,9 +375,9 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
               TabBar(
                 controller: _tab,
                 isScrollable: true,
-                labelColor: const Color(0xFF007AFF),
+                labelColor: DesignTokens.primary,
                 unselectedLabelColor: textSecondary,
-                indicatorColor: const Color(0xFF007AFF),
+                indicatorColor: DesignTokens.primary,
                 indicatorWeight: 3,
                 labelStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
                 unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
@@ -400,16 +401,16 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
               margin: const EdgeInsets.fromLTRB(16, 12, 16, 4),
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: const Color(0xFF007AFF).withValues(alpha: 0.12),
+                color: DesignTokens.primary.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFF007AFF).withValues(alpha: 0.3)),
+                border: Border.all(color: DesignTokens.primary.withValues(alpha: 0.3)),
               ),
               child: Row(
                 children: [
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: const BoxDecoration(
-                      color: Color(0xFF007AFF),
+                      color: DesignTokens.primary,
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(Icons.contacts_rounded, color: Colors.white, size: 20),
@@ -436,7 +437,7 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
                   ),
                   ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF007AFF),
+                      backgroundColor: DesignTokens.primary,
                       foregroundColor: Colors.white,
                       elevation: 0,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -474,7 +475,7 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
                                     children: [
                                       CircleAvatar(
                                         radius: 24,
-                                        backgroundColor: const Color(0xFF007AFF),
+                                        backgroundColor: DesignTokens.primary,
                                         backgroundImage: user.avatarUrl != null && user.avatarUrl!.isNotEmpty ? NetworkImage(user.avatarUrl!) : null,
                                         child: user.avatarUrl == null || user.avatarUrl!.isEmpty
                                             ? Icon(Icons.person, color: Colors.white, size: 26)
@@ -510,7 +511,7 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
                                     Expanded(
                                       child: ElevatedButton(
                                         style: ElevatedButton.styleFrom(
-                                          backgroundColor: const Color(0xFF007AFF),
+                                          backgroundColor: DesignTokens.primary,
                                           foregroundColor: Colors.white,
                                           elevation: 0,
                                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -627,7 +628,7 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
                               children: [
                                 CircleAvatar(
                                   radius: 22,
-                                  backgroundColor: const Color(0xFF007AFF),
+                                  backgroundColor: DesignTokens.primary,
                                   backgroundImage: user.avatarUrl != null && user.avatarUrl!.isNotEmpty ? NetworkImage(user.avatarUrl!) : null,
                                   child: user.avatarUrl == null || user.avatarUrl!.isEmpty
                                       ? Icon(Icons.person, color: Colors.white, size: 24)
@@ -680,10 +681,10 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
                                   icon: Container(
                                     padding: const EdgeInsets.all(8),
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFF007AFF).withValues(alpha: 0.12),
+                                      color: DesignTokens.primary.withValues(alpha: 0.12),
                                       shape: BoxShape.circle,
                                     ),
-                                    child: const Icon(Icons.chat_bubble_rounded, color: Color(0xFF007AFF), size: 16),
+                                    child: const Icon(Icons.chat_bubble_rounded, color: DesignTokens.primary, size: 16),
                                   ),
                                   onPressed: () => _openChatWithUser(user),
                                   tooltip: 'Message',
@@ -770,7 +771,7 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
                           try {
                             color = Color(int.parse(contact.avatarColorHex));
                           } catch (_) {
-                            color = const Color(0xFF007AFF);
+                            color = DesignTokens.primary;
                           }
                           return Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -849,8 +850,8 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
     } else if (user.status == 'pending_sent') {
       return OutlinedButton.icon(
         style: OutlinedButton.styleFrom(
-          foregroundColor: const Color(0xFF007AFF),
-          side: const BorderSide(color: Color(0xFF007AFF)),
+          foregroundColor: DesignTokens.primary,
+          side: const BorderSide(color: DesignTokens.primary),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         ),
@@ -886,7 +887,7 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
     } else {
       return ElevatedButton.icon(
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF007AFF),
+          backgroundColor: DesignTokens.primary,
           foregroundColor: Colors.white,
           elevation: 0,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -929,8 +930,8 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
     } else if (contact.status == 'pending_sent') {
       return OutlinedButton.icon(
         style: OutlinedButton.styleFrom(
-          foregroundColor: const Color(0xFF007AFF),
-          side: const BorderSide(color: Color(0xFF007AFF)),
+          foregroundColor: DesignTokens.primary,
+          side: const BorderSide(color: DesignTokens.primary),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         ),
@@ -941,7 +942,7 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
     } else {
       return ElevatedButton.icon(
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF007AFF),
+          backgroundColor: DesignTokens.primary,
           foregroundColor: Colors.white,
           elevation: 0,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -981,10 +982,10 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF007AFF).withOpacity(0.12),
+                  color: DesignTokens.primary.withOpacity(0.12),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.contacts_rounded, size: 48, color: Color(0xFF007AFF)),
+                child: const Icon(Icons.contacts_rounded, size: 48, color: DesignTokens.primary),
               ),
               const SizedBox(height: 16),
               Text(
@@ -1001,7 +1002,7 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
               const SizedBox(height: 20),
               ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF007AFF),
+                  backgroundColor: DesignTokens.primary,
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
@@ -1168,10 +1169,10 @@ class _AddFriendModalSheetState extends ConsumerState<_AddFriendModalSheet> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF007AFF).withOpacity(0.12),
+                  color: DesignTokens.primary.withOpacity(0.12),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.person_add_alt_1_rounded, color: Color(0xFF007AFF), size: 22),
+                child: const Icon(Icons.person_add_alt_1_rounded, color: DesignTokens.primary, size: 22),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -1207,7 +1208,7 @@ class _AddFriendModalSheetState extends ConsumerState<_AddFriendModalSheet> {
             decoration: BoxDecoration(
               color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFEFF1F5),
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: const Color(0xFF007AFF).withOpacity(0.2)),
+              border: Border.all(color: DesignTokens.primary.withOpacity(0.2)),
             ),
             child: TextField(
               controller: _controller,
@@ -1218,14 +1219,14 @@ class _AddFriendModalSheetState extends ConsumerState<_AddFriendModalSheet> {
               decoration: InputDecoration(
                 hintText: 'e.g. @username, name, email, or phone...',
                 hintStyle: TextStyle(fontSize: 13, color: textSecondary),
-                prefixIcon: const Icon(Icons.search_rounded, color: Color(0xFF007AFF), size: 20),
+                prefixIcon: const Icon(Icons.search_rounded, color: DesignTokens.primary, size: 20),
                 suffixIcon: _searching
                     ? const Padding(
                         padding: EdgeInsets.all(12),
                         child: SizedBox(
                           width: 16,
                           height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF007AFF)),
+                          child: CircularProgressIndicator(strokeWidth: 2, color: DesignTokens.primary),
                         ),
                       )
                     : _controller.text.isNotEmpty
@@ -1249,7 +1250,7 @@ class _AddFriendModalSheetState extends ConsumerState<_AddFriendModalSheet> {
             const Center(
               child: Padding(
                 padding: EdgeInsets.all(24),
-                child: CircularProgressIndicator(color: Color(0xFF007AFF)),
+                child: CircularProgressIndicator(color: DesignTokens.primary),
               ),
             )
           else if (_hasSearched && _results.isEmpty)
@@ -1386,8 +1387,8 @@ class _AddFriendModalSheetState extends ConsumerState<_AddFriendModalSheet> {
     } else if (user.status == 'pending_sent') {
       return OutlinedButton.icon(
         style: OutlinedButton.styleFrom(
-          foregroundColor: const Color(0xFF007AFF),
-          side: const BorderSide(color: Color(0xFF007AFF)),
+          foregroundColor: DesignTokens.primary,
+          side: const BorderSide(color: DesignTokens.primary),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         ),
@@ -1434,7 +1435,7 @@ class _AddFriendModalSheetState extends ConsumerState<_AddFriendModalSheet> {
     } else {
       return ElevatedButton.icon(
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF007AFF),
+          backgroundColor: DesignTokens.primary,
           foregroundColor: Colors.white,
           elevation: 0,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -1491,10 +1492,10 @@ class _AddFriendModalSheetState extends ConsumerState<_AddFriendModalSheet> {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: const Color(0xFF007AFF).withOpacity(0.12),
+                color: DesignTokens.primary.withOpacity(0.12),
                 shape: BoxShape.circle,
               ),
-              child: Icon(icon, color: const Color(0xFF007AFF), size: 18),
+              child: Icon(icon, color: DesignTokens.primary, size: 18),
             ),
             const SizedBox(width: 12),
             Expanded(

@@ -81,7 +81,7 @@ class _ChatProfileSettingsScreenState extends ConsumerState<ChatProfileSettingsS
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(enable ? 'Chat locked with Biometrics / PIN' : 'Chat unlocked'),
-            backgroundColor: enable ? const Color(0xFF007AFF) : Colors.grey[800],
+            backgroundColor: enable ? DesignTokens.primary : Colors.grey[800],
           ),
         );
       }
@@ -213,7 +213,7 @@ class _ChatProfileSettingsScreenState extends ConsumerState<ChatProfileSettingsS
                       style: TextStyle(fontWeight: isSelected ? FontWeight.bold : FontWeight.normal),
                     ),
                     trailing: IconButton(
-                      icon: const Icon(Icons.volume_up_rounded, color: Color(0xFF007AFF), size: 20),
+                      icon: const Icon(Icons.volume_up_rounded, color: DesignTokens.primary, size: 20),
                       tooltip: 'Preview sound',
                       onPressed: () {
                         SoundService.instance.playNotificationPreview(sound);
@@ -278,8 +278,8 @@ class _ChatProfileSettingsScreenState extends ConsumerState<ChatProfileSettingsS
                 const SizedBox(height: 18),
                 ListTile(
                   leading: CircleAvatar(
-                    backgroundColor: const Color(0xFF007AFF).withOpacity(0.12),
-                    child: const Icon(Icons.contacts_rounded, color: Color(0xFF007AFF)),
+                    backgroundColor: DesignTokens.primary.withOpacity(0.12),
+                    child: const Icon(Icons.contacts_rounded, color: DesignTokens.primary),
                   ),
                   title: const Text('Save to Device Contacts', style: TextStyle(fontWeight: FontWeight.w600)),
                   subtitle: const Text('Export vCard (.vcf) directly to your phone contacts'),
@@ -927,7 +927,7 @@ class _ChatProfileSettingsScreenState extends ConsumerState<ChatProfileSettingsS
                     _QuickActionButton(
                       icon: Icons.videocam_rounded,
                       label: 'Video',
-                      color: const Color(0xFF007AFF),
+                      color: DesignTokens.primary,
                       onTap: () {
                         Navigator.push(
                           context,
@@ -1026,7 +1026,7 @@ class _ChatProfileSettingsScreenState extends ConsumerState<ChatProfileSettingsS
               borderRadius: BorderRadius.circular(16),
             ),
             child: ListTile(
-              leading: const Icon(Icons.photo_library_outlined, color: Color(0xFF007AFF)),
+              leading: const Icon(Icons.photo_library_outlined, color: DesignTokens.primary),
               title: const Text('Media, Links & Docs', style: TextStyle(fontWeight: FontWeight.w600)),
               subtitle: Text('$mediaCount shared items'),
               trailing: const Icon(Icons.chevron_right_rounded),

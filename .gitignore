@@ -60,3 +60,6 @@ app.*.map.json
 *.p8
 firebase-auth.json
 
+
+# local UI review artifacts
+.impeccable/

@@ -167,11 +167,50 @@ class WalletTransaction {
   }
 }
 
+/// An order escrow from `GET /wallet/escrow`. Only escrows where funds are
+/// still locked (held / disputed) count as active deals.
+class EscrowDeal {
+  final int id;
+  final String title;
+  final int amount;
+  final String currency;
+  final String status;
+  final DateTime createdAt;
+
+  const EscrowDeal({
+    required this.id,
+    required this.title,
+    required this.amount,
+    required this.currency,
+    required this.status,
+    required this.createdAt,
+  });
+
+  bool get isActive => status == 'held' || status == 'disputed';
+
+  factory EscrowDeal.fromJson(Map<String, dynamic> json) {
+    final rawOrder = json['order'];
+    final order = rawOrder is Map ? rawOrder : null;
+    final orderNumber = order?['order_number']?.toString();
+    return EscrowDeal(
+      id: (json['id'] as num?)?.toInt() ?? 0,
+      title: (orderNumber != null && orderNumber.isNotEmpty) ? 'Order $orderNumber' : 'Escrow #${json['id']}',
+      amount: (json['amount'] as num?)?.toInt() ?? 0,
+      currency: json['currency'] as String? ?? 'USD',
+      status: json['status'] as String? ?? 'held',
+      createdAt: json['created_at'] != null
+          ? DateTime.tryParse(json['created_at'].toString()) ?? DateTime.now()
+          : DateTime.now(),
+    );
+  }
+}
+
 class WalletState {
   final bool loading;
   final String? error;
   final List<Wallet> wallets;
   final List<WalletTransaction> transactions;
+  final List<EscrowDeal> escrows;
   final FeePreview? feePreview;
 
   const WalletState({
@@ -179,6 +218,7 @@ class WalletState {
     this.error,
     this.wallets = const [],
     this.transactions = const [],
+    this.escrows = const [],
     this.feePreview,
   });
 
@@ -244,22 +284,22 @@ class WalletState {
       orElse: () => const Wallet(
         id: 0,
         type: WalletType.creator,
-        available: 245000,
+        available: 0,
         pending: 0,
         reserved: 0,
         escrow: 0,
-        withdrawable: 245000,
+        withdrawable: 0,
         nonWithdrawable: 0,
         disputed: 0,
-        total: 245000,
+        total: 0,
         currency: 'USD',
-        amountUsd: 2450.0,
-        coins: 245000,
+        amountUsd: 0.0,
+        coins: 0,
         localCurrency: 'USD',
         localRate: 0.0,
         localEstimatedAvailable: 0.0,
         localFormatted: '',
-        hasPin: true,
+        hasPin: false,
         status: 'active',
       ),
     );
@@ -272,35 +312,46 @@ class WalletState {
       orElse: () => const Wallet(
         id: 0,
         type: WalletType.business,
-        available: 48000,
+        available: 0,
         pending: 0,
         reserved: 0,
-        escrow: 48000,
+        escrow: 0,
         withdrawable: 0,
         nonWithdrawable: 0,
         disputed: 0,
-        total: 48000,
+        total: 0,
         currency: 'USD',
-        amountUsd: 480.0,
-        coins: 48000,
+        amountUsd: 0.0,
+        coins: 0,
         localCurrency: 'USD',
         localRate: 0.0,
         localEstimatedAvailable: 0.0,
         localFormatted: '',
-        hasPin: true,
+        hasPin: false,
         status: 'active',
       ),
     );
     return bizWallet.escrow / 100.0;
   }
 
-  List<String> get escrowDeals => ['Pulse Activewear Sponsorship', 'Tech Review Campaign'];
+  /// Escrows where funds are still locked (held or disputed).
+  List<EscrowDeal> get escrowDeals =>
+      escrows.where((e) => e.isActive).toList();
+
+  int get escrowsLockedMinor {
+    var total = 0;
+    for (final e in escrowDeals) {
+      total += e.amount;
+    }
+    return total;
+  }
 
   WalletState copyWith({
     bool? loading,
     String? error,
     List<Wallet>? wallets,
     List<WalletTransaction>? transactions,
+    List<EscrowDeal>? escrows,
     FeePreview? feePreview,
     bool clearError = false,
   }) {
@@ -309,6 +360,7 @@ class WalletState {
       error: clearError ? null : (error ?? this.error),
       wallets: wallets ?? this.wallets,
       transactions: transactions ?? this.transactions,
+      escrows: escrows ?? this.escrows,
       feePreview: feePreview ?? this.feePreview,
     );
   }
@@ -335,7 +387,13 @@ class WalletNotifier extends Notifier<WalletState> {
         txList = ApiClient.instance.unwrapList<WalletTransaction>(txRes, WalletTransaction.fromJson);
       } catch (_) {}
 
-      state = WalletState(wallets: list, transactions: txList);
+      List<EscrowDeal> escrowList = [];
+      try {
+        final escrowRes = await _dio.get('/wallet/escrow');
+        escrowList = ApiClient.instance.unwrapList<EscrowDeal>(escrowRes, EscrowDeal.fromJson);
+      } catch (_) {}
+
+      state = WalletState(wallets: list, transactions: txList, escrows: escrowList);
     } on DioException catch (e) {
       state = state.copyWith(loading: false, error: _errorMessage(e));
     } catch (_) {

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/design_tokens.dart';
 import '../providers/chat_folders_provider.dart';
 
 /// Telegram iOS style Chat Folders management screen connected to chatFoldersProvider.
@@ -10,7 +11,7 @@ class ChatFoldersScreen extends ConsumerWidget {
   void _showCreateFolderSheet(BuildContext context, WidgetRef ref) {
     final nameCtrl = TextEditingController();
     IconData selectedIcon = Icons.folder_rounded;
-    Color selectedColor = const Color(0xFF007AFF);
+    Color selectedColor = DesignTokens.primary;
 
     final icons = [
       Icons.folder_rounded,
@@ -24,7 +25,7 @@ class ChatFoldersScreen extends ConsumerWidget {
     ];
 
     final colors = [
-      const Color(0xFF007AFF),
+      DesignTokens.primary,
       const Color(0xFF34C759),
       const Color(0xFFFF9500),
       const Color(0xFF5856D6),
@@ -264,11 +265,11 @@ class ChatFoldersScreen extends ConsumerWidget {
             ),
             child: ListTile(
               onTap: () => _showCreateFolderSheet(context, ref),
-              leading: const Icon(Icons.add_circle_rounded, color: Color(0xFF007AFF)),
+              leading: const Icon(Icons.add_circle_rounded, color: DesignTokens.primary),
               title: const Text(
                 'Create New Custom Folder',
                 style: TextStyle(
-                  color: Color(0xFF007AFF),
+                  color: DesignTokens.primary,
                   fontWeight: FontWeight.w700,
                   fontSize: 15,
                 ),

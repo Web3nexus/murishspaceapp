@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../core/api_client.dart';
+import '../core/design_tokens.dart';
 
 /// Modal dialog for discovering and joining active live broadcasts.
 ///
@@ -277,7 +278,7 @@ class _JoinLiveStreamDialogState extends ConsumerState<JoinLiveStreamDialog> {
                                 style: TextButton.styleFrom(
                                   padding: const EdgeInsets.symmetric(
                                       horizontal: 10),
-                                  foregroundColor: const Color(0xFF007AFF),
+                                  foregroundColor: DesignTokens.primary,
                                   textStyle: const TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w700,
@@ -546,7 +547,7 @@ class _JoinLiveStreamDialogState extends ConsumerState<JoinLiveStreamDialog> {
                                                   overflow:
                                                       TextOverflow.ellipsis,
                                                   style: const TextStyle(
-                                                    color: Color(0xFF007AFF),
+                                                    color: DesignTokens.primary,
                                                     fontSize: 11,
                                                     fontWeight: FontWeight.w600,
                                                   ),

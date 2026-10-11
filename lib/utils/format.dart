@@ -44,10 +44,15 @@ String formatMessageTime(DateTime? dt) {
 }
 
 /// Preview text for a message row (emojis/attachments handled).
+/// Also used for quoted/replied message previews so rich payloads (call JSON,
+/// [POLL], [GIFT], [LOCATION]…) never leak raw JSON into the UI.
 String messagePreview(Message message) {
   if (message.deleted) return 'This message was deleted';
   final content = message.content.trim();
-  final isCall = message.type == 'call' ||
+  final attachment = message.attachmentType?.toLowerCase();
+  final type = message.type.toLowerCase();
+
+  final isCall = type == 'call' ||
       content.startsWith('{"call_id"') ||
       (content.startsWith('{') && content.contains('"call_id"'));
   if (isCall) {
@@ -69,10 +74,22 @@ String messagePreview(Message message) {
       return '📞 Call';
     }
   }
-  if (message.attachmentType == 'image') return '📷 Photo';
-  if (message.attachmentType == 'voice') return '🎤 Voice message';
-  if (message.attachmentType == 'file') return '📎 File';
-  if (message.attachmentType == 'video') return '🎬 Video';
-  return message.content;
+
+  if (content.startsWith('[LOCATION]') || attachment == 'location') return '📍 Location';
+  if (content.startsWith('[COMMUNITY]') || attachment == 'community') return '👥 Community';
+  if (content.startsWith('[POLL]') || attachment == 'poll') return '📊 Poll';
+  if (content.startsWith('[GIFT]') || type == 'gift' || attachment == 'gift') return '🎁 Gift';
+  if (content.startsWith('🔴 Watch ') || attachment == 'live_stream' || type == 'live_stream') {
+    return '🔴 Live stream';
+  }
+
+  if (attachment == 'image' || type == 'image') return '📷 Photo';
+  if (attachment == 'voice' || type == 'voice') return '🎤 Voice message';
+  if (attachment == 'file' || type == 'file') return '📎 File';
+  if (attachment == 'video' || type == 'video') return '🎬 Video';
+
+  final single = content.replaceAll(RegExp(r'\s+'), ' ').trim();
+  if (single.length > 120) return '${single.substring(0, 120)}…';
+  return single;
 }
 

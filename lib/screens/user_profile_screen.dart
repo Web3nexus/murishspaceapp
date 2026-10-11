@@ -10,6 +10,7 @@ import '../components/send_gift_dialog.dart';
 import '../components/share_sheet.dart';
 import '../config/env.dart';
 import '../core/api_client.dart';
+import '../core/design_tokens.dart';
 import '../providers/auth_provider.dart';
 import '../providers/chat_provider.dart';
 import '../providers/follow_provider.dart';
@@ -238,7 +239,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                 if (isMe)
                   ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF007AFF),
+                      backgroundColor: DesignTokens.primary,
                       foregroundColor: Colors.white,
                       minimumSize: const Size(double.infinity, 46),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -352,7 +353,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           border: Border.all(
-                            color: hasActiveStories ? const Color(0xFF007AFF) : (isDark ? Colors.white24 : Colors.black12),
+                            color: hasActiveStories ? DesignTokens.primary : (isDark ? Colors.white24 : Colors.black12),
                             width: hasActiveStories ? 2.5 : 2.0,
                           ),
                         ),
@@ -361,7 +362,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                           backgroundColor: bg,
                           backgroundImage: widget.avatarUrl.isNotEmpty ? NetworkImage(widget.avatarUrl) : null,
                           child: widget.avatarUrl.isEmpty
-                              ? Icon(Icons.person, color: Color(0xFF007AFF), size: 44)
+                              ? Icon(Icons.person, color: DesignTokens.primary, size: 44)
                               : null,
                         ),
                       ),
@@ -375,7 +376,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                   const SizedBox(height: 2),
                   Text(
                     '@${widget.username}',
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Color(0xFF007AFF)),
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: DesignTokens.primary),
                   ),
                   const SizedBox(height: 6),
                   const OnlineStatusBadge(isOnline: true, showLabel: true),
@@ -385,12 +386,12 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF007AFF).withOpacity(0.12),
+                      color: DesignTokens.primary.withOpacity(0.12),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
                       widget.roleLabel.toUpperCase(),
-                      style: const TextStyle(color: Color(0xFF007AFF), fontWeight: FontWeight.w900, fontSize: 11),
+                      style: const TextStyle(color: DesignTokens.primary, fontWeight: FontWeight.w900, fontSize: 11),
                     ),
                   ),
                   const SizedBox(height: 10),
@@ -433,7 +434,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                           flex: 3,
                           child: ElevatedButton.icon(
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: isFollowing ? (isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE5E5EA)) : const Color(0xFF007AFF),
+                              backgroundColor: isFollowing ? (isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE5E5EA)) : DesignTokens.primary,
                               foregroundColor: isFollowing ? textPrimary : Colors.white,
                               elevation: 0,
                               padding: const EdgeInsets.symmetric(vertical: 12),
@@ -467,14 +468,14 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                                     ? const Color(0xFF34C759)
                                     : (_friendshipStatus == 'pending_sent'
                                         ? Colors.orange
-                                        : const Color(0xFF007AFF)),
+                                        : DesignTokens.primary),
                                 width: 1.5,
                               ),
                               foregroundColor: _friendshipStatus == 'accepted'
                                   ? const Color(0xFF34C759)
                                   : (_friendshipStatus == 'pending_sent'
                                       ? Colors.orange
-                                      : const Color(0xFF007AFF)),
+                                      : DesignTokens.primary),
                               padding: const EdgeInsets.symmetric(vertical: 12),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                             ),
@@ -513,7 +514,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                           ),
                           onPressed: _openChat,
-                          icon: const Icon(Icons.chat_bubble_outline_rounded, color: Color(0xFF007AFF), size: 20),
+                          icon: const Icon(Icons.chat_bubble_outline_rounded, color: DesignTokens.primary, size: 20),
                           tooltip: 'Message',
                         ),
                         const SizedBox(width: 8),
@@ -561,7 +562,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                               ),
                             );
                           },
-                          icon: const Icon(Icons.videocam_rounded, color: Color(0xFF007AFF), size: 20),
+                          icon: const Icon(Icons.videocam_rounded, color: DesignTokens.primary, size: 20),
                           tooltip: 'Video Call',
                         ),
                       ],
@@ -719,12 +720,12 @@ class _UserCoursesAndGoodsShowcaseState extends ConsumerState<_UserCoursesAndGoo
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
-                color: const Color(0xFF007AFF).withOpacity(0.15),
+                color: DesignTokens.primary.withOpacity(0.15),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
                 '${_items.length} Published',
-                style: const TextStyle(color: Color(0xFF007AFF), fontWeight: FontWeight.bold, fontSize: 11),
+                style: const TextStyle(color: DesignTokens.primary, fontWeight: FontWeight.bold, fontSize: 11),
               ),
             ),
           ],
@@ -757,8 +758,8 @@ class _UserCoursesAndGoodsShowcaseState extends ConsumerState<_UserCoursesAndGoo
                       errorWidget: (_, __, ___) => Container(
                         width: 90,
                         height: 90,
-                        color: const Color(0xFF007AFF).withOpacity(0.2),
-                        child: const Icon(Icons.school_rounded, color: Color(0xFF007AFF)),
+                        color: DesignTokens.primary.withOpacity(0.2),
+                        child: const Icon(Icons.school_rounded, color: DesignTokens.primary),
                       ),
                     ),
                   ),
@@ -773,14 +774,14 @@ class _UserCoursesAndGoodsShowcaseState extends ConsumerState<_UserCoursesAndGoo
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
                               color: isCourse
-                                  ? const Color(0xFF007AFF).withOpacity(0.15)
+                                  ? DesignTokens.primary.withOpacity(0.15)
                                   : const Color(0xFF5856D6).withOpacity(0.15),
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
                               isCourse ? 'COURSE' : 'DIGITAL GOOD',
                               style: TextStyle(
-                                color: isCourse ? const Color(0xFF007AFF) : const Color(0xFF5856D6),
+                                color: isCourse ? DesignTokens.primary : const Color(0xFF5856D6),
                                 fontWeight: FontWeight.bold,
                                 fontSize: 9,
                               ),
@@ -811,7 +812,7 @@ class _UserCoursesAndGoodsShowcaseState extends ConsumerState<_UserCoursesAndGoo
                     padding: const EdgeInsets.only(right: 12),
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF007AFF),
+                        backgroundColor: DesignTokens.primary,
                         foregroundColor: Colors.white,
                         elevation: 0,
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -968,7 +969,7 @@ class _UserActivityBadgesSection extends StatelessWidget {
         level: 'Top 5% Contributor',
         description: 'Consistent participant across discussion hubs, mutual spaces, and real-time community polls.',
         icon: Icons.groups_rounded,
-        color: Color(0xFF007AFF),
+        color: DesignTokens.primary,
         status: 'Active 24h',
         criteria: 'Awarded for frequent peer-to-peer engagement, helpful responses, and poll participation.',
       ),
@@ -1071,7 +1072,7 @@ class _UserActivityBadgesSection extends StatelessWidget {
                   width: double.infinity,
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF007AFF),
+                      backgroundColor: DesignTokens.primary,
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       padding: const EdgeInsets.symmetric(vertical: 12),
@@ -1105,12 +1106,12 @@ class _UserActivityBadgesSection extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
-                color: const Color(0xFF007AFF).withOpacity(0.12),
+                color: DesignTokens.primary.withOpacity(0.12),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
                 '${badges.length} Earned',
-                style: const TextStyle(color: Color(0xFF007AFF), fontWeight: FontWeight.bold, fontSize: 11),
+                style: const TextStyle(color: DesignTokens.primary, fontWeight: FontWeight.bold, fontSize: 11),
               ),
             ),
           ],

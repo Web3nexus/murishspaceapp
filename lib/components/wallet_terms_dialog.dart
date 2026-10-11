@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../core/design_tokens.dart';
 
 /// Google Play Store & International Financial Regulations Compliant
 /// Terms of Service & Privacy Policy Acceptance Modal for MurihSpace Wallet.
@@ -68,14 +69,14 @@ class WalletTermsDialog extends StatelessWidget {
                 height: 48,
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [Color(0xFF007AFF), Color(0xFF5856D6)],
+                    colors: [DesignTokens.primary, Color(0xFF5856D6)],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
                   borderRadius: BorderRadius.circular(14),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF007AFF).withValues(alpha: 0.3),
+                      color: DesignTokens.primary.withValues(alpha: 0.3),
                       blurRadius: 10,
                       offset: const Offset(0, 4),
                     ),
@@ -99,7 +100,7 @@ class WalletTermsDialog extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: 6),
-                        const Icon(Icons.verified_rounded, color: Color(0xFF007AFF), size: 16),
+                        const Icon(Icons.verified_rounded, color: DesignTokens.primary, size: 16),
                       ],
                     ),
                     const SizedBox(height: 2),
@@ -185,7 +186,7 @@ class WalletTermsDialog extends StatelessWidget {
             width: double.infinity,
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF007AFF),
+                backgroundColor: DesignTokens.primary,
                 foregroundColor: Colors.white,
                 elevation: 0,
                 padding: const EdgeInsets.symmetric(vertical: 14),

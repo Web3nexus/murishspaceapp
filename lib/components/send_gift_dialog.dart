@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../core/api_client.dart';
+import '../core/design_tokens.dart';
 import '../providers/auth_provider.dart';
 import '../providers/wallet_provider.dart';
 import 'gift_animation_overlay.dart';
@@ -344,7 +345,7 @@ class _SendGiftDialogState extends ConsumerState<SendGiftDialog> {
                 height: 48,
                 child: ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF007AFF),
+                    backgroundColor: DesignTokens.primary,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                   ),
@@ -539,7 +540,7 @@ class _SendGiftDialogState extends ConsumerState<SendGiftDialog> {
                         style: const TextStyle(color: Color(0xFFFF9500), fontWeight: FontWeight.w900, fontSize: 13),
                       ),
                       const SizedBox(width: 4),
-                      const Icon(Icons.add_circle_rounded, color: Color(0xFF007AFF), size: 14),
+                      const Icon(Icons.add_circle_rounded, color: DesignTokens.primary, size: 14),
                     ],
                   ),
                 ),
@@ -559,7 +560,7 @@ class _SendGiftDialogState extends ConsumerState<SendGiftDialog> {
                 },
                 child: const Text(
                   'Manage Wallet →',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF007AFF)),
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: DesignTokens.primary),
                 ),
               ),
             ],
@@ -650,7 +651,7 @@ class _SendGiftDialogState extends ConsumerState<SendGiftDialog> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: hasEnoughCoins
                     ? (_selectedGift?.color ?? const Color(0xFFFF9500))
-                    : const Color(0xFF007AFF),
+                    : DesignTokens.primary,
                 foregroundColor: Colors.white,
                 elevation: 0,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),

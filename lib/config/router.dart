@@ -43,6 +43,7 @@ import '../screens/settings_screen.dart';
 import '../screens/pin_setup_screen.dart';
 import '../screens/change_phone_screen.dart';
 import '../screens/conference_meeting_screen.dart';
+import '../screens/live_discovery_screen.dart';
 import '../screens/live_stream_screen.dart';
 import '../screens/live_link_screen.dart';
 import '../screens/meeting_link_screen.dart';
@@ -404,6 +405,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/app/meeting/:code',
         builder: (_, state) =>
             ConferenceMeetingScreen(joinCode: state.pathParameters['code']),
+      ),
+      GoRoute(
+        path: '/app/live-now',
+        builder: (_, state) => const LiveDiscoveryScreen(),
       ),
       GoRoute(
         path: '/app/live',

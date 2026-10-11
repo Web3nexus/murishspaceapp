@@ -152,7 +152,7 @@ class PostCard extends ConsumerWidget {
                     style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF007AFF),
+                      color: DesignTokens.primary,
                     ),
                   ),
               ],
@@ -227,10 +227,10 @@ class _PollCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(4),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF007AFF).withValues(alpha: 0.15),
+                  color: DesignTokens.primary.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(6),
                 ),
-                child: const Icon(Icons.poll_rounded, size: 16, color: Color(0xFF007AFF)),
+                child: const Icon(Icons.poll_rounded, size: 16, color: DesignTokens.primary),
               ),
               const SizedBox(width: 8),
               Expanded(
@@ -321,7 +321,7 @@ class _PollCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
             color: isSelected
-                ? const Color(0xFF007AFF)
+                ? DesignTokens.primary
                 : (isDark ? const Color(0xFF3A3A3C) : const Color(0xFFD1D5DB)),
             width: isSelected ? 1.5 : 1,
           ),
@@ -336,8 +336,8 @@ class _PollCard extends StatelessWidget {
                 child: Container(
                   decoration: BoxDecoration(
                     color: isSelected
-                        ? const Color(0xFF007AFF).withValues(alpha: 0.25)
-                        : (isDark ? Colors.white.withValues(alpha: 0.1) : const Color(0xFF007AFF).withValues(alpha: 0.1)),
+                        ? DesignTokens.primary.withValues(alpha: 0.25)
+                        : (isDark ? Colors.white.withValues(alpha: 0.1) : DesignTokens.primary.withValues(alpha: 0.1)),
                     borderRadius: BorderRadius.circular(9),
                   ),
                 ),
@@ -348,7 +348,7 @@ class _PollCard extends StatelessWidget {
               child: Row(
                 children: [
                   if (isSelected) ...[
-                    const Icon(Icons.check_circle_rounded, color: Color(0xFF007AFF), size: 18),
+                    const Icon(Icons.check_circle_rounded, color: DesignTokens.primary, size: 18),
                     const SizedBox(width: 8),
                   ],
                   Expanded(
@@ -368,7 +368,7 @@ class _PollCard extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
-                        color: isSelected ? const Color(0xFF007AFF) : (isDark ? Colors.grey[400] : Colors.grey[600]),
+                        color: isSelected ? DesignTokens.primary : (isDark ? Colors.grey[400] : Colors.grey[600]),
                       ),
                     ),
                   ],
@@ -409,10 +409,10 @@ class _Header extends ConsumerWidget {
       children: [
         CircleAvatar(
           radius: 18,
-          backgroundColor: const Color(0xFF007AFF).withValues(alpha: 0.15),
+          backgroundColor: DesignTokens.primary.withValues(alpha: 0.15),
           backgroundImage: photo != null && photo.isNotEmpty ? NetworkImage(photo) : null,
           child: photo == null || photo.isEmpty
-              ? const Icon(Icons.person, color: Color(0xFF007AFF), size: 20)
+              ? const Icon(Icons.person, color: DesignTokens.primary, size: 20)
               : null,
         ),
         const SizedBox(width: 10),
@@ -449,7 +449,7 @@ class _Header extends ConsumerWidget {
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
-                          color: isFollowing ? Colors.grey : const Color(0xFF007AFF),
+                          color: isFollowing ? Colors.grey : DesignTokens.primary,
                         ),
                       ),
                     ),

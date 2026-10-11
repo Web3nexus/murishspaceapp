@@ -1,3 +1,4 @@
+import '../core/design_tokens.dart';
 import 'dart:async';
 import 'dart:math';
 import 'dart:ui';
@@ -622,12 +623,12 @@ class _GiftOverlayViewState extends State<_GiftOverlayView> with TickerProviderS
       _GiftKind.rocket => [
           const Color(0xFFFF9500).withValues(alpha: 0.40),
           const Color(0xFFAF52DE).withValues(alpha: 0.25),
-          const Color(0xFF007AFF).withValues(alpha: 0.15),
+          DesignTokens.primary.withValues(alpha: 0.15),
           Colors.transparent,
         ],
       _GiftKind.diamond => [
           const Color(0xFF00C7BE).withValues(alpha: 0.40),
-          const Color(0xFF007AFF).withValues(alpha: 0.28),
+          DesignTokens.primary.withValues(alpha: 0.28),
           const Color(0xFFE5E5EA).withValues(alpha: 0.15),
           Colors.transparent,
         ],
@@ -662,7 +663,7 @@ class _GiftOverlayViewState extends State<_GiftOverlayView> with TickerProviderS
         ],
       _GiftKind.diamond => [
           const Color(0xFF00C7BE),
-          const Color(0xFF007AFF),
+          DesignTokens.primary,
           const Color(0xFFE5E5EA),
           const Color(0xFF00C7BE),
         ],
@@ -676,7 +677,7 @@ class _GiftOverlayViewState extends State<_GiftOverlayView> with TickerProviderS
           const Color(0xFFFFD700),
           const Color(0xFFFF2D55),
           const Color(0xFFAF52DE),
-          const Color(0xFF007AFF),
+          DesignTokens.primary,
           const Color(0xFFFFD700),
         ],
     };

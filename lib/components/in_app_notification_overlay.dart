@@ -1,3 +1,4 @@
+import '../core/design_tokens.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -25,7 +26,7 @@ class InAppNotificationItem {
     this.avatarUrl,
     this.route,
     this.icon = Icons.notifications_active_rounded,
-    this.accentColor = const Color(0xFF007AFF),
+    this.accentColor = DesignTokens.primary,
     this.isOfficial = false,
     this.isVerified = false,
   });
@@ -52,7 +53,7 @@ class InAppNotificationNotifier extends Notifier<InAppNotificationItem?> {
     String body = notif.body;
     String? route = notif.route;
     IconData icon = Icons.notifications_rounded;
-    Color color = const Color(0xFF007AFF);
+    Color color = DesignTokens.primary;
     final isOfficial = notif.isOfficial;
     final isVerified = notif.isVerified;
 
@@ -68,7 +69,7 @@ class InAppNotificationNotifier extends Notifier<InAppNotificationItem?> {
       route = route ?? '/app/profile';
     } else if (type.contains('kyc_requested') || type.contains('kyc')) {
       icon = Icons.shield_rounded;
-      color = const Color(0xFF007AFF);
+      color = DesignTokens.primary;
       route = route ?? '/kyc';
     } else if (type.contains('gift')) {
       icon = Icons.card_giftcard_rounded;
@@ -117,7 +118,7 @@ class InAppNotificationNotifier extends Notifier<InAppNotificationItem?> {
       subtitle: msg.user?.username != null && msg.user!.username.isNotEmpty ? '@${msg.user!.username}' : null,
       route: '/app/conversation/${msg.conversationId}',
       icon: Icons.chat_bubble_rounded,
-      accentColor: const Color(0xFF007AFF),
+      accentColor: DesignTokens.primary,
     ));
   }
 
@@ -216,7 +217,7 @@ class InAppNotificationOverlay extends ConsumerWidget {
                                         fontWeight: FontWeight.w700,
                                         fontSize: 12,
                                         color: notification.isOfficial
-                                            ? const Color(0xFF007AFF)
+                                            ? DesignTokens.primary
                                             : (isDark ? Colors.grey[400] : Colors.grey[700]),
                                       ),
                                     ),
@@ -226,7 +227,7 @@ class InAppNotificationOverlay extends ConsumerWidget {
                                     const Icon(
                                       Icons.verified_rounded,
                                       size: 14,
-                                      color: Color(0xFF007AFF),
+                                      color: DesignTokens.primary,
                                     ),
                                   ],
                                 ],

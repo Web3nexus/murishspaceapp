@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/design_tokens.dart';
 import '../providers/language_provider.dart';
 
 /// Telegram iOS style Language Selection screen connected to languageProvider.
@@ -87,7 +88,7 @@ class LanguageScreen extends ConsumerWidget {
                     ),
                   ),
                   trailing: selected
-                      ? const Icon(Icons.check_circle_rounded, color: Color(0xFF007AFF), size: 22)
+                      ? const Icon(Icons.check_circle_rounded, color: DesignTokens.primary, size: 22)
                       : null,
                 );
               },

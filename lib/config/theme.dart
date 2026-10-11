@@ -114,7 +114,7 @@ class AppTheme {
     final scheme = ColorScheme.fromSeed(
       seedColor: DesignTokens.primary,
       brightness: Brightness.dark,
-      primary: const Color(0xFF007AFF),
+      primary: DesignTokens.primary,
       onPrimary: Colors.white,
       primaryContainer: const Color(0xFF1C1C1E),
       onPrimaryContainer: const Color(0xFF0A84FF),
@@ -165,12 +165,12 @@ class AppTheme {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: Color(0xFF007AFF), width: 1.5),
+          borderSide: const BorderSide(color: DesignTokens.primary, width: 1.5),
         ),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          backgroundColor: const Color(0xFF007AFF),
+          backgroundColor: DesignTokens.primary,
           foregroundColor: Colors.white,
           minimumSize: const Size(0, 48),
           shape: RoundedRectangleBorder(
@@ -181,14 +181,14 @@ class AppTheme {
       ),
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: const Color(0xFF1C1C1E),
-        indicatorColor: const Color(0xFF007AFF).withOpacity(0.2),
+        indicatorColor: DesignTokens.primary.withOpacity(0.2),
         height: DesignTokens.navBarHeight,
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           final selected = states.contains(WidgetState.selected);
           return TextStyle(
             fontSize: 12,
             fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-            color: selected ? const Color(0xFF007AFF) : const Color(0xFF8E8E93),
+            color: selected ? DesignTokens.primary : const Color(0xFF8E8E93),
           );
         }),
       ),
@@ -209,7 +209,7 @@ class AppTheme {
         thumbColor: WidgetStateProperty.resolveWith<Color>((states) => Colors.white),
         trackColor: WidgetStateProperty.resolveWith<Color>((states) {
           if (states.contains(WidgetState.selected)) {
-            return const Color(0xFF007AFF);
+            return DesignTokens.primary;
           }
           return const Color(0xFF38383A);
         }),

@@ -1,3 +1,4 @@
+import '../core/design_tokens.dart';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:livekit_client/livekit_client.dart';
@@ -133,7 +134,7 @@ class _FloatingCallOverlayState extends State<FloatingCallOverlay> {
             child: Center(
               child: CircleAvatar(
                 radius: 26,
-                backgroundColor: const Color(0xFF007AFF),
+                backgroundColor: DesignTokens.primary,
                 backgroundImage: call.avatarUrl != null && call.avatarUrl!.isNotEmpty
                     ? NetworkImage(call.avatarUrl!)
                     : null,
@@ -284,7 +285,7 @@ class _FloatingCallOverlayState extends State<FloatingCallOverlay> {
           // Avatar
           CircleAvatar(
             radius: 20,
-            backgroundColor: const Color(0xFF007AFF),
+            backgroundColor: DesignTokens.primary,
             backgroundImage: call.avatarUrl != null && call.avatarUrl!.isNotEmpty
                 ? NetworkImage(call.avatarUrl!)
                 : null,

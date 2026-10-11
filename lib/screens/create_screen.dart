@@ -1,3 +1,4 @@
+import '../core/design_tokens.dart';
 import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
@@ -185,19 +186,19 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
                                 color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF2F2F7),
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
-                                  color: const Color(0xFF007AFF).withOpacity(0.5),
+                                  color: DesignTokens.primary.withOpacity(0.5),
                                   width: 1.5,
                                 ),
                               ),
                               child: const Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Icon(Icons.add_a_photo_rounded, color: Color(0xFF007AFF), size: 24),
+                                  Icon(Icons.add_a_photo_rounded, color: DesignTokens.primary, size: 24),
                                   SizedBox(height: 4),
                                   Text(
                                     'Add Photo',
                                     style: TextStyle(
-                                      color: Color(0xFF007AFF),
+                                      color: DesignTokens.primary,
                                       fontSize: 10,
                                       fontWeight: FontWeight.bold,
                                     ),
@@ -298,7 +299,7 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
                       height: 48,
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF007AFF),
+                          backgroundColor: DesignTokens.primary,
                           foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
@@ -405,7 +406,7 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
                   height: 48,
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF007AFF),
+                      backgroundColor: DesignTokens.primary,
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
@@ -572,7 +573,7 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
                       height: 48,
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF007AFF),
+                          backgroundColor: DesignTokens.primary,
                           foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
@@ -655,7 +656,7 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
                 children: [
                   CircleAvatar(
                     radius: 20,
-                    backgroundColor: const Color(0xFF007AFF),
+                    backgroundColor: DesignTokens.primary,
                     child: Icon(Icons.person, color: Colors.white, size: 22),
                   ),
                   const SizedBox(width: 12),
@@ -681,13 +682,13 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF007AFF).withOpacity(0.15),
+                      color: DesignTokens.primary.withOpacity(0.15),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
                       role.label,
                       style: const TextStyle(
-                        color: Color(0xFF007AFF),
+                        color: DesignTokens.primary,
                         fontWeight: FontWeight.bold,
                         fontSize: 12,
                       ),
@@ -831,7 +832,7 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
               children: [
                 _createGridCard(
                   icon: Icons.article_rounded,
-                  iconColor: const Color(0xFF007AFF),
+                  iconColor: DesignTokens.primary,
                   title: 'New Post',
                   subtitle: 'Share to feed',
                   isDark: isDark,
@@ -918,7 +919,7 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
               child: Column(
                 children: [
                   ListTile(
-                    leading: const Icon(Icons.mark_chat_unread_rounded, color: Color(0xFF007AFF)),
+                    leading: const Icon(Icons.mark_chat_unread_rounded, color: DesignTokens.primary),
                     title: Text('Automated Greeting Message', style: TextStyle(fontWeight: FontWeight.w700, color: textPrimary)),
                     subtitle: Text('Auto-reply to incoming customer chats', style: TextStyle(fontSize: 12, color: textSecondary)),
                     trailing: const Icon(Icons.chevron_right_rounded),
@@ -1025,10 +1026,10 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
                   width: 64,
                   height: 64,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF007AFF).withOpacity(0.12),
+                    color: DesignTokens.primary.withOpacity(0.12),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.lock_rounded, color: Color(0xFF007AFF), size: 32),
+                  child: const Icon(Icons.lock_rounded, color: DesignTokens.primary, size: 32),
                 ),
                 const SizedBox(height: 16),
                 Text(
@@ -1056,7 +1057,7 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
                   height: 48,
                   child: ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF007AFF),
+                      backgroundColor: DesignTokens.primary,
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                     ),

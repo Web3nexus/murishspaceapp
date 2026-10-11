@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../core/design_tokens.dart';
 
 /// Clean Telegram-style modal bottom sheet for creating chat & community polls.
 class CreatePollSheet extends StatefulWidget {
@@ -260,8 +261,8 @@ class _CreatePollSheetState extends State<CreatePollSheet> {
             if (_optionControllers.length < 10)
               TextButton.icon(
                 onPressed: _addOption,
-                icon: const Icon(Icons.add_rounded, size: 18, color: Color(0xFF007AFF)),
-                label: const Text('Add an option', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: Color(0xFF007AFF))),
+                icon: const Icon(Icons.add_rounded, size: 18, color: DesignTokens.primary),
+                label: const Text('Add an option', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: DesignTokens.primary)),
               ),
             const SizedBox(height: 12),
             const Divider(),
@@ -279,7 +280,7 @@ class _CreatePollSheetState extends State<CreatePollSheet> {
               title: Text('Show Who Voted', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: textPrimary)),
               subtitle: Text('Voters and choices are visible to group members', style: TextStyle(fontSize: 12, color: textSecondary)),
               value: _showWhoVoted,
-              activeColor: const Color(0xFF007AFF),
+              activeColor: DesignTokens.primary,
               onChanged: (val) => setState(() => _showWhoVoted = val),
             ),
             SwitchListTile.adaptive(
@@ -287,7 +288,7 @@ class _CreatePollSheetState extends State<CreatePollSheet> {
               title: Text('Multiple Answers', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: textPrimary)),
               subtitle: Text('Allow voters to select more than one option', style: TextStyle(fontSize: 12, color: textSecondary)),
               value: _isMultipleChoice,
-              activeColor: const Color(0xFF007AFF),
+              activeColor: DesignTokens.primary,
               onChanged: _isQuizMode ? null : (val) => setState(() => _isMultipleChoice = val),
             ),
             SwitchListTile.adaptive(
@@ -295,7 +296,7 @@ class _CreatePollSheetState extends State<CreatePollSheet> {
               title: Text('Allow Members to Add Options', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: textPrimary)),
               subtitle: Text('Participants can contribute custom options', style: TextStyle(fontSize: 12, color: textSecondary)),
               value: _allowAddingOptions,
-              activeColor: const Color(0xFF007AFF),
+              activeColor: DesignTokens.primary,
               onChanged: (val) => setState(() => _allowAddingOptions = val),
             ),
             SwitchListTile.adaptive(
@@ -303,7 +304,7 @@ class _CreatePollSheetState extends State<CreatePollSheet> {
               title: Text('Allow Revoting', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: textPrimary)),
               subtitle: Text('Voters can change their answer after submitting', style: TextStyle(fontSize: 12, color: textSecondary)),
               value: _allowRevoting,
-              activeColor: const Color(0xFF007AFF),
+              activeColor: DesignTokens.primary,
               onChanged: (val) => setState(() => _allowRevoting = val),
             ),
             SwitchListTile.adaptive(
@@ -328,7 +329,7 @@ class _CreatePollSheetState extends State<CreatePollSheet> {
                   value: _durationLimit,
                   dropdownColor: inputBg,
                   underline: const SizedBox.shrink(),
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF007AFF)),
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: DesignTokens.primary),
                   items: const [
                     DropdownMenuItem(value: '24 hours', child: Text('24 Hours')),
                     DropdownMenuItem(value: '3 days', child: Text('3 Days')),
@@ -348,7 +349,7 @@ class _CreatePollSheetState extends State<CreatePollSheet> {
               width: double.infinity,
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF007AFF),
+                  backgroundColor: DesignTokens.primary,
                   foregroundColor: Colors.white,
                   elevation: 0,
                   padding: const EdgeInsets.symmetric(vertical: 14),

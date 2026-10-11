@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/api_client.dart';
+import '../core/design_tokens.dart';
 import '../core/permissions_service.dart';
 import '../models/community_models.dart';
 import '../providers/auth_provider.dart';
@@ -211,7 +212,7 @@ class _GoLiveSetupDialogState extends ConsumerState<GoLiveSetupDialog> {
 
   Color get _modeAccentColor {
     return switch (_streamMode) {
-      'meeting' => const Color(0xFF007AFF),
+      'meeting' => DesignTokens.primary,
       'audio' => const Color(0xFF34C759),
       _ => const Color(0xFFFF3B30),
     };
@@ -396,7 +397,7 @@ class _GoLiveSetupDialogState extends ConsumerState<GoLiveSetupDialog> {
               children: [
                 _buildModeCard('video', 'Live Video', Icons.videocam_rounded, const Color(0xFFFF3B30), isDark),
                 const SizedBox(width: 8),
-                _buildModeCard('meeting', 'Meeting', Icons.groups_rounded, const Color(0xFF007AFF), isDark),
+                _buildModeCard('meeting', 'Meeting', Icons.groups_rounded, DesignTokens.primary, isDark),
                 const SizedBox(width: 8),
                 _buildModeCard('audio', 'Audio Space', Icons.mic_rounded, const Color(0xFF34C759), isDark),
               ],
@@ -409,7 +410,7 @@ class _GoLiveSetupDialogState extends ConsumerState<GoLiveSetupDialog> {
             TextField(
               controller: _titleCtrl,
               style: TextStyle(color: textPrimary, fontSize: 14, fontWeight: FontWeight.w600),
-              cursorColor: const Color(0xFF007AFF),
+              cursorColor: DesignTokens.primary,
               decoration: InputDecoration(
                 hintText: _titleHint,
                 hintStyle: TextStyle(color: textSecondary, fontSize: 13),
@@ -426,7 +427,7 @@ class _GoLiveSetupDialogState extends ConsumerState<GoLiveSetupDialog> {
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
-                  borderSide: const BorderSide(color: Color(0xFF007AFF), width: 1.5),
+                  borderSide: const BorderSide(color: DesignTokens.primary, width: 1.5),
                 ),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               ),

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/api_client.dart';
+import '../core/design_tokens.dart';
 
 class DeviceApprovalDialog extends ConsumerStatefulWidget {
   final int requestId;
@@ -194,7 +195,7 @@ class _DeviceApprovalDialogState extends ConsumerState<DeviceApprovalDialog> {
   Widget _infoRow(String label, String value, IconData icon, Color textColor) {
     return Row(
       children: [
-        Icon(icon, size: 16, color: const Color(0xFF007AFF)),
+        Icon(icon, size: 16, color: DesignTokens.primary),
         const SizedBox(width: 8),
         Text('$label: ', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.grey)),
         Expanded(

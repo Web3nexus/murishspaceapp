@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../core/api_client.dart';
+import '../core/design_tokens.dart';
 import '../models/community_models.dart';
 import '../providers/community_provider.dart';
 
@@ -385,10 +386,10 @@ class _CommunityManageSheetState extends ConsumerState<CommunityManageSheet> wit
               children: [
                 CircleAvatar(
                   radius: 20,
-                  backgroundColor: const Color(0xFF007AFF).withOpacity(0.15),
+                  backgroundColor: DesignTokens.primary.withOpacity(0.15),
                   backgroundImage: _logoUrl != null ? NetworkImage(_logoUrl!) : null,
                   child: _logoUrl == null
-                      ? const Icon(Icons.groups_rounded, color: Color(0xFF007AFF))
+                      ? const Icon(Icons.groups_rounded, color: DesignTokens.primary)
                       : null,
                 ),
                 const SizedBox(width: 12),
@@ -419,9 +420,9 @@ class _CommunityManageSheetState extends ConsumerState<CommunityManageSheet> wit
               controller: _tabController,
               isScrollable: true,
               tabAlignment: TabAlignment.start,
-              labelColor: const Color(0xFF007AFF),
+              labelColor: DesignTokens.primary,
               unselectedLabelColor: textSecondary,
-              indicatorColor: const Color(0xFF007AFF),
+              indicatorColor: DesignTokens.primary,
               tabs: [
                 Tab(text: 'Requests (${_pendingRequests.length})'),
                 Tab(text: 'Members (${_members.length})'),
@@ -467,10 +468,10 @@ class _CommunityManageSheetState extends ConsumerState<CommunityManageSheet> wit
                                 return ListTile(
                                   contentPadding: EdgeInsets.zero,
                                   leading: CircleAvatar(
-                                    backgroundColor: const Color(0xFF007AFF).withOpacity(0.15),
+                                    backgroundColor: DesignTokens.primary.withOpacity(0.15),
                                     backgroundImage: avatar != null && avatar.isNotEmpty ? NetworkImage(avatar) : null,
                                     child: avatar == null || avatar.isEmpty
-                                        ? const Icon(Icons.person, color: Color(0xFF007AFF), size: 22)
+                                        ? const Icon(Icons.person, color: DesignTokens.primary, size: 22)
                                         : null,
                                   ),
                                   title: Text(name, style: TextStyle(fontWeight: FontWeight.bold, color: textPrimary)),
@@ -536,13 +537,13 @@ class _CommunityManageSheetState extends ConsumerState<CommunityManageSheet> wit
                                         decoration: BoxDecoration(
                                           color: isOwner
                                               ? const Color(0xFFFF9500).withOpacity(0.15)
-                                              : const Color(0xFF007AFF).withOpacity(0.15),
+                                              : DesignTokens.primary.withOpacity(0.15),
                                           borderRadius: BorderRadius.circular(8),
                                         ),
                                         child: Text(
                                           isOwner ? 'OWNER' : role,
                                           style: TextStyle(
-                                            color: isOwner ? const Color(0xFFFF9500) : const Color(0xFF007AFF),
+                                            color: isOwner ? const Color(0xFFFF9500) : DesignTokens.primary,
                                             fontWeight: FontWeight.bold,
                                             fontSize: 11,
                                           ),
@@ -630,7 +631,7 @@ class _CommunityManageSheetState extends ConsumerState<CommunityManageSheet> wit
                         height: 50,
                         child: ElevatedButton(
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF007AFF),
+                            backgroundColor: DesignTokens.primary,
                             foregroundColor: Colors.white,
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                           ),
@@ -694,12 +695,12 @@ class _CommunityManageSheetState extends ConsumerState<CommunityManageSheet> wit
                               children: [
                                 CircleAvatar(
                                   radius: 30,
-                                  backgroundColor: const Color(0xFF007AFF).withOpacity(0.15),
+                                  backgroundColor: DesignTokens.primary.withOpacity(0.15),
                                   backgroundImage: _logoUrl != null ? NetworkImage(_logoUrl!) : null,
                                   child: _isUploadingLogo
                                       ? const CircularProgressIndicator(strokeWidth: 2)
                                       : (_logoUrl == null
-                                          ? const Icon(Icons.add_a_photo_rounded, color: Color(0xFF007AFF))
+                                          ? const Icon(Icons.add_a_photo_rounded, color: DesignTokens.primary)
                                           : null),
                                 ),
                                 Positioned(
@@ -708,7 +709,7 @@ class _CommunityManageSheetState extends ConsumerState<CommunityManageSheet> wit
                                   child: Container(
                                     padding: const EdgeInsets.all(4),
                                     decoration: const BoxDecoration(
-                                      color: Color(0xFF007AFF),
+                                      color: DesignTokens.primary,
                                       shape: BoxShape.circle,
                                     ),
                                     child: const Icon(Icons.edit_rounded, size: 11, color: Colors.white),
@@ -758,7 +759,7 @@ class _CommunityManageSheetState extends ConsumerState<CommunityManageSheet> wit
                         height: 50,
                         child: ElevatedButton(
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF007AFF),
+                            backgroundColor: DesignTokens.primary,
                             foregroundColor: Colors.white,
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                           ),

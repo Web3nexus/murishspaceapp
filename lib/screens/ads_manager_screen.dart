@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../components/app_bottom_sheet.dart';
 import '../core/api_client.dart';
 import '../core/currency_formatter.dart';
+import '../core/design_tokens.dart';
 import '../core/roles.dart';
 import '../models/marketplace_models.dart';
 import '../providers/auth_provider.dart';
@@ -188,7 +189,7 @@ class _AdsManagerScreenState extends ConsumerState<AdsManagerScreen>
                   context.push('/kyc');
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF007AFF),
+                  backgroundColor: DesignTokens.primary,
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                 ),
@@ -311,9 +312,9 @@ class _AdsManagerScreenState extends ConsumerState<AdsManagerScreen>
         ),
         bottom: TabBar(
           controller: _tabController,
-          labelColor: const Color(0xFF007AFF),
+          labelColor: DesignTokens.primary,
           unselectedLabelColor: textSecondary,
-          indicatorColor: const Color(0xFF007AFF),
+          indicatorColor: DesignTokens.primary,
           indicatorWeight: 3,
           labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
           tabs: const [
@@ -494,7 +495,7 @@ class _AdsManagerScreenState extends ConsumerState<AdsManagerScreen>
                   child: ChoiceChip(
                     label: Text(obj),
                     selected: selected,
-                    selectedColor: const Color(0xFF007AFF),
+                    selectedColor: DesignTokens.primary,
                     labelStyle: TextStyle(
                       color: selected ? Colors.white : textPrimary,
                       fontWeight: selected ? FontWeight.bold : FontWeight.normal,
@@ -561,7 +562,7 @@ class _AdsManagerScreenState extends ConsumerState<AdsManagerScreen>
                   children: [
                     Text('Daily Budget:', style: TextStyle(color: textSecondary, fontSize: 14)),
                     Text('\$${_dailyBudget.toInt()}/day',
-                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: Color(0xFF007AFF))),
+                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: DesignTokens.primary)),
                   ],
                 ),
                 Slider(
@@ -569,7 +570,7 @@ class _AdsManagerScreenState extends ConsumerState<AdsManagerScreen>
                   min: 5,
                   max: 200,
                   divisions: 39,
-                  activeColor: const Color(0xFF007AFF),
+                  activeColor: DesignTokens.primary,
                   onChanged: (val) => setState(() => _dailyBudget = val),
                 ),
                 const SizedBox(height: 8),
@@ -611,7 +612,7 @@ class _AdsManagerScreenState extends ConsumerState<AdsManagerScreen>
             child: ElevatedButton(
               onPressed: _launchCampaign,
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF007AFF),
+                backgroundColor: DesignTokens.primary,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                 elevation: 0,
@@ -681,7 +682,7 @@ class _AdsManagerScreenState extends ConsumerState<AdsManagerScreen>
                   color: cardBg,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: isSelected ? const Color(0xFF007AFF) : Colors.transparent,
+                    color: isSelected ? DesignTokens.primary : Colors.transparent,
                     width: 2,
                   ),
                 ),
@@ -730,7 +731,7 @@ class _AdsManagerScreenState extends ConsumerState<AdsManagerScreen>
                         _tabController.animateTo(0);
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF007AFF),
+                        backgroundColor: DesignTokens.primary,
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -883,7 +884,7 @@ class _AdsManagerScreenState extends ConsumerState<AdsManagerScreen>
             children: [
               _metricBox('Status', status, isLive ? const Color(0xFF34C759) : textPrimary, textSecondary),
               _metricBox('Daily', dailyBudget != null ? '\$${dailyBudget.toStringAsFixed(2)}' : '—', textPrimary, textSecondary),
-              _metricBox('Total', totalBudget != null ? '\$${totalBudget.toStringAsFixed(2)}' : '—', const Color(0xFF007AFF), textSecondary),
+              _metricBox('Total', totalBudget != null ? '\$${totalBudget.toStringAsFixed(2)}' : '—', DesignTokens.primary, textSecondary),
               _metricBox('Review', reviewStatus, const Color(0xFF5856D6), textSecondary),
             ],
           ),

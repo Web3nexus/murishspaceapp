@@ -92,7 +92,7 @@ class _VerificationBadgeScreenState extends ConsumerState<VerificationBadgeScree
             borderRadius: BorderRadius.circular(24),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF007AFF).withOpacity(0.15),
+                color: DesignTokens.primary.withOpacity(0.15),
                 blurRadius: 24,
                 offset: const Offset(0, 8),
               ),
@@ -108,13 +108,13 @@ class _VerificationBadgeScreenState extends ConsumerState<VerificationBadgeScree
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     gradient: const LinearGradient(
-                      colors: [Color(0xFF007AFF), Color(0xFF5856D6), Color(0xFFFF2D55)],
+                      colors: [DesignTokens.primary, Color(0xFF5856D6), Color(0xFFFF2D55)],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF007AFF).withOpacity(0.4),
+                        color: DesignTokens.primary.withOpacity(0.4),
                         blurRadius: 20,
                         offset: const Offset(0, 8),
                       ),
@@ -160,7 +160,7 @@ class _VerificationBadgeScreenState extends ConsumerState<VerificationBadgeScree
                           padding: const EdgeInsets.symmetric(vertical: 10),
                           decoration: BoxDecoration(
                             color: _billingCycle == 'annual'
-                                ? const Color(0xFF007AFF)
+                                ? DesignTokens.primary
                                 : Colors.transparent,
                             borderRadius: BorderRadius.circular(12),
                           ),
@@ -195,7 +195,7 @@ class _VerificationBadgeScreenState extends ConsumerState<VerificationBadgeScree
                           padding: const EdgeInsets.symmetric(vertical: 10),
                           decoration: BoxDecoration(
                             color: _billingCycle == 'monthly'
-                                ? const Color(0xFF007AFF)
+                                ? DesignTokens.primary
                                 : Colors.transparent,
                             borderRadius: BorderRadius.circular(12),
                           ),
@@ -293,7 +293,7 @@ class _VerificationBadgeScreenState extends ConsumerState<VerificationBadgeScree
                   ? null
                   : () => _handleApplyPressed(context, ref, notifier),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF007AFF),
+                backgroundColor: DesignTokens.primary,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               ),
@@ -397,10 +397,10 @@ class _VerificationBadgeScreenState extends ConsumerState<VerificationBadgeScree
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF007AFF).withOpacity(0.12),
+                  color: DesignTokens.primary.withOpacity(0.12),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.shield_outlined, size: 48, color: Color(0xFF007AFF)),
+                child: const Icon(Icons.shield_outlined, size: 48, color: DesignTokens.primary),
               ),
               const SizedBox(height: 16),
               Text(
@@ -416,7 +416,7 @@ class _VerificationBadgeScreenState extends ConsumerState<VerificationBadgeScree
               const SizedBox(height: 24),
               ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF007AFF),
+                  backgroundColor: DesignTokens.primary,
                   foregroundColor: Colors.white,
                   minimumSize: const Size(double.infinity, 48),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -459,7 +459,7 @@ class _VerificationBadgeScreenState extends ConsumerState<VerificationBadgeScree
                   color: const Color(0xFF34C759).withOpacity(0.12),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.verified_rounded, size: 48, color: Color(0xFF007AFF)),
+                child: const Icon(Icons.verified_rounded, size: 48, color: DesignTokens.primary),
               ),
               const SizedBox(height: 16),
               Text(
@@ -548,7 +548,7 @@ class _VerificationBadgeScreenState extends ConsumerState<VerificationBadgeScree
   Widget _featureRow(String title, bool isDark) {
     return Row(
       children: [
-        const Icon(Icons.check_circle_rounded, color: Color(0xFF007AFF), size: 20),
+        const Icon(Icons.check_circle_rounded, color: DesignTokens.primary, size: 20),
         const SizedBox(width: 12),
         Expanded(
           child: Text(

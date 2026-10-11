@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/api_client.dart';
+import '../core/design_tokens.dart';
 
 /// Interactive Upwork-Style Milestone Escrow & Dispute Dialog for Brand Deals.
 class BrandDealMilestonesDialog extends ConsumerStatefulWidget {
@@ -93,7 +94,7 @@ class _BrandDealMilestonesDialogState extends ConsumerState<BrandDealMilestonesD
               width: double.infinity,
               height: 48,
               child: ElevatedButton(
-                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF007AFF), foregroundColor: Colors.white),
+                style: ElevatedButton.styleFrom(backgroundColor: DesignTokens.primary, foregroundColor: Colors.white),
                 onPressed: () {
                   final title = titleCtrl.text.trim();
                   final amount = double.tryParse(amountCtrl.text.trim()) ?? 0;
@@ -246,8 +247,8 @@ class _BrandDealMilestonesDialogState extends ConsumerState<BrandDealMilestonesD
             Row(
               children: [
                 CircleAvatar(
-                  backgroundColor: const Color(0xFF007AFF).withValues(alpha: 0.15),
-                  child: const Icon(Icons.shield_outlined, color: Color(0xFF007AFF)),
+                  backgroundColor: DesignTokens.primary.withValues(alpha: 0.15),
+                  child: const Icon(Icons.shield_outlined, color: DesignTokens.primary),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -260,7 +261,7 @@ class _BrandDealMilestonesDialogState extends ConsumerState<BrandDealMilestonesD
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.add_circle_outline_rounded, color: Color(0xFF007AFF)),
+                  icon: const Icon(Icons.add_circle_outline_rounded, color: DesignTokens.primary),
                   tooltip: 'Add Milestone',
                   onPressed: _showAddMilestoneSheet,
                 ),
@@ -272,15 +273,15 @@ class _BrandDealMilestonesDialogState extends ConsumerState<BrandDealMilestonesD
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: const Color(0xFF007AFF).withValues(alpha: 0.12),
+                color: DesignTokens.primary.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFF007AFF).withValues(alpha: 0.3)),
+                border: Border.all(color: DesignTokens.primary.withValues(alpha: 0.3)),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
                   _summaryCol('Total Budget', '\$${widget.budget.toStringAsFixed(0)}', textPrimary),
-                  _summaryCol('In Escrow', '\$${totalEscrow.toStringAsFixed(0)}', const Color(0xFF007AFF)),
+                  _summaryCol('In Escrow', '\$${totalEscrow.toStringAsFixed(0)}', DesignTokens.primary),
                   _summaryCol('Milestones', '${_milestones.length}', textPrimary),
                 ],
               ),
@@ -297,7 +298,7 @@ class _BrandDealMilestonesDialogState extends ConsumerState<BrandDealMilestonesD
                   final status = m['status'] as String;
                   final amount = m['amount'] as double;
 
-                  Color statusColor = const Color(0xFF007AFF);
+                  Color statusColor = DesignTokens.primary;
                   String statusLabel = 'Funded in Escrow';
 
                   if (status == 'submitted_for_review') {
@@ -346,7 +347,7 @@ class _BrandDealMilestonesDialogState extends ConsumerState<BrandDealMilestonesD
                             if (status == 'funded_in_escrow')
                               Expanded(
                                 child: ElevatedButton.icon(
-                                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF007AFF), foregroundColor: Colors.white),
+                                  style: ElevatedButton.styleFrom(backgroundColor: DesignTokens.primary, foregroundColor: Colors.white),
                                   onPressed: () => _showSubmitProofSheet(m),
                                   icon: const Icon(Icons.upload_file_rounded, size: 16),
                                   label: const Text('Submit Work', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),

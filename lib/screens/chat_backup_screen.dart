@@ -90,10 +90,10 @@ class _ChatBackupScreenState extends State<ChatBackupScreen> {
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF007AFF).withOpacity(0.15),
+                        color: DesignTokens.primary.withOpacity(0.15),
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.cloud_upload_rounded, color: Color(0xFF007AFF), size: 26),
+                      child: const Icon(Icons.cloud_upload_rounded, color: DesignTokens.primary, size: 26),
                     ),
                     const SizedBox(width: 14),
                     Expanded(
@@ -128,7 +128,7 @@ class _ChatBackupScreenState extends State<ChatBackupScreen> {
                   child: ElevatedButton.icon(
                     onPressed: _isBackingUp ? null : _startEmailBackup,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF007AFF),
+                      backgroundColor: DesignTokens.primary,
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                     ),
@@ -330,10 +330,10 @@ class _ChatBackupScreenState extends State<ChatBackupScreen> {
                   leading: Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF007AFF).withOpacity(0.15),
+                      color: DesignTokens.primary.withOpacity(0.15),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.local_offer_rounded, color: Color(0xFF007AFF), size: 20),
+                    child: const Icon(Icons.local_offer_rounded, color: DesignTokens.primary, size: 20),
                   ),
                   title: Text(
                     'Auto-Tag Business Chats',
@@ -350,12 +350,12 @@ class _ChatBackupScreenState extends State<ChatBackupScreen> {
                   trailing: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF007AFF).withOpacity(0.15),
+                      color: DesignTokens.primary.withOpacity(0.15),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: const Text(
                       'ACTIVE',
-                      style: TextStyle(color: Color(0xFF007AFF), fontSize: 10, fontWeight: FontWeight.w900),
+                      style: TextStyle(color: DesignTokens.primary, fontSize: 10, fontWeight: FontWeight.w900),
                     ),
                   ),
                 ),

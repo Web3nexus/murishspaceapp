@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../core/design_tokens.dart';
 
 /// An animated button that transitions smoothly between idle (e.g. "Copy", "Send")
 /// and active (e.g. "Copied ✓", "Sent ✓") states in-place, eliminating jarring
@@ -25,7 +26,7 @@ class AnimatedActionFeedbackButton extends StatefulWidget {
     super.key,
     this.idleLabel = 'Copy',
     this.idleIcon = Icons.copy_rounded,
-    this.idleColor = const Color(0xFF007AFF),
+    this.idleColor = DesignTokens.primary,
     this.idleTextColor = Colors.white,
     this.activeLabel = 'Copied!',
     this.activeIcon = Icons.check_rounded,

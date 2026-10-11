@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../core/design_tokens.dart';
 import '../core/permissions_service.dart';
 import '../core/roles.dart';
 import '../providers/auth_provider.dart';
@@ -136,7 +137,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
                           decoration: InputDecoration(
                             hintText: 'Type city, state, or country…',
                             hintStyle: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600]),
-                            prefixIcon: const Icon(Icons.search_rounded, color: Color(0xFF007AFF)),
+                            prefixIcon: const Icon(Icons.search_rounded, color: DesignTokens.primary),
                             filled: true,
                             fillColor: cardColor,
                             border: OutlineInputBorder(
@@ -216,11 +217,11 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
                                         child: Container(
                                           padding: const EdgeInsets.all(4),
                                           decoration: BoxDecoration(
-                                            color: const Color(0xFF007AFF),
+                                            color: DesignTokens.primary,
                                             shape: BoxShape.circle,
                                             boxShadow: [
                                               BoxShadow(
-                                                color: const Color(0xFF007AFF).withOpacity(0.6),
+                                                color: DesignTokens.primary.withOpacity(0.6),
                                                 blurRadius: 12,
                                                 spreadRadius: 2,
                                               ),
@@ -245,7 +246,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
                                 children: [
                                   Row(
                                     children: [
-                                      const Icon(Icons.location_on_rounded, color: Color(0xFF007AFF), size: 18),
+                                      const Icon(Icons.location_on_rounded, color: DesignTokens.primary, size: 18),
                                       const SizedBox(width: 6),
                                       Expanded(
                                         child: Text(
@@ -265,7 +266,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
                                       Expanded(
                                         child: ElevatedButton.icon(
                                           style: ElevatedButton.styleFrom(
-                                            backgroundColor: const Color(0xFF007AFF),
+                                            backgroundColor: DesignTokens.primary,
                                             foregroundColor: Colors.white,
                                             elevation: 0,
                                             shape: RoundedRectangleBorder(
@@ -358,13 +359,13 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
                                 padding: const EdgeInsets.all(6),
                                 decoration: BoxDecoration(
                                   color: isSelected
-                                      ? const Color(0xFF007AFF).withOpacity(0.15)
+                                      ? DesignTokens.primary.withOpacity(0.15)
                                       : (isDark ? const Color(0xFF3A3B3C) : const Color(0xFFE4E6EB)),
                                   shape: BoxShape.circle,
                                 ),
                                 child: Icon(
                                   Icons.location_on_rounded,
-                                  color: isSelected ? const Color(0xFF007AFF) : (isDark ? Colors.grey[300] : Colors.grey[700]),
+                                  color: isSelected ? DesignTokens.primary : (isDark ? Colors.grey[300] : Colors.grey[700]),
                                   size: 18,
                                 ),
                               ),
@@ -374,12 +375,12 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
                                   fontSize: 14,
                                   fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                                   color: isSelected
-                                      ? const Color(0xFF007AFF)
+                                      ? DesignTokens.primary
                                       : (isDark ? Colors.white : Colors.black),
                                 ),
                               ),
                               trailing: isSelected
-                                  ? const Icon(Icons.check_circle_rounded, color: Color(0xFF007AFF), size: 18)
+                                  ? const Icon(Icons.check_circle_rounded, color: DesignTokens.primary, size: 18)
                                   : null,
                               onTap: () {
                                 setState(() {
@@ -454,10 +455,10 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
                   leading: Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF007AFF).withOpacity(0.12),
+                      color: DesignTokens.primary.withOpacity(0.12),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.bookmark_rounded, color: Color(0xFF007AFF), size: 20),
+                    child: const Icon(Icons.bookmark_rounded, color: DesignTokens.primary, size: 20),
                   ),
                   title: Text('Saved Items & Wishlist', style: TextStyle(fontWeight: FontWeight.w700, color: textPrimary)),
                   subtitle: Text('View items you have saved or bookmarked', style: TextStyle(fontSize: 12, color: textSecondary)),
@@ -567,10 +568,10 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF007AFF).withOpacity(0.12),
+                  color: DesignTokens.primary.withOpacity(0.12),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.storefront_outlined, size: 48, color: Color(0xFF007AFF)),
+                child: const Icon(Icons.storefront_outlined, size: 48, color: DesignTokens.primary),
               ),
               const SizedBox(height: 16),
               Text(
@@ -780,7 +781,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
               children: [
                 // 1. Saved Location Chip (FIRST)
                 ActionChip(
-                  avatar: const Icon(Icons.location_on_rounded, size: 16, color: Color(0xFF007AFF)),
+                  avatar: const Icon(Icons.location_on_rounded, size: 16, color: DesignTokens.primary),
                   label: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -793,7 +794,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
                         ),
                       ),
                       const SizedBox(width: 4),
-                      const Icon(Icons.arrow_drop_down_rounded, size: 18, color: Color(0xFF007AFF)),
+                      const Icon(Icons.arrow_drop_down_rounded, size: 18, color: DesignTokens.primary),
                     ],
                   ),
                   backgroundColor: isDark ? const Color(0xFF3A3B3C) : const Color(0xFFE4E6EB),
@@ -820,7 +821,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
                     child: ChoiceChip(
                       label: Text(cat),
                       selected: isSelected,
-                      selectedColor: const Color(0xFF007AFF),
+                      selectedColor: DesignTokens.primary,
                       backgroundColor: isDark ? const Color(0xFF3A3B3C) : const Color(0xFFE4E6EB),
                       labelStyle: TextStyle(
                         color: isSelected
@@ -933,7 +934,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
                                   const SizedBox(height: 20),
                                   ElevatedButton.icon(
                                     style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color(0xFF007AFF),
+                                      backgroundColor: DesignTokens.primary,
                                       foregroundColor: Colors.white,
                                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                     ),

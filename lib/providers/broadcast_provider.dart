@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/api_client.dart';
+import '../core/design_tokens.dart';
 
 enum BroadcastType { securityAlert, transactionOtp, announcement, systemUpdate }
 
@@ -47,7 +48,7 @@ class BroadcastMessage {
       case BroadcastType.transactionOtp:
         return const Color(0xFFFF9500);
       case BroadcastType.announcement:
-        return const Color(0xFF007AFF);
+        return DesignTokens.primary;
       case BroadcastType.systemUpdate:
         return const Color(0xFF34C759);
     }

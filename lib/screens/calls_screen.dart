@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../core/design_tokens.dart';
 import '../providers/calls_provider.dart';
 import '../providers/friends_provider.dart';
 import 'call_screen.dart';
@@ -95,7 +96,7 @@ class CallsScreen extends ConsumerWidget {
                                 const SizedBox(height: 14),
                                 ElevatedButton(
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF007AFF),
+                                    backgroundColor: DesignTokens.primary,
                                     foregroundColor: Colors.white,
                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                   ),
@@ -119,12 +120,12 @@ class CallsScreen extends ConsumerWidget {
                                   children: [
                                     CircleAvatar(
                                       radius: 24,
-                                      backgroundColor: const Color(0xFF007AFF).withOpacity(0.15),
+                                      backgroundColor: DesignTokens.primary.withOpacity(0.15),
                                       backgroundImage: friend.avatarUrl != null && friend.avatarUrl!.isNotEmpty
                                           ? CachedNetworkImageProvider(friend.avatarUrl!)
                                           : null,
                                       child: friend.avatarUrl == null || friend.avatarUrl!.isEmpty
-                                          ? Icon(Icons.person, color: const Color(0xFF007AFF), size: 26)
+                                          ? Icon(Icons.person, color: DesignTokens.primary, size: 26)
                                           : null,
                                     ),
                                     if (friend.isOnline)
@@ -201,12 +202,12 @@ class CallsScreen extends ConsumerWidget {
               const SizedBox(height: 16),
               CircleAvatar(
                 radius: 32,
-                backgroundColor: const Color(0xFF007AFF).withOpacity(0.15),
+                backgroundColor: DesignTokens.primary.withOpacity(0.15),
                 backgroundImage: friend.avatarUrl != null && friend.avatarUrl!.isNotEmpty
                     ? CachedNetworkImageProvider(friend.avatarUrl!)
                     : null,
                 child: friend.avatarUrl == null || friend.avatarUrl!.isEmpty
-                    ? Icon(Icons.person, color: const Color(0xFF007AFF), size: 34)
+                    ? Icon(Icons.person, color: DesignTokens.primary, size: 34)
                     : null,
               ),
               const SizedBox(height: 10),
@@ -284,19 +285,19 @@ class CallsScreen extends ConsumerWidget {
                       child: Container(
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF007AFF).withOpacity(0.12),
+                          color: DesignTokens.primary.withOpacity(0.12),
                           borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: const Color(0xFF007AFF).withOpacity(0.4)),
+                          border: Border.all(color: DesignTokens.primary.withOpacity(0.4)),
                         ),
                         child: const Column(
                           children: [
                             CircleAvatar(
                               radius: 22,
-                              backgroundColor: Color(0xFF007AFF),
+                              backgroundColor: DesignTokens.primary,
                               child: Icon(Icons.videocam_rounded, color: Colors.white, size: 22),
                             ),
                             SizedBox(height: 8),
-                            Text('HD Video', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: Color(0xFF007AFF))),
+                            Text('HD Video', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: DesignTokens.primary)),
                             Text('Face to Face', style: TextStyle(fontSize: 11, color: Colors.grey)),
                           ],
                         ),
@@ -340,10 +341,10 @@ class CallsScreen extends ConsumerWidget {
             icon: Container(
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                color: const Color(0xFF007AFF).withOpacity(0.15),
+                color: DesignTokens.primary.withOpacity(0.15),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.add_call, color: Color(0xFF007AFF), size: 18),
+              child: const Icon(Icons.add_call, color: DesignTokens.primary, size: 18),
             ),
             tooltip: 'Start Call',
           ),
@@ -394,10 +395,10 @@ class CallsScreen extends ConsumerWidget {
                   Container(
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF007AFF).withOpacity(0.12),
+                      color: DesignTokens.primary.withOpacity(0.12),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.phone_in_talk_rounded, size: 48, color: Color(0xFF007AFF)),
+                    child: const Icon(Icons.phone_in_talk_rounded, size: 48, color: DesignTokens.primary),
                   ),
                   const SizedBox(height: 16),
                   Text('No Call Records', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: textPrimary)),
@@ -410,7 +411,7 @@ class CallsScreen extends ConsumerWidget {
                   const SizedBox(height: 18),
                   ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF007AFF),
+                      backgroundColor: DesignTokens.primary,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -476,7 +477,7 @@ class CallsScreen extends ConsumerWidget {
                             ),
                           ),
                           if (call.isVideo)
-                            const Icon(Icons.videocam_rounded, size: 16, color: Color(0xFF007AFF)),
+                            const Icon(Icons.videocam_rounded, size: 16, color: DesignTokens.primary),
                         ],
                       ),
                       subtitle: Text(

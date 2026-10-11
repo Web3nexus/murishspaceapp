@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/design_tokens.dart';
 import '../providers/admin_moderation_provider.dart';
 
 /// Comprehensive Help Center Guide for Brand Deals & Escrow Policies.
@@ -78,7 +79,7 @@ class BrandDealsHelpScreen extends ConsumerWidget {
             title: '1. Upfront Commitment Deposit (${depositPct.toStringAsFixed(0)}%)',
             body: 'To protect creators from brand ghosting or cancelled negotiations after work begins, all brand sponsors must lock a minimum ${depositPct.toStringAsFixed(0)}% Commitment Deposit upfront into MurihSpace Escrow before posting a campaign live.\n\nOnce locked, this deposit guarantees creator compensation upon deliverable completion.',
             icon: Icons.lock_clock_rounded,
-            color: const Color(0xFF007AFF),
+            color: DesignTokens.primary,
             cardBg: cardBg,
             textPrimary: textPrimary,
             textSecondary: textSecondary,

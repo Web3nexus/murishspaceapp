@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/api_client.dart';
+import '../core/design_tokens.dart';
 import '../models/community_models.dart';
 import '../providers/auth_provider.dart';
 import '../providers/saved_messages_provider.dart';
@@ -140,9 +141,9 @@ class _SavedPostsScreenState extends ConsumerState<SavedPostsScreen> with Single
         ),
         bottom: TabBar(
           controller: _tabController,
-          labelColor: const Color(0xFF007AFF),
+          labelColor: DesignTokens.primary,
           unselectedLabelColor: textSecondary,
-          indicatorColor: const Color(0xFF007AFF),
+          indicatorColor: DesignTokens.primary,
           tabs: [
             Tab(
               child: Row(
@@ -199,10 +200,10 @@ class _SavedPostsScreenState extends ConsumerState<SavedPostsScreen> with Single
                                     Container(
                                       padding: const EdgeInsets.all(20),
                                       decoration: BoxDecoration(
-                                        color: const Color(0xFF007AFF).withOpacity(0.12),
+                                        color: DesignTokens.primary.withOpacity(0.12),
                                         shape: BoxShape.circle,
                                       ),
-                                      child: const Icon(Icons.bookmark_border_rounded, size: 48, color: Color(0xFF007AFF)),
+                                      child: const Icon(Icons.bookmark_border_rounded, size: 48, color: DesignTokens.primary),
                                     ),
                                     const SizedBox(height: 16),
                                     Text(
@@ -270,7 +271,7 @@ class _SavedPostsScreenState extends ConsumerState<SavedPostsScreen> with Single
                     margin: const EdgeInsets.only(right: 8),
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: isSelected ? const Color(0xFF007AFF) : (isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF2F4F7)),
+                      color: isSelected ? DesignTokens.primary : (isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF2F4F7)),
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: Row(
@@ -315,7 +316,7 @@ class _SavedPostsScreenState extends ConsumerState<SavedPostsScreen> with Single
               const SizedBox(width: 8),
               IconButton(
                 onPressed: _addNote,
-                icon: const Icon(Icons.send_rounded, color: Color(0xFF007AFF)),
+                icon: const Icon(Icons.send_rounded, color: DesignTokens.primary),
               ),
             ],
           ),
@@ -351,10 +352,10 @@ class _SavedPostsScreenState extends ConsumerState<SavedPostsScreen> with Single
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF007AFF).withOpacity(0.15),
+                                  color: DesignTokens.primary.withOpacity(0.15),
                                   borderRadius: BorderRadius.circular(6),
                                 ),
-                                child: Text(item.category, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF007AFF))),
+                                child: Text(item.category, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: DesignTokens.primary)),
                               ),
                               IconButton(
                                 icon: const Icon(Icons.delete_outline_rounded, size: 16, color: Colors.grey),

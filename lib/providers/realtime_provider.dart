@@ -75,6 +75,18 @@ class RealtimeService {
     client.subscribe('private-conversation.$conversationId');
   }
 
+  ReverbClient get client => _ensureClient();
+
+  Stream<RealtimeEvent> get events => _ensureClient().events;
+
+  void subscribe(String channel) {
+    _ensureClient().subscribe(channel);
+  }
+
+  void unsubscribe(String channel) {
+    _client?.unsubscribe(channel);
+  }
+
   void leaveConversation(int conversationId) {
     if (_activeConversationId == conversationId) {
       _activeConversationId = null;

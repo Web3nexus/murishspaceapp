@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../components/animated_action_feedback.dart';
 import '../components/share_sheet.dart';
 import '../config/env.dart';
+import '../core/design_tokens.dart';
 import '../providers/auth_provider.dart';
 
 enum LinkType { url, product, social }
@@ -72,7 +73,7 @@ const List<BioThemePreset> BIO_THEMES = [
     cardBg: Color(0xFF2C2C2E),
     textPrimary: Colors.white,
     textSecondary: Colors.white60,
-    accent: Color(0xFF007AFF),
+    accent: DesignTokens.primary,
   ),
   BioThemePreset(
     name: 'Sunset Velvet',
@@ -105,7 +106,7 @@ const List<BioThemePreset> BIO_THEMES = [
     cardBg: Colors.white,
     textPrimary: Color(0xFF212529),
     textSecondary: Color(0xFF6C757D),
-    accent: Color(0xFF007AFF),
+    accent: DesignTokens.primary,
   ),
 ];
 
@@ -290,7 +291,7 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> with SingleTi
                   height: 48,
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF007AFF),
+                      backgroundColor: DesignTokens.primary,
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                     ),
@@ -388,7 +389,7 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> with SingleTi
                       Container(
                         padding: const EdgeInsets.all(6),
                         decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-                        child: const Icon(Icons.link_rounded, color: Color(0xFF007AFF), size: 24),
+                        child: const Icon(Icons.link_rounded, color: DesignTokens.primary, size: 24),
                       ),
                     ],
                   ),
@@ -472,17 +473,17 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> with SingleTi
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('Link in Bio Studio', style: TextStyle(color: textPrimary, fontWeight: FontWeight.w900, fontSize: 18)),
-            Text(displayUrl, style: const TextStyle(color: Color(0xFF007AFF), fontSize: 11, fontWeight: FontWeight.bold)),
+            Text(displayUrl, style: const TextStyle(color: DesignTokens.primary, fontSize: 11, fontWeight: FontWeight.bold)),
           ],
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.qr_code_rounded, color: Color(0xFF007AFF)),
+            icon: const Icon(Icons.qr_code_rounded, color: DesignTokens.primary),
             tooltip: 'QR Code',
             onPressed: () => _showQrCodeModal(username, bioUrl),
           ),
           IconButton(
-            icon: const Icon(Icons.share_rounded, color: Color(0xFF007AFF)),
+            icon: const Icon(Icons.share_rounded, color: DesignTokens.primary),
             tooltip: 'Share Bio Link',
             onPressed: () {
               AppShare.share(
@@ -493,7 +494,7 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> with SingleTi
             },
           ),
           IconButton(
-            icon: const Icon(Icons.add_rounded, color: Color(0xFF007AFF)),
+            icon: const Icon(Icons.add_rounded, color: DesignTokens.primary),
             tooltip: 'Add Link',
             onPressed: () => _showAddLinkSheet(),
           ),
@@ -512,7 +513,7 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> with SingleTi
             ),
             child: Row(
               children: [
-                Expanded(child: _analyticStat('Total Clicks', '$totalClicks', Icons.touch_app_rounded, const Color(0xFF007AFF))),
+                Expanded(child: _analyticStat('Total Clicks', '$totalClicks', Icons.touch_app_rounded, DesignTokens.primary)),
                 Container(height: 24, width: 1, color: textSecondary?.withValues(alpha: 0.3)),
                 Expanded(child: _analyticStat('Active Links', '${_links.where((l) => l.isActive).length}', Icons.link_rounded, const Color(0xFF34C759))),
                 Container(height: 24, width: 1, color: textSecondary?.withValues(alpha: 0.3)),
@@ -524,9 +525,9 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> with SingleTi
           // Tabs Navigation
           TabBar(
             controller: _tabController,
-            labelColor: const Color(0xFF007AFF),
+            labelColor: DesignTokens.primary,
             unselectedLabelColor: textSecondary,
-            indicatorColor: const Color(0xFF007AFF),
+            indicatorColor: DesignTokens.primary,
             tabs: const [
               Tab(text: 'Editor'),
               Tab(text: 'Live Preview 📱'),
@@ -599,9 +600,9 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> with SingleTi
                                 const SizedBox(height: 4),
                                 Row(
                                   children: [
-                                    const Icon(Icons.touch_app_rounded, size: 12, color: Color(0xFF007AFF)),
+                                    const Icon(Icons.touch_app_rounded, size: 12, color: DesignTokens.primary),
                                     const SizedBox(width: 4),
-                                    Text('${link.clickCount} clicks', style: const TextStyle(fontSize: 11, color: Color(0xFF007AFF), fontWeight: FontWeight.bold)),
+                                    Text('${link.clickCount} clicks', style: const TextStyle(fontSize: 11, color: DesignTokens.primary, fontWeight: FontWeight.bold)),
                                   ],
                                 ),
                               ],
@@ -771,7 +772,7 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> with SingleTi
                             decoration: BoxDecoration(
                               gradient: LinearGradient(colors: theme.bgGradient),
                               borderRadius: BorderRadius.circular(14),
-                              border: Border.all(color: isSelected ? const Color(0xFF007AFF) : Colors.transparent, width: 2.5),
+                              border: Border.all(color: isSelected ? DesignTokens.primary : Colors.transparent, width: 2.5),
                             ),
                             child: Row(
                               children: [
@@ -785,7 +786,7 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> with SingleTi
                                     ],
                                   ),
                                 ),
-                                if (isSelected) const Icon(Icons.check_circle_rounded, color: Color(0xFF007AFF), size: 18),
+                                if (isSelected) const Icon(Icons.check_circle_rounded, color: DesignTokens.primary, size: 18),
                               ],
                             ),
                           ),
@@ -831,7 +832,7 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> with SingleTi
                       height: 48,
                       child: ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF007AFF),
+                          backgroundColor: DesignTokens.primary,
                           foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                         ),

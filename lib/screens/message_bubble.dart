@@ -26,6 +26,9 @@ class MessageBubble extends StatelessWidget {
   final VoidCallback onForward;
   final VoidCallback? onRetry;
   final ValueChanged<bool>? onCall;
+  final bool selectionMode;
+  final bool selected;
+  final VoidCallback? onToggleSelect;
 
   const MessageBubble({
     super.key,
@@ -38,6 +41,9 @@ class MessageBubble extends StatelessWidget {
     required this.onForward,
     this.onRetry,
     this.onCall,
+    this.selectionMode = false,
+    this.selected = false,
+    this.onToggleSelect,
   });
 
   bool get _mine => message.userId == myId;
@@ -49,29 +55,54 @@ class MessageBubble extends StatelessWidget {
     final mine = _mine;
     final showName = !mine && showSenderName && message.user?.name != null && message.user!.name.isNotEmpty;
 
+    final bubbleColumn = Column(
+      crossAxisAlignment: mine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+      children: [
+        if (showName) _SenderName(name: message.user!.name),
+        GestureDetector(
+          onLongPress: selectionMode ? onToggleSelect : () => _showActions(context),
+          onTap: selectionMode ? onToggleSelect : () => _showReactions(context),
+          child: _BubbleContent(
+            message: message,
+            mine: mine,
+            onRetry: onRetry,
+            onCall: onCall,
+            selectionMode: selectionMode,
+          ),
+        ),
+        if (message.reactions.isNotEmpty)
+          _ReactionChips(
+            reactions: message.reactions,
+            onToggle: selectionMode ? null : onReact,
+          ),
+      ],
+    );
+
+    final content = selectionMode
+        ? Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              GestureDetector(
+                onTap: onToggleSelect,
+                child: _SelectionBadge(selected: selected),
+              ),
+              const SizedBox(width: 4),
+              Flexible(child: bubbleColumn),
+            ],
+          )
+        : bubbleColumn;
+
+    final aligned = Align(
+      alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
+      child: content,
+    );
+
+    if (selectionMode) return aligned;
+
     return _SwipeToReplyWrapper(
       onReply: onReply,
-      child: Align(
-        alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
-        child: Column(
-          crossAxisAlignment: mine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-          children: [
-            if (showName) _SenderName(name: message.user!.name),
-            GestureDetector(
-              onLongPress: () => _showActions(context),
-              onTap: () => _showReactions(context),
-              child: _BubbleContent(
-                message: message,
-                mine: mine,
-                onRetry: onRetry,
-                onCall: onCall,
-              ),
-            ),
-            if (message.reactions.isNotEmpty)
-              _ReactionChips(reactions: message.reactions, onToggle: onReact),
-          ],
-        ),
-      ),
+      child: aligned,
     );
   }
 
@@ -114,6 +145,11 @@ class MessageBubble extends StatelessWidget {
               title: const Text('Forward'),
               onTap: () => Navigator.pop(context, 'forward'),
             ),
+            ListTile(
+              leading: const Icon(Icons.check_circle_outline),
+              title: const Text('Select'),
+              onTap: () => Navigator.pop(context, 'select'),
+            ),
             if (!message.deleted)
               ListTile(
                 leading: const Icon(Icons.content_copy),
@@ -141,6 +177,8 @@ class MessageBubble extends StatelessWidget {
         onReply();
       case 'forward':
         onForward();
+      case 'select':
+        onToggleSelect?.call();
       case 'copy':
         await Clipboard.setData(ClipboardData(text: message.content));
       case 'delete':
@@ -293,17 +331,48 @@ class _SenderName extends StatelessWidget {
   }
 }
 
+class _SelectionBadge extends StatelessWidget {
+  final bool selected;
+
+  const _SelectionBadge({required this.selected});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 120),
+        width: 22,
+        height: 22,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: selected ? DesignTokens.primary : Colors.transparent,
+          border: Border.all(
+            color: selected ? DesignTokens.primary : Colors.grey.withValues(alpha: 0.6),
+            width: 2,
+          ),
+        ),
+        child: selected
+            ? const Icon(Icons.check, size: 14, color: Colors.white)
+            : null,
+      ),
+    );
+  }
+}
+
 class _BubbleContent extends StatelessWidget {
   final Message message;
   final bool mine;
   final VoidCallback? onRetry;
   final ValueChanged<bool>? onCall;
+  final bool selectionMode;
 
   const _BubbleContent({
     required this.message,
     required this.mine,
     this.onRetry,
     this.onCall,
+    this.selectionMode = false,
   });
 
   @override
@@ -311,13 +380,17 @@ class _BubbleContent extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final maxWidth = MediaQuery.of(context).size.width * 0.72;
     final Color bubbleColor = mine
-        ? const Color(0xFF007AFF)
+        ? DesignTokens.primary
         : (isDark ? const Color(0xFF1C1C1E) : Colors.white);
     final Color textColor = mine
         ? Colors.white
         : (isDark ? Colors.white : Colors.black87);
 
-    return Container(
+    return AbsorbPointer(
+      // In selection mode only the selection toggle should receive gestures;
+      // this blocks media viewers, location links, and the call button inside.
+      absorbing: selectionMode,
+      child: Container(
       constraints: BoxConstraints(maxWidth: maxWidth),
       margin: const EdgeInsets.only(top: 2, bottom: 2),
       padding: message.hasAttachment && message.isImage
@@ -423,6 +496,7 @@ class _BubbleContent extends StatelessWidget {
           _MetaRow(message: message, mine: mine, onRetry: onRetry),
         ],
       ),
+      ),
     );
   }
 }
@@ -454,7 +528,7 @@ class _ReplyPreview extends StatelessWidget {
             ),
           ),
           Text(
-            message.attachmentType == 'image' ? 'Photo' : message.content,
+            messagePreview(message),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
@@ -523,9 +597,9 @@ class _MetaRow extends StatelessWidget {
 
 class _ReactionChips extends StatelessWidget {
   final List<ReactionSummary> reactions;
-  final ValueChanged<String> onToggle;
+  final ValueChanged<String>? onToggle;
 
-  const _ReactionChips({required this.reactions, required this.onToggle});
+  const _ReactionChips({required this.reactions, this.onToggle});
 
   @override
   Widget build(BuildContext context) {
@@ -537,18 +611,18 @@ class _ReactionChips extends StatelessWidget {
         children: [
           for (final r in reactions)
             InkWell(
-              onTap: () => onToggle(r.emoji),
+              onTap: onToggle == null ? null : () => onToggle!(r.emoji),
               borderRadius: BorderRadius.circular(12),
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
                   color: r.byMe
-                      ? const Color(0xFF007AFF).withValues(alpha: 0.15)
+                      ? DesignTokens.primary.withValues(alpha: 0.15)
                       : (isDark ? const Color(0xFF2C2C2E) : Colors.white),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
                     color: r.byMe
-                        ? const Color(0xFF007AFF)
+                        ? DesignTokens.primary
                         : (isDark ? const Color(0xFF38383A) : const Color(0xFFE5E5EA)),
                   ),
                 ),
@@ -557,7 +631,7 @@ class _ReactionChips extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 12,
                     color: r.byMe
-                        ? const Color(0xFF007AFF)
+                        ? DesignTokens.primary
                         : (isDark ? Colors.white70 : Colors.black87),
                   ),
                 ),
@@ -851,7 +925,7 @@ class _ChatPollWidgetState extends State<_ChatPollWidget> {
         borderColor = const Color(0xFFFF3B30);
       }
     } else if (isSelected) {
-      borderColor = widget.mine ? Colors.white : const Color(0xFF007AFF);
+      borderColor = widget.mine ? Colors.white : DesignTokens.primary;
     }
 
     return GestureDetector(
@@ -883,7 +957,7 @@ class _ChatPollWidgetState extends State<_ChatPollWidget> {
                           ? const Color(0xFF34C759)
                           : (isSelected ? const Color(0xFFFF3B30) : subtextColor))
                       : (isSelected
-                          ? (widget.mine ? Colors.white : const Color(0xFF007AFF))
+                          ? (widget.mine ? Colors.white : DesignTokens.primary)
                           : subtextColor),
                 ),
                 const SizedBox(width: 8),
@@ -905,7 +979,7 @@ class _ChatPollWidgetState extends State<_ChatPollWidget> {
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
                       color: isSelected
-                          ? (widget.mine ? Colors.white : const Color(0xFF007AFF))
+                          ? (widget.mine ? Colors.white : DesignTokens.primary)
                           : subtextColor,
                     ),
                   ),
@@ -924,7 +998,7 @@ class _ChatPollWidgetState extends State<_ChatPollWidget> {
                     _isQuiz
                         ? (index == _correctOptionIndex ? const Color(0xFF34C759) : Colors.grey)
                         : (isSelected
-                            ? (widget.mine ? Colors.white : const Color(0xFF007AFF))
+                            ? (widget.mine ? Colors.white : DesignTokens.primary)
                             : (widget.mine ? Colors.white54 : Colors.grey)),
                   ),
                 ),
@@ -1023,7 +1097,7 @@ class _VoicePlayerWidgetState extends State<_VoicePlayerWidget> {
               decoration: BoxDecoration(
                 color: widget.mine
                     ? Colors.white.withValues(alpha: 0.25)
-                    : const Color(0xFF007AFF),
+                    : DesignTokens.primary,
                 shape: BoxShape.circle,
               ),
               child: Icon(
@@ -1101,7 +1175,7 @@ class _VoiceWaveformBars extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final activeColor = mine ? Colors.white : const Color(0xFF007AFF);
+    final activeColor = mine ? Colors.white : DesignTokens.primary;
     final inactiveColor = mine ? Colors.white.withValues(alpha: 0.35) : (isDark ? Colors.grey[700]! : Colors.grey[350]!);
 
     return LayoutBuilder(
@@ -1254,7 +1328,7 @@ class _LocationMessageWidget extends StatelessWidget {
                     icon: const Icon(Icons.directions_rounded, size: 16),
                     label: const Text('Open in Maps', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF007AFF),
+                      backgroundColor: DesignTokens.primary,
                       foregroundColor: Colors.white,
                       elevation: 0,
                       padding: const EdgeInsets.symmetric(vertical: 8),
@@ -1572,7 +1646,7 @@ class _MessageContentWithLinks extends StatelessWidget {
     int lastEnd = 0;
     DeepLinkTarget? firstMurihTarget;
 
-    final linkColor = mine ? const Color(0xFFFFD166) : const Color(0xFF007AFF);
+    final linkColor = mine ? const Color(0xFFFFD166) : DesignTokens.primary;
 
     for (final match in matches) {
       if (match.start > lastEnd) {
@@ -1772,7 +1846,7 @@ class _DeepLinkCardWidgetState extends State<_DeepLinkCardWidget> {
       case DeepLinkType.live:
         return const Color(0xFFFF3B30);
       case DeepLinkType.meeting:
-        return const Color(0xFF007AFF);
+        return DesignTokens.primary;
       case DeepLinkType.community:
         return const Color(0xFF34C759);
       case DeepLinkType.event:
@@ -1785,7 +1859,7 @@ class _DeepLinkCardWidgetState extends State<_DeepLinkCardWidget> {
       case DeepLinkType.linkInBio:
       case DeepLinkType.chat:
       default:
-        return const Color(0xFF007AFF);
+        return DesignTokens.primary;
     }
   }
 
@@ -2247,7 +2321,7 @@ class _SwipeToReplyWrapperState extends State<_SwipeToReplyWrapper>
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
                       color: _thresholdReached
-                          ? const Color(0xFF007AFF)
+                          ? DesignTokens.primary
                           : Colors.grey.withValues(alpha: 0.3),
                       shape: BoxShape.circle,
                     ),
@@ -2385,7 +2459,7 @@ class _CallMessageWidget extends StatelessWidget {
               decoration: BoxDecoration(
                 color: mine
                     ? Colors.white.withValues(alpha: 0.22)
-                    : const Color(0xFF007AFF),
+                    : DesignTokens.primary,
                 borderRadius: BorderRadius.circular(16),
               ),
               child: const Text(

@@ -762,12 +762,10 @@ class _ConferenceMeetingScreenState
               margin: const EdgeInsets.only(right: 16),
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                color: const Color(
-                  0xFF007AFF,
-                ).withValues(alpha: isDark ? 0.2 : 0.1),
+                color: DesignTokens.primary.withValues(alpha: isDark ? 0.2 : 0.1),
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
-                  color: const Color(0xFF007AFF).withValues(alpha: 0.3),
+                  color: DesignTokens.primary.withValues(alpha: 0.3),
                 ),
               ),
               child: const Row(
@@ -776,7 +774,7 @@ class _ConferenceMeetingScreenState
                   Icon(
                     Icons.shield_outlined,
                     size: 13,
-                    color: Color(0xFF007AFF),
+                    color: DesignTokens.primary,
                   ),
                   SizedBox(width: 4),
                   Text(
@@ -784,7 +782,7 @@ class _ConferenceMeetingScreenState
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
-                      color: Color(0xFF007AFF),
+                      color: DesignTokens.primary,
                     ),
                   ),
                 ],
@@ -927,7 +925,7 @@ class _ConferenceMeetingScreenState
                         _buildFeatureBadge(
                           icon: Icons.bolt_rounded,
                           label: 'Ultra HD Calls',
-                          color: const Color(0xFF007AFF),
+                          color: DesignTokens.primary,
                           isDark: isDark,
                         ),
                         _buildFeatureBadge(
@@ -950,9 +948,7 @@ class _ConferenceMeetingScreenState
                             children: [
                               CircleAvatar(
                                 radius: 16,
-                                backgroundColor: const Color(
-                                  0xFF007AFF,
-                                ).withValues(alpha: 0.15),
+                                backgroundColor: DesignTokens.primary.withValues(alpha: 0.15),
                                 backgroundImage:
                                     (userAvatar != null &&
                                         userAvatar.isNotEmpty)
@@ -966,7 +962,7 @@ class _ConferenceMeetingScreenState
                                                 : 'U')
                                             .toUpperCase(),
                                         style: const TextStyle(
-                                          color: Color(0xFF007AFF),
+                                          color: DesignTokens.primary,
                                           fontWeight: FontWeight.w800,
                                           fontSize: 13,
                                         ),
@@ -1116,18 +1112,14 @@ class _ConferenceMeetingScreenState
                                           ? const Color(
                                               0xFFFF3B30,
                                             ).withValues(alpha: 0.1)
-                                          : const Color(
-                                              0xFF007AFF,
-                                            ).withValues(alpha: 0.1),
+                                          : DesignTokens.primary.withValues(alpha: 0.1),
                                       borderRadius: BorderRadius.circular(14),
                                       border: Border.all(
                                         color: _isCameraOff
                                             ? const Color(
                                                 0xFFFF3B30,
                                               ).withValues(alpha: 0.3)
-                                            : const Color(
-                                                0xFF007AFF,
-                                              ).withValues(alpha: 0.3),
+                                            : DesignTokens.primary.withValues(alpha: 0.3),
                                       ),
                                     ),
                                     child: Row(
@@ -1140,7 +1132,7 @@ class _ConferenceMeetingScreenState
                                               : Icons.videocam_rounded,
                                           color: _isCameraOff
                                               ? const Color(0xFFFF3B30)
-                                              : const Color(0xFF007AFF),
+                                              : DesignTokens.primary,
                                           size: 18,
                                         ),
                                         const SizedBox(width: 6),
@@ -1154,7 +1146,7 @@ class _ConferenceMeetingScreenState
                                               style: TextStyle(
                                                 color: _isCameraOff
                                                     ? const Color(0xFFFF3B30)
-                                                    : const Color(0xFF007AFF),
+                                                    : DesignTokens.primary,
                                                 fontSize: 12,
                                                 fontWeight: FontWeight.w700,
                                               ),
@@ -1185,14 +1177,12 @@ class _ConferenceMeetingScreenState
                                 Container(
                                   padding: const EdgeInsets.all(8),
                                   decoration: BoxDecoration(
-                                    color: const Color(
-                                      0xFF007AFF,
-                                    ).withValues(alpha: 0.12),
+                                    color: DesignTokens.primary.withValues(alpha: 0.12),
                                     borderRadius: BorderRadius.circular(10),
                                   ),
                                   child: const Icon(
                                     Icons.add_circle_outline_rounded,
-                                    color: Color(0xFF007AFF),
+                                    color: DesignTokens.primary,
                                     size: 20,
                                   ),
                                 ),
@@ -1260,7 +1250,7 @@ class _ConferenceMeetingScreenState
                                 focusedBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(14),
                                   borderSide: const BorderSide(
-                                    color: Color(0xFF007AFF),
+                                    color: DesignTokens.primary,
                                     width: 1.5,
                                   ),
                                 ),
@@ -1271,7 +1261,7 @@ class _ConferenceMeetingScreenState
                               width: double.infinity,
                               child: FilledButton.icon(
                                 style: FilledButton.styleFrom(
-                                  backgroundColor: const Color(0xFF007AFF),
+                                  backgroundColor: DesignTokens.primary,
                                   foregroundColor: Colors.white,
                                   padding: const EdgeInsets.symmetric(
                                     vertical: 14,
@@ -1319,14 +1309,12 @@ class _ConferenceMeetingScreenState
                             Container(
                               padding: const EdgeInsets.all(10),
                               decoration: BoxDecoration(
-                                color: const Color(
-                                  0xFF007AFF,
-                                ).withValues(alpha: 0.12),
+                                color: DesignTokens.primary.withValues(alpha: 0.12),
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: const Icon(
                                 Icons.video_camera_front_rounded,
-                                color: Color(0xFF007AFF),
+                                color: DesignTokens.primary,
                                 size: 22,
                               ),
                             ),
@@ -1358,9 +1346,9 @@ class _ConferenceMeetingScreenState
                             const SizedBox(width: 8),
                             OutlinedButton(
                               style: OutlinedButton.styleFrom(
-                                foregroundColor: const Color(0xFF007AFF),
+                                foregroundColor: DesignTokens.primary,
                                 side: const BorderSide(
-                                  color: Color(0xFF007AFF),
+                                  color: DesignTokens.primary,
                                   width: 1.2,
                                 ),
                                 padding: const EdgeInsets.symmetric(
@@ -1455,7 +1443,7 @@ class _ConferenceMeetingScreenState
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 10,
                                   ),
-                                  foregroundColor: const Color(0xFF007AFF),
+                                  foregroundColor: DesignTokens.primary,
                                   textStyle: const TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w700,

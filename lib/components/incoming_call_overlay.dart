@@ -10,6 +10,7 @@ import '../providers/auth_provider.dart';
 import '../providers/calls_provider.dart';
 import '../screens/call_screen.dart';
 import '../core/api_client.dart';
+import '../services/call_session_manager.dart';
 import '../services/sound_service.dart';
 
 class IncomingCallOverlay extends ConsumerStatefulWidget {
@@ -94,6 +95,7 @@ class _IncomingCallOverlayState extends ConsumerState<IncomingCallOverlay>
       if (authUser == null) return;
 
       // Only poll when no active call session is already present
+      if (CallSessionManager.instance.isActive) return;
       final currentCall = ref.read(callsProvider).activeCall;
       if (currentCall != null) return;
 

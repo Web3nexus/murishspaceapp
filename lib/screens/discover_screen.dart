@@ -196,9 +196,9 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
                 // Segmented TabBar
                 TabBar(
                   controller: _tab,
-                  labelColor: const Color(0xFF007AFF),
+                  labelColor: DesignTokens.primary,
                   unselectedLabelColor: isDark ? const Color(0xFF8E8E93) : const Color(0xFF61758A),
-                  indicatorColor: const Color(0xFF007AFF),
+                  indicatorColor: DesignTokens.primary,
                   indicatorWeight: 3,
                   labelStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
                   unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
@@ -212,7 +212,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
       ),
       floatingActionButton: _searchQuery.isEmpty
           ? FloatingActionButton(
-              backgroundColor: const Color(0xFF007AFF),
+              backgroundColor: DesignTokens.primary,
               foregroundColor: Colors.white,
               onPressed: () => _compose(),
               child: const Icon(Icons.edit_outlined),
@@ -280,12 +280,12 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
                 },
                 leading: CircleAvatar(
                   radius: 22,
-                  backgroundColor: const Color(0xFF007AFF).withOpacity(0.15),
+                  backgroundColor: DesignTokens.primary.withOpacity(0.15),
                   backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
                       ? CachedNetworkImageProvider(avatarUrl)
                       : null,
                   child: avatarUrl == null || avatarUrl.isEmpty
-                      ? Icon(Icons.person, color: Color(0xFF007AFF), size: 24)
+                      ? Icon(Icons.person, color: DesignTokens.primary, size: 24)
                       : null,
                 ),
                 title: Text(
@@ -297,7 +297,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
                   children: [
                     Text(
                       '@$username',
-                      style: const TextStyle(fontSize: 12, color: Color(0xFF007AFF), fontWeight: FontWeight.w500),
+                      style: const TextStyle(fontSize: 12, color: DesignTokens.primary, fontWeight: FontWeight.w500),
                     ),
                     if (bio != null && bio.isNotEmpty)
                       Text(

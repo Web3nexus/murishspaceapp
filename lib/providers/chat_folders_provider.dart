@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../core/design_tokens.dart';
 
 class ChatFolder {
   final String id;
@@ -50,7 +51,7 @@ class ChatFoldersNotifier extends Notifier<ChatFoldersState> {
           id: 'folder_all',
           name: 'All Chats',
           icon: Icons.all_inbox_rounded,
-          color: const Color(0xFF007AFF),
+          color: DesignTokens.primary,
           description: 'Includes all direct & group conversations',
           isDefault: true,
           includedCategories: ['dms', 'groups', 'communities', 'vendors'],

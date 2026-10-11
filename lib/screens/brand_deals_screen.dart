@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../components/brand_deal_certificate_dialog.dart';
 import '../components/brand_deal_milestones_dialog.dart';
+import '../core/design_tokens.dart';
 import '../providers/admin_moderation_provider.dart';
 import 'brand_deals_help_screen.dart';
 
@@ -270,9 +271,9 @@ class _BrandDealsScreenState extends ConsumerState<BrandDealsScreen>
                         return Container(
                           padding: const EdgeInsets.all(14),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF007AFF).withValues(alpha: 0.1),
+                            color: DesignTokens.primary.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: const Color(0xFF007AFF).withValues(alpha: 0.3)),
+                            border: Border.all(color: DesignTokens.primary.withValues(alpha: 0.3)),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -281,7 +282,7 @@ class _BrandDealsScreenState extends ConsumerState<BrandDealsScreen>
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text('Upfront Deposit (${depositPct.toStringAsFixed(0)}% Commitment)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textPrimary)),
-                                  Text('\$${depositVal.toStringAsFixed(2)}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: Color(0xFF007AFF))),
+                                  Text('\$${depositVal.toStringAsFixed(2)}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: DesignTokens.primary)),
                                 ],
                               ),
                               const SizedBox(height: 4),
@@ -390,7 +391,7 @@ class _BrandDealsScreenState extends ConsumerState<BrandDealsScreen>
                 MaterialPageRoute(builder: (_) => const BrandDealsHelpScreen()),
               );
             },
-            icon: const Icon(Icons.help_outline_rounded, color: Color(0xFF007AFF)),
+            icon: const Icon(Icons.help_outline_rounded, color: DesignTokens.primary),
             tooltip: 'Brand Deals & Escrow Guide',
           ),
           IconButton(
@@ -404,9 +405,9 @@ class _BrandDealsScreenState extends ConsumerState<BrandDealsScreen>
         ],
         bottom: TabBar(
           controller: _tab,
-          labelColor: const Color(0xFF007AFF),
+          labelColor: DesignTokens.primary,
           unselectedLabelColor: isDark ? const Color(0xFF8E8E93) : const Color(0xFF61758A),
-          indicatorColor: const Color(0xFF007AFF),
+          indicatorColor: DesignTokens.primary,
           indicatorWeight: 3,
           labelStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
           unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
@@ -445,13 +446,13 @@ class _BrandDealsScreenState extends ConsumerState<BrandDealsScreen>
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF007AFF).withOpacity(0.15),
+                            color: DesignTokens.primary.withOpacity(0.15),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Text(
                             deal.category,
                             style: const TextStyle(
-                              color: Color(0xFF007AFF),
+                              color: DesignTokens.primary,
                               fontSize: 11,
                               fontWeight: FontWeight.w800,
                             ),
@@ -506,7 +507,7 @@ class _BrandDealsScreenState extends ConsumerState<BrandDealsScreen>
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.assignment_turned_in_rounded, size: 18, color: Color(0xFF007AFF)),
+                          const Icon(Icons.assignment_turned_in_rounded, size: 18, color: DesignTokens.primary),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
@@ -527,8 +528,8 @@ class _BrandDealsScreenState extends ConsumerState<BrandDealsScreen>
                         Expanded(
                           child: OutlinedButton.icon(
                             style: OutlinedButton.styleFrom(
-                              foregroundColor: const Color(0xFF007AFF),
-                              side: const BorderSide(color: Color(0xFF007AFF)),
+                              foregroundColor: DesignTokens.primary,
+                              side: const BorderSide(color: DesignTokens.primary),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                             ),
                             onPressed: () {
@@ -572,7 +573,7 @@ class _BrandDealsScreenState extends ConsumerState<BrandDealsScreen>
                           flex: 2,
                           child: ElevatedButton(
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF007AFF),
+                              backgroundColor: DesignTokens.primary,
                               foregroundColor: Colors.white,
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                             ),

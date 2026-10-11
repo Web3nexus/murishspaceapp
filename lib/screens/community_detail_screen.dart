@@ -108,7 +108,7 @@ class _CommunityDetailScreenState extends ConsumerState<CommunityDetailScreen>
             children: [
               Row(
                 children: [
-                  const Icon(Icons.share_rounded, color: Color(0xFF007AFF)),
+                  const Icon(Icons.share_rounded, color: DesignTokens.primary),
                   const SizedBox(width: 10),
                   Text('Share ${community.name}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
                 ],
@@ -140,7 +140,7 @@ class _CommunityDetailScreenState extends ConsumerState<CommunityDetailScreen>
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF007AFF),
+                        color: DesignTokens.primary,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Text('Copied!', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
@@ -154,7 +154,7 @@ class _CommunityDetailScreenState extends ConsumerState<CommunityDetailScreen>
                 height: 48,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF007AFF),
+                    backgroundColor: DesignTokens.primary,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
@@ -257,9 +257,9 @@ class _CommunityDetailScreenState extends ConsumerState<CommunityDetailScreen>
                 controller: _tabController,
                 isScrollable: true,
                 tabAlignment: TabAlignment.start,
-                labelColor: const Color(0xFF007AFF),
+                labelColor: DesignTokens.primary,
                 unselectedLabelColor: textSecondary,
-                indicatorColor: const Color(0xFF007AFF),
+                indicatorColor: DesignTokens.primary,
                 tabs: [
                   const Tab(text: 'Feed'),
                   const Tab(text: 'Courses & Goods'),
@@ -326,7 +326,7 @@ class _CommunityDetailScreenState extends ConsumerState<CommunityDetailScreen>
             TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF007AFF),
+                backgroundColor: DesignTokens.primary,
                 foregroundColor: Colors.white,
               ),
               onPressed: () => Navigator.pop(ctx, true),
@@ -485,7 +485,7 @@ class _CommunityHeader extends ConsumerWidget {
                   ),
                   child: CircleAvatar(
                     radius: 34,
-                    backgroundColor: const Color(0xFF007AFF),
+                    backgroundColor: DesignTokens.primary,
                     backgroundImage: logoUrl != null && logoUrl.isNotEmpty ? NetworkImage(logoUrl) : null,
                     child: logoUrl == null || logoUrl.isEmpty
                         ? const Icon(Icons.person, color: Colors.white, size: 37)
@@ -531,17 +531,17 @@ class _CommunityHeader extends ConsumerWidget {
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFF007AFF).withOpacity(0.15),
+                                    color: DesignTokens.primary.withOpacity(0.15),
                                     borderRadius: BorderRadius.circular(6),
                                   ),
                                   child: const Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      Icon(Icons.stars_rounded, size: 12, color: Color(0xFF007AFF)),
+                                      Icon(Icons.stars_rounded, size: 12, color: DesignTokens.primary),
                                       SizedBox(width: 3),
                                       Text(
                                         'Owner',
-                                        style: TextStyle(color: Color(0xFF007AFF), fontWeight: FontWeight.bold, fontSize: 10),
+                                        style: TextStyle(color: DesignTokens.primary, fontWeight: FontWeight.bold, fontSize: 10),
                                       ),
                                     ],
                                   ),
@@ -576,7 +576,7 @@ class _CommunityHeader extends ConsumerWidget {
                     if (isCreator)
                       ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF007AFF),
+                          backgroundColor: DesignTokens.primary,
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -656,7 +656,7 @@ class _CommunityHeader extends ConsumerWidget {
                     else
                       ElevatedButton(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: isPaid ? const Color(0xFFFF9500) : const Color(0xFF007AFF),
+                          backgroundColor: isPaid ? const Color(0xFFFF9500) : DesignTokens.primary,
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -837,8 +837,8 @@ class _ChatsTab extends StatelessWidget {
             ),
             child: ListTile(
               leading: CircleAvatar(
-                backgroundColor: const Color(0xFF007AFF).withOpacity(0.15),
-                child: const Icon(Icons.chat_outlined, color: Color(0xFF007AFF)),
+                backgroundColor: DesignTokens.primary.withOpacity(0.15),
+                child: const Icon(Icons.chat_outlined, color: DesignTokens.primary),
               ),
               title: Text('General chat', style: TextStyle(fontWeight: FontWeight.w700, color: textPrimary)),
               subtitle: Text('${community.name} Community Discussion', style: TextStyle(color: textSecondary, fontSize: 12)),
@@ -896,15 +896,15 @@ class _MembersTab extends ConsumerWidget {
             ),
             child: ListTile(
               leading: CircleAvatar(
-                backgroundColor: const Color(0xFF007AFF).withOpacity(0.15),
+                backgroundColor: DesignTokens.primary.withOpacity(0.15),
                 backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty ? CachedNetworkImageProvider(avatarUrl) : null,
                 child: avatarUrl == null || avatarUrl.isEmpty
-                    ? const Icon(Icons.person, color: Color(0xFF007AFF), size: 22)
+                    ? const Icon(Icons.person, color: DesignTokens.primary, size: 22)
                     : null,
               ),
               title: Text(user?.name ?? 'MurihSpace user', style: TextStyle(fontWeight: FontWeight.bold, color: textPrimary)),
               subtitle: member.role != 'member'
-                  ? Text(member.role.toUpperCase(), style: const TextStyle(color: Color(0xFF007AFF), fontSize: 11, fontWeight: FontWeight.w800))
+                  ? Text(member.role.toUpperCase(), style: const TextStyle(color: DesignTokens.primary, fontSize: 11, fontWeight: FontWeight.w800))
                   : Text('@${user?.username ?? 'user'}', style: TextStyle(color: textSecondary, fontSize: 12)),
             ),
           );
@@ -967,10 +967,10 @@ class _RequestsTab extends ConsumerWidget {
               ),
               child: ListTile(
                 leading: CircleAvatar(
-                  backgroundColor: const Color(0xFF007AFF).withOpacity(0.15),
+                  backgroundColor: DesignTokens.primary.withOpacity(0.15),
                   backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty ? CachedNetworkImageProvider(avatarUrl) : null,
                   child: avatarUrl == null || avatarUrl.isEmpty
-                      ? const Icon(Icons.person, color: Color(0xFF007AFF), size: 22)
+                      ? const Icon(Icons.person, color: DesignTokens.primary, size: 22)
                       : null,
                 ),
                 title: Text(user?.name ?? 'MurihSpace user', style: TextStyle(fontWeight: FontWeight.bold, color: textPrimary)),
@@ -1124,12 +1124,12 @@ class _CoursesAndGoodsTabState extends ConsumerState<_CoursesAndGoodsTab> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF007AFF).withOpacity(0.15),
+                    color: DesignTokens.primary.withOpacity(0.15),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
                     '${_digitalGoods.length} Items',
-                    style: const TextStyle(color: Color(0xFF007AFF), fontWeight: FontWeight.bold, fontSize: 11),
+                    style: const TextStyle(color: DesignTokens.primary, fontWeight: FontWeight.bold, fontSize: 11),
                   ),
                 ),
               ],
@@ -1193,8 +1193,8 @@ class _CoursesAndGoodsTabState extends ConsumerState<_CoursesAndGoodsTab> {
                           ),
                           errorWidget: (_, __, ___) => Container(
                             height: 130,
-                            color: const Color(0xFF007AFF).withOpacity(0.2),
-                            child: const Center(child: Icon(Icons.menu_book_rounded, size: 40, color: Color(0xFF007AFF))),
+                            color: DesignTokens.primary.withOpacity(0.2),
+                            child: const Center(child: Icon(Icons.menu_book_rounded, size: 40, color: DesignTokens.primary)),
                           ),
                         ),
                       ),
@@ -1209,14 +1209,14 @@ class _CoursesAndGoodsTabState extends ConsumerState<_CoursesAndGoodsTab> {
                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                   decoration: BoxDecoration(
                                     color: isCourse
-                                        ? const Color(0xFF007AFF).withOpacity(0.15)
+                                        ? DesignTokens.primary.withOpacity(0.15)
                                         : const Color(0xFF5856D6).withOpacity(0.15),
                                     borderRadius: BorderRadius.circular(6),
                                   ),
                                   child: Text(
                                     isCourse ? 'COURSE' : 'DIGITAL ASSET',
                                     style: TextStyle(
-                                      color: isCourse ? const Color(0xFF007AFF) : const Color(0xFF5856D6),
+                                      color: isCourse ? DesignTokens.primary : const Color(0xFF5856D6),
                                       fontWeight: FontWeight.bold,
                                       fontSize: 10,
                                     ),
@@ -1262,7 +1262,7 @@ class _CoursesAndGoodsTabState extends ConsumerState<_CoursesAndGoodsTab> {
                                 ),
                                 ElevatedButton(
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF007AFF),
+                                    backgroundColor: DesignTokens.primary,
                                     foregroundColor: Colors.white,
                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                   ),

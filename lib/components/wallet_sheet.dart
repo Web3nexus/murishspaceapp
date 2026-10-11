@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../core/design_tokens.dart';
 import '../providers/gifts_provider.dart';
 import '../providers/wallet_provider.dart';
 import '../core/currency_formatter.dart';
@@ -117,10 +118,10 @@ class _WalletSheetState extends ConsumerState<WalletSheet> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF007AFF).withValues(alpha: 0.15),
+                    color: DesignTokens.primary.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.account_balance_wallet_rounded, color: Color(0xFF007AFF), size: 20),
+                  child: const Icon(Icons.account_balance_wallet_rounded, color: DesignTokens.primary, size: 20),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -135,7 +136,7 @@ class _WalletSheetState extends ConsumerState<WalletSheet> {
                         ),
                       ),
                       const SizedBox(width: 6),
-                      const Icon(Icons.verified_rounded, color: Color(0xFF007AFF), size: 16),
+                      const Icon(Icons.verified_rounded, color: DesignTokens.primary, size: 16),
                     ],
                   ),
                 ),
@@ -215,7 +216,7 @@ class _WalletSheetState extends ConsumerState<WalletSheet> {
                             },
                             child: const Text(
                               'View All',
-                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF007AFF)),
+                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: DesignTokens.primary),
                             ),
                           ),
                       ],
@@ -333,7 +334,7 @@ class _WalletSheetState extends ConsumerState<WalletSheet> {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 8),
           decoration: BoxDecoration(
-            color: isSelected ? const Color(0xFF007AFF) : Colors.transparent,
+            color: isSelected ? DesignTokens.primary : Colors.transparent,
             borderRadius: BorderRadius.circular(10),
           ),
           child: Center(
@@ -380,7 +381,7 @@ class _WalletSheetState extends ConsumerState<WalletSheet> {
     return LiquidGlassCard(
       borderRadius: 22,
       blurSigma: 18,
-      tintColor: const Color(0xFF007AFF),
+      tintColor: DesignTokens.primary,
       isDark: isDark,
       padding: const EdgeInsets.all(22),
       child: Column(
@@ -468,7 +469,7 @@ class _WalletSheetState extends ConsumerState<WalletSheet> {
         _quickActionButton(
           icon: Icons.arrow_outward_rounded,
           label: 'Send',
-          color: const Color(0xFF007AFF),
+          color: DesignTokens.primary,
           onTap: () {
             Navigator.of(context).pop();
             context.push('/wallet');

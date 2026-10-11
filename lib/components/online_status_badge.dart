@@ -62,10 +62,12 @@ class OnlineStatusBadge extends StatelessWidget {
   }
 }
 
-/// Avatar wrapper displaying an online indicator green dot on the bottom right corner.
+/// Avatar wrapper displaying an online/offline presence indicator dot on the bottom right corner.
+/// Matches the shadcn AvatarBadge active vs inactive profile design.
 class OnlineAvatarBadge extends StatelessWidget {
   final Widget child;
   final bool isOnline;
+  final bool showInactive;
   final double badgeSize;
   final double borderWidth;
 
@@ -73,6 +75,7 @@ class OnlineAvatarBadge extends StatelessWidget {
     super.key,
     required this.child,
     this.isOnline = true,
+    this.showInactive = true,
     this.badgeSize = 12.0,
     this.borderWidth = 2.0,
   });
@@ -82,12 +85,16 @@ class OnlineAvatarBadge extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bg = isDark ? DesignTokens.darkSurface : DesignTokens.lightSurface;
     final activeColor = DesignTokens.success; // Color(0xFF34C759)
+    final inactiveColor = isDark ? const Color(0xFF636366) : const Color(0xFF8E8E93);
+
+    final showBadge = isOnline || showInactive;
+    final badgeColor = isOnline ? activeColor : inactiveColor;
 
     return Stack(
       clipBehavior: Clip.none,
       children: [
         child,
-        if (isOnline)
+        if (showBadge)
           Positioned(
             bottom: 0,
             right: 0,
@@ -95,15 +102,18 @@ class OnlineAvatarBadge extends StatelessWidget {
               width: badgeSize,
               height: badgeSize,
               decoration: BoxDecoration(
-                color: activeColor,
+                color: badgeColor,
                 shape: BoxShape.circle,
                 border: Border.all(color: bg, width: borderWidth),
-                boxShadow: [
-                  BoxShadow(
-                    color: activeColor.withValues(alpha: 0.4),
-                    blurRadius: 4,
-                  ),
-                ],
+                boxShadow: isOnline
+                    ? [
+                        BoxShadow(
+                          color: activeColor.withValues(alpha: 0.4),
+                          blurRadius: 4,
+                          spreadRadius: 0.5,
+                        ),
+                      ]
+                    : null,
               ),
             ),
           ),

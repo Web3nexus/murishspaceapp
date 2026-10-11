@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../components/brand.dart';
 import '../components/ui_states.dart';
 import '../core/api_client.dart';
+import '../core/design_tokens.dart';
 import '../providers/auth_provider.dart';
 import '../providers/community_provider.dart';
 import '../providers/story_provider.dart';
@@ -17,6 +18,8 @@ import 'story_composer_sheet.dart';
 import 'story_viewer_screen.dart';
 import '../components/go_live_setup_dialog.dart';
 import '../components/kyc_live_gate_dialog.dart';
+import '../components/live_now_rail.dart';
+import '../providers/live_discovery_provider.dart';
 
 /// FB/Instagram style Home Feed screen with MurihSpace Brand Logo & Messenger jump action.
 class HomeScreen extends ConsumerStatefulWidget {
@@ -56,10 +59,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF007AFF).withValues(alpha: 0.15),
+                      color: DesignTokens.primary.withValues(alpha: 0.15),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.bolt_rounded, color: Color(0xFF007AFF), size: 20),
+                    child: const Icon(Icons.bolt_rounded, color: DesignTokens.primary, size: 20),
                   ),
                   const SizedBox(width: 10),
                   Column(
@@ -95,7 +98,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       title: 'Create Post',
                       subtitle: 'Discussion & Polls',
                       icon: Icons.article_rounded,
-                      gradient: const [Color(0xFF007AFF), Color(0xFF5856D6)],
+                      gradient: const [DesignTokens.primary, Color(0xFF5856D6)],
                       isDark: isDark,
                       onTap: () {
                         Navigator.pop(ctx);
@@ -251,17 +254,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           isDark: isDark,
         ),
         actions: [
+          const _LiveActionButton(),
           IconButton(
             onPressed: () => _showQuickCreateMenu(context, isDark),
             icon: Container(
               padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
-                color: const Color(0xFF007AFF).withOpacity(0.15),
+                color: DesignTokens.primary.withOpacity(0.15),
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 Icons.add_rounded,
-                color: isDark ? Colors.white : const Color(0xFF007AFF),
+                color: isDark ? Colors.white : DesignTokens.primary,
                 size: 22,
               ),
             ),
@@ -297,7 +301,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ],
       ),
       body: RefreshIndicator(
-        onRefresh: () => ref.read(postsProvider(const PostsSource.feed('home')).notifier).refresh(),
+        onRefresh: () async {
+          await Future.wait([
+            ref
+                .read(postsProvider(const PostsSource.feed('home')).notifier)
+                .refresh(),
+            ref.read(liveDiscoveryProvider.notifier).refresh(),
+          ]);
+        },
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           child: Column(
@@ -323,7 +334,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     children: [
                       CircleAvatar(
                         radius: 18,
-                        backgroundColor: const Color(0xFF007AFF),
+                        backgroundColor: DesignTokens.primary,
                         child: const Icon(Icons.person, color: Colors.white, size: 20),
                       ),
                       const SizedBox(width: 12),
@@ -352,6 +363,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               // Stories Row (Facebook style: stories row under writing post block)
               const _StoriesRow(),
               const Divider(height: 1),
+
+              // Live Now rail (hidden when nobody is broadcasting)
+              const LiveNowRail(),
 
               // Home Feed Posts
               const _HomeFeedPosts(),
@@ -426,7 +440,7 @@ class _StoriesRow extends ConsumerWidget {
                             shape: BoxShape.circle,
                             gradient: hasStories
                                 ? const LinearGradient(
-                                    colors: [Color(0xFF007AFF), Color(0xFF5856D6), Color(0xFFFF2D55)],
+                                    colors: [DesignTokens.primary, Color(0xFF5856D6), Color(0xFFFF2D55)],
                                   )
                                 : null,
                             color: hasStories ? null : (isDark ? const Color(0xFF2C2C2E) : const Color(0xFFEFF3F6)),
@@ -449,7 +463,7 @@ class _StoriesRow extends ConsumerWidget {
                               width: 22,
                               height: 22,
                               decoration: BoxDecoration(
-                                color: const Color(0xFF007AFF),
+                                color: DesignTokens.primary,
                                 shape: BoxShape.circle,
                                 border: Border.all(
                                   color: isDark ? const Color(0xFF18191A) : Colors.white,
@@ -506,7 +520,7 @@ class _StoriesRow extends ConsumerWidget {
                       shape: BoxShape.circle,
                       gradient: hasUnseen
                           ? const LinearGradient(
-                              colors: [Color(0xFF007AFF), Color(0xFF5856D6), Color(0xFFFF2D55)],
+                              colors: [DesignTokens.primary, Color(0xFF5856D6), Color(0xFFFF2D55)],
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
                             )
@@ -629,6 +643,55 @@ class _HomeFeedPosts extends ConsumerWidget {
           },
         );
       },
+    );
+  }
+}
+
+/// App bar entry into live discovery. Shows a red dot while broadcasts are on
+/// air so the rail and the screen stay reachable even when the feed is quiet.
+class _LiveActionButton extends ConsumerWidget {
+  const _LiveActionButton();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final hasLive = ref.watch(
+      liveDiscoveryProvider.select((s) => s.streams.isNotEmpty),
+    );
+
+    return Padding(
+      padding: const EdgeInsets.only(right: 4),
+      child: IconButton(
+        tooltip: 'Live Now',
+        onPressed: () => context.push('/app/live-now'),
+        icon: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Icon(
+              Icons.sensors_rounded,
+              color: isDark ? Colors.white : Colors.black,
+              size: 24,
+            ),
+            if (hasLive)
+              Positioned(
+                right: -1,
+                top: -1,
+                child: Container(
+                  width: 9,
+                  height: 9,
+                  decoration: BoxDecoration(
+                    color: DesignTokens.danger,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: isDark ? Colors.black : Colors.white,
+                      width: 1.5,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }

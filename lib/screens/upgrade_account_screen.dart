@@ -6,6 +6,7 @@ import '../components/brand.dart';
 import '../components/app_bottom_sheet.dart';
 import '../config/env.dart';
 import '../components/ui_states.dart';
+import '../core/design_tokens.dart';
 import '../core/roles.dart';
 import '../providers/auth_provider.dart';
 import '../providers/role_provider.dart';
@@ -479,7 +480,7 @@ class _RoleUpgradeCard extends StatelessWidget {
               child: ElevatedButton(
                 onPressed: loading ? null : onApply,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF007AFF),
+                  backgroundColor: DesignTokens.primary,
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                 ),

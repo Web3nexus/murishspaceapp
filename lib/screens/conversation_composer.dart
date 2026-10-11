@@ -1,3 +1,4 @@
+import '../core/design_tokens.dart';
 import 'dart:async';
 import 'dart:io';
 import 'dart:math';
@@ -15,6 +16,7 @@ import '../components/share_community_sheet.dart';
 import '../components/share_location_sheet.dart';
 import '../components/wallet_sheet.dart';
 import '../models/chat_models.dart';
+import '../utils/format.dart';
 
 /// Telegram-style capsule message composer with roll-up attachment sheet
 /// and WhatsApp-style audio voice recording.
@@ -58,13 +60,14 @@ class Composer extends StatefulWidget {
   State<Composer> createState() => _ComposerState();
 }
 
-class _ComposerState extends State<Composer> with SingleTickerProviderStateMixin {
+class _ComposerState extends State<Composer> with TickerProviderStateMixin {
   late final AudioRecorder _audioRecorder;
   bool _isRecording = false;
   int _recordSeconds = 0;
   Timer? _recordTimer;
   String? _currentRecordingPath;
   late AnimationController _pulseController;
+  late AnimationController _emojiFlipController;
 
   @override
   void initState() {
@@ -74,6 +77,10 @@ class _ComposerState extends State<Composer> with SingleTickerProviderStateMixin
       vsync: this,
       duration: const Duration(milliseconds: 900),
     )..repeat(reverse: true);
+    _emojiFlipController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
   }
 
   @override
@@ -81,6 +88,7 @@ class _ComposerState extends State<Composer> with SingleTickerProviderStateMixin
     _recordTimer?.cancel();
     _audioRecorder.dispose();
     _pulseController.dispose();
+    _emojiFlipController.dispose();
     super.dispose();
   }
 
@@ -259,10 +267,10 @@ class _ComposerState extends State<Composer> with SingleTickerProviderStateMixin
                           icon: Icon(
                             Icons.attach_file_rounded,
                             color: isDark ? const Color(0xFF8E8E93) : const Color(0xFF61758A),
-                            size: 24,
+                            size: 20,
                           ),
                           tooltip: 'Attachments',
-                          padding: const EdgeInsets.all(8),
+                          padding: const EdgeInsets.all(6),
                           constraints: const BoxConstraints(),
                         ),
                         // Quick Camera capture button beside the input field
@@ -272,10 +280,10 @@ class _ComposerState extends State<Composer> with SingleTickerProviderStateMixin
                             icon: Icon(
                               Icons.camera_alt_rounded,
                               color: isDark ? const Color(0xFF8E8E93) : const Color(0xFF61758A),
-                              size: 24,
+                              size: 20,
                             ),
                             tooltip: 'Take Photo',
-                            padding: const EdgeInsets.only(left: 4, right: 6, bottom: 8, top: 8),
+                            padding: const EdgeInsets.only(left: 2, right: 4, bottom: 6, top: 6),
                             constraints: const BoxConstraints(),
                           ),
                         // Capsule text field with modern curved radius
@@ -283,51 +291,64 @@ class _ComposerState extends State<Composer> with SingleTickerProviderStateMixin
                           child: Container(
                             decoration: BoxDecoration(
                               color: inputBg,
-                              borderRadius: BorderRadius.circular(28),
+                              borderRadius: BorderRadius.circular(24),
                               border: Border.all(
                                 color: isDark ? const Color(0xFF323846) : const Color(0xFFE2E8F0),
                                 width: 1.0,
                               ),
                             ),
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 3),
-                            child: Row(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+                            child: Stack(
+                              alignment: Alignment.centerRight,
                               children: [
-                                Expanded(
-                                  child: TextField(
-                                    controller: widget.controller,
-                                    minLines: 1,
-                                    maxLines: 5,
-                                    style: TextStyle(
-                                      color: isDark ? Colors.white : Colors.black,
-                                      fontSize: 15,
+                                TextField(
+                                  controller: widget.controller,
+                                  minLines: 1,
+                                  maxLines: 5,
+                                  style: TextStyle(
+                                    color: isDark ? Colors.white : Colors.black,
+                                    fontSize: 14,
+                                  ),
+                                  textInputAction: TextInputAction.newline,
+                                  onSubmitted: (_) {
+                                    if (widget.canSend) widget.onSend();
+                                  },
+                                  decoration: InputDecoration(
+                                    hintText: 'Message…',
+                                    hintStyle: TextStyle(
+                                      color: isDark ? const Color(0xFF8E8E93) : const Color(0xFF8E8E93),
+                                      fontSize: 14,
                                     ),
-                                    textInputAction: TextInputAction.newline,
-                                    onSubmitted: (_) {
-                                      if (widget.canSend) widget.onSend();
-                                    },
-                                    decoration: InputDecoration(
-                                      hintText: 'Message…',
-                                      hintStyle: TextStyle(
-                                        color: isDark ? const Color(0xFF8E8E93) : const Color(0xFF8E8E93),
-                                        fontSize: 15,
-                                      ),
-                                      border: InputBorder.none,
-                                      enabledBorder: InputBorder.none,
-                                      focusedBorder: InputBorder.none,
-                                      isDense: true,
-                                      contentPadding: const EdgeInsets.symmetric(vertical: 10),
-                                    ),
+                                    border: InputBorder.none,
+                                    enabledBorder: InputBorder.none,
+                                    focusedBorder: InputBorder.none,
+                                    isDense: true,
+                                    contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 2).copyWith(right: 30),
                                   ),
                                 ),
-                                GestureDetector(
-                                  behavior: HitTestBehavior.opaque,
-                                  onTap: () => _openEmojiPicker(context),
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-                                    child: Icon(
-                                      Icons.sentiment_satisfied_alt_rounded,
-                                      color: isDark ? const Color(0xFF8E8E93) : const Color(0xFF61758A),
-                                      size: 22,
+                                Positioned(
+                                  right: 0,
+                                  child: GestureDetector(
+                                    behavior: HitTestBehavior.opaque,
+                                    onTap: () => _openEmojiPicker(context),
+                                    child: AnimatedBuilder(
+                                      animation: _emojiFlipController,
+                                      builder: (context, child) {
+                                        return Transform(
+                                          transform: Matrix4.identity()
+                                            ..rotateY(_emojiFlipController.value * 3.14159),
+                                          alignment: Alignment.center,
+                                          child: child,
+                                        );
+                                      },
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
+                                        child: Icon(
+                                          Icons.sentiment_satisfied_alt_rounded,
+                                          color: isDark ? const Color(0xFF8E8E93) : const Color(0xFF61758A),
+                                          size: 20,
+                                        ),
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -347,18 +368,18 @@ class _ComposerState extends State<Composer> with SingleTickerProviderStateMixin
                                 ),
                               )
                             : Container(
-                                width: 44,
-                                height: 44,
+                                width: 36,
+                                height: 36,
                                 decoration: const BoxDecoration(
                                   shape: BoxShape.circle,
-                                  color: Color(0xFF007AFF),
+                                  color: DesignTokens.primary,
                                 ),
                                 child: IconButton(
                                   onPressed: widget.canSend ? widget.onSend : _startRecording,
                                   icon: Icon(
                                     widget.canSend ? Icons.send_rounded : Icons.mic_rounded,
                                     color: Colors.white,
-                                    size: 20,
+                                    size: 18,
                                   ),
                                   tooltip: widget.canSend ? 'Send' : 'Hold or Tap to Record',
                                 ),
@@ -448,7 +469,7 @@ class _ComposerState extends State<Composer> with SingleTickerProviderStateMixin
             width: 36,
             height: 36,
             decoration: const BoxDecoration(
-              color: Color(0xFF007AFF),
+              color: DesignTokens.primary,
               shape: BoxShape.circle,
             ),
             child: IconButton(
@@ -464,6 +485,7 @@ class _ComposerState extends State<Composer> with SingleTickerProviderStateMixin
   }
 
   void _openEmojiPicker(BuildContext context) {
+    _emojiFlipController.forward(from: 0);
     EmojiPickerSheet.show(
       context,
       onEmojiSelected: (emoji) {
@@ -535,7 +557,7 @@ class _TelegramAttachmentSheet extends StatelessWidget {
           onPickImage();
         }
       }),
-      _AttachmentAction('Gallery', Icons.photo_library_rounded, const Color(0xFF007AFF), onPickImage),
+      _AttachmentAction('Gallery', Icons.photo_library_rounded, DesignTokens.primary, onPickImage),
       _AttachmentAction('Poll', Icons.poll_rounded, const Color(0xFFFF9500), () {
         navigator.pop();
         if (onSendPoll != null) {
@@ -669,19 +691,13 @@ class _ReplyBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final preview = message.attachmentType != null && message.attachmentType != 'text'
-        ? message.attachmentType == 'image'
-            ? 'Photo'
-            : message.attachmentType == 'live_stream'
-                ? 'Live Stream'
-                : message.attachmentType!
-        : message.content;
+    final preview = messagePreview(message);
     return Container(
       color: isDark ? const Color(0xFF1C1C1E) : const Color(0xFFF2F5F8),
       padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
       child: Row(
         children: [
-          const Icon(Icons.reply, size: 18, color: Color(0xFF007AFF)),
+          const Icon(Icons.reply, size: 18, color: DesignTokens.primary),
           const SizedBox(width: 8),
           Expanded(
             child: Column(
@@ -693,7 +709,7 @@ class _ReplyBar extends StatelessWidget {
                   style: const TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF007AFF),
+                    color: DesignTokens.primary,
                   ),
                 ),
                 Text(
@@ -792,7 +808,7 @@ class _AudioRecordingWaveform extends StatelessWidget {
               width: 2.8,
               height: dynamicHeight,
               decoration: BoxDecoration(
-                color: const Color(0xFF007AFF).withValues(alpha: 0.7 + 0.3 * (dynamicHeight / 22.0)),
+                color: DesignTokens.primary.withValues(alpha: 0.7 + 0.3 * (dynamicHeight / 22.0)),
                 borderRadius: BorderRadius.circular(2),
               ),
             );

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../components/app_bottom_sheet.dart';
+import '../core/design_tokens.dart';
 import '../core/roles.dart';
 import '../providers/appearance_provider.dart';
 import '../providers/auth_provider.dart';
@@ -64,7 +65,7 @@ class SettingsScreen extends ConsumerWidget {
                 onTap: () => context.push('/friends'),
               ),
               _SettingsTile(
-                iconBg: const Color(0xFF007AFF),
+                iconBg: DesignTokens.primary,
                 icon: Icons.account_balance_wallet_rounded,
                 title: 'Wallet & Escrow',
                 badgeText: '\$${user?.coins ?? 0} MSH',
@@ -192,11 +193,11 @@ class SettingsScreen extends ConsumerWidget {
                 onTap: () => context.push('/profile/chat-folders'),
               ),
               _SettingsTile(
-                iconBg: const Color(0xFF007AFF),
+                iconBg: DesignTokens.primary,
                 icon: Icons.mark_email_read_rounded,
                 title: 'Chat & Email Backup',
                 badgeText: 'EMAIL',
-                badgeColor: const Color(0xFF007AFF),
+                badgeColor: DesignTokens.primary,
                 isDark: isDark,
                 onTap: () => context.push('/profile/chat-backup'),
               ),
@@ -295,7 +296,7 @@ class SettingsScreen extends ConsumerWidget {
               ),
               if (Permissions.roleHas(role, 'role.upgrade.apply'))
                 _SettingsTile(
-                  iconBg: const Color(0xFF007AFF),
+                  iconBg: DesignTokens.primary,
                   icon: Icons.card_giftcard_rounded,
                   title: 'Gifts Catalogue',
                   isDark: isDark,
@@ -370,7 +371,7 @@ class SettingsScreen extends ConsumerWidget {
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF007AFF),
+              backgroundColor: DesignTokens.primary,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
@@ -474,13 +475,13 @@ class _SettingsTile extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
-                color: (badgeColor ?? const Color(0xFF007AFF)).withOpacity(0.15),
+                color: (badgeColor ?? DesignTokens.primary).withOpacity(0.15),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
                 badgeText!,
                 style: TextStyle(
-                  color: badgeColor ?? const Color(0xFF007AFF),
+                  color: badgeColor ?? DesignTokens.primary,
                   fontSize: 11,
                   fontWeight: FontWeight.bold,
                 ),
@@ -548,7 +549,7 @@ class _SettingsSwitchTile extends StatelessWidget {
       trailing: Switch(
         value: value,
         onChanged: onChanged,
-        activeColor: const Color(0xFF007AFF),
+        activeColor: DesignTokens.primary,
       ),
     );
   }

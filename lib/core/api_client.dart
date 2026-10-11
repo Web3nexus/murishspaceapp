@@ -165,11 +165,20 @@ class ApiClient {
     if (data is! Map<String, dynamic>) return data;
     final isSuccess = data['success'] as bool? ?? (data.containsKey('data'));
     if (isSuccess) return data['data'];
+    // The backend envelope nests structured error fields under `errors`
+    // (e.g. errors.code); the global exception handler emits `code` top-level.
+    // Accept either so clients see a stable error code. `errors` may also be a
+    // list (Laravel-style validation arrays), so guard the type instead of
+    // hard-casting.
+    final rawErrors = data['errors'];
+    final errors = rawErrors is Map
+        ? Map<String, dynamic>.from(rawErrors)
+        : null;
+    final code = data['code']?.toString() ?? errors?['code']?.toString();
     throw ApiException(
       message: data['message']?.toString() ?? 'Request failed.',
-      code: data['code']?.toString(),
-      errors: (data['errors'] as Map<String, dynamic>?)
-          ?.cast<String, dynamic>(),
+      code: code,
+      errors: errors,
       status: response.statusCode,
       requestId: data['request_id']?.toString(),
     );

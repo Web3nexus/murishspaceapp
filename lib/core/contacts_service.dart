@@ -1,5 +1,6 @@
 import 'package:shared_preferences/shared_preferences.dart';
 import 'api_client.dart';
+import 'design_tokens.dart';
 
 /// Contact model representing a phone contact matched on MurihSpace.
 class MatchedContact {
@@ -20,7 +21,7 @@ class MatchedContact {
     required this.phone,
     required this.username,
     this.avatarUrl,
-    this.avatarColorHex = '0xFF007AFF',
+    this.avatarColorHex = '0xFF38A8D8',
     this.status = 'none',
     this.mutualCount = 0,
     this.isAlreadyFriend = false,
@@ -35,7 +36,7 @@ class MatchedContact {
       phone: json['phone'] as String? ?? json['mobile_number'] as String? ?? '',
       username: json['username'] as String? ?? '',
       avatarUrl: json['avatar_url'] as String? ?? json['avatar'] as String?,
-      avatarColorHex: json['avatar_color'] as String? ?? '0xFF007AFF',
+      avatarColorHex: json['avatar_color'] as String? ?? '0xFF38A8D8',
       status: statusStr,
       mutualCount: (json['mutual_friends'] as num?)?.toInt() ?? 0,
       isAlreadyFriend: (json['is_friend'] as bool?) ?? (statusStr == 'accepted'),
