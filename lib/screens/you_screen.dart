@@ -389,8 +389,8 @@ class _YouScreenState extends ConsumerState<YouScreen>
     final textSecondary = isDark ? const Color(0xFF94A3B8) : const Color(0xFF667085);
     final borderColor = isDark ? const Color(0xFF2E384D) : const Color(0xFFE4E7EC);
 
-    final authorName = user?.name.isNotEmpty == true ? user!.name : 'Lord Uzih';
-    final authorUsername = user?.username.isNotEmpty == true ? user!.username : 'lorduzih';
+    final authorName = user?.name.isNotEmpty == true ? user!.name : 'User';
+    final authorUsername = user?.username.isNotEmpty == true ? user!.username : 'user';
     final rawAvatar = user?.avatarUrl;
     final resolvedAvatar = rawAvatar != null ? ApiClient.resolveUrl(rawAvatar) : null;
     final rawBanner = user?.bannerUrl;
@@ -400,9 +400,9 @@ class _YouScreenState extends ConsumerState<YouScreen>
     final following = user?.followingCount ?? followState.getFollowingCount(user?.id ?? 0);
     final postsCount = user?.postsCount ?? followState.getPostsCount(user?.id ?? 0);
 
-    final displayFollowers = followers > 0 ? '$followers' : '158K';
-    final displayFollowing = following > 0 ? '$following' : '1,432';
-    final displayPosts = postsCount > 0 ? '$postsCount' : '489';
+    final displayFollowers = '$followers';
+    final displayFollowing = '$following';
+    final displayPosts = '$postsCount';
 
     return Scaffold(
       backgroundColor: bg,

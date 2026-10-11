@@ -354,12 +354,12 @@ class _CreatorHubScreenState extends ConsumerState<CreatorHubScreen>
     final textSecondary = isDark ? const Color(0xFF94A3B8) : const Color(0xFF667085);
     final borderColor = isDark ? const Color(0xFF2E384D) : const Color(0xFFE4E7EC);
 
-    // Live or realistic creator earnings fallback
     final rawBalance = wallet.creatorBalance > 0 ? wallet.creatorBalance : wallet.systemBalance;
-    final displayEarnings = rawBalance > 0 ? '\$${rawBalance.toStringAsFixed(2)}' : '\$4,320.50';
+    final displayEarnings = '\$${rawBalance.toStringAsFixed(2)}';
+    final followersCount = user?.followersCount ?? 0;
 
-    final authorName = user?.name.isNotEmpty == true ? user!.name : 'Lord Uzih';
-    final authorUsername = user?.username.isNotEmpty == true ? user!.username : 'lorduzih';
+    final authorName = user?.name.isNotEmpty == true ? user!.name : 'Creator';
+    final authorUsername = user?.username.isNotEmpty == true ? user!.username : 'creator';
     final rawAvatar = user?.avatarUrl;
     final resolvedAvatar = rawAvatar != null ? ApiClient.resolveUrl(rawAvatar) : null;
 
@@ -473,7 +473,7 @@ class _CreatorHubScreenState extends ConsumerState<CreatorHubScreen>
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          '@$authorUsername · 158K followers',
+                          '@$authorUsername · $followersCount followers',
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w500,

@@ -1,6 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -87,11 +86,20 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
       final data = ApiClient.instance.unwrap(res);
       if (data is Map<String, dynamic> && mounted) {
         setState(() => _profileData = data);
+        final dynamicId = (data['id'] as num?)?.toInt() ?? 0;
+        if (dynamicId > 0 && widget.userId <= 0) {
+          _fetchTabPosts(_activeTabIndex);
+          ref.read(followProvider.notifier).fetchFollowStatus(dynamicId);
+          ref.read(friendsProvider.notifier).fetchFriendshipStatus(dynamicId);
+        }
       }
     } catch (_) {}
   }
 
   Future<void> _fetchTabPosts(int tabIndex) async {
+    final targetId = widget.userId > 0 ? widget.userId : ((_profileData?['id'] as num?)?.toInt() ?? 0);
+    if (targetId <= 0) return;
+
     setState(() => _loadingPosts = true);
     try {
       String type = 'all';
@@ -100,7 +108,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
       if (tabIndex == 3) type = 'mentions';
 
       final res = await ApiClient.instance.dio.get(
-        '/users/${widget.userId}/posts',
+        '/users/$targetId/posts',
         queryParameters: {'type': type},
       );
       final payload = ApiClient.instance.unwrap(res);
@@ -399,14 +407,24 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
       body: ListView(
         padding: EdgeInsets.zero,
         children: [
-          // Solid Color with Elegant Geometric Pattern Design (Replaces AI Gradient)
+          // Profile Cover Banner (Real User Banner or Elegant Geometric Surface)
           Container(
-            height: 115,
+            height: 130,
             width: double.infinity,
-            color: isDark ? const Color(0xFF141720) : const Color(0xFF1E293B),
-            child: CustomPaint(
-              painter: _PatternBannerPainter(isDark: isDark),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF141720) : const Color(0xFF1E293B),
+              image: (_profileData?['banner_url'] as String?)?.isNotEmpty == true
+                  ? DecorationImage(
+                      image: NetworkImage(_profileData!['banner_url'] as String),
+                      fit: BoxFit.cover,
+                    )
+                  : null,
             ),
+            child: (_profileData?['banner_url'] as String?)?.isNotEmpty == true
+                ? null
+                : CustomPaint(
+                    painter: _PatternBannerPainter(isDark: isDark),
+                  ),
           ),
           Transform.translate(
             offset: const Offset(0, -32),
@@ -431,8 +449,10 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                         child: CircleAvatar(
                           radius: 40,
                           backgroundColor: bg,
-                          backgroundImage: widget.avatarUrl.isNotEmpty ? NetworkImage(widget.avatarUrl) : null,
-                          child: widget.avatarUrl.isEmpty
+                          backgroundImage: ((_profileData?['avatar_url'] ?? _profileData?['avatar'] ?? widget.avatarUrl) as String? ?? '').isNotEmpty
+                              ? NetworkImage((_profileData?['avatar_url'] ?? _profileData?['avatar'] ?? widget.avatarUrl) as String)
+                              : null,
+                          child: ((_profileData?['avatar_url'] ?? _profileData?['avatar'] ?? widget.avatarUrl) as String? ?? '').isEmpty
                               ? Icon(Icons.person, color: DesignTokens.primary, size: 44)
                               : null,
                         ),
@@ -440,9 +460,21 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                     ),
                   ),
                   const SizedBox(height: 10),
-                  Text(
-                    widget.name,
-                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: textPrimary),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Flexible(
+                        child: Text(
+                          (_profileData?['name'] as String?)?.isNotEmpty == true ? _profileData!['name'] as String : widget.name,
+                          style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: textPrimary),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (_profileData?['has_active_verification_badge'] == true || _profileData?['kyc_status'] == 'verified') ...[
+                        const SizedBox(width: 6),
+                        const Icon(Icons.verified_rounded, size: 20, color: DesignTokens.primary),
+                      ],
+                    ],
                   ),
                   const SizedBox(height: 2),
                   Text(
@@ -684,6 +716,91 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                           },
                           icon: const Icon(Icons.videocam_rounded, color: DesignTokens.primary, size: 20),
                           tooltip: 'Video Call',
+                        ),
+                      ],
+                    )
+                  else
+                    Column(
+                      children: [
+                        Container(
+                          margin: const EdgeInsets.only(bottom: 14),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: DesignTokens.primary.withOpacity(0.08),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: DesignTokens.primary.withOpacity(0.25)),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Container(
+                                width: 8,
+                                height: 8,
+                                decoration: const BoxDecoration(
+                                  color: DesignTokens.primary,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              const Flexible(
+                                child: Text(
+                                  'Profile Preview Mode — Viewing as visitors see your profile',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    color: DesignTokens.primary,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: DesignTokens.primary,
+                                  foregroundColor: Colors.white,
+                                  elevation: 0,
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                ),
+                                onPressed: () => context.push('/profile'),
+                                icon: const Icon(Icons.edit_rounded, size: 16),
+                                label: const Text(
+                                  'Edit Profile',
+                                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: textPrimary,
+                                  side: BorderSide(color: isDark ? const Color(0xFF2E384D) : const Color(0xFFE4E7EC)),
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                ),
+                                onPressed: () {
+                                  final link = Env.profileUrl(widget.username);
+                                  AppShare.showShareSheet(
+                                    context,
+                                    title: 'Share Your Profile',
+                                    text: 'Check out my profile on Murih Space!',
+                                    url: link,
+                                  );
+                                },
+                                icon: const Icon(Icons.share_outlined, size: 16),
+                                label: const Text(
+                                  'Share Profile',
+                                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
