@@ -715,7 +715,7 @@ class AuthNotifier extends Notifier<AuthState> {
   /// Applies a locally-refreshed copy of the profile (e.g. after editing it).
   void setUser(UserProfile user) {
     state = state.copyWith(user: user);
-    ApiClient.saveUserProfile(jsonEncode(user.toJson())).catchError((_) {});
+    ApiClient.saveUserProfile(jsonEncode(user.toJson())).then<void>((_) {}, onError: (_) {});
   }
 
   /// Switches active profile mode (Member ↔ Creator ↔ Vendor).

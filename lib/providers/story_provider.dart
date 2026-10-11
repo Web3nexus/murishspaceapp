@@ -169,7 +169,7 @@ class StoryNotifier extends Notifier<StoryState> {
     state = state.copyWith(groups: updatedGroups);
 
     // Notify backend asynchronously
-    _dio.post('/stories/$storyId/view').catchError((_) => Response(requestOptions: RequestOptions()));
+    _dio.post('/stories/$storyId/view').then<void>((_) {}, onError: (_) {});
   }
 
   /// Default initial stories for the authenticated user.

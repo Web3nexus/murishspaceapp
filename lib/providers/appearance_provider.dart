@@ -84,32 +84,36 @@ class AppearanceNotifier extends Notifier<AppearanceState> {
     } catch (_) {}
   }
 
-  void setThemeMode(AppThemeMode mode) {
+  void setThemeMode(AppThemeMode mode) async {
     state = state.copyWith(themeMode: mode);
-    SharedPreferences.getInstance().then((prefs) {
-      prefs.setString(_themeModeKey, mode.name);
-    }).catchError((_) {});
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_themeModeKey, mode.name);
+    } catch (_) {}
   }
 
-  void setFontSize(double size) {
+  void setFontSize(double size) async {
     state = state.copyWith(fontSize: size);
-    SharedPreferences.getInstance().then((prefs) {
-      prefs.setDouble(_fontSizeKey, size);
-    }).catchError((_) {});
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setDouble(_fontSizeKey, size);
+    } catch (_) {}
   }
 
-  void setBubbleColor(Color color) {
+  void setBubbleColor(Color color) async {
     state = state.copyWith(bubbleColor: color);
-    SharedPreferences.getInstance().then((prefs) {
-      prefs.setInt(_bubbleColorKey, color.toARGB32());
-    }).catchError((_) {});
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt(_bubbleColorKey, color.toARGB32());
+    } catch (_) {}
   }
 
-  void setWallpaper(String name) {
+  void setWallpaper(String name) async {
     state = state.copyWith(wallpaperName: name);
-    SharedPreferences.getInstance().then((prefs) {
-      prefs.setString(_wallpaperKey, name);
-    }).catchError((_) {});
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_wallpaperKey, name);
+    } catch (_) {}
   }
 }
 

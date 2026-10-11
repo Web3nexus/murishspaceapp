@@ -47,9 +47,11 @@ class RealtimeService {
     _sendPresenceHeartbeat();
   }
 
-  void _sendPresenceHeartbeat() {
+  void _sendPresenceHeartbeat() async {
     if (_userId == null) return;
-    ApiClient.instance.post('/chat/heartbeat').catchError((_) {});
+    try {
+      await ApiClient.instance.post('/chat/heartbeat');
+    } catch (_) {}
   }
 
   /// Called when the application returns from background to foreground

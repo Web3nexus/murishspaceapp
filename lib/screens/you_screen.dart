@@ -161,16 +161,21 @@ class _YouScreenState extends ConsumerState<YouScreen>
 
     showModalBottomSheet<void>(
       context: context,
+      isScrollControlled: true,
       backgroundColor: isDark ? const Color(0xFF161B26) : Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
+        child: Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(ctx).size.height * 0.85,
+          ),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
               Container(
                 width: 36,
                 height: 4,
@@ -270,7 +275,8 @@ class _YouScreenState extends ConsumerState<YouScreen>
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 
   Widget _actionSheetItem({

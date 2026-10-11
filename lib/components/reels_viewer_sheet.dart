@@ -69,6 +69,7 @@ class _ReelsViewerSheetState extends State<ReelsViewerSheet> {
 
     return Scaffold(
       backgroundColor: Colors.black,
+      resizeToAvoidBottomInset: false,
       body: Stack(
         fit: StackFit.expand,
         children: [

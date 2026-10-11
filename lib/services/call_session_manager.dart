@@ -798,7 +798,7 @@ class CallSessionManager extends ChangeNotifier {
         final lp = _room!.localParticipant;
         if (lp != null) {
           final payload = jsonEncode({'type': 'reaction', 'emoji': emoji});
-          lp.publishData(utf8.encode(payload), reliable: false).catchError((e) {
+          lp.publishData(utf8.encode(payload), reliable: false).then<void>((_) {}, onError: (e) {
             debugPrint('[CallSessionManager] publishData reaction ignored error: $e');
           });
         }

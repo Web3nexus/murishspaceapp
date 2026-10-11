@@ -257,10 +257,10 @@ class SecurityNotifier extends Notifier<SecurityState> {
     _lastActiveTime = DateTime.now();
     _lastPeriodicCheck = DateTime.now();
 
-    SharedPreferences.getInstance().then((prefs) {
-      prefs.setString(
+    SharedPreferences.getInstance().then((prefs) async {
+      await prefs.setString(
           'last_periodic_check', _lastPeriodicCheck!.toIso8601String());
-    }).catchError((_) {});
+    }).then<void>((_) {}, onError: (_) {});
 
     if (ref.mounted) {
       state = state.copyWith(
