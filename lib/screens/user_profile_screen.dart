@@ -44,17 +44,88 @@ class UserProfileScreen extends ConsumerStatefulWidget {
   ConsumerState<UserProfileScreen> createState() => _UserProfileScreenState();
 }
 
-class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
+class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabController = TabController(length: 4, vsync: this);
   String _friendshipStatus = 'none'; // 'none', 'pending_sent', 'pending_received', 'accepted', 'self'
   int? _requestId;
   bool _actionLoading = false;
 
+  Map<String, dynamic>? _profileData;
+  List<Map<String, dynamic>> _userPosts = [];
+  List<Map<String, dynamic>> _userReels = [];
+  List<Map<String, dynamic>> _userLive = [];
+  List<Map<String, dynamic>> _userMentions = [];
+  bool _loadingPosts = false;
+  int _activeTabIndex = 0;
+
   @override
   void initState() {
     super.initState();
+    _tabController.addListener(() {
+      if (_tabController.indexIsChanging || _tabController.index != _activeTabIndex) {
+        setState(() => _activeTabIndex = _tabController.index);
+        _fetchTabPosts(_tabController.index);
+      }
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadState();
+      _fetchPublicProfile();
+      _fetchTabPosts(0);
     });
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _fetchPublicProfile() async {
+    try {
+      final res = await ApiClient.instance.dio.get('/users/${widget.username}/public');
+      final data = ApiClient.instance.unwrap(res);
+      if (data is Map<String, dynamic> && mounted) {
+        setState(() => _profileData = data);
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _fetchTabPosts(int tabIndex) async {
+    setState(() => _loadingPosts = true);
+    try {
+      String type = 'all';
+      if (tabIndex == 1) type = 'reels';
+      if (tabIndex == 2) type = 'live';
+      if (tabIndex == 3) type = 'mentions';
+
+      final res = await ApiClient.instance.dio.get(
+        '/users/${widget.userId}/posts',
+        queryParameters: {'type': type},
+      );
+      final payload = ApiClient.instance.unwrap(res);
+      List<Map<String, dynamic>> list = [];
+      if (payload is Map<String, dynamic>) {
+        final raw = payload['data'];
+        if (raw is List) {
+          list = raw.whereType<Map<String, dynamic>>().toList();
+        }
+      } else if (payload is List) {
+        list = payload.whereType<Map<String, dynamic>>().toList();
+      }
+
+      if (mounted) {
+        setState(() {
+          if (tabIndex == 0) _userPosts = list;
+          if (tabIndex == 1) _userReels = list;
+          if (tabIndex == 2) _userLive = list;
+          if (tabIndex == 3) _userMentions = list;
+          _loadingPosts = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loadingPosts = false);
+    }
   }
 
   Future<void> _loadState() async {
@@ -396,9 +467,58 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                   ),
                   const SizedBox(height: 10),
                   Text(
-                    widget.bio,
+                    _profileData?['bio'] as String? ?? widget.bio,
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 13, color: textSecondary, height: 1.3),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Dynamic Metadata Row: Location, Integrated Linktree, Joined Date
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 6,
+                    alignment: WrapAlignment.center,
+                    children: [
+                      if ((_profileData?['country'] as String?)?.isNotEmpty == true)
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.location_on_outlined, size: 14, color: Color(0xFF667085)),
+                            const SizedBox(width: 4),
+                            Text(
+                              _profileData!['country'] as String,
+                              style: TextStyle(fontSize: 12, color: textSecondary, fontWeight: FontWeight.w500),
+                            ),
+                          ],
+                        ),
+                      GestureDetector(
+                        onTap: () => context.push('/l/${widget.username}'),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.link_rounded, size: 14, color: DesignTokens.primary),
+                            const SizedBox(width: 4),
+                            Text(
+                              'murihspace.com/l/${widget.username}',
+                              style: const TextStyle(fontSize: 12, color: DesignTokens.primary, fontWeight: FontWeight.w700),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.calendar_today_outlined, size: 13, color: Color(0xFF667085)),
+                          const SizedBox(width: 4),
+                          Text(
+                            _profileData?['created_at'] != null
+                                ? 'Joined ${DateTime.tryParse(_profileData!['created_at'].toString())?.year ?? 'recently'}'
+                                : 'Member',
+                            style: TextStyle(fontSize: 12, color: textSecondary, fontWeight: FontWeight.w500),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 18),
 
@@ -406,17 +526,17 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
-                      _statCol('Posts', '$postsCount', textPrimary, textSecondary, () {}),
+                      _statCol('Posts', '${_profileData?['posts_count'] ?? postsCount}', textPrimary, textSecondary, () {}),
                       _statCol(
                         'Followers',
-                        '$followersCount',
+                        '${_profileData?['followers_count'] ?? followersCount}',
                         textPrimary,
                         textSecondary,
                         () => FollowersListDialog.show(context, title: '${widget.name}\'s Followers', isFollowersList: true, userId: widget.userId),
                       ),
                       _statCol(
                         'Following',
-                        '$followingCount',
+                        '${_profileData?['following_count'] ?? followingCount}',
                         textPrimary,
                         textSecondary,
                         () => FollowersListDialog.show(context, title: '${widget.name}\'s Following', isFollowersList: false, userId: widget.userId),
@@ -588,9 +708,156 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
 
           // Real Creator Courses & Digital Goods Showcase
           _UserCoursesAndGoodsShowcase(userId: widget.userId, creatorName: widget.name),
+          const SizedBox(height: 24),
+
+          // Dynamic Content Tabs (Posts, Reels, Live, Mentions)
+          Container(
+            decoration: BoxDecoration(
+              border: Border(
+                top: BorderSide(color: isDark ? const Color(0xFF2E384D) : const Color(0xFFE4E7EC)),
+                bottom: BorderSide(color: isDark ? const Color(0xFF2E384D) : const Color(0xFFE4E7EC)),
+              ),
+            ),
+            child: TabBar(
+              controller: _tabController,
+              labelColor: DesignTokens.primary,
+              unselectedLabelColor: textSecondary,
+              indicatorColor: DesignTokens.primary,
+              indicatorWeight: 3,
+              indicatorSize: TabBarIndicatorSize.tab,
+              tabs: const [
+                Tab(icon: Icon(Icons.grid_on_rounded, size: 20)),
+                Tab(icon: Icon(Icons.video_library_rounded, size: 20)),
+                Tab(icon: Icon(Icons.sensors_rounded, size: 20)),
+                Tab(icon: Icon(Icons.person_pin_rounded, size: 20)),
+              ],
+            ),
+          ),
+
+          // Dynamic Content Display
+          _loadingPosts
+              ? const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(32),
+                    child: CircularProgressIndicator.adaptive(),
+                  ),
+                )
+              : _buildTabContent(isDark, textPrimary, textSecondary),
           const SizedBox(height: 30),
         ],
       ),
+    );
+  }
+
+  Widget _buildTabContent(bool isDark, Color textPrimary, Color? textSecondary) {
+    List<Map<String, dynamic>> currentList;
+    String emptyMessage;
+    IconData emptyIcon;
+
+    switch (_activeTabIndex) {
+      case 1:
+        currentList = _userReels;
+        emptyMessage = 'No reels published yet.';
+        emptyIcon = Icons.video_library_outlined;
+        break;
+      case 2:
+        currentList = _userLive;
+        emptyMessage = 'No live broadcasts available.';
+        emptyIcon = Icons.sensors_outlined;
+        break;
+      case 3:
+        currentList = _userMentions;
+        emptyMessage = 'No mentions found.';
+        emptyIcon = Icons.person_pin_outlined;
+        break;
+      case 0:
+      default:
+        currentList = _userPosts;
+        emptyMessage = 'No posts published yet.';
+        emptyIcon = Icons.grid_on_outlined;
+        break;
+    }
+
+    if (currentList.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
+        child: Column(
+          children: [
+            Icon(emptyIcon, size: 42, color: textSecondary),
+            const SizedBox(height: 8),
+            Text(
+              emptyMessage,
+              style: TextStyle(fontSize: 14, color: textSecondary, fontWeight: FontWeight.w600),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return GridView.builder(
+      padding: const EdgeInsets.all(2),
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: currentList.length,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        crossAxisSpacing: 2,
+        mainAxisSpacing: 2,
+        childAspectRatio: 0.8,
+      ),
+      itemBuilder: (ctx, i) {
+        final item = currentList[i];
+        final mediaUrls = item['media_urls'] is List ? item['media_urls'] as List : [];
+        final imageUrl = mediaUrls.isNotEmpty ? mediaUrls.first.toString() : null;
+        final content = item['content'] as String? ?? '';
+        final likes = (item['likes_count'] as num?)?.toInt() ?? 0;
+
+        return Container(
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1E2638) : const Color(0xFFE2E8F0),
+          ),
+          child: imageUrl != null && imageUrl.isNotEmpty
+              ? Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    CachedNetworkImage(
+                      imageUrl: ApiClient.resolveUrl(imageUrl) ?? imageUrl,
+                      fit: BoxFit.cover,
+                      errorWidget: (_, __, ___) => Container(
+                        color: DesignTokens.primary.withValues(alpha: 0.1),
+                        child: const Icon(Icons.broken_image_rounded, color: Colors.grey),
+                      ),
+                    ),
+                    Positioned(
+                      left: 6,
+                      bottom: 6,
+                      child: Row(
+                        children: [
+                          const Icon(Icons.favorite_rounded, color: Colors.white, size: 12),
+                          const SizedBox(width: 3),
+                          Text(
+                            '$likes',
+                            style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                )
+              : Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Center(
+                    child: Text(
+                      content,
+                      maxLines: 4,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 11, color: textPrimary, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ),
+        );
+      },
     );
   }
 

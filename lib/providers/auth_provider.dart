@@ -36,6 +36,7 @@ class UserProfile {
   final int coins;
   final bool isOnline;
   final String? lastSeen;
+  final DateTime? createdAt;
 
   UserProfile({
     required this.id,
@@ -61,6 +62,7 @@ class UserProfile {
     this.coins = 0,
     this.isOnline = true,
     this.lastSeen = 'online',
+    this.createdAt,
   });
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
@@ -93,6 +95,7 @@ class UserProfile {
       coins: (json['coins'] as num?)?.toInt() ?? (json['coin_balance'] as num?)?.toInt() ?? 0,
       isOnline: json['is_online'] as bool? ?? json['isOnline'] as bool? ?? true,
       lastSeen: json['last_seen'] as String? ?? json['lastSeen'] as String? ?? 'online',
+      createdAt: json['created_at'] != null ? DateTime.tryParse(json['created_at'].toString()) : null,
     );
   }
 
@@ -122,6 +125,7 @@ class UserProfile {
       'coins': coins,
       'is_online': isOnline,
       'last_seen': lastSeen,
+      'created_at': createdAt?.toIso8601String(),
     };
   }
 
@@ -151,6 +155,7 @@ class UserProfile {
     int? coins,
     bool? isOnline,
     String? lastSeen,
+    DateTime? createdAt,
   }) {
     return UserProfile(
       id: id ?? this.id,
@@ -176,6 +181,7 @@ class UserProfile {
       coins: coins ?? this.coins,
       isOnline: isOnline ?? this.isOnline,
       lastSeen: lastSeen ?? this.lastSeen,
+      createdAt: createdAt ?? this.createdAt,
     );
   }
 }

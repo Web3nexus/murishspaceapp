@@ -36,6 +36,66 @@ class YouScreen extends ConsumerStatefulWidget {
 class _YouScreenState extends ConsumerState<YouScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tab = TabController(length: 4, vsync: this);
+  List<Map<String, dynamic>> _userPosts = [];
+  List<Map<String, dynamic>> _userReels = [];
+  List<Map<String, dynamic>> _userLive = [];
+  List<Map<String, dynamic>> _userMentions = [];
+  bool _loadingTabMedia = false;
+  int _activeTabIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _tab.addListener(() {
+      if (_tab.indexIsChanging || _tab.index != _activeTabIndex) {
+        setState(() => _activeTabIndex = _tab.index);
+        _fetchTabContent(_tab.index);
+      }
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _fetchTabContent(0);
+    });
+  }
+
+  Future<void> _fetchTabContent(int tabIndex) async {
+    final user = ref.read(authProvider).user;
+    if (user == null || user.id <= 0) return;
+
+    setState(() => _loadingTabMedia = true);
+    try {
+      String type = 'all';
+      if (tabIndex == 1) type = 'reels';
+      if (tabIndex == 2) type = 'live';
+      if (tabIndex == 3) type = 'mentions';
+
+      final res = await ApiClient.instance.dio.get(
+        '/users/${user.id}/posts',
+        queryParameters: {'type': type},
+      );
+      final payload = ApiClient.instance.unwrap(res);
+      List<Map<String, dynamic>> list = [];
+      if (payload is Map<String, dynamic>) {
+        final raw = payload['data'];
+        if (raw is List) {
+          list = raw.whereType<Map<String, dynamic>>().toList();
+        }
+      } else if (payload is List) {
+        list = payload.whereType<Map<String, dynamic>>().toList();
+      }
+
+      if (mounted) {
+        setState(() {
+          if (tabIndex == 0) _userPosts = list;
+          if (tabIndex == 1) _userReels = list;
+          if (tabIndex == 2) _userLive = list;
+          if (tabIndex == 3) _userMentions = list;
+          _loadingTabMedia = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loadingTabMedia = false);
+    }
+  }
 
   final List<Map<String, dynamic>> _highlights = [
     {
@@ -594,27 +654,34 @@ class _YouScreenState extends ConsumerState<YouScreen>
                       spacing: 12,
                       runSpacing: 6,
                       children: [
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.location_on_outlined, size: 14, color: Color(0xFF667085)),
-                            const SizedBox(width: 4),
-                            Text(
-                              'Lagos & London',
-                              style: TextStyle(fontSize: 12, color: textSecondary, fontWeight: FontWeight.w500),
-                            ),
-                          ],
-                        ),
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.link_rounded, size: 14, color: DesignTokens.primary),
-                            const SizedBox(width: 4),
-                            Text(
-                              'linktr.ee/$authorUsername',
-                              style: const TextStyle(fontSize: 12, color: DesignTokens.primary, fontWeight: FontWeight.w600),
-                            ),
-                          ],
+                        if ((user?.country?.isNotEmpty == true) || (user?.state?.isNotEmpty == true))
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.location_on_outlined, size: 14, color: Color(0xFF667085)),
+                              const SizedBox(width: 4),
+                              Text(
+                                [
+                                  if (user?.state?.isNotEmpty == true) user!.state!,
+                                  if (user?.country?.isNotEmpty == true) user!.country!,
+                                ].join(', '),
+                                style: TextStyle(fontSize: 12, color: textSecondary, fontWeight: FontWeight.w500),
+                              ),
+                            ],
+                          ),
+                        GestureDetector(
+                          onTap: () => context.push('/link-in-bio'),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.link_rounded, size: 14, color: DesignTokens.primary),
+                              const SizedBox(width: 4),
+                              Text(
+                                'murihspace.com/l/$authorUsername',
+                                style: const TextStyle(fontSize: 12, color: DesignTokens.primary, fontWeight: FontWeight.w700),
+                              ),
+                            ],
+                          ),
                         ),
                         Row(
                           mainAxisSize: MainAxisSize.min,
@@ -622,7 +689,9 @@ class _YouScreenState extends ConsumerState<YouScreen>
                             const Icon(Icons.calendar_today_outlined, size: 13, color: Color(0xFF667085)),
                             const SizedBox(width: 4),
                             Text(
-                              'Joined March 2024',
+                              user?.createdAt != null
+                                  ? 'Joined ${user!.createdAt!.year}'
+                                  : 'Member',
                               style: TextStyle(fontSize: 12, color: textSecondary, fontWeight: FontWeight.w500),
                             ),
                           ],
@@ -944,91 +1013,14 @@ class _YouScreenState extends ConsumerState<YouScreen>
               ),
 
               // 8. 3-Column Instagram-Style Media Grid
-              GridView.builder(
-                padding: const EdgeInsets.all(2),
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: _showcaseMedia.length,
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 3,
-                  crossAxisSpacing: 2,
-                  mainAxisSpacing: 2,
-                  childAspectRatio: 0.8,
-                ),
-                itemBuilder: (ctx, i) {
-                  final m = _showcaseMedia[i];
-                  final isVideo = m['type'] == 'video';
-                  final isPinned = m['pinned'] as bool? ?? false;
-
-                  return GestureDetector(
-                    onTap: () => _openReel(m),
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        CachedNetworkImage(
-                          imageUrl: m['image'] as String,
-                          fit: BoxFit.cover,
-                        ),
-                        // Dark bottom gradient for legible view counts
-                        Positioned.fill(
-                          child: DecoratedBox(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: [
-                                  Colors.transparent,
-                                  Colors.black.withValues(alpha: 0.6),
-                                ],
-                                stops: const [0.65, 1.0],
-                              ),
-                            ),
-                          ),
-                        ),
-                        // Top Right: Video play or pinned badge
-                        if (isVideo)
-                          const Positioned(
-                            top: 6,
-                            right: 6,
-                            child: Icon(Icons.play_arrow_rounded, color: Colors.white, size: 18),
-                          ),
-                        if (isPinned)
-                          Positioned(
-                            top: 6,
-                            left: 6,
-                            child: Container(
-                              padding: const EdgeInsets.all(3),
-                              decoration: BoxDecoration(
-                                color: Colors.black.withValues(alpha: 0.6),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(Icons.push_pin_rounded, color: Colors.white, size: 12),
-                            ),
-                          ),
-                        // Bottom Left: Views Count
-                        Positioned(
-                          left: 6,
-                          bottom: 6,
-                          child: Row(
-                            children: [
-                              const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 12),
-                              const SizedBox(width: 2),
-                              Text(
-                                m['views'] as String,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
+              _loadingTabMedia
+                  ? const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(32),
+                        child: CircularProgressIndicator.adaptive(),
+                      ),
+                    )
+                  : _buildUserTabGrid(isDark, cardBg, textPrimary, textSecondary),
               const SizedBox(height: 32),
             ],
           ),
@@ -1074,6 +1066,175 @@ class _YouScreenState extends ConsumerState<YouScreen>
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildUserTabGrid(bool isDark, Color cardBg, Color textPrimary, Color textSecondary) {
+    List<Map<String, dynamic>> currentList;
+    String emptyMessage;
+    IconData emptyIcon;
+
+    switch (_activeTabIndex) {
+      case 1:
+        currentList = _userReels.isNotEmpty ? _userReels : _showcaseMedia.where((m) => m['type'] == 'video').toList();
+        emptyMessage = 'No reels published yet.';
+        emptyIcon = Icons.video_library_outlined;
+        break;
+      case 2:
+        currentList = _userLive;
+        emptyMessage = 'No live broadcasts available.';
+        emptyIcon = Icons.sensors_outlined;
+        break;
+      case 3:
+        currentList = _userMentions;
+        emptyMessage = 'No mentions found.';
+        emptyIcon = Icons.person_pin_outlined;
+        break;
+      case 0:
+      default:
+        currentList = _userPosts.isNotEmpty ? _userPosts : _showcaseMedia;
+        emptyMessage = 'No posts published yet.';
+        emptyIcon = Icons.grid_on_outlined;
+        break;
+    }
+
+    if (currentList.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
+        child: Column(
+          children: [
+            Icon(emptyIcon, size: 42, color: textSecondary),
+            const SizedBox(height: 8),
+            Text(
+              emptyMessage,
+              style: TextStyle(fontSize: 14, color: textSecondary, fontWeight: FontWeight.w600),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return GridView.builder(
+      padding: const EdgeInsets.all(2),
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: currentList.length,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        crossAxisSpacing: 2,
+        mainAxisSpacing: 2,
+        childAspectRatio: 0.8,
+      ),
+      itemBuilder: (ctx, i) {
+        final m = currentList[i];
+        final mediaUrls = m['media_urls'] is List ? m['media_urls'] as List : [];
+        final rawImg = mediaUrls.isNotEmpty ? mediaUrls.first.toString() : m['image'] as String?;
+        final imgUrl = rawImg != null ? ApiClient.resolveUrl(rawImg) : null;
+        final isVideo = m['type'] == 'video' || m['type'] == 'reels';
+        final isPinned = m['is_pinned'] == true || m['pinned'] == true;
+        final views = m['views']?.toString() ?? '${(m['views_count'] as num?)?.toInt() ?? (m['likes_count'] as num?)?.toInt() ?? 0}';
+        final content = m['content'] as String? ?? m['caption'] as String? ?? '';
+
+        return GestureDetector(
+          onTap: () {
+            if (imgUrl != null && imgUrl.isNotEmpty) {
+              _openReel({
+                'caption': content,
+                'image': imgUrl,
+                'likes': views,
+                'comments': '0',
+              });
+            }
+          },
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (imgUrl != null && imgUrl.isNotEmpty)
+                CachedNetworkImage(
+                  imageUrl: imgUrl,
+                  fit: BoxFit.cover,
+                  placeholder: (c, u) => Container(color: cardBg),
+                  errorWidget: (c, u, e) => Container(
+                    color: DesignTokens.primary.withValues(alpha: 0.1),
+                    child: const Icon(Icons.image_not_supported_rounded, color: Colors.grey),
+                  ),
+                )
+              else
+                Container(
+                  color: isDark ? const Color(0xFF1E2638) : const Color(0xFFE2E8F0),
+                  padding: const EdgeInsets.all(8),
+                  child: Center(
+                    child: Text(
+                      content,
+                      maxLines: 4,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 11, color: textPrimary, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ),
+
+              // Gradient Overlay
+              Positioned.fill(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.transparent,
+                        Colors.black.withValues(alpha: 0.6),
+                      ],
+                      stops: const [0.65, 1.0],
+                    ),
+                  ),
+                ),
+              ),
+
+              // Video & Pinned Indicators
+              if (isVideo)
+                const Positioned(
+                  top: 6,
+                  right: 6,
+                  child: Icon(Icons.play_arrow_rounded, color: Colors.white, size: 18),
+                ),
+              if (isPinned)
+                Positioned(
+                  top: 6,
+                  left: 6,
+                  child: Container(
+                    padding: const EdgeInsets.all(3),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.6),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.push_pin_rounded, color: Colors.white, size: 12),
+                  ),
+                ),
+
+              // Views Count
+              Positioned(
+                left: 6,
+                bottom: 6,
+                child: Row(
+                  children: [
+                    const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 12),
+                    const SizedBox(width: 2),
+                    Text(
+                      views.isNotEmpty ? views : '0',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

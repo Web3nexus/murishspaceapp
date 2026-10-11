@@ -39,38 +39,39 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
 
   String _selectedSubCategory = 'All';
 
-  final List<Map<String, dynamic>> _trendingTopics = [
-    {'tag': '#CostaBlanca', 'count': '12.4K posts'},
-    {'tag': '#FitnessLifestyle', 'count': '5.8K posts'},
-    {'tag': '#MurihSpace', 'count': '8.7K posts'},
-    {'tag': '#Foodie', 'count': '4.3K posts'},
-    {'tag': '#AfricanCreators', 'count': '6.1K posts'},
-    {'tag': '#TechInnovation', 'count': '3.9K posts'},
-  ];
+  List<Map<String, dynamic>> _trendingTopics = [];
+  List<Map<String, dynamic>> _suggestedCreators = [];
+  bool _loadingTrending = true;
 
-  final List<Map<String, dynamic>> _suggestedCreators = [
-    {
-      'id': 101,
-      'name': 'Tunde Visuals',
-      'username': 'tundevisuals',
-      'followers': '12.4K followers',
-      'avatar': 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
-    },
-    {
-      'id': 102,
-      'name': 'Nana Eats',
-      'username': 'nanaeats',
-      'followers': '28.7K followers',
-      'avatar': 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
-    },
-    {
-      'id': 103,
-      'name': 'Jay Travel',
-      'username': 'jaytravel',
-      'followers': '19.1K followers',
-      'avatar': 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150',
-    },
-  ];
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _fetchDiscoveryData();
+    });
+  }
+
+  Future<void> _fetchDiscoveryData() async {
+    try {
+      final res = await ApiClient.instance.dio.get('/discover/trending');
+      final data = ApiClient.instance.unwrap(res);
+      if (data is Map<String, dynamic> && mounted) {
+        final topics = data['trending_topics'];
+        final creators = data['suggested_creators'];
+        setState(() {
+          if (topics is List) {
+            _trendingTopics = topics.whereType<Map<String, dynamic>>().toList();
+          }
+          if (creators is List) {
+            _suggestedCreators = creators.whereType<Map<String, dynamic>>().toList();
+          }
+          _loadingTrending = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loadingTrending = false);
+    }
+  }
 
   final List<Map<String, dynamic>> _discoveryMedia = [
     {
@@ -450,31 +451,39 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
             spacing: 10,
             runSpacing: 10,
             children: _trendingTopics.map((topic) {
-              return Container(
-                width: (MediaQuery.of(context).size.width - 42) / 2,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: cardBg,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: borderColor),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      topic['tag']!,
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: textPrimary,
+              final tag = topic['tag'] as String? ?? '';
+              final count = topic['count'] as String? ?? '';
+              return GestureDetector(
+                onTap: () {
+                  _searchController.text = tag;
+                  _performSearch(tag);
+                },
+                child: Container(
+                  width: (MediaQuery.of(context).size.width - 42) / 2,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: cardBg,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: borderColor),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        tag,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: textPrimary,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      topic['count']!,
-                      style: TextStyle(fontSize: 11, color: textSecondary),
-                    ),
-                  ],
+                      const SizedBox(height: 3),
+                      Text(
+                        count,
+                        style: TextStyle(fontSize: 11, color: textSecondary),
+                      ),
+                    ],
+                  ),
                 ),
               );
             }).toList(),
@@ -510,69 +519,87 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
         ),
         const SizedBox(height: 12),
         SizedBox(
-          height: 170,
+          height: 175,
           child: ListView.builder(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             scrollDirection: Axis.horizontal,
             itemCount: _suggestedCreators.length,
             itemBuilder: (ctx, i) {
               final c = _suggestedCreators[i];
-              return Container(
-                width: 135,
-                margin: const EdgeInsets.only(right: 12),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: cardBg,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: borderColor),
-                ),
-                child: Column(
-                  children: [
-                    CircleAvatar(
-                      radius: 26,
-                      backgroundImage: CachedNetworkImageProvider(c['avatar']!),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      c['name']!,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: textPrimary,
+              final rawAvatar = c['avatar_url'] as String? ?? c['avatar'] as String?;
+              final resolvedAvatar = rawAvatar != null && rawAvatar.isNotEmpty ? ApiClient.resolveUrl(rawAvatar) : null;
+              final name = c['name'] as String? ?? 'Creator';
+              final username = c['username'] as String? ?? '';
+              final creatorId = (c['id'] as num?)?.toInt() ?? 0;
+              final followers = c['followers'] as String? ?? 'Popular';
+
+              return GestureDetector(
+                onTap: () {
+                  if (username.isNotEmpty) {
+                    context.push('/u/$username');
+                  }
+                },
+                child: Container(
+                  width: 140,
+                  margin: const EdgeInsets.only(right: 12),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: cardBg,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: borderColor),
+                  ),
+                  child: Column(
+                    children: [
+                      CircleAvatar(
+                        radius: 26,
+                        backgroundColor: DesignTokens.primary.withValues(alpha: 0.15),
+                        backgroundImage: resolvedAvatar != null ? CachedNetworkImageProvider(resolvedAvatar) : null,
+                        child: resolvedAvatar == null ? Text(name.isNotEmpty ? name[0].toUpperCase() : 'C') : null,
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    Text(
-                      '@${c['username']}',
-                      style: TextStyle(fontSize: 11, color: textSecondary),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const Spacer(),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 28,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: DesignTokens.primary,
-                          foregroundColor: Colors.white,
-                          padding: EdgeInsets.zero,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
+                      const SizedBox(height: 8),
+                      Text(
+                        name,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: textPrimary,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        '@$username · $followers',
+                        style: TextStyle(fontSize: 10, color: textSecondary),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const Spacer(),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 28,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: DesignTokens.primary,
+                            foregroundColor: Colors.white,
+                            padding: EdgeInsets.zero,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            elevation: 0,
                           ),
-                          elevation: 0,
-                        ),
-                        onPressed: () {
-                          ref.read(followProvider.notifier).toggleFollow(c['id'] as int);
-                        },
-                        child: const Text(
-                          'Follow',
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                          onPressed: () {
+                            if (creatorId > 0) {
+                              ref.read(followProvider.notifier).toggleFollow(creatorId);
+                            }
+                          },
+                          child: const Text(
+                            'Follow',
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               );
             },
@@ -759,47 +786,69 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
   }
 
   Widget _buildPeopleTab(bool isDark, Color cardBg, Color textPrimary, Color textSecondary) {
+    if (_loadingTrending && _suggestedCreators.isEmpty) {
+      return const Center(child: LoadingStateWidget(message: 'Discovering creators...'));
+    }
+
     return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       itemCount: _suggestedCreators.length,
       itemBuilder: (ctx, i) {
         final c = _suggestedCreators[i];
-        return Container(
-          margin: const EdgeInsets.only(bottom: 10),
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: cardBg,
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: Row(
-            children: [
-              CircleAvatar(
-                radius: 22,
-                backgroundImage: CachedNetworkImageProvider(c['avatar']!),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(c['name']!, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: textPrimary)),
-                    Text('@${c['username']} · ${c['followers']}', style: TextStyle(color: textSecondary, fontSize: 12)),
-                  ],
+        final rawAvatar = c['avatar_url'] as String? ?? c['avatar'] as String?;
+        final resolvedAvatar = rawAvatar != null && rawAvatar.isNotEmpty ? ApiClient.resolveUrl(rawAvatar) : null;
+        final name = c['name'] as String? ?? 'Creator';
+        final username = c['username'] as String? ?? '';
+        final creatorId = (c['id'] as num?)?.toInt() ?? 0;
+        final followers = c['followers'] as String? ?? '';
+
+        return GestureDetector(
+          onTap: () {
+            if (username.isNotEmpty) {
+              context.push('/u/$username');
+            }
+          },
+          child: Container(
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: cardBg,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 22,
+                  backgroundColor: DesignTokens.primary.withValues(alpha: 0.15),
+                  backgroundImage: resolvedAvatar != null ? CachedNetworkImageProvider(resolvedAvatar) : null,
+                  child: resolvedAvatar == null ? Text(name.isNotEmpty ? name[0].toUpperCase() : 'C') : null,
                 ),
-              ),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: DesignTokens.primary,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  elevation: 0,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(name, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: textPrimary)),
+                      Text('@$username · $followers', style: TextStyle(color: textSecondary, fontSize: 12)),
+                    ],
+                  ),
                 ),
-                onPressed: () {
-                  ref.read(followProvider.notifier).toggleFollow(c['id'] as int);
-                },
-                child: const Text('Follow'),
-              ),
-            ],
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: DesignTokens.primary,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    elevation: 0,
+                  ),
+                  onPressed: () {
+                    if (creatorId > 0) {
+                      ref.read(followProvider.notifier).toggleFollow(creatorId);
+                    }
+                  },
+                  child: const Text('Follow'),
+                ),
+              ],
+            ),
           ),
         );
       },
