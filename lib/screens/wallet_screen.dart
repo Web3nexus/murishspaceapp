@@ -30,6 +30,7 @@ class WalletScreen extends ConsumerStatefulWidget {
 
 class _WalletScreenState extends ConsumerState<WalletScreen> {
   bool _hideBalance = false;
+  bool _showLocalCurrency = false;
   WalletType _activeWalletType = WalletType.system;
 
   @override
@@ -1060,11 +1061,12 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     final textSecondary = isDark ? const Color(0xFF94A3B8) : const Color(0xFF667085);
     final pageBg = isDark ? const Color(0xFF0F141C) : const Color(0xFFF3F5F8);
 
-    final cardholderName = (user?.name != null && user!.name.isNotEmpty)
-        ? user.name.toUpperCase()
-        : 'VINCENT ADETUBERU';
-
-    final maskedAcc = '•••• •••• •••• ${((user?.id ?? 4821) % 10000).toString().padLeft(4, '0')}';
+    final userName = (user?.name != null && user!.name.isNotEmpty)
+        ? user.name
+        : 'Vincent Adetuberu';
+    final userTag = (user?.username != null && user!.username.isNotEmpty)
+        ? '@${user.username}'
+        : '@vincent';
 
     return Scaffold(
       backgroundColor: pageBg,
@@ -1136,116 +1138,28 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
 
                   const SizedBox(height: 18),
 
-                  // 2. Premium Digital Payment Card
+                  // 2. Premium Digital Payment Card with Available Balance on Card
                   MurihPayCard(
                     walletType: _activeWalletType,
-                    cardholderName: cardholderName,
-                    maskedNumber: maskedAcc,
-                    expiry: '10/28',
+                    userName: userName,
+                    userTag: userTag,
+                    availableBalance: availableAmount,
+                    currency: currency,
+                    localCurrency: activeWallet?.localCurrency ?? 'NGN',
+                    localRate: (activeWallet?.localRate != null && activeWallet!.localRate > 0)
+                        ? activeWallet.localRate
+                        : 1326.0,
+                    localFormatted: activeWallet?.localFormatted ?? '',
                     isBalanceHidden: _hideBalance,
+                    showLocalCurrency: _showLocalCurrency,
+                    onToggleCurrency: () {
+                      setState(() {
+                        _showLocalCurrency = !_showLocalCurrency;
+                      });
+                    },
                   ),
 
-                  const SizedBox(height: 20),
-
-                  // 3. Balance Hero Section
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Available Balance',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: textSecondary,
-                              letterSpacing: 0.2,
-                            ),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: isDark ? const Color(0xFF1E2638) : Colors.white,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: isDark ? const Color(0xFF2E384D) : const Color(0xFFE4E7EC),
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Text('🇺🇸', style: TextStyle(fontSize: 12)),
-                                const SizedBox(width: 4),
-                                Text(
-                                  currency,
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w700,
-                                    color: textPrimary,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.baseline,
-                        textBaseline: TextBaseline.alphabetic,
-                        children: [
-                          Text(
-                            _hideBalance
-                                ? '••••••••'
-                                : '\$${availableAmount.toStringAsFixed(2)}',
-                            style: TextStyle(
-                              fontSize: 34,
-                              fontWeight: FontWeight.w800,
-                              color: textPrimary,
-                              letterSpacing: -1.2,
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF16A34A).withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: const Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.arrow_upward_rounded, size: 12, color: Color(0xFF16A34A)),
-                                SizedBox(width: 2),
-                                Text(
-                                  '+12.5%',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w700,
-                                    color: Color(0xFF16A34A),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        _hideBalance
-                            ? '≈ •••••••• NGN'
-                            : '≈ ₦${(availableAmount * 1326.0).toStringAsFixed(2)} NGN · Live Rate',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: textSecondary,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 22),
 
                   // 4. Financial Actions Grid (Circular icons)
                   WalletActionGrid(

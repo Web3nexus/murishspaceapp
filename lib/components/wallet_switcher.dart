@@ -25,7 +25,7 @@ class WalletSwitcher extends StatelessWidget {
     final items = <_SwitcherItem>[
       const _SwitcherItem(type: WalletType.system, label: 'Personal', icon: Icons.person_rounded),
       if (hasCreator)
-        const _SwitcherItem(type: WalletType.creator, label: 'Creator', icon: Icons.auto_awesome_rounded),
+        const _SwitcherItem(type: WalletType.creator, label: 'Creator', icon: Icons.video_camera_back_rounded),
       if (hasBusiness)
         const _SwitcherItem(type: WalletType.business, label: 'Business', icon: Icons.business_center_rounded),
     ];

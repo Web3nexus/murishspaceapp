@@ -109,43 +109,52 @@ class _WalletTransactionsListState extends State<WalletTransactionsList> {
         ),
         const SizedBox(height: 12),
 
-        // Search Input
-        Container(
-          height: 42,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF1C1C1E) : const Color(0xFFF3F4F6),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: borderColor, width: 0.8),
+        // Standard Fintech Search Field (No nested box-in-box)
+        TextField(
+          controller: _searchCtrl,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            color: textPrimary,
           ),
-          child: Row(
-            children: [
-              Icon(Icons.search_rounded, size: 18, color: textSecondary),
-              const SizedBox(width: 8),
-              Expanded(
-                child: TextField(
-                  controller: _searchCtrl,
-                  style: TextStyle(fontSize: 13, color: textPrimary),
-                  decoration: InputDecoration(
-                    hintText: 'Search transactions...',
-                    hintStyle: TextStyle(fontSize: 13, color: textSecondary),
-                    border: InputBorder.none,
-                    isDense: true,
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                  onChanged: (val) => setState(() => _searchQuery = val.trim()),
-                ),
-              ),
-              if (_searchCtrl.text.isNotEmpty)
-                GestureDetector(
-                  onTap: () {
-                    _searchCtrl.clear();
-                    setState(() => _searchQuery = '');
-                  },
-                  child: Icon(Icons.clear_rounded, size: 16, color: textSecondary),
-                ),
-            ],
+          decoration: InputDecoration(
+            hintText: 'Search transactions...',
+            hintStyle: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w400,
+              color: textSecondary,
+            ),
+            filled: true,
+            fillColor: isDark ? const Color(0xFF161B26) : const Color(0xFFF3F5F8),
+            prefixIcon: Icon(
+              Icons.search_rounded,
+              size: 20,
+              color: textSecondary,
+            ),
+            suffixIcon: _searchCtrl.text.isNotEmpty
+                ? IconButton(
+                    icon: Icon(Icons.clear_rounded, size: 18, color: textSecondary),
+                    onPressed: () {
+                      _searchCtrl.clear();
+                      setState(() => _searchQuery = '');
+                    },
+                  )
+                : null,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: borderColor, width: 1.0),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: borderColor, width: 1.0),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: DesignTokens.primary, width: 1.5),
+            ),
           ),
+          onChanged: (val) => setState(() => _searchQuery = val.trim()),
         ),
         const SizedBox(height: 16),
 
