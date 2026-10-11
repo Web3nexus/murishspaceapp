@@ -209,3 +209,18 @@ class BrandFavicon extends StatelessWidget {
     );
   }
 }
+
+/// MurihSpace Brand Color Tokens as specified in MurihPay design system.
+abstract final class BrandColors {
+  static const Color primary = Color(0xFF1A68D4);
+  static const Color primaryDark = Color(0xFF1555AD);
+  static const Color primarySoft = Color(0xFFE8F1FD);
+  static const Color pageBg = Color(0xFFF3F5F8);
+  static const Color cardBg = Color(0xFFFFFFFF);
+  static const Color textPrimary = Color(0xFF17202B);
+  static const Color textSecondary = Color(0xFF667085);
+  static const Color borders = Color(0xFFE4E7EC);
+  static const Color success = Color(0xFF16A34A);
+  static const Color warning = Color(0xFFD97706);
+  static const Color error = Color(0xFFDC2626);
+}

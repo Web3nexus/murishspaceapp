@@ -7,6 +7,7 @@ import '../core/roles.dart';
 import '../providers/auth_provider.dart';
 import '../providers/events_provider.dart';
 import '../widgets/event_card.dart';
+import 'event_editor_sheet.dart';
 
 enum _EventsTab {
   upcoming('Upcoming'),
@@ -63,7 +64,7 @@ class _EventsScreenState extends ConsumerState<EventsScreen>
           if (canCreate)
             IconButton(
               tooltip: 'Create event',
-              onPressed: () => _showCreateHint(context),
+              onPressed: () => _createEvent(context),
               icon: const Icon(Icons.add_rounded),
             ),
         ],
@@ -79,15 +80,15 @@ class _EventsScreenState extends ConsumerState<EventsScreen>
     );
   }
 
-  /// Event authoring is owned by the creator dashboard on the web, so the app
-  /// offers the shared entry point rather than shipping a second, thinner
-  /// composer that would drift from it.
-  void _showCreateHint(BuildContext context) {
+  /// Opens the create-event composer and lands the creator on their own list
+  /// once the event exists, where it can be published or edited.
+  Future<void> _createEvent(BuildContext context) async {
+    final event = await showEventEditorSheet(context);
+    if (event == null || !context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Create and manage events from the creator dashboard.'),
-      ),
+      SnackBar(content: Text('"${event.title}" created as a ${event.status}.')),
     );
+    _tabs.animateTo(1);
   }
 }
 
@@ -122,8 +123,9 @@ class _EventList extends ConsumerWidget {
         },
       ),
       data: (events) {
-        if (events.isEmpty)
+        if (events.isEmpty) {
           return _EventsEmpty(owned: owned, registered: registered);
+        }
         return RefreshIndicator(
           onRefresh: () async {
             switch ((owned, registered)) {
@@ -143,6 +145,7 @@ class _EventList extends ConsumerWidget {
               final event = events[index];
               return EventCard(
                 event: event,
+                trailing: owned ? _OwnedEventActions(event: event) : null,
                 onTap: () => context.push(
                   '/e/${Uri.encodeComponent(event.id.toString())}',
                 ),
@@ -246,6 +249,118 @@ class _EventsError extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Overflow menu for events the signed-in user created: edit the details, move
+/// it between draft/published/cancelled, or delete it — the same actions the
+/// web "My Events" dashboard exposes.
+class _OwnedEventActions extends ConsumerWidget {
+  final EventModel event;
+
+  const _OwnedEventActions({required this.event});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return PopupMenuButton<String>(
+      tooltip: 'Manage event',
+      icon: Icon(
+        Icons.more_vert_rounded,
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+      ),
+      onSelected: (value) => _handle(context, ref, value),
+      itemBuilder: (context) => [
+        const PopupMenuItem(
+          value: 'edit',
+          child: _MenuItem(icon: Icons.edit_rounded, label: 'Edit'),
+        ),
+        if (event.status == 'draft')
+          const PopupMenuItem(
+            value: 'publish',
+            child: _MenuItem(icon: Icons.public_rounded, label: 'Publish'),
+          ),
+        if (event.status == 'published')
+          const PopupMenuItem(
+            value: 'cancel',
+            child: _MenuItem(icon: Icons.event_busy_rounded, label: 'Cancel'),
+          ),
+        const PopupMenuItem(
+          value: 'delete',
+          child: _MenuItem(icon: Icons.delete_outline_rounded, label: 'Delete'),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _handle(BuildContext context, WidgetRef ref, String value) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final mutations = ref.read(eventMutationsProvider);
+    try {
+      switch (value) {
+        case 'edit':
+          await showEventEditorSheet(context, initial: event);
+        case 'publish':
+          await mutations.publish(event.id, 'published');
+          messenger.showSnackBar(const SnackBar(content: Text('Event published')));
+        case 'cancel':
+          await mutations.publish(event.id, 'cancelled');
+          messenger.showSnackBar(const SnackBar(content: Text('Event cancelled')));
+        case 'delete':
+          final confirmed = await _confirmDelete(context, event.title);
+          if (confirmed != true) return;
+          await mutations.delete(event.id);
+          messenger.showSnackBar(const SnackBar(content: Text('Event deleted')));
+      }
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            eventErrorMessage(e, fallback: 'Could not update this event.'),
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<bool?> _confirmDelete(BuildContext context, String title) {
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete event'),
+        content: Text('Delete "$title"? This cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(ctx).colorScheme.error,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MenuItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+
+  const _MenuItem({required this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 20),
+        const SizedBox(width: 12),
+        Text(label),
+      ],
     );
   }
 }

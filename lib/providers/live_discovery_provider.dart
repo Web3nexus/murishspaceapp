@@ -50,6 +50,11 @@ class LiveDiscoveryNotifier extends Notifier<LiveDiscoveryState> {
   // loadMore/refresh whose response arrives late can be discarded instead of
   // appending a stale page or advancing the page cursor twice.
   int _gen = 0;
+  // True while a reset (pull-to-refresh / silent poll) is in flight. A silent
+  // refresh keeps `loading` false, so without this flag `loadMore` could start
+  // mid-reset, request page 1 again under the new generation, and either
+  // duplicate page 1 or skip page 2.
+  bool _refreshing = false;
 
   Dio get _dio => ApiClient.instance.dio;
 
@@ -59,11 +64,14 @@ class LiveDiscoveryNotifier extends Notifier<LiveDiscoveryState> {
     return const LiveDiscoveryState(loading: true);
   }
 
-  Future<void> _load({bool reset = false}) async {
+  Future<void> _load({bool reset = false, bool silent = false}) async {
     final gen = reset ? ++_gen : _gen;
     if (reset) {
       _page = 1;
-      state = state.copyWith(loading: true, clearError: true);
+      _refreshing = true;
+      // A silent refresh keeps the current cards on screen (no skeleton flash)
+      // while it re-reads page one in the background.
+      state = state.copyWith(loading: !silent, clearError: true);
     }
     try {
       final response = await _dio.get(
@@ -100,13 +108,19 @@ class LiveDiscoveryNotifier extends Notifier<LiveDiscoveryState> {
         loadingMore: false,
         error: 'Failed to load live streams.',
       );
+    } finally {
+      // Only the request that still owns the current generation clears the
+      // flag; a newer reset has taken over otherwise.
+      if (gen == _gen) _refreshing = false;
     }
   }
 
-  Future<void> refresh() => _load(reset: true);
+  Future<void> refresh({bool silent = false}) => _load(reset: true, silent: silent);
 
   Future<void> loadMore() async {
-    if (state.loading || state.loadingMore || !state.hasMore) return;
+    if (_refreshing || state.loading || state.loadingMore || !state.hasMore) {
+      return;
+    }
     state = state.copyWith(loadingMore: true);
     await _load();
   }

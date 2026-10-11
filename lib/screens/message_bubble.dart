@@ -1472,7 +1472,7 @@ class _CommunityMessageWidget extends StatelessWidget {
   }
 }
 
-class _LiveStreamMessageWidget extends StatelessWidget {
+class _LiveStreamMessageWidget extends StatefulWidget {
   final String content;
   final bool mine;
   final bool isDark;
@@ -1483,36 +1483,121 @@ class _LiveStreamMessageWidget extends StatelessWidget {
     required this.isDark,
   });
 
+  @override
+  State<_LiveStreamMessageWidget> createState() =>
+      _LiveStreamMessageWidgetState();
+}
+
+class _LiveStreamMessageWidgetState extends State<_LiveStreamMessageWidget> {
+  static const Duration _statusTtl = Duration(seconds: 30);
+
+  /// Shared across every live card so a burst of shares of the same broadcast
+  /// does not fan out into one status request per bubble.
+  static final Map<String, _PreviewCacheEntry> _cache = {};
+
+  bool _isActive = true;
+  bool _resolved = false;
+
   /// Pulls the first http(s) URL out of the shared message, e.g.
   /// `🔴 Watch Ada live on MurihSpace: "My stream"\nhttps://…/live/xxx`.
   String? _extractUrl() {
-    final match = RegExp(r'https?://[^\s]+').firstMatch(content);
+    final match = RegExp(r'https?://[^\s]+').firstMatch(widget.content);
     return match?.group(0);
   }
 
   String _extractTitle() {
-    final match = RegExp(r'"([^"]+)"').firstMatch(content);
+    final match = RegExp(r'"([^"]+)"').firstMatch(widget.content);
     return match?.group(1) ?? 'Live Stream';
   }
 
   @override
+  void initState() {
+    super.initState();
+    _resolveStatus();
+  }
+
+  @override
+  void didUpdateWidget(covariant _LiveStreamMessageWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.content != widget.content) {
+      _resolved = false;
+      _resolveStatus();
+    }
+  }
+
+  /// Asks the public link resolver whether the broadcast is still live, so a
+  /// share card greys out and disables its button once the stream has ended.
+  Future<void> _resolveStatus() async {
+    final url = _extractUrl();
+    if (url == null || url.isEmpty) {
+      if (mounted) setState(() => _resolved = true);
+      return;
+    }
+
+    final cached = _cache[url];
+    if (cached != null && DateTime.now().difference(cached.at) <= _statusTtl) {
+      _applyStatus(cached.data);
+      return;
+    }
+
+    try {
+      final res = await ApiClient.instance.dio.get(
+        '/link-preview',
+        queryParameters: {'url': url},
+      );
+      final data = ApiClient.instance.unwrap(res);
+      final map = data is Map<String, dynamic> ? data : null;
+      _cache[url] = _PreviewCacheEntry(map, DateTime.now());
+      // The bubble may have been recycled for a different share while this
+      // request was in flight, so only apply a response that still matches the
+      // URL now on screen (mirrors _DeepLinkCardWidget).
+      if (url != _extractUrl()) return;
+      _applyStatus(map);
+    } catch (_) {
+      // Unknown status: keep the optimistic "live" treatment rather than
+      // graying out a broadcast that is probably still running.
+      if (url != _extractUrl()) return;
+      if (mounted) setState(() => _resolved = true);
+    }
+  }
+
+  void _applyStatus(Map<String, dynamic>? data) {
+    final active = data?['is_active'];
+    if (!mounted) return;
+    setState(() {
+      _isActive = active == null ? true : active == true;
+      _resolved = true;
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final mine = widget.mine;
+    final isDark = widget.isDark;
     final url = _extractUrl();
     final title = _extractTitle();
-    final hostLine = content.split('\n').first.replaceFirst('🔴 Watch ', '').replaceFirst(RegExp(r' live on MurihSpace.*'), '').trim();
+    final hostLine = widget.content
+        .split('\n')
+        .first
+        .replaceFirst('🔴 Watch ', '')
+        .replaceFirst(RegExp(r' live on MurihSpace.*'), '')
+        .trim();
     final textColor = mine ? Colors.white : (isDark ? Colors.white : Colors.black87);
-    final liveRed = const Color(0xFFFF3B30);
+    final isEnded = _resolved && !_isActive;
+    final accent = isEnded ? const Color(0xFF8E8E93) : const Color(0xFFFF3B30);
 
-    return Container(
+    final card = Container(
       width: 250,
       margin: const EdgeInsets.symmetric(vertical: 2),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: mine
-            ? const Color(0xFFB3261E).withValues(alpha: 0.25)
+            ? (isEnded
+                ? const Color(0xFF6B6B6B).withValues(alpha: 0.25)
+                : const Color(0xFFB3261E).withValues(alpha: 0.25))
             : (isDark ? const Color(0xFF262C38) : const Color(0xFFF1F5F9)),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: liveRed.withValues(alpha: 0.6), width: 1.5),
+        border: Border.all(color: accent.withValues(alpha: 0.6), width: 1.5),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1522,8 +1607,12 @@ class _LiveStreamMessageWidget extends StatelessWidget {
             children: [
               CircleAvatar(
                 radius: 18,
-                backgroundColor: liveRed.withValues(alpha: 0.15),
-                child: Icon(Icons.sensors_rounded, color: liveRed, size: 20),
+                backgroundColor: accent.withValues(alpha: 0.15),
+                child: Icon(
+                  isEnded ? Icons.sensors_off_rounded : Icons.sensors_rounded,
+                  color: accent,
+                  size: 20,
+                ),
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -1536,12 +1625,12 @@ class _LiveStreamMessageWidget extends StatelessWidget {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                           decoration: BoxDecoration(
-                            color: liveRed,
+                            color: accent,
                             borderRadius: BorderRadius.circular(4),
                           ),
-                          child: const Text(
-                            'LIVE',
-                            style: TextStyle(
+                          child: Text(
+                            isEnded ? 'ENDED' : 'LIVE',
+                            style: const TextStyle(
                               color: Colors.white,
                               fontSize: 9,
                               fontWeight: FontWeight.w900,
@@ -1576,7 +1665,7 @@ class _LiveStreamMessageWidget extends StatelessWidget {
             style: TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w800,
-              color: textColor,
+              color: isEnded ? textColor.withValues(alpha: 0.6) : textColor,
             ),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
@@ -1585,32 +1674,45 @@ class _LiveStreamMessageWidget extends StatelessWidget {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: () {
-                if (url == null || url.isEmpty) return;
-                final livePart = Uri.tryParse(url);
-                final sub = livePart?.pathSegments.contains('live') == true
-                    ? livePart!.pathSegments.last
-                    : null;
-                if (sub != null && sub.isNotEmpty) {
-                  context.push('/live/${Uri.encodeComponent(sub)}');
-                } else {
-                  launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-                }
-              },
+              onPressed: isEnded
+                  ? null
+                  : () {
+                      if (url == null || url.isEmpty) return;
+                      final livePart = Uri.tryParse(url);
+                      final sub = livePart?.pathSegments.contains('live') == true
+                          ? livePart!.pathSegments.last
+                          : null;
+                      if (sub != null && sub.isNotEmpty) {
+                        context.push('/live/${Uri.encodeComponent(sub)}');
+                      } else {
+                        launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+                      }
+                    },
               style: ElevatedButton.styleFrom(
-                backgroundColor: liveRed,
+                backgroundColor: accent,
                 foregroundColor: Colors.white,
+                disabledBackgroundColor: accent.withValues(alpha: 0.4),
+                disabledForegroundColor: Colors.white.withValues(alpha: 0.75),
                 elevation: 0,
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
-              icon: const Icon(Icons.sensors_rounded, size: 16),
-              label: const Text('Watch Live', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+              icon: Icon(
+                isEnded ? Icons.sensors_off_rounded : Icons.sensors_rounded,
+                size: 16,
+              ),
+              label: Text(
+                isEnded ? 'Broadcast Ended' : 'Watch Live',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              ),
             ),
           ),
         ],
       ),
     );
+
+    // A finished broadcast stays readable but visibly de-emphasised.
+    return isEnded ? Opacity(opacity: 0.7, child: card) : card;
   }
 }
 

@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 /// MurihSpace unified brand design tokens (Telegram / WhatsApp / X inspired density).
 abstract final class DesignTokens {
   // Brand Palette
-  static const Color primary = Color(0xFF38A8D8);
+  static const Color primary = Color(0xFF1A68D4);
   static const Color primaryDark = Color(0xFF0E5C85);
-  static const Color primarySoft = Color(0x1F38A8D8);
+  static const Color primarySoft = Color(0x1F1A68D4);
   static const Color navy = Color(0xFF102840);
   static const Color sidebar = Color(0xFF102840);
 
@@ -29,8 +29,8 @@ abstract final class DesignTokens {
   static const Color success = Color(0xFF34C759);
   static const Color warning = Color(0xFFFF9500);
   static const Color danger = Color(0xFFFF3B30);
-  static const Color escrow = Color(0xFF38A8D8);
-  static const Color verified = Color(0xFF38A8D8);
+  static const Color escrow = Color(0xFF1A68D4);
+  static const Color verified = Color(0xFF1A68D4);
   static const Color creator = Color(0xFFFF9500);
   static const Color vendor = Color(0xFF5856D6);
 

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -16,14 +18,53 @@ void openLiveStream(BuildContext context, String trackingId) {
 /// Horizontal "Live Now" rail shown above the home feed. Hidden entirely when
 /// nobody is broadcasting so the feed stays uncluttered; a skeleton shows while
 /// the first page loads.
-class LiveNowRail extends ConsumerWidget {
+class LiveNowRail extends ConsumerStatefulWidget {
   const LiveNowRail({super.key});
 
   static const double _cardWidth = 156;
   static const double _cardHeight = 208;
 
+  /// How often an on-screen rail re-reads page one so a broadcast that ended on
+  /// another device (or was abandoned) stops being advertised without the user
+  /// having to pull to refresh.
+  static const Duration _pollInterval = Duration(seconds: 60);
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<LiveNowRail> createState() => _LiveNowRailState();
+}
+
+class _LiveNowRailState extends ConsumerState<LiveNowRail>
+    with WidgetsBindingObserver {
+  Timer? _poll;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _poll = Timer.periodic(LiveNowRail._pollInterval, (_) {
+      if (!mounted) return;
+      ref.read(liveDiscoveryProvider.notifier).refresh(silent: true);
+    });
+  }
+
+  @override
+  void dispose() {
+    _poll?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Returning from the background after a while is exactly when the cached
+    // list is most likely to be stale.
+    if (state == AppLifecycleState.resumed) {
+      ref.read(liveDiscoveryProvider.notifier).refresh(silent: true);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final state = ref.watch(liveDiscoveryProvider);
 
@@ -72,7 +113,7 @@ class LiveNowRail extends ConsumerWidget {
           ),
         ),
         SizedBox(
-          height: _cardHeight,
+          height: LiveNowRail._cardHeight,
           child: state.loading
               ? const _RailSkeleton()
               : ListView.separated(
@@ -83,7 +124,7 @@ class LiveNowRail extends ConsumerWidget {
                   itemBuilder: (ctx, i) {
                     final stream = state.streams[i];
                     return SizedBox(
-                      width: _cardWidth,
+                      width: LiveNowRail._cardWidth,
                       child: LiveStreamCard(
                         stream: stream,
                         onTap: () => openLiveStream(ctx, stream.trackingId),

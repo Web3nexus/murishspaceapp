@@ -111,7 +111,15 @@ class EventCard extends StatelessWidget {
   final EventModel event;
   final VoidCallback onTap;
 
-  const EventCard({super.key, required this.event, required this.onTap});
+  /// Optional action widget (e.g. a manage menu) shown at the end of the tile.
+  final Widget? trailing;
+
+  const EventCard({
+    super.key,
+    required this.event,
+    required this.onTap,
+    this.trailing,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -199,6 +207,10 @@ class EventCard extends StatelessWidget {
                   ],
                 ),
               ),
+              if (trailing != null) ...[
+                const SizedBox(width: 4),
+                trailing!,
+              ],
             ],
           ),
         ),

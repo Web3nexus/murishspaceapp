@@ -26,6 +26,7 @@ import '../core/realtime_client.dart';
 import '../models/chat_models.dart';
 import '../providers/auth_provider.dart';
 import '../providers/chat_provider.dart';
+import '../providers/live_discovery_provider.dart';
 import '../providers/messages_provider.dart';
 import '../providers/realtime_provider.dart';
 import '../providers/wallet_provider.dart';
@@ -350,6 +351,15 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
           return;
         }
       }
+      // A broadcast that ended (410) or was removed (404) must not linger in the
+      // session-wide "Live Now" cache, or the home rail keeps offering it.
+      if (e is DioException) {
+        final status = e.response?.statusCode;
+        if ((status == 410 || status == 404) && _activeStreamId != null) {
+          ref.invalidate(liveDiscoveryProvider);
+        }
+      }
+
       if (mounted) {
         setState(() {
           _connectionError = errorMessage;
@@ -1586,6 +1596,10 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
       } else if (!isHost && _activeStreamId != null) {
         await _leaveViewerStream();
       }
+
+      // Drop the ended broadcast from the session-wide live discovery cache so
+      // the home "Live Now" rail stops showing a stream that is no longer live.
+      ref.invalidate(liveDiscoveryProvider);
 
       if (mounted) {
         if (Navigator.of(context).canPop()) {

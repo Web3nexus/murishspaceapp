@@ -9,6 +9,7 @@ import '../core/api_client.dart';
 import '../providers/auth_provider.dart';
 import '../providers/events_provider.dart';
 import '../widgets/event_card.dart';
+import 'event_editor_sheet.dart';
 
 /// Event detail, reached either from a shared `/e/:id` link or from the
 /// in-app Events list.
@@ -33,26 +34,42 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final async = ref.watch(eventProvider(widget.eventId));
+    final currentUserId = ref.watch(authProvider).user?.id;
+    bool isOwner(EventModel event) =>
+        currentUserId != null && currentUserId == event.creatorId;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Event'),
         actions: [
           async.maybeWhen(
-            data: (event) => IconButton(
-              tooltip: 'Share event',
-              onPressed: () => _share(context, event),
-              icon: const Icon(Icons.ios_share_rounded),
+            data: (event) => Row(
+              children: [
+                IconButton(
+                  tooltip: 'Share event',
+                  onPressed: () => _share(context, event),
+                  icon: const Icon(Icons.ios_share_rounded),
+                ),
+                if (isOwner(event))
+                  _DetailManageMenu(
+                    event: event,
+                    routeSegment: widget.eventId,
+                  ),
+              ],
             ),
             orElse: () => const SizedBox.shrink(),
           ),
         ],
       ),
       // Registering needs an account, so the action bar is also the sign-in
-      // entry point for signed-out visitors.
+      // entry point for signed-out visitors. A creator viewing their own event
+      // gets a host bar instead of a register button.
       bottomNavigationBar: async.maybeWhen(
-        data: (event) =>
-            _EventActionBar(event: event, routeSegment: widget.eventId),
+        data: (event) => _EventActionBar(
+          event: event,
+          routeSegment: widget.eventId,
+          isOwner: isOwner(event),
+        ),
         orElse: () => const SizedBox.shrink(),
       ),
       body: async.when(
@@ -289,11 +306,42 @@ class _EventActionBar extends ConsumerWidget {
   /// exact [eventProvider] family key this screen watches.
   final String routeSegment;
 
-  const _EventActionBar({required this.event, required this.routeSegment});
+  /// Whether the signed-in user created this event — hosts edit rather than
+  /// register.
+  final bool isOwner;
+
+  const _EventActionBar({
+    required this.event,
+    required this.routeSegment,
+    this.isOwner = false,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+
+    if (isOwner) {
+      return SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+          child: FilledButton.icon(
+            onPressed: () async {
+              final updated = await showEventEditorSheet(
+                context,
+                initial: event,
+              );
+              if (updated != null) ref.invalidate(eventProvider(routeSegment));
+            },
+            icon: const Icon(Icons.edit_rounded),
+            label: const Text('Edit event'),
+            style: FilledButton.styleFrom(
+              minimumSize: const Size.fromHeight(52),
+            ),
+          ),
+        ),
+      );
+    }
+
     final isAuthenticated = ref.watch(authProvider).token != null;
     final registration = ref.watch(eventRegistrationProvider);
     final isRegistered = registration.isRegistered(event.id);
@@ -530,6 +578,129 @@ class _EventError extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Overflow menu shown to a creator on their own event: edit, move status, or
+/// delete — mirroring the web "My Events" dashboard actions.
+class _DetailManageMenu extends ConsumerWidget {
+  final EventModel event;
+  final String routeSegment;
+
+  const _DetailManageMenu({required this.event, required this.routeSegment});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return PopupMenuButton<String>(
+      tooltip: 'Manage event',
+      icon: const Icon(Icons.more_vert_rounded),
+      onSelected: (value) => _handle(context, ref, value),
+      itemBuilder: (context) => [
+        const PopupMenuItem(
+          value: 'edit',
+          child: _ManageMenuRow(icon: Icons.edit_rounded, label: 'Edit'),
+        ),
+        if (event.status == 'draft')
+          const PopupMenuItem(
+            value: 'publish',
+            child: _ManageMenuRow(icon: Icons.public_rounded, label: 'Publish'),
+          ),
+        if (event.status == 'published')
+          const PopupMenuItem(
+            value: 'cancel',
+            child: _ManageMenuRow(
+              icon: Icons.event_busy_rounded,
+              label: 'Cancel',
+            ),
+          ),
+        const PopupMenuItem(
+          value: 'delete',
+          child: _ManageMenuRow(
+            icon: Icons.delete_outline_rounded,
+            label: 'Delete',
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _handle(BuildContext context, WidgetRef ref, String value) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final mutations = ref.read(eventMutationsProvider);
+    try {
+      switch (value) {
+        case 'edit':
+          final updated = await showEventEditorSheet(context, initial: event);
+          if (updated != null) ref.invalidate(eventProvider(routeSegment));
+        case 'publish':
+          await mutations.publish(event.id, 'published');
+          ref.invalidate(eventProvider(routeSegment));
+          messenger.showSnackBar(const SnackBar(content: Text('Event published')));
+        case 'cancel':
+          await mutations.publish(event.id, 'cancelled');
+          ref.invalidate(eventProvider(routeSegment));
+          messenger.showSnackBar(const SnackBar(content: Text('Event cancelled')));
+        case 'delete':
+          final confirmed = await _confirmDelete(context, event.title);
+          if (confirmed != true) return;
+          await mutations.delete(event.id);
+          if (!context.mounted) return;
+          if (context.canPop()) {
+            context.pop();
+          } else {
+            context.go('/app/events');
+          }
+      }
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            eventErrorMessage(e, fallback: 'Could not update this event.'),
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<bool?> _confirmDelete(BuildContext context, String title) {
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete event'),
+        content: Text('Delete "$title"? This cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(ctx).colorScheme.error,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ManageMenuRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+
+  const _ManageMenuRow({required this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 20),
+        const SizedBox(width: 12),
+        Text(label),
+      ],
     );
   }
 }

@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -358,4 +359,97 @@ class EventRegistrationNotifier extends Notifier<EventRegistrationState> {
   void clearError() {
     if (state.error != null) state = state.copyWith(error: null);
   }
+}
+
+/// Create/edit/publish/delete actions for the signed-in creator's events.
+///
+/// Mirrors the web creator-dashboard contract exactly so the two surfaces stay
+/// in lockstep: `POST /my-events` to create, `PUT /my-events/{id}` to edit,
+/// `POST /my-events/{id}/publish` to move status, and `DELETE /my-events/{id}`.
+/// Every mutation invalidates the "my events" list, the public discovery list,
+/// the registrations list, and the edited event's own cache, so no surface is
+/// left showing a stale copy after an edit.
+final eventMutationsProvider = Provider<EventMutations>(
+  (ref) => EventMutations(ref),
+);
+
+class EventMutations {
+  EventMutations(this._ref);
+
+  final Ref _ref;
+
+  ApiClient get _api => _ref.read(apiClientProvider);
+
+  Future<EventModel> create(Map<String, dynamic> payload) async {
+    final response = await _api.post('/my-events', data: payload);
+    final event = _eventFrom(response);
+    _invalidate(event.id);
+    return event;
+  }
+
+  Future<EventModel> update(int id, Map<String, dynamic> payload) async {
+    final response = await _api.put('/my-events/$id', data: payload);
+    final event = _eventFrom(response);
+    _invalidate(event.id);
+    return event;
+  }
+
+  Future<EventModel> publish(int id, String status) async {
+    final response = await _api.post(
+      '/my-events/$id/publish',
+      data: {'status': status},
+    );
+    final event = _eventFrom(response);
+    _invalidate(event.id);
+    return event;
+  }
+
+  Future<void> delete(int id) async {
+    await _api.delete('/my-events/$id');
+    _invalidate(id);
+  }
+
+  /// The create/update/publish endpoints wrap the row as `{message, data}`.
+  EventModel _eventFrom(Response<dynamic> response) {
+    final payload = _api.unwrap(response);
+    final raw = payload is Map<String, dynamic>
+        ? (payload['event'] ?? payload['data'] ?? payload)
+        : null;
+    if (raw is! Map<String, dynamic>) {
+      throw ApiException(
+        message: 'The server returned an unexpected response.',
+      );
+    }
+    return EventModel.fromJson(raw);
+  }
+
+  void _invalidate(int id) {
+    _ref.invalidate(myEventsProvider);
+    _ref.invalidate(eventsProvider(null));
+    _ref.invalidate(myUpcomingEventsProvider);
+    _ref.invalidate(eventProvider(id.toString()));
+  }
+}
+
+/// A human-readable message for a failed event request.
+///
+/// The API returns its validation/authorisation reason in a JSON `message`
+/// envelope at a 4xx status, which Dio surfaces as a [DioException]; an
+/// envelope-level failure arrives as an [ApiException]. Both are unwrapped here
+/// so callers can show the server's reason instead of a generic failure.
+String eventErrorMessage(
+  Object error, {
+  String fallback = 'Something went wrong. Please try again.',
+}) {
+  if (error is ApiException) {
+    return error.message.trim().isEmpty ? fallback : error.message;
+  }
+  if (error is DioException) {
+    final data = error.response?.data;
+    if (data is Map && data['message'] != null) {
+      final message = data['message'].toString().trim();
+      if (message.isNotEmpty) return message;
+    }
+  }
+  return fallback;
 }
