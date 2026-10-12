@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../components/app_bottom_sheet.dart';
+import '../components/murih_icon.dart';
 import '../core/design_tokens.dart';
 import '../core/roles.dart';
 import '../providers/appearance_provider.dart';
@@ -74,12 +75,21 @@ class SettingsScreen extends ConsumerWidget {
                 onTap: () => context.push('/wallet'),
               ),
               _SettingsTile(
+                iconBg: DesignTokens.primary,
+                murihIcon: 'Video',
+                title: 'Creator Studio',
+                badgeText: (role == UserRole.creator || role == UserRole.admin) ? 'TOOLS' : 'CREATOR',
+                badgeColor: DesignTokens.primary,
+                isDark: isDark,
+                onTap: () => context.push('/creator-studio'),
+              ),
+              _SettingsTile(
                 iconBg: const Color(0xFFFF9500),
-                icon: Icons.campaign_rounded,
-                title: 'Creator Hub & Brand Deals',
+                murihIcon: 'Work',
+                title: 'Brand Studio',
                 badgeText: !flags.isEnabled('brand_deals')
                     ? 'DISABLED'
-                    : ((role == UserRole.creator || role == UserRole.admin) ? 'HOT' : '🔒 LOCKED'),
+                    : ((role == UserRole.creator || role == UserRole.admin) ? 'DEALS' : '🔒 LOCKED'),
                 badgeColor: !flags.isEnabled('brand_deals')
                     ? Colors.grey
                     : ((role == UserRole.creator || role == UserRole.admin) ? const Color(0xFFFF9500) : Colors.grey),
@@ -98,8 +108,8 @@ class SettingsScreen extends ConsumerWidget {
                   } else {
                     _showRoleLockedDialog(
                       context,
-                      'Creator Hub & Brand Deals',
-                      'This feature is exclusively for Verified Creators. Apply for a Creator account to accept brand deals, receive MSH gifts, and earn locked escrow payouts.',
+                      'Brand Studio',
+                      'This feature is exclusively for Verified Creators. Apply for a Creator account to accept brand deals, submit campaign proposals, and earn locked escrow payouts.',
                     );
                   }
                 },
@@ -427,7 +437,8 @@ class _SettingsCardGroup extends StatelessWidget {
 
 class _SettingsTile extends StatelessWidget {
   final Color iconBg;
-  final IconData icon;
+  final IconData? icon;
+  final String? murihIcon;
   final String title;
   final String? trailingText;
   final String? badgeText;
@@ -437,7 +448,8 @@ class _SettingsTile extends StatelessWidget {
 
   const _SettingsTile({
     required this.iconBg,
-    required this.icon,
+    this.icon,
+    this.murihIcon,
     required this.title,
     this.trailingText,
     this.badgeText,
@@ -458,7 +470,11 @@ class _SettingsTile extends StatelessWidget {
           color: iconBg,
           borderRadius: BorderRadius.circular(8),
         ),
-        child: Icon(icon, color: Colors.white, size: 20),
+        child: Center(
+          child: murihIcon != null
+              ? MurihIcon(murihIcon!, color: Colors.white, size: 18)
+              : Icon(icon ?? Icons.circle, color: Colors.white, size: 20),
+        ),
       ),
       title: Text(
         title,

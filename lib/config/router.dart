@@ -53,9 +53,12 @@ import '../screens/event_detail_screen.dart';
 import '../screens/product_link_screen.dart';
 import '../screens/storefront_link_screen.dart';
 import '../screens/events_screen.dart';
+import '../screens/followers_screen.dart';
 import '../screens/link_in_bio_screen.dart';
 import '../screens/user_profile_screen.dart';
+import '../screens/suggested_creators_screen.dart';
 import '../core/roles.dart';
+import '../providers/feature_flag_provider.dart';
 import 'deep_links.dart';
 
 /// Notifies the router whenever auth state changes so redirects re-evaluate.
@@ -83,7 +86,8 @@ const Set<String> _authRequiredExactPaths = <String>{
   '/profile',
   '/kyc',
   '/social-accounts',
-  '/friends',
+'/friends',
+  '/followers',
   '/settings',
   '/create',
   '/create-community',
@@ -92,6 +96,9 @@ const Set<String> _authRequiredExactPaths = <String>{
   '/ads',
   '/ads-manager',
   '/brand-deals',
+  '/brand-studio',
+  '/creator-hub',
+  '/creator-studio',
   '/upgrade-account',
   '/verification-badge',
   '/link-in-bio',
@@ -120,6 +127,17 @@ bool _requiresAuth(String path) {
     if (lower.startsWith(prefix)) return true;
   }
   return false;
+}
+
+/// Brand Studio / Brand Deals surfaces are gated on both the `brand_deals`
+/// feature flag and holding a Creator (or Admin) role, matching the checks
+/// performed in `settings_screen.dart`.
+bool _requiresBrandDealsAccess(String path) {
+  final lower = path.toLowerCase();
+  return lower == '/brand-deals' ||
+      lower == '/brand-studio' ||
+      lower == '/app/brand-deals' ||
+      lower == '/app/brand-studio';
 }
 
 /// Prefixes the router already declares a [GoRoute] for, so they are never
@@ -170,6 +188,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   ref.onDispose(refreshNotifier.dispose);
 
   ref.listen(authProvider, (_, _) => refreshNotifier.refresh());
+  ref.listen(featureFlagProvider, (_, _) => refreshNotifier.refresh());
 
   final router = GoRouter(
     navigatorKey: rootNavigatorKey,
@@ -226,6 +245,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           return '/app/chats';
         }
       }
+
+      if (loggedIn && _requiresBrandDealsAccess(path)) {
+        final role = auth.user?.role ?? UserRole.member;
+        final flags = ref.read(featureFlagProvider);
+        final hasRole = role == UserRole.creator || role == UserRole.admin;
+        if (!flags.isEnabled('brand_deals') || !hasRole) {
+          return '/app/chats';
+        }
+      }
       return null;
     },
     routes: [
@@ -248,11 +276,31 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (_, _) => const BrandDealsScreen(),
       ),
       GoRoute(
+        path: '/app/brand-deals',
+        builder: (_, _) => const BrandDealsScreen(),
+      ),
+      GoRoute(
+        path: '/brand-studio',
+        builder: (_, _) => const BrandDealsScreen(),
+      ),
+      GoRoute(
+        path: '/app/brand-studio',
+        builder: (_, _) => const BrandDealsScreen(),
+      ),
+      GoRoute(
         path: '/creator-hub',
         builder: (_, _) => const CreatorHubScreen(),
       ),
       GoRoute(
+        path: '/creator-studio',
+        builder: (_, _) => const CreatorHubScreen(),
+      ),
+      GoRoute(
         path: '/app/creator-hub',
+        builder: (_, _) => const CreatorHubScreen(),
+      ),
+      GoRoute(
+        path: '/app/creator-studio',
         builder: (_, _) => const CreatorHubScreen(),
       ),
       GoRoute(
@@ -396,6 +444,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         ),
       ),
       GoRoute(path: '/friends', builder: (_, _) => const FriendsScreen()),
+      GoRoute(
+        path: '/followers',
+        builder: (_, state) => FollowersScreen(
+          userId: int.tryParse(state.uri.queryParameters['userId'] ?? ''),
+        ),
+      ),
+      GoRoute(path: '/creators', builder: (_, _) => const SuggestedCreatorsScreen()),
+      GoRoute(path: '/suggested-creators', builder: (_, _) => const SuggestedCreatorsScreen()),
       GoRoute(path: '/settings', builder: (_, _) => const SettingsScreen()),
       GoRoute(
         path: '/profile/user/:id',

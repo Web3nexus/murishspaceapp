@@ -252,6 +252,8 @@ class _VerificationBadgeScreenState extends ConsumerState<VerificationBadgeScree
               const SizedBox(height: 12),
               _featureRow('Official Blue Checkmark badge on your profile', isDark),
               const Divider(height: 20),
+              _featureRow('Premium Vanity Profile Handle & Link (murih.me/@${ref.watch(authProvider).user?.username ?? "username"})', isDark),
+              const Divider(height: 20),
               _featureRow('Priority placement in community & discover search', isDark),
               const Divider(height: 20),
               _featureRow('Exclusive access to send gifts & custom sticker packs', isDark),

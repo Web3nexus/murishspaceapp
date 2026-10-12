@@ -10,11 +10,17 @@ import '../components/share_sheet.dart';
 import '../config/env.dart';
 import '../core/api_client.dart';
 import '../core/design_tokens.dart';
+import '../core/roles.dart';
+import '../models/story_models.dart';
 import '../providers/auth_provider.dart';
+import '../providers/feature_flag_provider.dart';
 import '../providers/follow_provider.dart';
 import '../providers/friends_provider.dart';
+import '../providers/story_provider.dart';
 import 'post_composer_sheet.dart';
 import 'story_composer_sheet.dart';
+import 'story_viewer_screen.dart';
+import '../components/ui_states.dart';
 
 /// Complete Redesigned User Profile Screen (Page C) matching MurihSpace visual reference:
 /// App bar with verified name, Share & Action Menu sheet ·
@@ -40,6 +46,7 @@ class _YouScreenState extends ConsumerState<YouScreen>
   List<Map<String, dynamic>> _userReels = [];
   List<Map<String, dynamic>> _userLive = [];
   List<Map<String, dynamic>> _userMentions = [];
+  List<Map<String, dynamic>> _userStories = [];
   bool _loadingTabMedia = false;
   int _activeTabIndex = 0;
 
@@ -54,7 +61,56 @@ class _YouScreenState extends ConsumerState<YouScreen>
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _fetchTabContent(0);
+      _fetchUserStories();
     });
+  }
+
+  Future<void> _fetchUserStories() async {
+    final user = ref.read(authProvider).user;
+    if (user == null || user.id <= 0) return;
+    try {
+      final res = await ApiClient.instance.dio.get('/users/${user.id}/stories');
+      final payload = ApiClient.instance.unwrap(res);
+      if (payload is List && mounted) {
+        setState(() {
+          _userStories = payload.whereType<Map<String, dynamic>>().toList();
+        });
+      }
+    } catch (_) {}
+  }
+
+  void _openMyStory() {
+    final user = ref.read(authProvider).user;
+    final storyState = ref.read(storyProvider);
+
+    UserStoryGroup? matchedGroup;
+    for (final g in storyState.groups) {
+      if (g.isMyStory || (user != null && g.userId == user.id.toString())) {
+        matchedGroup = g;
+        break;
+      }
+    }
+
+    final activeStories = matchedGroup?.stories.where((s) => !s.isExpired).toList() ?? [];
+
+    // Fall back to the highlights fetched directly from the profile endpoint so
+    // a tap never silently does nothing when the feed has no matching group.
+    if (activeStories.isEmpty && _userStories.isEmpty) return;
+
+    final group = activeStories.isNotEmpty
+        ? matchedGroup!.copyWith(stories: activeStories)
+        : UserStoryGroup(
+            userId: user?.id.toString() ?? '0',
+            userName: user?.name ?? 'Me',
+            userAvatar: user?.avatarUrl,
+            isMyStory: true,
+            stories: _userStories.map(StoryItem.fromJson).toList(),
+          );
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => StoryViewerScreen(group: group)),
+    );
   }
 
   Future<void> _fetchTabContent(int tabIndex) async {
@@ -96,118 +152,6 @@ class _YouScreenState extends ConsumerState<YouScreen>
       if (mounted) setState(() => _loadingTabMedia = false);
     }
   }
-
-  final List<Map<String, dynamic>> _highlights = [
-    {
-      'title': 'Travel',
-      'cover': 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=300',
-    },
-    {
-      'title': 'Tech',
-      'cover': 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=300',
-    },
-    {
-      'title': 'Work',
-      'cover': 'https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=300',
-    },
-    {
-      'title': 'Life',
-      'cover': 'https://images.unsplash.com/photo-1511632765486-a01980e01a18?w=300',
-    },
-  ];
-
-  final List<Map<String, dynamic>> _showcaseMedia = [
-    {
-      'id': 'm1',
-      'type': 'video',
-      'views': '1.2M',
-      'pinned': true,
-      'image': 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=500',
-      'caption': 'Sunset vibes from Costa Blanca party! 🌅 #CostaBlanca',
-      'likes': '94.2K',
-      'comments': '3,420',
-    },
-    {
-      'id': 'm2',
-      'type': 'video',
-      'views': '850K',
-      'pinned': true,
-      'image': 'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?w=500',
-      'caption': 'Daily workout routine & mindset shift. 💪 #FitnessLifestyle',
-      'likes': '62.8K',
-      'comments': '1,890',
-    },
-    {
-      'id': 'm3',
-      'type': 'photo',
-      'views': '420K',
-      'pinned': false,
-      'image': 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=500',
-      'caption': 'Live masterclass session recap. Thank you everyone who joined!',
-      'likes': '38.1K',
-      'comments': '950',
-    },
-    {
-      'id': 'm4',
-      'type': 'video',
-      'views': '610K',
-      'pinned': false,
-      'image': 'https://images.unsplash.com/photo-1501386761578-eac5c94b800a?w=500',
-      'caption': 'Stage soundcheck and lighting setup in London. 🎸',
-      'likes': '51.3K',
-      'comments': '1,120',
-    },
-    {
-      'id': 'm5',
-      'type': 'photo',
-      'views': '290K',
-      'pinned': false,
-      'image': 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=500',
-      'caption': 'Weekend mountain hike in Swiss Alps. Nature never disappoints.',
-      'likes': '24.7K',
-      'comments': '480',
-    },
-    {
-      'id': 'm6',
-      'type': 'video',
-      'views': '980K',
-      'pinned': false,
-      'image': 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500',
-      'caption': 'Studio recording session preview for new MurihSpace track!',
-      'likes': '87.4K',
-      'comments': '2,310',
-    },
-    {
-      'id': 'm7',
-      'type': 'photo',
-      'views': '180K',
-      'pinned': false,
-      'image': 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=500',
-      'caption': 'Exploring hidden coffee spots in Lisbon. ☕️',
-      'likes': '19.2K',
-      'comments': '320',
-    },
-    {
-      'id': 'm8',
-      'type': 'video',
-      'views': '740K',
-      'pinned': false,
-      'image': 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=500',
-      'caption': 'Festival crowd energy was unbelievable tonight! 🎉',
-      'likes': '68.9K',
-      'comments': '1,640',
-    },
-    {
-      'id': 'm9',
-      'type': 'photo',
-      'views': '310K',
-      'pinned': false,
-      'image': 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=500',
-      'caption': 'New portrait shoot in monochrome. 📸',
-      'likes': '33.5K',
-      'comments': '780',
-    },
-  ];
 
   @override
   void dispose() {
@@ -270,13 +214,24 @@ class _YouScreenState extends ConsumerState<YouScreen>
               ),
               _actionSheetItem(
                 ctx: ctx,
-                icon: Icons.workspace_premium_rounded,
-                title: 'Creator Hub & Earnings',
-                subtitle: 'Brand deals, performance & creator tools',
-                color: const Color(0xFFD97706),
+                murihIcon: 'Video',
+                title: 'Creator Studio',
+                subtitle: 'Publishing tools, scheduling, growth & analytics',
+                color: DesignTokens.primary,
                 onTap: () {
                   Navigator.pop(ctx);
-                  context.push('/app/creator-hub');
+                  context.push('/creator-studio');
+                },
+              ),
+              _actionSheetItem(
+                ctx: ctx,
+                murihIcon: 'Work',
+                title: 'Brand Studio',
+                subtitle: 'Brand partnerships, briefs & escrow campaigns',
+                color: const Color(0xFFFF9500),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  context.push('/brand-studio');
                 },
               ),
               _actionSheetItem(
@@ -341,7 +296,8 @@ class _YouScreenState extends ConsumerState<YouScreen>
 
   Widget _actionSheetItem({
     required BuildContext ctx,
-    required IconData icon,
+    IconData? icon,
+    String? murihIcon,
     required String title,
     required String subtitle,
     required Color color,
@@ -354,7 +310,9 @@ class _YouScreenState extends ConsumerState<YouScreen>
           color: color.withValues(alpha: 0.1),
           shape: BoxShape.circle,
         ),
-        child: Icon(icon, color: color, size: 20),
+        child: murihIcon != null
+            ? MurihIcon(murihIcon, color: color, size: 20)
+            : Icon(icon ?? Icons.circle, color: color, size: 20),
       ),
       title: Text(title, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: color)),
       subtitle: Text(subtitle, style: const TextStyle(fontSize: 11, color: Color(0xFF667085))),
@@ -380,8 +338,12 @@ class _YouScreenState extends ConsumerState<YouScreen>
   @override
   Widget build(BuildContext context) {
     final auth = ref.watch(authProvider);
+    final flags = ref.watch(featureFlagProvider);
     final followState = ref.watch(followProvider);
     final user = auth.user;
+    final role = user?.role ?? UserRole.member;
+    final canAccessBrandStudio =
+        flags.isEnabled('brand_deals') && (role == UserRole.creator || role == UserRole.admin);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bg = isDark ? const Color(0xFF0F1319) : const Color(0xFFF3F5F8);
     final cardBg = isDark ? const Color(0xFF161B26) : Colors.white;
@@ -400,9 +362,11 @@ class _YouScreenState extends ConsumerState<YouScreen>
     final following = user?.followingCount ?? followState.getFollowingCount(user?.id ?? 0);
     final postsCount = user?.postsCount ?? followState.getPostsCount(user?.id ?? 0);
 
+    final totalLikes = _userPosts.fold<int>(0, (sum, item) => sum + ((item['likes_count'] as num?)?.toInt() ?? 0));
     final displayFollowers = '$followers';
     final displayFollowing = '$following';
     final displayPosts = '$postsCount';
+    final displayLikes = totalLikes > 0 ? '$totalLikes' : '0';
 
     return Scaffold(
       backgroundColor: bg,
@@ -677,7 +641,7 @@ class _YouScreenState extends ConsumerState<YouScreen>
                               const Icon(Icons.link_rounded, size: 14, color: DesignTokens.primary),
                               const SizedBox(width: 4),
                               Text(
-                                'murihspace.com/l/$authorUsername',
+                                'murih.me/@$authorUsername',
                                 style: const TextStyle(fontSize: 12, color: DesignTokens.primary, fontWeight: FontWeight.w700),
                               ),
                             ],
@@ -766,7 +730,7 @@ class _YouScreenState extends ConsumerState<YouScreen>
                     Container(height: 28, width: 1, color: borderColor),
                     _statItem(
                       label: 'Likes',
-                      value: '12.8M',
+                      value: displayLikes,
                       textPrimary: textPrimary,
                       textSecondary: textSecondary,
                       onTap: () {},
@@ -782,7 +746,6 @@ class _YouScreenState extends ConsumerState<YouScreen>
                 child: Row(
                   children: [
                     Expanded(
-                      flex: 4,
                       child: ElevatedButton(
                         onPressed: () => context.push('/profile'),
                         style: ElevatedButton.styleFrom(
@@ -799,38 +762,37 @@ class _YouScreenState extends ConsumerState<YouScreen>
                       ),
                     ),
                     const SizedBox(width: 8),
-                    Expanded(
-                      flex: 4,
-                      child: OutlinedButton(
-                        onPressed: () {
-                          AppShare.showShareSheet(
-                            context,
-                            title: 'Share Profile',
-                            text: 'Connect with $authorName on MurihSpace!',
-                            url: Env.profileUrl(authorUsername),
-                          );
-                        },
-                        style: OutlinedButton.styleFrom(
-                          side: BorderSide(color: borderColor),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                        ),
-                        child: Text(
-                          'Share Profile',
-                          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: textPrimary),
-                        ),
+                    IconButton.filledTonal(
+                      onPressed: () => context.push('/followers'),
+                      style: IconButton.styleFrom(
+                        backgroundColor: isDark ? const Color(0xFF1E2638) : const Color(0xFFF2F4F7),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        padding: const EdgeInsets.all(12),
                       ),
+                      icon: MurihIcon('2 User', color: textPrimary, size: 20),
+                      tooltip: 'View Followers',
                     ),
                     const SizedBox(width: 8),
                     IconButton.filledTonal(
-                      onPressed: () => context.push('/app/creator-hub'),
+                      onPressed: () => context.push('/creator-studio'),
                       style: IconButton.styleFrom(
                         backgroundColor: isDark ? const Color(0xFF1E2638) : const Color(0xFFE8F1FD),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         padding: const EdgeInsets.all(12),
                       ),
-                      icon: const Icon(Icons.workspace_premium_rounded, color: DesignTokens.primary, size: 22),
-                      tooltip: 'Creator Hub',
+                      icon: const MurihIcon('Video', color: DesignTokens.primary, size: 22),
+                      tooltip: 'Creator Studio',
+                    ),
+                    const SizedBox(width: 6),
+                    IconButton.filledTonal(
+                      onPressed: canAccessBrandStudio ? () => context.push('/brand-studio') : null,
+                      style: IconButton.styleFrom(
+                        backgroundColor: isDark ? const Color(0xFF332211) : const Color(0xFFFFF4E5),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        padding: const EdgeInsets.all(12),
+                      ),
+                      icon: const MurihIcon('Work', color: Color(0xFFFF9500), size: 22),
+                      tooltip: canAccessBrandStudio ? 'Brand Studio' : 'Brand Studio (Creators only)',
                     ),
                   ],
                 ),
@@ -888,34 +850,55 @@ class _YouScreenState extends ConsumerState<YouScreen>
                             ),
                           ),
 
-                          // Highlight items
-                          for (final h in _highlights)
-                            Padding(
-                              padding: const EdgeInsets.only(right: 14),
-                              child: Column(
-                                children: [
-                                  Container(
-                                    width: 58,
-                                    height: 58,
-                                    padding: const EdgeInsets.all(2.5),
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      border: Border.all(
-                                        color: isDark ? const Color(0xFF3E4C66) : const Color(0xFFCBD5E1),
-                                        width: 1.5,
-                                      ),
-                                    ),
-                                    child: CircleAvatar(
-                                      backgroundImage: CachedNetworkImageProvider(h['cover'] as String),
+                          // Real Story Highlights from API
+                          for (final h in _userStories)
+                            Builder(
+                              builder: (ctx) {
+                                final mediaUrl = h['media_url'] as String? ?? '';
+                                final resolvedUrl = ApiClient.resolveUrl(mediaUrl) ?? mediaUrl;
+                                final caption = h['caption'] as String? ?? 'Highlight';
+
+                                return Padding(
+                                  padding: const EdgeInsets.only(right: 14),
+                                  child: GestureDetector(
+                                    onTap: _openMyStory,
+                                    child: Column(
+                                      children: [
+                                        Container(
+                                          width: 58,
+                                          height: 58,
+                                          padding: const EdgeInsets.all(2.5),
+                                          decoration: BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            border: Border.all(
+                                              color: DesignTokens.primary,
+                                              width: 1.5,
+                                            ),
+                                          ),
+                                          child: CircleAvatar(
+                                            backgroundColor: isDark ? const Color(0xFF1E2638) : const Color(0xFFE2E8F0),
+                                            backgroundImage: resolvedUrl.isNotEmpty ? NetworkImage(resolvedUrl) : null,
+                                            child: resolvedUrl.isEmpty
+                                                ? const Icon(Icons.photo_library_outlined, size: 20, color: DesignTokens.primary)
+                                                : null,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 6),
+                                        SizedBox(
+                                          width: 58,
+                                          child: Text(
+                                            caption,
+                                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: textPrimary),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            textAlign: TextAlign.center,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    h['title'] as String,
-                                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: textPrimary),
-                                  ),
-                                ],
-                              ),
+                                );
+                              },
                             ),
                         ],
                       ),
@@ -925,9 +908,9 @@ class _YouScreenState extends ConsumerState<YouScreen>
               ),
               const SizedBox(height: 14),
 
-              // 6. Creator Account Gold Banner (Jumping directly to Creator Hub)
+              // 6. Creator Account Gold Banner (Jumping directly to Creator Studio)
               GestureDetector(
-                onTap: () => context.push('/app/creator-hub'),
+                onTap: () => context.push('/creator-studio'),
                 child: Container(
                   margin: const EdgeInsets.symmetric(horizontal: 16),
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -955,7 +938,7 @@ class _YouScreenState extends ConsumerState<YouScreen>
                           color: const Color(0xFFF59E0B).withValues(alpha: 0.2),
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(Icons.workspace_premium_rounded, color: Color(0xFFB45309), size: 22),
+                        child: const MurihIcon('Video', color: Color(0xFFB45309), size: 22),
                       ),
                       const SizedBox(width: 12),
                       const Expanded(
@@ -1071,46 +1054,44 @@ class _YouScreenState extends ConsumerState<YouScreen>
 
   Widget _buildUserTabGrid(bool isDark, Color cardBg, Color textPrimary, Color textSecondary) {
     List<Map<String, dynamic>> currentList;
-    String emptyMessage;
+    String emptyTitle;
+    String emptyDesc;
     IconData emptyIcon;
 
     switch (_activeTabIndex) {
       case 1:
-        currentList = _userReels.isNotEmpty ? _userReels : _showcaseMedia.where((m) => m['type'] == 'video').toList();
-        emptyMessage = 'No reels published yet.';
+        currentList = _userReels;
+        emptyTitle = 'No Reels Yet';
+        emptyDesc = 'Publish short-form video reels to engage your audience.';
         emptyIcon = Icons.video_library_outlined;
         break;
       case 2:
         currentList = _userLive;
-        emptyMessage = 'No live broadcasts available.';
+        emptyTitle = 'No Live Broadcasts';
+        emptyDesc = 'Go live and interact with your followers in real-time.';
         emptyIcon = Icons.sensors_outlined;
         break;
       case 3:
         currentList = _userMentions;
-        emptyMessage = 'No mentions found.';
+        emptyTitle = 'No Mentions';
+        emptyDesc = 'When friends mention or tag you in posts, they will show up here.';
         emptyIcon = Icons.person_pin_outlined;
         break;
       case 0:
       default:
-        currentList = _userPosts.isNotEmpty ? _userPosts : _showcaseMedia;
-        emptyMessage = 'No posts published yet.';
+        currentList = _userPosts;
+        emptyTitle = 'No Posts Yet';
+        emptyDesc = 'Share photos and updates with your community.';
         emptyIcon = Icons.grid_on_outlined;
         break;
     }
 
     if (currentList.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
-        child: Column(
-          children: [
-            Icon(emptyIcon, size: 42, color: textSecondary),
-            const SizedBox(height: 8),
-            Text(
-              emptyMessage,
-              style: TextStyle(fontSize: 14, color: textSecondary, fontWeight: FontWeight.w600),
-            ),
-          ],
-        ),
+      return CenteredEmptyStateWidget(
+        icon: emptyIcon,
+        title: emptyTitle,
+        description: emptyDesc,
+        minHeight: 280,
       );
     }
 

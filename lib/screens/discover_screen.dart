@@ -51,6 +51,10 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
     });
   }
 
+  Map<String, dynamic>? _featuredTrending;
+  List<Map<String, dynamic>> _trendingMedia = [];
+  bool _loadingTrendingMedia = false;
+
   Future<void> _fetchDiscoveryData() async {
     try {
       final res = await ApiClient.instance.dio.get('/discover/trending');
@@ -58,6 +62,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
       if (data is Map<String, dynamic> && mounted) {
         final topics = data['trending_topics'];
         final creators = data['suggested_creators'];
+        final featured = data['featured_trending'];
         setState(() {
           if (topics is List) {
             _trendingTopics = topics.whereType<Map<String, dynamic>>().toList();
@@ -65,79 +70,48 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
           if (creators is List) {
             _suggestedCreators = creators.whereType<Map<String, dynamic>>().toList();
           }
+          if (featured is Map<String, dynamic>) {
+            _featuredTrending = featured;
+          }
           _loadingTrending = false;
         });
       }
+      _fetchTrendingMedia();
     } catch (_) {
       if (mounted) setState(() => _loadingTrending = false);
     }
   }
 
-  final List<Map<String, dynamic>> _discoveryMedia = [
-    {
-      'url': 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=600',
-      'views': '1.2M',
-      'isReel': true,
-      'caption': 'Sunset vibes and warm breeze in Costa Blanca! ✨',
-      'author': 'Amina Bello',
-    },
-    {
-      'url': 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=600',
-      'views': '850K',
-      'isReel': true,
-      'caption': 'Coastal road trip highlights! 🚗🌊',
-      'author': 'Jay Travel',
-    },
-    {
-      'url': 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=600',
-      'views': '640K',
-      'isReel': true,
-      'caption': 'Artisanal wood-fired pizza masterclass! 🍕',
-      'author': 'Nana Eats',
-    },
-    {
-      'url': 'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?w=600',
-      'views': '430K',
-      'isReel': true,
-      'caption': 'Morning HIIT & boxing conditioning! 💪',
-      'author': 'Lord Uzih',
-    },
-    {
-      'url': 'https://images.unsplash.com/photo-1518611012118-696072aa579a?w=600',
-      'views': '320K',
-      'isReel': true,
-      'caption': 'Sunset yoga on the deck 🧘‍♀️',
-      'author': 'Sarah Pulse',
-    },
-    {
-      'url': 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=600',
-      'views': '290K',
-      'isReel': true,
-      'caption': 'Hidden waterfalls in Valencia province 🌿',
-      'author': 'ExploreWithUs',
-    },
-    {
-      'url': 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=600',
-      'views': '520K',
-      'isReel': true,
-      'caption': 'Night festival lights & electronic stage! 🎧',
-      'author': 'Ibiza Night',
-    },
-    {
-      'url': 'https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?w=600',
-      'views': '410K',
-      'isReel': true,
-      'caption': 'Track day acceleration test with the M4 Competition 🔥',
-      'author': 'SpeedZone',
-    },
-    {
-      'url': 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=600',
-      'views': '380K',
-      'isReel': true,
-      'caption': 'Calpe cliff overlook view 🏔️',
-      'author': 'Lord Uzih',
-    },
-  ];
+  Future<void> _fetchTrendingMedia() async {
+    if (mounted) setState(() => _loadingTrendingMedia = true);
+    try {
+      final res = await ApiClient.instance.dio.get('/feed');
+      final payload = ApiClient.instance.unwrap(res);
+      List<Map<String, dynamic>> list = [];
+      if (payload is Map<String, dynamic>) {
+        final data = payload['data'];
+        if (data is List) {
+          list = data.whereType<Map<String, dynamic>>().toList();
+        }
+      } else if (payload is List) {
+        list = payload.whereType<Map<String, dynamic>>().toList();
+      }
+
+      final mediaPosts = list.where((p) {
+        final mediaUrls = p['media_urls'];
+        return (mediaUrls is List && mediaUrls.isNotEmpty) || p['type'] == 'media' || p['type'] == 'reels';
+      }).toList();
+
+      if (mounted) {
+        setState(() {
+          _trendingMedia = mediaPosts;
+          _loadingTrendingMedia = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loadingTrendingMedia = false);
+    }
+  }
 
   @override
   void dispose() {
@@ -338,60 +312,80 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
         // A. Featured Hero Banner: "TRENDING NOW"
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Container(
-            height: 180,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(18),
-              image: const DecorationImage(
-                image: CachedNetworkImageProvider(
-                  'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=900',
-                ),
-                fit: BoxFit.cover,
-              ),
-            ),
+          child: GestureDetector(
+            onTap: () {
+              final tag = _featuredTrending?['tag'] as String? ??
+                  (_trendingTopics.isNotEmpty ? _trendingTopics[0]['tag'] as String? : null);
+              if (tag != null && tag.isNotEmpty) {
+                _searchController.text = tag;
+                _performSearch(tag);
+              }
+            },
             child: Container(
+              height: 180,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(18),
-                gradient: LinearGradient(
-                  colors: [Colors.transparent, Colors.black.withValues(alpha: 0.85)],
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF0F2B48), Color(0xFF1A68D4)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
               ),
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.end,
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Stack(
+                fit: StackFit.expand,
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
-                      color: DesignTokens.primary,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: const Text(
-                      '🔥 TRENDING NOW',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0.5,
+                      borderRadius: BorderRadius.circular(18),
+                      gradient: LinearGradient(
+                        colors: [Colors.black.withValues(alpha: 0.1), Colors.black.withValues(alpha: 0.75)],
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 6),
-                  const Text(
-                    'Sunset Parties in Costa Blanca',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: DesignTokens.primary,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Text(
+                            '🔥 TRENDING NOW',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          _featuredTrending?['title'] as String? ??
+                              (_trendingTopics.isNotEmpty
+                                  ? _trendingTopics[0]['tag'] as String? ?? 'Trending Topics'
+                                  : 'Discover MurihSpace'),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          _featuredTrending?['subtitle'] as String? ??
+                              (_trendingTopics.isNotEmpty
+                                  ? _trendingTopics[0]['count'] as String? ?? 'Popular Topics'
+                                  : 'Explore what is happening right now'),
+                          style: const TextStyle(color: Colors.white70, fontSize: 12),
+                        ),
+                      ],
                     ),
-                  ),
-                  const SizedBox(height: 2),
-                  const Text(
-                    'Music · Travel · Events',
-                    style: TextStyle(color: Colors.white70, fontSize: 12),
                   ),
                 ],
               ),
@@ -433,12 +427,15 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
                   color: textPrimary,
                 ),
               ),
-              Text(
-                'View All',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: DesignTokens.primary,
+              GestureDetector(
+                onTap: () => _tab.animateTo(1),
+                child: const Text(
+                  'View All',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: DesignTokens.primary,
+                  ),
                 ),
               ),
             ],
@@ -506,12 +503,15 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
                   color: textPrimary,
                 ),
               ),
-              Text(
-                'View All',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: DesignTokens.primary,
+              GestureDetector(
+                onTap: () => context.push('/creators'),
+                child: const Text(
+                  'View All',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: DesignTokens.primary,
+                  ),
                 ),
               ),
             ],
@@ -680,77 +680,114 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
 
         // 3-Column Media Grid
         Expanded(
-          child: GridView.builder(
-            padding: const EdgeInsets.all(2),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
-              crossAxisSpacing: 2,
-              mainAxisSpacing: 2,
-              childAspectRatio: 0.75, // Vertical reel aspect ratio
-            ),
-            itemCount: _discoveryMedia.length,
-            itemBuilder: (ctx, i) {
-              final item = _discoveryMedia[i];
-              return GestureDetector(
-                onTap: () {
-                  ReelsViewerSheet.show(
-                    context,
-                    authorName: item['author'] as String,
-                    caption: item['caption'] as String,
-                    videoThumbnail: item['url'] as String,
-                    likesCount: item['views'] as String,
-                  );
-                },
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    CachedNetworkImage(
-                      imageUrl: item['url'] as String,
-                      fit: BoxFit.cover,
-                      placeholder: (ctx, url) => Container(color: cardBg),
-                      errorWidget: (ctx, url, err) => Container(color: cardBg),
-                    ),
-                    // Gradient overlay at bottom
-                    Container(
-                      decoration: const BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [Colors.transparent, Colors.black87],
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          stops: [0.6, 1.0],
-                        ),
+          child: _loadingTrendingMedia
+              ? const Center(child: LoadingStateWidget(message: 'Loading trending media...'))
+              : _trendingMedia.isEmpty
+                  ? CenteredEmptyStateWidget(
+                      icon: Icons.video_library_outlined,
+                      title: 'No Trending Media',
+                      description: 'Be the first to publish photos and reels on MurihSpace!',
+                    )
+                  : GridView.builder(
+                      padding: const EdgeInsets.all(2),
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 3,
+                        crossAxisSpacing: 2,
+                        mainAxisSpacing: 2,
+                        childAspectRatio: 0.75, // Vertical reel aspect ratio
                       ),
-                    ),
-                    // View count badge
-                    Positioned(
-                      left: 6,
-                      bottom: 6,
-                      child: Row(
-                        children: [
-                          const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 14),
-                          const SizedBox(width: 2),
-                          Text(
-                            item['views'] as String,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                            ),
+                      itemCount: _trendingMedia.length,
+                      itemBuilder: (ctx, i) {
+                        final item = _trendingMedia[i];
+                        final mediaUrls = item['media_urls'] is List ? item['media_urls'] as List : [];
+                        final rawUrl = mediaUrls.isNotEmpty ? mediaUrls.first.toString() : '';
+                        final url = rawUrl.isNotEmpty ? (ApiClient.resolveUrl(rawUrl) ?? rawUrl) : '';
+                        final caption = item['content'] as String? ?? '';
+                        final author = item['author'] is Map ? item['author']['name'] as String? ?? 'Creator' : 'Creator';
+                        final likesCount = (item['likes_count'] as num?)?.toInt() ??
+                            (item['reactions_count'] as num?)?.toInt() ??
+                            0;
+                        final displayCount = likesCount >= 1000 ? '${(likesCount / 1000).toStringAsFixed(1)}K' : '$likesCount';
+
+                        return GestureDetector(
+                          onTap: () {
+                            if (url.isNotEmpty) {
+                              ReelsViewerSheet.show(
+                                context,
+                                authorName: author,
+                                caption: caption,
+                                videoThumbnail: url,
+                                likesCount: displayCount,
+                              );
+                            }
+                          },
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              if (url.isNotEmpty)
+                                CachedNetworkImage(
+                                  imageUrl: url,
+                                  fit: BoxFit.cover,
+                                  placeholder: (ctx, url) => Container(color: cardBg),
+                                  errorWidget: (ctx, url, err) => Container(
+                                    color: cardBg,
+                                    child: const Icon(Icons.broken_image_rounded, color: Colors.grey),
+                                  ),
+                                )
+                              else
+                                Container(
+                                  color: cardBg,
+                                  padding: const EdgeInsets.all(8),
+                                  child: Center(
+                                    child: Text(
+                                      caption,
+                                      maxLines: 4,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(fontSize: 11, color: textPrimary),
+                                    ),
+                                  ),
+                                ),
+                              // Gradient overlay at bottom
+                              Container(
+                                decoration: const BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [Colors.transparent, Colors.black87],
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                    stops: [0.6, 1.0],
+                                  ),
+                                ),
+                              ),
+                              // View / like count badge
+                              Positioned(
+                                left: 6,
+                                bottom: 6,
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 14),
+                                    const SizedBox(width: 2),
+                                    Text(
+                                      displayCount,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              // Reel icon in top right
+                              const Positioned(
+                                top: 6,
+                                right: 6,
+                                child: Icon(Icons.video_library_rounded, color: Colors.white70, size: 14),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
+                        );
+                      },
                     ),
-                    // Reel icon in top right
-                    const Positioned(
-                      top: 6,
-                      right: 6,
-                      child: Icon(Icons.video_library_rounded, color: Colors.white70, size: 14),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
         ),
       ],
     );
@@ -901,34 +938,12 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
   }
 
   Widget _buildLiveTab(bool isDark, Color cardBg, Color textPrimary, Color textSecondary) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFFDC2626).withValues(alpha: 0.12),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.live_tv_rounded, color: Color(0xFFDC2626), size: 36),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'No Live Streams Right Now',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: textPrimary),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Follow your favorite creators to get notified as soon as they go live.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: textSecondary, fontSize: 13),
-            ),
-          ],
-        ),
-      ),
+    return CenteredEmptyStateWidget(
+      icon: Icons.live_tv_rounded,
+      title: 'No Live Streams Right Now',
+      description: 'Follow your favorite creators to get notified as soon as they go live.',
+      actionLabel: 'Discover Creators',
+      onAction: () => context.push('/creators'),
     );
   }
 

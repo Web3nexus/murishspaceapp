@@ -1,24 +1,30 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../utils/format.dart';
 
 import '../components/followers_list_dialog.dart';
-import '../components/online_status_badge.dart';
+import '../components/murih_icon.dart';
 import '../components/send_gift_dialog.dart';
 import '../components/share_sheet.dart';
 import '../config/env.dart';
 import '../core/api_client.dart';
 import '../core/design_tokens.dart';
+import '../core/roles.dart';
 import '../providers/auth_provider.dart';
+import '../providers/feature_flag_provider.dart';
 import '../providers/chat_provider.dart';
 import '../providers/follow_provider.dart';
 import '../providers/friends_provider.dart';
 import '../models/story_models.dart';
 import '../providers/story_provider.dart';
-import 'call_screen.dart';
 import 'story_composer_sheet.dart';
 import 'story_viewer_screen.dart';
+
+import '../components/ui_states.dart';
 
 /// Public User & Friend Profile Screen with Gifting, Direct Messaging, Follow & Add Friend CTAs.
 class UserProfileScreen extends ConsumerStatefulWidget {
@@ -28,6 +34,7 @@ class UserProfileScreen extends ConsumerStatefulWidget {
   final String avatarUrl;
   final String bio;
   final String roleLabel;
+  final bool isPreview;
 
   const UserProfileScreen({
     super.key,
@@ -35,8 +42,9 @@ class UserProfileScreen extends ConsumerStatefulWidget {
     required this.name,
     required this.username,
     this.avatarUrl = '',
-    this.bio = 'Digital Creator & Community Contributor ✨',
+    this.bio = 'Digital Creator & Community Contributor',
     this.roleLabel = 'Creator',
+    this.isPreview = false,
   });
 
   @override
@@ -55,8 +63,10 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
   List<Map<String, dynamic>> _userReels = [];
   List<Map<String, dynamic>> _userLive = [];
   List<Map<String, dynamic>> _userMentions = [];
+  List<Map<String, dynamic>> _userStories = [];
   bool _loadingPosts = false;
   int _activeTabIndex = 0;
+  String _previewMode = 'public'; // 'public' or 'my_view'
 
   @override
   void initState() {
@@ -71,6 +81,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
       _loadState();
       _fetchPublicProfile();
       _fetchTabPosts(0);
+      _fetchUserStories();
     });
   }
 
@@ -80,20 +91,47 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
     super.dispose();
   }
 
+  Future<void> _fetchUserStories() async {
+    final targetId = widget.userId > 0 ? widget.userId : ((_profileData?['id'] as num?)?.toInt() ?? 0);
+    if (targetId <= 0) return;
+    try {
+      final res = await ApiClient.instance.dio.get('/users/$targetId/stories');
+      final payload = ApiClient.instance.unwrap(res);
+      if (payload is List && mounted) {
+        setState(() {
+          _userStories = payload.whereType<Map<String, dynamic>>().toList();
+        });
+      }
+    } catch (_) {}
+  }
+
+  bool _profileNotFound = false;
+
   Future<void> _fetchPublicProfile() async {
     try {
       final res = await ApiClient.instance.dio.get('/users/${widget.username}/public');
       final data = ApiClient.instance.unwrap(res);
       if (data is Map<String, dynamic> && mounted) {
-        setState(() => _profileData = data);
+        setState(() {
+          _profileData = data;
+          _profileNotFound = false;
+        });
         final dynamicId = (data['id'] as num?)?.toInt() ?? 0;
         if (dynamicId > 0 && widget.userId <= 0) {
           _fetchTabPosts(_activeTabIndex);
+          _fetchUserStories();
           ref.read(followProvider.notifier).fetchFollowStatus(dynamicId);
           ref.read(friendsProvider.notifier).fetchFriendshipStatus(dynamicId);
         }
       }
-    } catch (_) {}
+    } catch (e) {
+      if (mounted) {
+        final status = e is DioException
+            ? e.response?.statusCode
+            : (e is ApiException ? e.status : null);
+        setState(() => _profileNotFound = status == 404);
+      }
+    }
   }
 
   Future<void> _fetchTabPosts(int tabIndex) async {
@@ -347,12 +385,483 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
     );
   }
 
+  void _showActionMenuSheet() {
+    final authUser = ref.read(authProvider).user;
+    final isSelf = authUser?.id == widget.userId;
+    final effectiveIsSelf = widget.isPreview ? (_previewMode == 'my_view') : isSelf;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textPrimary = isDark ? Colors.white : Colors.black;
+    final textSecondary = isDark ? Colors.grey[400] : Colors.grey[600];
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 38,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.grey[700] : Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  effectiveIsSelf ? 'Profile Options' : '@${widget.username}',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: textPrimary),
+                ),
+                const SizedBox(height: 8),
+                if (effectiveIsSelf) ...[
+                  ListTile(
+                    leading: const Icon(Icons.edit_rounded, color: DesignTokens.primary),
+                    title: Text('Edit Profile', style: TextStyle(fontWeight: FontWeight.w600, color: textPrimary)),
+                    subtitle: Text('Change bio, avatar, banner & links', style: TextStyle(fontSize: 12, color: textSecondary)),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      context.push('/profile');
+                    },
+                  ),
+                  ListTile(
+                    leading: Icon(
+                      _previewMode == 'public' ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                      color: DesignTokens.primary,
+                    ),
+                    title: Text(
+                      _previewMode == 'public' ? 'Switch to My View' : 'View as Public Visitor',
+                      style: TextStyle(fontWeight: FontWeight.w600, color: textPrimary),
+                    ),
+                    subtitle: Text('Preview how your profile appears to others', style: TextStyle(fontSize: 12, color: textSecondary)),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      setState(() {
+                        _previewMode = _previewMode == 'public' ? 'my_view' : 'public';
+                      });
+                    },
+                  ),
+                  ListTile(
+                    leading: const MurihIcon('Video', color: DesignTokens.primary, size: 22),
+                    title: Text('Creator Studio', style: TextStyle(fontWeight: FontWeight.w600, color: textPrimary)),
+                    subtitle: Text('Publishing tools, scheduling, growth & analytics', style: TextStyle(fontSize: 12, color: textSecondary)),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      context.push('/creator-studio');
+                    },
+                  ),
+                  ListTile(
+                    leading: const MurihIcon('Work', color: Color(0xFFFF9500), size: 22),
+                    title: Text('Brand Studio', style: TextStyle(fontWeight: FontWeight.w600, color: textPrimary)),
+                    subtitle: Text('Brand partnerships, briefs & escrow campaigns', style: TextStyle(fontSize: 12, color: textSecondary)),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      final flags = ref.read(featureFlagProvider);
+                      final role = ref.read(authProvider).user?.role ?? UserRole.member;
+                      if (!flags.isEnabled('brand_deals')) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Brand Deals Marketplace is currently disabled.')),
+                        );
+                        return;
+                      }
+                      if (role != UserRole.creator && role != UserRole.admin) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Brand Studio is exclusively for Verified Creators.')),
+                        );
+                        return;
+                      }
+                      context.push('/brand-studio');
+                    },
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.account_balance_wallet_rounded, color: DesignTokens.primary),
+                    title: Text('MurihPay Financial Hub', style: TextStyle(fontWeight: FontWeight.w600, color: textPrimary)),
+                    subtitle: Text('Manage multi-currency balances & ledger', style: TextStyle(fontSize: 12, color: textSecondary)),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      context.push('/wallet');
+                    },
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.settings_outlined, color: DesignTokens.primary),
+                    title: Text('Settings & Privacy', style: TextStyle(fontWeight: FontWeight.w600, color: textPrimary)),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      context.push('/settings');
+                    },
+                  ),
+                ],
+                ListTile(
+                  leading: const Icon(Icons.share_outlined, color: DesignTokens.primary),
+                  title: Text('Share Profile', style: TextStyle(fontWeight: FontWeight.w600, color: textPrimary)),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    AppShare.showShareSheet(
+                      context,
+                      title: 'Share Profile',
+                      text: 'Check out @${widget.username} on Murih Space!',
+                      url: Env.profileUrl(widget.username),
+                    );
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.link_rounded, color: DesignTokens.primary),
+                  title: Text('Copy Profile Link', style: TextStyle(fontWeight: FontWeight.w600, color: textPrimary)),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    Clipboard.setData(ClipboardData(text: Env.profileUrl(widget.username)));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Profile link copied to clipboard!')),
+                    );
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.qr_code_2_rounded, color: DesignTokens.primary),
+                  title: Text('Profile QR Code', style: TextStyle(fontWeight: FontWeight.w600, color: textPrimary)),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _showQrDialog();
+                  },
+                ),
+                if (!effectiveIsSelf) ...[
+                  ListTile(
+                    leading: _actionLoading
+                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator.adaptive(strokeWidth: 2))
+                        : Icon(
+                            _friendshipStatus == 'accepted'
+                                ? Icons.how_to_reg_rounded
+                                : (_friendshipStatus == 'pending_sent'
+                                    ? Icons.hourglass_top_rounded
+                                    : (_friendshipStatus == 'pending_received'
+                                        ? Icons.check_circle_outline_rounded
+                                        : Icons.group_add_rounded)),
+                            color: _friendshipStatus == 'accepted'
+                                ? const Color(0xFF34C759)
+                                : (_friendshipStatus == 'pending_sent'
+                                    ? Colors.orange
+                                    : DesignTokens.primary),
+                          ),
+                    title: Text(
+                      _friendshipStatus == 'accepted'
+                          ? 'Friends (Tap to Unfriend)'
+                          : (_friendshipStatus == 'pending_sent'
+                              ? 'Request Sent (Tap to Cancel)'
+                              : (_friendshipStatus == 'pending_received'
+                                  ? 'Accept Friend Request'
+                                  : 'Add as Friend')),
+                      style: TextStyle(fontWeight: FontWeight.w600, color: textPrimary),
+                    ),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      _handleFriendAction();
+                    },
+                  ),
+                  const Divider(),
+                  ListTile(
+                    leading: const Icon(Icons.flag_outlined, color: Colors.orange),
+                    title: const Text('Report Profile', style: TextStyle(fontWeight: FontWeight.w600, color: Colors.orange)),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      _handleReportProfile();
+                    },
+                  ),
+                ] else ...[
+                  const Divider(),
+                  ListTile(
+                    leading: const Icon(Icons.logout_rounded, color: Colors.red),
+                    title: const Text('Log Out', style: TextStyle(fontWeight: FontWeight.w700, color: Colors.red)),
+                    onTap: () async {
+                      Navigator.pop(ctx);
+                      final confirm = await showDialog<bool>(
+                        context: context,
+                        builder: (dCtx) => AlertDialog(
+                          title: const Text('Log Out?'),
+                          content: const Text('Are you sure you want to sign out of MurihSpace?'),
+                          actions: [
+                            TextButton(onPressed: () => Navigator.pop(dCtx, false), child: const Text('Cancel')),
+                            ElevatedButton(
+                              style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+                              onPressed: () => Navigator.pop(dCtx, true),
+                              child: const Text('Log Out'),
+                            ),
+                          ],
+                        ),
+                      );
+                      if (confirm == true && mounted) {
+                        ref.read(authProvider.notifier).logout();
+                      }
+                    },
+                  ),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _handleReportProfile() async {
+    final targetId = (_profileData?['id'] as num?)?.toInt() ?? widget.userId;
+    if (targetId <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not report this profile right now.')),
+      );
+      return;
+    }
+    try {
+      await ApiClient.instance.dio.post('/reports', data: {
+        'reported_type': 'user',
+        'reported_id': targetId,
+        'reason': 'inappropriate',
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Profile reported for review. Thank you.')),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not report this profile. Please try again.')),
+        );
+      }
+    }
+  }
+
+  void _showQrDialog() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textPrimary = isDark ? Colors.white : Colors.black;
+    final textSecondary = isDark ? Colors.grey[400] : Colors.grey[600];
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 38,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.grey[700] : Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Profile QR Code',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: textPrimary),
+              ),
+              Text(
+                'Scan to connect with @${widget.username} on MurihSpace',
+                style: TextStyle(fontSize: 12, color: textSecondary),
+              ),
+              const SizedBox(height: 20),
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.08),
+                      blurRadius: 16,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    const Icon(Icons.qr_code_2_rounded, size: 180, color: DesignTokens.primary),
+                    const SizedBox(height: 12),
+                    Text(
+                      widget.name,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.black),
+                    ),
+                    Text(
+                      '@${widget.username}',
+                      style: const TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: DesignTokens.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: () {
+                    Clipboard.setData(ClipboardData(text: Env.profileUrl(widget.username)));
+                    Navigator.pop(ctx);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Profile URL copied to clipboard!')),
+                    );
+                  },
+                  icon: const Icon(Icons.copy_rounded, size: 16),
+                  label: const Text('Copy Link', style: TextStyle(fontWeight: FontWeight.w700)),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showPostDetailModal(Map<String, dynamic> item) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _PostDetailSheet(
+        postData: item,
+        authorName: (_profileData?['name'] as String?)?.isNotEmpty == true ? _profileData!['name'] as String : widget.name,
+        authorUsername: widget.username,
+        authorAvatar: (_profileData?['avatar_url'] ?? _profileData?['avatar'] ?? widget.avatarUrl) as String? ?? '',
+        authorId: widget.userId,
+      ),
+    );
+  }
+
+  Widget _buildStoryHighlights(bool isDark, Color textPrimary, Color? textSecondary, bool isSelf) {
+    if (_userStories.isEmpty && !isSelf) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Story Highlights',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                  color: textPrimary,
+                ),
+              ),
+              if (_userStories.isNotEmpty)
+                Text(
+                  '${_userStories.length} highlights',
+                  style: TextStyle(fontSize: 12, color: textSecondary, fontWeight: FontWeight.w600),
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 100,
+          child: ListView.separated(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            scrollDirection: Axis.horizontal,
+            itemCount: (isSelf ? 1 : 0) + _userStories.length,
+            separatorBuilder: (context, index) => const SizedBox(width: 14),
+            itemBuilder: (ctx, index) {
+              if (isSelf && index == 0) {
+                return GestureDetector(
+                  onTap: () => showStoryComposerSheet(context),
+                  child: Column(
+                    children: [
+                      Container(
+                        width: 64,
+                        height: 64,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: DesignTokens.primary, width: 2),
+                          color: DesignTokens.primary.withValues(alpha: 0.1),
+                        ),
+                        child: const Icon(Icons.add_rounded, color: DesignTokens.primary, size: 28),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'New',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: textPrimary),
+                      ),
+                    ],
+                  ),
+                );
+              }
+
+              final storyIndex = isSelf ? index - 1 : index;
+              final story = _userStories[storyIndex];
+              final mediaUrl = story['media_url'] as String? ?? '';
+              final resolvedUrl = ApiClient.resolveUrl(mediaUrl) ?? mediaUrl;
+              final caption = story['caption'] as String? ?? 'Highlight';
+
+              return GestureDetector(
+                onTap: () {
+                  _handleAvatarTap();
+                },
+                child: Column(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(2.5),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(color: DesignTokens.primary, width: 2),
+                      ),
+                      child: CircleAvatar(
+                        radius: 29,
+                        backgroundColor: isDark ? const Color(0xFF1E2638) : const Color(0xFFE2E8F0),
+                        backgroundImage: resolvedUrl.isNotEmpty ? NetworkImage(resolvedUrl) : null,
+                        child: resolvedUrl.isEmpty
+                            ? const Icon(Icons.photo_library_outlined, size: 20, color: DesignTokens.primary)
+                            : null,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    SizedBox(
+                      width: 64,
+                      child: Text(
+                        caption,
+                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: textPrimary),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final followState = ref.watch(followProvider);
     final followNotifier = ref.read(followProvider.notifier);
     final authUser = ref.watch(authProvider).user;
     final isSelf = authUser?.id == widget.userId;
+    final isPreviewMode = widget.isPreview;
+    final effectiveIsSelf = isPreviewMode ? (_previewMode == 'my_view') : isSelf;
 
     final storyState = ref.watch(storyProvider);
     final hasActiveStories = storyState.groups.any((g) =>
@@ -376,7 +885,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
         elevation: 0,
         scrolledUnderElevation: 0,
         title: Text(
-          '@${widget.username}',
+          isPreviewMode ? 'Preview Profile' : '@${widget.username}',
           style: TextStyle(color: textPrimary, fontWeight: FontWeight.w800),
         ),
         actions: [
@@ -393,335 +902,452 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
               );
             },
           ),
-          IconButton(
-            icon: const Icon(Icons.card_giftcard_rounded, color: Color(0xFFFF9500)),
-            tooltip: 'Send Gift',
-            onPressed: () => SendGiftDialog.show(
-              context,
-              recipientName: widget.name,
-              recipientAvatar: widget.avatarUrl.isNotEmpty ? widget.avatarUrl : null,
+          if (!effectiveIsSelf)
+            IconButton(
+              icon: const Icon(Icons.card_giftcard_rounded, color: Color(0xFFFF9500)),
+              tooltip: 'Send Gift',
+              onPressed: () => SendGiftDialog.show(
+                context,
+                recipientName: widget.name,
+                recipientAvatar: widget.avatarUrl.isNotEmpty ? widget.avatarUrl : null,
+              ),
             ),
+          IconButton(
+            icon: const Icon(Icons.more_horiz_rounded),
+            tooltip: 'More Options',
+            onPressed: _showActionMenuSheet,
           ),
         ],
-      ),
-      body: ListView(
-        padding: EdgeInsets.zero,
-        children: [
-          // Profile Cover Banner (Real User Banner or Elegant Geometric Surface)
-          Container(
-            height: 130,
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF141720) : const Color(0xFF1E293B),
-              image: (_profileData?['banner_url'] as String?)?.isNotEmpty == true
-                  ? DecorationImage(
-                      image: NetworkImage(_profileData!['banner_url'] as String),
-                      fit: BoxFit.cover,
-                    )
-                  : null,
-            ),
-            child: (_profileData?['banner_url'] as String?)?.isNotEmpty == true
-                ? null
-                : CustomPaint(
-                    painter: _PatternBannerPainter(isDark: isDark),
-                  ),
-          ),
-          Transform.translate(
-            offset: const Offset(0, -32),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Column(
-                children: [
-                  // Avatar with 24-Hour Story Ring & Online Presence Badge
-                  GestureDetector(
-                    onTap: _handleAvatarTap,
-                    child: OnlineAvatarBadge(
-                      isOnline: true,
-                      child: Container(
-                        padding: const EdgeInsets.all(3),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: hasActiveStories ? DesignTokens.primary : (isDark ? Colors.white24 : Colors.black12),
-                            width: hasActiveStories ? 2.5 : 2.0,
+        bottom: isPreviewMode
+            ? PreferredSize(
+                preferredSize: const Size.fromHeight(48),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                  child: Container(
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF1E2638) : const Color(0xFFE2E8F0),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    padding: const EdgeInsets.all(3),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () => setState(() => _previewMode = 'public'),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: _previewMode == 'public' ? DesignTokens.primary : Colors.transparent,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              alignment: Alignment.center,
+                              child: Text(
+                                'Public View',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: _previewMode == 'public' ? Colors.white : textSecondary,
+                                ),
+                              ),
+                            ),
                           ),
+                        ),
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () => setState(() => _previewMode = 'my_view'),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: _previewMode == 'my_view' ? DesignTokens.primary : Colors.transparent,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              alignment: Alignment.center,
+                              child: Text(
+                                'My View',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: _previewMode == 'my_view' ? Colors.white : textSecondary,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              )
+            : null,
+      ),
+      bottomNavigationBar: isPreviewMode
+          ? SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                child: SizedBox(
+                  height: 48,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: DesignTokens.primary,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Save Changes', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+                  ),
+                ),
+              ),
+            )
+          : null,
+      body: _profileNotFound
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: CenteredEmptyStateWidget(
+                  icon: Icons.person_off_outlined,
+                  title: 'User Profile Not Found',
+                  description: 'This profile is not available or does not exist on MurihSpace.',
+                  actionLabel: 'Go Back',
+                  onAction: () => Navigator.of(context).pop(),
+                  minHeight: 320,
+                ),
+              ),
+            )
+          : ListView(
+              padding: EdgeInsets.zero,
+              children: [
+          // 1. Cover Photo & Overlapping Avatar Stack (matching you_screen.dart)
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              // Cover Image Container
+              Container(
+                height: 140,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF1E2638) : const Color(0xFFE2E8F0),
+                  image: (_profileData?['banner_url'] as String?)?.isNotEmpty == true
+                      ? DecorationImage(
+                          image: NetworkImage(_profileData!['banner_url'] as String),
+                          fit: BoxFit.cover,
+                        )
+                      : const DecorationImage(
+                          image: CachedNetworkImageProvider(
+                            'https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=1200',
+                          ),
+                          fit: BoxFit.cover,
+                        ),
+                ),
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.black.withValues(alpha: 0.1),
+                        Colors.black.withValues(alpha: 0.45),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+
+              // Overlapping Large Avatar (LEFT-ALIGNED at left: 20, bottom: -36)
+              Positioned(
+                left: 20,
+                bottom: -36,
+                child: GestureDetector(
+                  onTap: _handleAvatarTap,
+                  child: Stack(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(3.5),
+                        decoration: BoxDecoration(
+                          color: bg,
+                          shape: BoxShape.circle,
+                          border: hasActiveStories
+                              ? Border.all(color: DesignTokens.primary, width: 2.5)
+                              : null,
                         ),
                         child: CircleAvatar(
                           radius: 40,
-                          backgroundColor: bg,
+                          backgroundColor: DesignTokens.primary,
                           backgroundImage: ((_profileData?['avatar_url'] ?? _profileData?['avatar'] ?? widget.avatarUrl) as String? ?? '').isNotEmpty
-                              ? NetworkImage((_profileData?['avatar_url'] ?? _profileData?['avatar'] ?? widget.avatarUrl) as String)
+                              ? CachedNetworkImageProvider(
+                                  ((_profileData?['avatar_url'] ?? _profileData?['avatar'] ?? widget.avatarUrl) as String),
+                                )
                               : null,
                           child: ((_profileData?['avatar_url'] ?? _profileData?['avatar'] ?? widget.avatarUrl) as String? ?? '').isEmpty
-                              ? Icon(Icons.person, color: DesignTokens.primary, size: 44)
+                              ? Text(
+                                  ((_profileData?['name'] as String?)?.isNotEmpty == true
+                                          ? (_profileData!['name'] as String)[0].toUpperCase()
+                                          : widget.name.isNotEmpty
+                                              ? widget.name[0].toUpperCase()
+                                              : 'U'),
+                                  style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.white),
+                                )
                               : null,
                         ),
                       ),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Flexible(
-                        child: Text(
-                          (_profileData?['name'] as String?)?.isNotEmpty == true ? _profileData!['name'] as String : widget.name,
-                          style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: textPrimary),
-                          overflow: TextOverflow.ellipsis,
+                      // Online Green Badge
+                      Positioned(
+                        right: 8,
+                        bottom: 6,
+                        child: Container(
+                          width: 14,
+                          height: 14,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF16A34A),
+                            shape: BoxShape.circle,
+                            border: Border.all(color: bg, width: 2.5),
+                          ),
                         ),
                       ),
-                      if (_profileData?['has_active_verification_badge'] == true || _profileData?['kyc_status'] == 'verified') ...[
-                        const SizedBox(width: 6),
-                        const Icon(Icons.verified_rounded, size: 20, color: DesignTokens.primary),
-                      ],
+                      if (effectiveIsSelf)
+                        Positioned(
+                          right: 0,
+                          top: 4,
+                          child: GestureDetector(
+                            onTap: () => context.push('/profile'),
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: const BoxDecoration(
+                                color: DesignTokens.primary,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 13),
+                            ),
+                          ),
+                        ),
                     ],
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    '@${widget.username}',
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: DesignTokens.primary),
-                  ),
-                  const SizedBox(height: 6),
-                  const OnlineStatusBadge(isOnline: true, showLabel: true),
-                  const SizedBox(height: 8),
+                ),
+              ),
+            ],
+          ),
 
-                  // Role Pill
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: DesignTokens.primary.withOpacity(0.12),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      widget.roleLabel.toUpperCase(),
-                      style: const TextStyle(color: DesignTokens.primary, fontWeight: FontWeight.w900, fontSize: 11),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    _profileData?['bio'] as String? ?? widget.bio,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 13, color: textSecondary, height: 1.3),
-                  ),
-                  const SizedBox(height: 12),
+          // Spacer to account for overlapping avatar
+          const SizedBox(height: 44),
 
-                  // Dynamic Metadata Row: Location, Integrated Linktree, Joined Date
-                  Wrap(
-                    spacing: 12,
-                    runSpacing: 6,
-                    alignment: WrapAlignment.center,
-                    children: [
-                      if ((_profileData?['country'] as String?)?.isNotEmpty == true)
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.location_on_outlined, size: 14, color: Color(0xFF667085)),
-                            const SizedBox(width: 4),
-                            Text(
-                              _profileData!['country'] as String,
-                              style: TextStyle(fontSize: 12, color: textSecondary, fontWeight: FontWeight.w500),
-                            ),
-                          ],
-                        ),
-                      GestureDetector(
-                        onTap: () => context.push('/l/${widget.username}'),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.link_rounded, size: 14, color: DesignTokens.primary),
-                            const SizedBox(width: 4),
-                            Text(
-                              'murihspace.com/l/${widget.username}',
-                              style: const TextStyle(fontSize: 12, color: DesignTokens.primary, fontWeight: FontWeight.w700),
-                            ),
-                          ],
+          // 2. User Bio, Details & Identity Card (LEFT-ALIGNED matching you_screen)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        (_profileData?['name'] as String?)?.isNotEmpty == true ? _profileData!['name'] as String : widget.name,
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w900,
+                          color: textPrimary,
+                          letterSpacing: -0.3,
                         ),
                       ),
+                    ),
+                    if (_profileData?['has_active_verification_badge'] == true || _profileData?['kyc_status'] == 'verified') ...[
+                      const SizedBox(width: 4),
+                      const Icon(Icons.verified_rounded, size: 18, color: DesignTokens.primary),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '@${widget.username} · ${widget.roleLabel}',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  (_profileData?['bio'] as String?)?.isNotEmpty == true
+                      ? _profileData!['bio'] as String
+                      : (widget.bio.isNotEmpty ? widget.bio : 'Building next-gen digital experiences on MurihSpace.'),
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    height: 1.4,
+                    color: textPrimary,
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+                const SizedBox(height: 10),
+
+                // Metadata row (Location, Link, Joined, Public badge)
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 6,
+                  children: [
+                    if ((_profileData?['country'] as String?)?.isNotEmpty == true || (_profileData?['state'] as String?)?.isNotEmpty == true)
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.calendar_today_outlined, size: 13, color: Color(0xFF667085)),
+                          const Icon(Icons.location_on_outlined, size: 14, color: Color(0xFF667085)),
                           const SizedBox(width: 4),
                           Text(
-                            _profileData?['created_at'] != null
-                                ? 'Joined ${DateTime.tryParse(_profileData!['created_at'].toString())?.year ?? 'recently'}'
-                                : 'Member',
+                            [
+                              if ((_profileData?['state'] as String?)?.isNotEmpty == true) _profileData!['state'] as String,
+                              if ((_profileData?['country'] as String?)?.isNotEmpty == true) _profileData!['country'] as String,
+                            ].join(', '),
                             style: TextStyle(fontSize: 12, color: textSecondary, fontWeight: FontWeight.w500),
                           ),
                         ],
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 18),
-
-                  // Interactive Stats Row
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      _statCol('Posts', '${_profileData?['posts_count'] ?? postsCount}', textPrimary, textSecondary, () {}),
-                      _statCol(
-                        'Followers',
-                        '${_profileData?['followers_count'] ?? followersCount}',
-                        textPrimary,
-                        textSecondary,
-                        () => FollowersListDialog.show(context, title: '${widget.name}\'s Followers', isFollowersList: true, userId: widget.userId),
+                    GestureDetector(
+                      onTap: () {
+                        Clipboard.setData(ClipboardData(text: 'https://murih.me/@${widget.username}'));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Profile link copied: murih.me/@${widget.username}')),
+                        );
+                      },
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.link_rounded, size: 14, color: DesignTokens.primary),
+                          const SizedBox(width: 4),
+                          Text(
+                            'murih.me/@${widget.username}',
+                            style: const TextStyle(fontSize: 12, color: DesignTokens.primary, fontWeight: FontWeight.w700),
+                          ),
+                        ],
                       ),
-                      _statCol(
-                        'Following',
-                        '${_profileData?['following_count'] ?? followingCount}',
-                        textPrimary,
-                        textSecondary,
-                        () => FollowersListDialog.show(context, title: '${widget.name}\'s Following', isFollowersList: false, userId: widget.userId),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-
-                  // Primary Action CTAs
-                  if (!isSelf)
+                    ),
                     Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        // Follow / Following Button
-                        Expanded(
-                          flex: 3,
-                          child: ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: isFollowing ? (isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE5E5EA)) : DesignTokens.primary,
-                              foregroundColor: isFollowing ? textPrimary : Colors.white,
-                              elevation: 0,
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                            ),
-                            onPressed: () => followNotifier.toggleFollow(widget.userId),
-                            icon: Icon(
-                              isFollowing ? Icons.check_rounded : Icons.person_add_rounded,
-                              size: 16,
-                            ),
-                            label: Text(
-                              isFollowing ? 'Following' : 'Follow',
-                              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-
-                        // Add Friend / Status Button
-                        Expanded(
-                          flex: 3,
-                          child: OutlinedButton.icon(
-                            style: OutlinedButton.styleFrom(
-                              backgroundColor: _friendshipStatus == 'accepted'
-                                  ? const Color(0xFF34C759).withOpacity(0.12)
-                                  : (_friendshipStatus == 'pending_sent'
-                                      ? Colors.orange.withOpacity(0.12)
-                                      : Colors.transparent),
-                              side: BorderSide(
-                                color: _friendshipStatus == 'accepted'
-                                    ? const Color(0xFF34C759)
-                                    : (_friendshipStatus == 'pending_sent'
-                                        ? Colors.orange
-                                        : DesignTokens.primary),
-                                width: 1.5,
-                              ),
-                              foregroundColor: _friendshipStatus == 'accepted'
-                                  ? const Color(0xFF34C759)
-                                  : (_friendshipStatus == 'pending_sent'
-                                      ? Colors.orange
-                                      : DesignTokens.primary),
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                            ),
-                            onPressed: _actionLoading ? null : _handleFriendAction,
-                            icon: _actionLoading
-                                ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator.adaptive(strokeWidth: 2))
-                                : Icon(
-                                    _friendshipStatus == 'accepted'
-                                        ? Icons.how_to_reg_rounded
-                                        : (_friendshipStatus == 'pending_sent'
-                                            ? Icons.hourglass_top_rounded
-                                            : (_friendshipStatus == 'pending_received'
-                                                ? Icons.check_circle_outline_rounded
-                                                : Icons.group_add_rounded)),
-                                    size: 16,
-                                  ),
-                            label: Text(
-                              _friendshipStatus == 'accepted'
-                                  ? 'Friends'
-                                  : (_friendshipStatus == 'pending_sent'
-                                      ? 'Requested'
-                                      : (_friendshipStatus == 'pending_received'
-                                          ? 'Accept'
-                                          : 'Add Friend')),
-                              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-
-                        // Message Button
-                        IconButton.filledTonal(
-                          style: IconButton.styleFrom(
-                            backgroundColor: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF2F2F7),
-                            padding: const EdgeInsets.all(12),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                          ),
-                          onPressed: _openChat,
-                          icon: const Icon(Icons.chat_bubble_outline_rounded, color: DesignTokens.primary, size: 20),
-                          tooltip: 'Message',
-                        ),
-                        const SizedBox(width: 8),
-
-                        // Voice Call Button
-                        IconButton.filledTonal(
-                          style: IconButton.styleFrom(
-                            backgroundColor: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF2F2F7),
-                            padding: const EdgeInsets.all(12),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                          ),
-                          onPressed: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => CallScreen(
-                                  contactName: widget.name,
-                                  phoneNumber: '+234 812 000 1122',
-                                  avatarUrl: widget.avatarUrl.isNotEmpty ? widget.avatarUrl : null,
-                                  isVideo: false,
-                                ),
-                              ),
-                            );
-                          },
-                          icon: const Icon(Icons.call_rounded, color: Color(0xFF34C759), size: 20),
-                          tooltip: 'Voice Call',
-                        ),
-                        const SizedBox(width: 8),
-
-                        // Video Call Button
-                        IconButton.filledTonal(
-                          style: IconButton.styleFrom(
-                            backgroundColor: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF2F2F7),
-                            padding: const EdgeInsets.all(12),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                          ),
-                          onPressed: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => CallScreen(
-                                  contactName: widget.name,
-                                  phoneNumber: '+234 812 000 1122',
-                                  avatarUrl: widget.avatarUrl.isNotEmpty ? widget.avatarUrl : null,
-                                  isVideo: true,
-                                ),
-                              ),
-                            );
-                          },
-                          icon: const Icon(Icons.videocam_rounded, color: DesignTokens.primary, size: 20),
-                          tooltip: 'Video Call',
+                        const Icon(Icons.calendar_today_outlined, size: 13, color: Color(0xFF667085)),
+                        const SizedBox(width: 4),
+                        Text(
+                          _profileData?['created_at'] != null
+                              ? 'Joined ${DateTime.tryParse(_profileData!['created_at'].toString())?.year ?? 'recently'}'
+                              : 'Member',
+                          style: TextStyle(fontSize: 12, color: textSecondary, fontWeight: FontWeight.w500),
                         ),
                       ],
-                    )
-                  else
-                    Column(
-                      children: [
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF1E2638) : const Color(0xFFE8F1FD),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Text(
+                        'Public Profile',
+                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: DesignTokens.primary),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 18),
+
+          // 3. Stats Bar (Matching you_screen card style)
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: isDark ? const Color(0xFF2E384D) : const Color(0xFFE4E7EC)),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _statCol('Posts', '${_profileData?['posts_count'] ?? postsCount}', textPrimary, textSecondary, () {}),
+                _statCol(
+                  'Followers',
+                  '${_profileData?['followers_count'] ?? followersCount}',
+                  textPrimary,
+                  textSecondary,
+                  () => FollowersListDialog.show(context, title: '${widget.name}\'s Followers', isFollowersList: true, userId: widget.userId),
+                ),
+                _statCol(
+                  'Following',
+                  '${_profileData?['following_count'] ?? followingCount}',
+                  textPrimary,
+                  textSecondary,
+                  () => FollowersListDialog.show(context, title: '${widget.name}\'s Following', isFollowersList: false, userId: widget.userId),
+                ),
+                _statCol('Likes', '${_profileData?['likes_count'] ?? 0}', textPrimary, textSecondary, () {}),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // 4. Action Buttons Row:
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: !effectiveIsSelf
+                ? Row(
+                    children: [
+                      // Follow / Following Button (Same size as Message)
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: isFollowing ? (isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE5E5EA)) : DesignTokens.primary,
+                            foregroundColor: isFollowing ? textPrimary : Colors.white,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          onPressed: () => followNotifier.toggleFollow(widget.userId),
+                          icon: Icon(
+                            isFollowing ? Icons.check_rounded : Icons.person_add_rounded,
+                            size: 16,
+                          ),
+                          label: Text(
+                            isFollowing ? 'Following' : 'Follow',
+                            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+
+                      // Message Button (Same size as Follow)
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: textPrimary,
+                            side: BorderSide(color: isDark ? const Color(0xFF2E384D) : const Color(0xFFE4E7EC)),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          onPressed: _openChat,
+                          icon: const MurihIcon('Chat', color: DesignTokens.primary, size: 18),
+                          label: const Text(
+                            'Message',
+                            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+
+                      // 3rd Button: View Followers (Icon only from our icon file)
+                      IconButton.filledTonal(
+                        style: IconButton.styleFrom(
+                          backgroundColor: isDark ? const Color(0xFF1E2638) : const Color(0xFFF2F4F7),
+                          padding: const EdgeInsets.all(12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        onPressed: () => FollowersListDialog.show(
+                          context,
+                          title: '${widget.name}\'s Followers',
+                          isFollowersList: true,
+                          userId: widget.userId,
+                        ),
+                        icon: MurihIcon('2 User', color: textPrimary, size: 20),
+                        tooltip: 'Followers',
+                      ),
+                    ],
+                  )
+                : Column(
+                    children: [
+                      if (widget.isPreview)
                         Container(
                           margin: const EdgeInsets.only(bottom: 14),
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
@@ -756,57 +1382,42 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                             ],
                           ),
                         ),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: ElevatedButton.icon(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: DesignTokens.primary,
-                                  foregroundColor: Colors.white,
-                                  elevation: 0,
-                                  padding: const EdgeInsets.symmetric(vertical: 12),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                                ),
-                                onPressed: () => context.push('/profile'),
-                                icon: const Icon(Icons.edit_rounded, size: 16),
-                                label: const Text(
-                                  'Edit Profile',
-                                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
-                                ),
+                      Row(
+                        children: [
+                          // Expanded Edit Profile Button
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: DesignTokens.primary,
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                              onPressed: () => context.push('/profile'),
+                              icon: const Icon(Icons.edit_rounded, size: 16),
+                              label: const Text(
+                                'Edit Profile',
+                                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
                               ),
                             ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: OutlinedButton.icon(
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: textPrimary,
-                                  side: BorderSide(color: isDark ? const Color(0xFF2E384D) : const Color(0xFFE4E7EC)),
-                                  padding: const EdgeInsets.symmetric(vertical: 12),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                                ),
-                                onPressed: () {
-                                  final link = Env.profileUrl(widget.username);
-                                  AppShare.showShareSheet(
-                                    context,
-                                    title: 'Share Your Profile',
-                                    text: 'Check out my profile on Murih Space!',
-                                    url: link,
-                                  );
-                                },
-                                icon: const Icon(Icons.share_outlined, size: 16),
-                                label: const Text(
-                                  'Share Profile',
-                                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
-                                ),
-                              ),
+                          ),
+                          const SizedBox(width: 8),
+                          // Icon-only Followers Button using same 2 User icon
+                          IconButton.filledTonal(
+                            style: IconButton.styleFrom(
+                              backgroundColor: isDark ? const Color(0xFF1E2638) : const Color(0xFFF2F4F7),
+                              padding: const EdgeInsets.all(12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                             ),
-                          ],
-                        ),
-                      ],
-                    ),
-                ],
-              ),
-            ),
+                            onPressed: () => context.push('/followers'),
+                            icon: MurihIcon('2 User', color: textPrimary, size: 20),
+                            tooltip: 'Followers',
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
           ),
 
           // Dynamic Activity Badges & Verifications Section
@@ -816,6 +1427,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
               userId: widget.userId,
               name: widget.name,
               roleLabel: widget.roleLabel,
+              profileData: _profileData,
               isDark: isDark,
               textPrimary: textPrimary,
               textSecondary: textSecondary,
@@ -825,7 +1437,11 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
 
           // Real Creator Courses & Digital Goods Showcase
           _UserCoursesAndGoodsShowcase(userId: widget.userId, creatorName: widget.name),
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
+
+          // Dynamic Story Highlights Row (Matching cad95bd7.jpg & dc41ec71.jpg)
+          _buildStoryHighlights(isDark, textPrimary, textSecondary, effectiveIsSelf),
+          const SizedBox(height: 16),
 
           // Dynamic Content Tabs (Posts, Reels, Live, Mentions)
           Container(
@@ -868,46 +1484,44 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
 
   Widget _buildTabContent(bool isDark, Color textPrimary, Color? textSecondary) {
     List<Map<String, dynamic>> currentList;
-    String emptyMessage;
     IconData emptyIcon;
+    String emptyTitle;
+    String emptyDesc;
 
     switch (_activeTabIndex) {
       case 1:
         currentList = _userReels;
-        emptyMessage = 'No reels published yet.';
+        emptyTitle = 'No Reels Published';
+        emptyDesc = 'No short video reels have been published yet.';
         emptyIcon = Icons.video_library_outlined;
         break;
       case 2:
         currentList = _userLive;
-        emptyMessage = 'No live broadcasts available.';
+        emptyTitle = 'No Live Broadcasts';
+        emptyDesc = 'There are no active or scheduled live streams right now.';
         emptyIcon = Icons.sensors_outlined;
         break;
       case 3:
         currentList = _userMentions;
-        emptyMessage = 'No mentions found.';
+        emptyTitle = 'No Mentions Found';
+        emptyDesc = 'No tagged posts or mentions found for this profile.';
         emptyIcon = Icons.person_pin_outlined;
         break;
       case 0:
       default:
         currentList = _userPosts;
-        emptyMessage = 'No posts published yet.';
+        emptyTitle = 'No Posts Yet';
+        emptyDesc = 'This profile hasn\'t published any posts yet.';
         emptyIcon = Icons.grid_on_outlined;
         break;
     }
 
     if (currentList.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
-        child: Column(
-          children: [
-            Icon(emptyIcon, size: 42, color: textSecondary),
-            const SizedBox(height: 8),
-            Text(
-              emptyMessage,
-              style: TextStyle(fontSize: 14, color: textSecondary, fontWeight: FontWeight.w600),
-            ),
-          ],
-        ),
+      return CenteredEmptyStateWidget(
+        icon: emptyIcon,
+        title: emptyTitle,
+        description: emptyDesc,
+        minHeight: 280,
       );
     }
 
@@ -928,51 +1542,78 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
         final imageUrl = mediaUrls.isNotEmpty ? mediaUrls.first.toString() : null;
         final content = item['content'] as String? ?? '';
         final likes = (item['likes_count'] as num?)?.toInt() ?? 0;
+        final isPinned = item['is_pinned'] == true;
 
-        return Container(
-          decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF1E2638) : const Color(0xFFE2E8F0),
-          ),
-          child: imageUrl != null && imageUrl.isNotEmpty
-              ? Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    CachedNetworkImage(
-                      imageUrl: ApiClient.resolveUrl(imageUrl) ?? imageUrl,
-                      fit: BoxFit.cover,
-                      errorWidget: (_, __, ___) => Container(
-                        color: DesignTokens.primary.withValues(alpha: 0.1),
-                        child: const Icon(Icons.broken_image_rounded, color: Colors.grey),
+        return GestureDetector(
+          onTap: () => _showPostDetailModal(item),
+          child: Container(
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF1E2638) : const Color(0xFFE2E8F0),
+            ),
+            child: imageUrl != null && imageUrl.isNotEmpty
+                ? Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      CachedNetworkImage(
+                        imageUrl: ApiClient.resolveUrl(imageUrl) ?? imageUrl,
+                        fit: BoxFit.cover,
+                        errorWidget: (context, url, error) => Container(
+                          color: DesignTokens.primary.withValues(alpha: 0.1),
+                          child: const Icon(Icons.broken_image_rounded, color: Colors.grey),
+                        ),
                       ),
-                    ),
-                    Positioned(
-                      left: 6,
-                      bottom: 6,
-                      child: Row(
-                        children: [
-                          const Icon(Icons.favorite_rounded, color: Colors.white, size: 12),
-                          const SizedBox(width: 3),
-                          Text(
-                            '$likes',
-                            style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700),
+                      if (isPinned)
+                        Positioned(
+                          top: 6,
+                          left: 6,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: DesignTokens.primary,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.push_pin_rounded, color: Colors.white, size: 10),
+                                SizedBox(width: 2),
+                                Text(
+                                  'Pinned',
+                                  style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
                           ),
-                        ],
+                        ),
+                      Positioned(
+                        left: 6,
+                        bottom: 6,
+                        child: Row(
+                          children: [
+                            const Icon(Icons.favorite_rounded, color: Colors.white, size: 12),
+                            const SizedBox(width: 3),
+                            Text(
+                              '$likes',
+                              style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
-                )
-              : Padding(
-                  padding: const EdgeInsets.all(8),
-                  child: Center(
-                    child: Text(
-                      content,
-                      maxLines: 4,
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 11, color: textPrimary, fontWeight: FontWeight.w600),
+                    ],
+                  )
+                : Padding(
+                    padding: const EdgeInsets.all(8),
+                    child: Center(
+                      child: Text(
+                        content,
+                        maxLines: 4,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 11, color: textPrimary, fontWeight: FontWeight.w600),
+                      ),
                     ),
                   ),
-                ),
+          ),
         );
       },
     );
@@ -1220,71 +1861,184 @@ class _UserCoursesAndGoodsShowcaseState extends ConsumerState<_UserCoursesAndGoo
   }
 }
 
-class _PatternBannerPainter extends CustomPainter {
-  final bool isDark;
-
-  const _PatternBannerPainter({required this.isDark});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    // Subtle architectural dot matrix grid pattern
-    final dotPaint = Paint()
-      ..color = Colors.white.withOpacity(isDark ? 0.08 : 0.12)
-      ..style = PaintingStyle.fill;
-
-    const spacing = 18.0;
-    for (double x = 8; x < size.width; x += spacing) {
-      for (double y = 8; y < size.height; y += spacing) {
-        canvas.drawCircle(Offset(x, y), 1.2, dotPaint);
-      }
-    }
-
-    // Subtle modern geometric corner lines
-    final linePaint = Paint()
-      ..color = Colors.white.withOpacity(isDark ? 0.05 : 0.08)
-      ..strokeWidth = 1.0
-      ..style = PaintingStyle.stroke;
-
-    for (int i = 0; i < 4; i++) {
-      final offset = i * 28.0;
-      canvas.drawLine(
-        Offset(size.width - 140 + offset, 0),
-        Offset(size.width + offset, 140),
-        linePaint,
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
 class ActivityBadgeItem {
   final String id;
   final String title;
+  final String shortTitle;
   final String level;
   final String description;
   final IconData icon;
   final Color color;
+  final Color gradientStart;
+  final Color gradientMid;
+  final Color gradientEnd;
   final String status;
   final String criteria;
+  final String icon3dType;
 
   const ActivityBadgeItem({
     required this.id,
     required this.title,
+    required this.shortTitle,
     required this.level,
     required this.description,
     required this.icon,
     required this.color,
+    required this.gradientStart,
+    required this.gradientMid,
+    required this.gradientEnd,
     required this.status,
     required this.criteria,
+    required this.icon3dType,
   });
+}
+
+class _Badge3DToken extends StatelessWidget {
+  final ActivityBadgeItem badge;
+  final VoidCallback onTap;
+  final bool isDark;
+  final double size;
+
+  const _Badge3DToken({
+    required this.badge,
+    required this.onTap,
+    required this.isDark,
+    this.size = 72,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: SizedBox(
+        width: size + 6,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // 3D Volumetric Token Container
+            Container(
+              width: size,
+              height: size,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(size * 0.32),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    badge.gradientStart,
+                    badge.gradientMid,
+                    badge.gradientEnd,
+                  ],
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: badge.gradientEnd.withValues(alpha: 0.45),
+                    blurRadius: 10,
+                    offset: const Offset(0, 5),
+                  ),
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: isDark ? 0.4 : 0.15),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.45),
+                  width: 1.2,
+                ),
+              ),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  // Top Gloss Specular Highlight Arc
+                  Positioned(
+                    top: 2,
+                    left: 6,
+                    right: 6,
+                    height: size * 0.38,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.vertical(
+                          top: Radius.circular(size * 0.28),
+                        ),
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.white.withValues(alpha: 0.65),
+                            Colors.white.withValues(alpha: 0.0),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  // Center 3D Icon Glyph with Drop Shadow
+                  Icon(
+                    badge.icon,
+                    color: Colors.white,
+                    size: size * 0.48,
+                    shadows: [
+                      Shadow(
+                        color: Colors.black.withValues(alpha: 0.45),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+
+                  // Bottom Specular Edge Highlight
+                  Positioned(
+                    bottom: 3,
+                    child: Container(
+                      width: size * 0.45,
+                      height: 2,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.4),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 6),
+            // Badge Short Title
+            Text(
+              badge.shortTitle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: isDark ? Colors.white : const Color(0xFF1F2937),
+              ),
+            ),
+            // Level / Tier Micro Subtitle
+            Text(
+              badge.level.split('·').first.trim(),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 9.5,
+                fontWeight: FontWeight.w600,
+                color: isDark ? Colors.grey[400] : const Color(0xFF6B7280),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _UserActivityBadgesSection extends StatelessWidget {
   final int userId;
   final String name;
   final String roleLabel;
+  final Map<String, dynamic>? profileData;
   final bool isDark;
   final Color textPrimary;
   final Color? textSecondary;
@@ -1293,6 +2047,7 @@ class _UserActivityBadgesSection extends StatelessWidget {
     required this.userId,
     required this.name,
     required this.roleLabel,
+    this.profileData,
     required this.isDark,
     required this.textPrimary,
     required this.textSecondary,
@@ -1301,76 +2056,148 @@ class _UserActivityBadgesSection extends StatelessWidget {
   List<ActivityBadgeItem> _generateBadges() {
     final badges = <ActivityBadgeItem>[];
 
-    // Badge 1: Creator or Digital Contributor
+    // 1. Creator Star
     if (roleLabel.toLowerCase().contains('creator') || userId % 2 == 0) {
       badges.add(
         const ActivityBadgeItem(
           id: 'creator_economy',
           title: 'Creator Economy Star',
+          shortTitle: 'Creator',
           level: 'Master Creator · Level 2',
-          description: 'Published interactive courses, educational assets and digital goods on Murih Space.',
-          icon: Icons.auto_awesome_rounded,
-          color: Color(0xFFFF9500),
+          description: 'Published interactive courses, digital assets and creator storefront offerings on MurihSpace.',
+          icon: Icons.star_rounded,
+          color: Color(0xFFF59E0B),
+          gradientStart: Color(0xFFFBBF24),
+          gradientMid: Color(0xFFF97316),
+          gradientEnd: Color(0xFFB45309),
           status: 'Active Creator',
-          criteria: 'Awarded for active digital products, verified portfolio, and course publishing.',
+          criteria: 'Active creator or vendor account with published catalogue.',
+          icon3dType: '3d-star',
         ),
       );
     }
 
-    // Badge 2: Web3 Pioneer
+    // 2. Web3 Pioneer
     badges.add(
       const ActivityBadgeItem(
         id: 'web3_pioneer',
         title: 'Web3 Pioneer',
+        shortTitle: 'Web3 Pioneer',
         level: 'Smart Account · Tier 1',
         description: 'Verified smart wallet participant across decentralized governance & Web3 communities.',
-        icon: Icons.token_rounded,
-        color: Color(0xFF5856D6),
+        icon: Icons.view_in_ar_rounded,
+        color: Color(0xFF818CF8),
+        gradientStart: Color(0xFF818CF8),
+        gradientMid: Color(0xFF9333EA),
+        gradientEnd: Color(0xFF4338CA),
         status: 'On-Chain Verified',
-        criteria: 'Awarded for smart contract interaction, token community membership, and verified wallet activity.',
+        criteria: 'KYC identity verified with linked smart account wallet.',
+        icon3dType: '3d-cube',
       ),
     );
 
-    // Badge 3: Escrow Trusted Partner
+    // 3. Escrow Trusted Trader
     badges.add(
       const ActivityBadgeItem(
         id: 'escrow_trusted',
         title: 'Escrow Trusted Trader',
+        shortTitle: 'Escrow Trader',
         level: '100% Reliable · Dispute-Free',
-        description: 'Consistently completes high-trust peer transactions using Murih Space Escrow Protection.',
-        icon: Icons.verified_user_rounded,
-        color: Color(0xFF34C759),
+        description: 'Consistently completes high-trust peer transactions using MurihSpace Escrow Protection.',
+        icon: Icons.shield_rounded,
+        color: Color(0xFF10B981),
+        gradientStart: Color(0xFF34D399),
+        gradientMid: Color(0xFF10B981),
+        gradientEnd: Color(0xFF0F766E),
         status: 'Escrow Protected',
-        criteria: 'Awarded for verified escrow deals completed with positive counterparty feedback and zero disputes.',
+        criteria: 'At least 1 completed dispute-free escrow transaction.',
+        icon3dType: '3d-shield',
       ),
     );
 
-    // Badge 4: Community Leader
+    // 4. Community Champion
     badges.add(
       const ActivityBadgeItem(
         id: 'community_leader',
         title: 'Community Champion',
+        shortTitle: 'Champion',
         level: 'Top 5% Contributor',
         description: 'Consistent participant across discussion hubs, mutual spaces, and real-time community polls.',
-        icon: Icons.groups_rounded,
-        color: DesignTokens.primary,
+        icon: Icons.emoji_events_rounded,
+        color: Color(0xFF0284C7),
+        gradientStart: Color(0xFF60A5FA),
+        gradientMid: Color(0xFF0284C7),
+        gradientEnd: Color(0xFF1D4ED8),
         status: 'Active 24h',
-        criteria: 'Awarded for frequent peer-to-peer engagement, helpful responses, and poll participation.',
+        criteria: 'Reached 20+ followers and active community interactions.',
+        icon3dType: '3d-trophy',
       ),
     );
 
-    // Badge 5: Early Genesis Member
+    // 5. Genesis Member
     if (userId < 100 || userId % 3 == 0) {
       badges.add(
         const ActivityBadgeItem(
           id: 'early_adopter',
           title: 'Genesis Member',
+          shortTitle: 'Genesis',
           level: 'Early Adopter',
           description: 'Joined during the foundational genesis period and helped establish the community foundation.',
-          icon: Icons.rocket_launch_rounded,
-          color: Color(0xFFFF2D55),
+          icon: Icons.military_tech_rounded,
+          color: Color(0xFFE11D48),
+          gradientStart: Color(0xFFF472B6),
+          gradientMid: Color(0xFFE11D48),
+          gradientEnd: Color(0xFF9F1239),
           status: 'Genesis',
-          criteria: 'Awarded to pioneering members who registered during the early ecosystem phase.',
+          criteria: 'Registered pioneer member from early platform release.',
+          icon3dType: '3d-gem',
+        ),
+      );
+    }
+
+    // 6. Content Maestro / Storyteller
+    final postsCount = (profileData?['posts_count'] as num?)?.toInt() ?? 0;
+    if (postsCount >= 10) {
+      badges.add(
+        const ActivityBadgeItem(
+          id: 'viral_publisher',
+          title: 'Content Maestro',
+          shortTitle: 'Storyteller',
+          level: 'Top Storyteller',
+          description: 'Published 10+ high-engagement posts, stories, or live broadcasts on MurihSpace.',
+          icon: Icons.verified_rounded,
+          color: Color(0xFFA855F7),
+          gradientStart: Color(0xFFA78BFA),
+          gradientMid: Color(0xFFC026D3),
+          gradientEnd: Color(0xFF7C3AED),
+          status: 'Storyteller',
+          criteria: 'Published 10 or more posts, reels, or story highlights.',
+          icon3dType: '3d-badge',
+        ),
+      );
+    }
+
+    // 7. Top Vendor / Merchant
+    final isVerified = profileData?['has_active_verification_badge'] == true ||
+        profileData?['kyc_status'] == 'verified';
+    final reviewsCount = (profileData?['reviews_count'] as num?)?.toInt() ?? 0;
+    final averageRating = (profileData?['average_rating'] as num?)?.toDouble() ?? 0;
+    if (isVerified && reviewsCount >= 5 && averageRating >= 4.5) {
+      badges.add(
+        const ActivityBadgeItem(
+          id: 'top_vendor',
+          title: 'Master Merchant',
+          shortTitle: 'Merchant',
+          level: 'Gold Merchant',
+          description: 'Consistently provides top-rated merchant fulfilment with verified customer reviews.',
+          icon: Icons.workspace_premium_rounded,
+          color: Color(0xFFD97706),
+          gradientStart: Color(0xFFFDE047),
+          gradientMid: Color(0xFFF59E0B),
+          gradientEnd: Color(0xFFD97706),
+          status: 'Verified Merchant',
+          criteria: 'Completed 5+ successful storefront orders with high rating.',
+          icon3dType: '3d-award',
         ),
       );
     }
@@ -1382,87 +2209,108 @@ class _UserActivityBadgesSection extends StatelessWidget {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
+      isScrollControlled: true,
       builder: (ctx) {
         final cardBg = isDark ? const Color(0xFF1E222A) : Colors.white;
         return Container(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
           decoration: BoxDecoration(
             color: cardBg,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
           ),
           child: SafeArea(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                // Handle bar
                 Container(
                   width: 38,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: Colors.grey.withOpacity(0.4),
+                    color: Colors.grey.withValues(alpha: 0.4),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
                 const SizedBox(height: 20),
-                CircleAvatar(
-                  radius: 32,
-                  backgroundColor: badge.color.withOpacity(0.15),
-                  child: Icon(badge.icon, color: badge.color, size: 36),
+
+                // Large 3D Badge Representation
+                _Badge3DToken(
+                  badge: badge,
+                  onTap: () {},
+                  isDark: isDark,
+                  size: 80,
                 ),
                 const SizedBox(height: 12),
+
                 Text(
                   badge.title,
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+                  textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 4),
+
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: badge.color.withOpacity(0.12),
+                    color: badge.color.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
                     badge.level,
-                    style: TextStyle(color: badge.color, fontWeight: FontWeight.w700, fontSize: 12),
+                    style: TextStyle(color: badge.color, fontWeight: FontWeight.w800, fontSize: 12),
                   ),
                 ),
                 const SizedBox(height: 14),
+
                 Text(
                   badge.description,
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 14, color: textSecondary, height: 1.4),
+                  style: TextStyle(fontSize: 13.5, color: textSecondary, height: 1.4),
                 ),
                 const SizedBox(height: 16),
+
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: isDark ? const Color(0xFF282C35) : const Color(0xFFF1F5F9),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(14),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.verified_rounded, color: Color(0xFF34C759), size: 18),
-                      const SizedBox(width: 8),
+                      const Icon(Icons.verified_rounded, color: Color(0xFF10B981), size: 20),
+                      const SizedBox(width: 10),
                       Expanded(
-                        child: Text(
-                          'Verification Criteria: ${badge.criteria}',
-                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Automated Verification Rule',
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF10B981)),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              badge.criteria,
+                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                            ),
+                          ],
                         ),
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(height: 20),
+
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: DesignTokens.primary,
                       foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      padding: const EdgeInsets.symmetric(vertical: 13),
                     ),
                     onPressed: () => Navigator.pop(ctx),
-                    child: const Text('Close Verification Log'),
+                    child: const Text('Close Verification Details', style: TextStyle(fontWeight: FontWeight.w700)),
                   ),
                 ),
               ],
@@ -1488,83 +2336,498 @@ class _UserActivityBadgesSection extends StatelessWidget {
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: textPrimary),
             ),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3.5),
               decoration: BoxDecoration(
-                color: DesignTokens.primary.withOpacity(0.12),
+                color: DesignTokens.primary.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
-                '${badges.length} Earned',
+                '${badges.length} Earned · 3D',
                 style: const TextStyle(color: DesignTokens.primary, fontWeight: FontWeight.bold, fontSize: 11),
               ),
             ),
           ],
         ),
-        const SizedBox(height: 10),
-        Column(
-          children: badges.map((b) {
-            return InkWell(
-              onTap: () => _showBadgeDetailSheet(context, b),
-              borderRadius: BorderRadius.circular(14),
-              child: Container(
-                margin: const EdgeInsets.only(bottom: 8),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: isDark ? Colors.white12 : Colors.black12),
-                ),
-                child: Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 20,
-                      backgroundColor: b.color.withOpacity(0.14),
-                      child: Icon(b.icon, color: b.color, size: 20),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Text(
-                                b.title,
-                                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: textPrimary),
-                              ),
-                              const Spacer(),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: b.color.withOpacity(0.12),
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Text(
-                                  b.status,
-                                  style: TextStyle(color: b.color, fontSize: 10, fontWeight: FontWeight.bold),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            b.description,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(fontSize: 11, color: textSecondary),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    const Icon(Icons.chevron_right_rounded, size: 16, color: Colors.grey),
-                  ],
-                ),
-              ),
-            );
-          }).toList(),
+        const SizedBox(height: 14),
+
+        // Horizontal 3D Badge Shelf
+        SizedBox(
+          height: 116,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            itemCount: badges.length,
+            separatorBuilder: (context, index) => const SizedBox(width: 14),
+            itemBuilder: (ctx, index) {
+              final b = badges[index];
+              return _Badge3DToken(
+                badge: b,
+                onTap: () => _showBadgeDetailSheet(context, b),
+                isDark: isDark,
+                size: 68,
+              );
+            },
+          ),
         ),
       ],
     );
   }
 }
+
+class _PostDetailSheet extends ConsumerStatefulWidget {
+  final Map<String, dynamic> postData;
+  final String authorName;
+  final String authorUsername;
+  final String authorAvatar;
+  final int authorId;
+
+  const _PostDetailSheet({
+    required this.postData,
+    required this.authorName,
+    required this.authorUsername,
+    required this.authorAvatar,
+    required this.authorId,
+  });
+
+  @override
+  ConsumerState<_PostDetailSheet> createState() => _PostDetailSheetState();
+}
+
+class _PostDetailSheetState extends ConsumerState<_PostDetailSheet> {
+  late bool _isLiked;
+  late int _likesCount;
+  late int _commentsCount;
+  bool _isSaved = false;
+  final TextEditingController _commentController = TextEditingController();
+  List<Map<String, dynamic>> _comments = [];
+  bool _loadingComments = true;
+  bool _sendingComment = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _isLiked = widget.postData['is_liked'] == true;
+    _likesCount = (widget.postData['likes_count'] as num?)?.toInt() ?? 0;
+    _commentsCount = (widget.postData['comments_count'] as num?)?.toInt() ?? 0;
+    _loadComments();
+  }
+
+  @override
+  void dispose() {
+    _commentController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadComments() async {
+    final postId = widget.postData['id'];
+    if (postId == null) return;
+    try {
+      final res = await ApiClient.instance.dio.get('/posts/$postId/comments');
+      final payload = ApiClient.instance.unwrap(res);
+      List<Map<String, dynamic>> list = [];
+      if (payload is Map<String, dynamic>) {
+        final raw = payload['data'];
+        if (raw is List) {
+          list = raw.whereType<Map<String, dynamic>>().toList();
+        }
+      } else if (payload is List) {
+        list = payload.whereType<Map<String, dynamic>>().toList();
+      }
+      if (mounted) {
+        setState(() {
+          _comments = list;
+          _loadingComments = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loadingComments = false);
+    }
+  }
+
+  Future<void> _toggleLike() async {
+    final postId = widget.postData['id'];
+    if (postId == null) return;
+    setState(() {
+      _isLiked = !_isLiked;
+      _likesCount += _isLiked ? 1 : -1;
+    });
+    try {
+      await ApiClient.instance.dio.post('/posts/$postId/like');
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _isLiked = !_isLiked;
+          _likesCount += _isLiked ? 1 : -1;
+        });
+      }
+    }
+  }
+
+  Future<void> _submitComment() async {
+    final text = _commentController.text.trim();
+    final postId = widget.postData['id'];
+    if (text.isEmpty || postId == null || _sendingComment) return;
+
+    setState(() => _sendingComment = true);
+    try {
+      final res = await ApiClient.instance.dio.post(
+        '/posts/$postId/comments',
+        data: {'content': text},
+      );
+      final payload = ApiClient.instance.unwrap(res);
+      final myUser = ref.read(authProvider).user;
+      final newComment = payload is Map<String, dynamic>
+          ? payload
+          : {
+              'id': DateTime.now().millisecondsSinceEpoch,
+              'content': text,
+              'created_at': DateTime.now().toIso8601String(),
+              'user': {
+                'id': myUser?.id ?? 0,
+                'name': myUser?.name ?? 'Me',
+                'username': myUser?.username ?? 'me',
+                'avatar_url': myUser?.avatarUrl,
+              },
+            };
+
+      if (mounted) {
+        setState(() {
+          _comments.insert(0, newComment);
+          _commentsCount += 1;
+          _sendingComment = false;
+        });
+        _commentController.clear();
+      }
+    } catch (_) {
+      if (mounted) setState(() => _sendingComment = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = isDark ? const Color(0xFF141720) : Colors.white;
+    final textPrimary = isDark ? Colors.white : Colors.black;
+    final textSecondary = isDark ? Colors.grey[400] : Colors.grey[600];
+    final mediaUrls = widget.postData['media_urls'] is List ? widget.postData['media_urls'] as List : [];
+    final imageUrl = mediaUrls.isNotEmpty ? mediaUrls.first.toString() : null;
+    final content = widget.postData['content'] as String? ?? '';
+    final createdAt = DateTime.tryParse(widget.postData['created_at']?.toString() ?? '');
+    final timeStr = formatRelativeTime(createdAt);
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.85,
+      minChildSize: 0.5,
+      maxChildSize: 0.95,
+      builder: (ctx, scrollController) {
+        return Container(
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            children: [
+              // Top drag indicator & Close
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const SizedBox(width: 32),
+                    Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.grey[700] : Colors.grey[300],
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded, size: 22),
+                      onPressed: () => Navigator.pop(ctx),
+                      color: textSecondary,
+                    ),
+                  ],
+                ),
+              ),
+
+              Expanded(
+                child: ListView(
+                  controller: scrollController,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  children: [
+                    // Header: Author Avatar, Name, Handle, Time
+                    Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 20,
+                          backgroundColor: isDark ? const Color(0xFF1E2638) : const Color(0xFFE2E8F0),
+                          backgroundImage: widget.authorAvatar.isNotEmpty
+                              ? NetworkImage(ApiClient.resolveUrl(widget.authorAvatar) ?? widget.authorAvatar)
+                              : null,
+                          child: widget.authorAvatar.isEmpty
+                              ? const Icon(Icons.person, color: DesignTokens.primary, size: 22)
+                              : null,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                widget.authorName,
+                                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: textPrimary),
+                              ),
+                              Text(
+                                '@${widget.authorUsername} · $timeStr',
+                                style: TextStyle(fontSize: 12, color: textSecondary, fontWeight: FontWeight.w500),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.more_horiz_rounded),
+                          color: textSecondary,
+                          onPressed: () {
+                            AppShare.showShareSheet(
+                              context,
+                              title: 'Share Post',
+                              text: content,
+                              url: Env.profileUrl(widget.authorUsername),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Post Media or Text Card
+                    if (imageUrl != null && imageUrl.isNotEmpty) ...[
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: CachedNetworkImage(
+                          imageUrl: ApiClient.resolveUrl(imageUrl) ?? imageUrl,
+                          fit: BoxFit.cover,
+                          placeholder: (context, url) => Container(
+                            height: 240,
+                            color: isDark ? const Color(0xFF1E2638) : const Color(0xFFE2E8F0),
+                            child: const Center(child: CircularProgressIndicator.adaptive()),
+                          ),
+                          errorWidget: (context, url, error) => Container(
+                            height: 240,
+                            color: DesignTokens.primary.withValues(alpha: 0.1),
+                            child: const Center(child: Icon(Icons.broken_image_rounded, size: 40, color: Colors.grey)),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+
+                    // Action Buttons Row (Like, Comment, Share, Bookmark)
+                    Row(
+                      children: [
+                        InkWell(
+                          onTap: _toggleLike,
+                          borderRadius: BorderRadius.circular(8),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  _isLiked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                                  color: _isLiked ? Colors.red : textSecondary,
+                                  size: 22,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  '$_likesCount',
+                                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: textPrimary),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                          child: Row(
+                            children: [
+                              Icon(Icons.chat_bubble_outline_rounded, color: textSecondary, size: 20),
+                              const SizedBox(width: 6),
+                              Text(
+                                '$_commentsCount',
+                                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: textPrimary),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: Icon(Icons.share_outlined, color: textSecondary, size: 20),
+                          onPressed: () {
+                            AppShare.showShareSheet(
+                              context,
+                              title: 'Share Post',
+                              text: content,
+                              url: Env.profileUrl(widget.authorUsername),
+                            );
+                          },
+                        ),
+                        const Spacer(),
+                        IconButton(
+                          icon: Icon(
+                            _isSaved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
+                            color: _isSaved ? DesignTokens.primary : textSecondary,
+                            size: 22,
+                          ),
+                          onPressed: () {
+                            setState(() => _isSaved = !_isSaved);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(_isSaved ? 'Post saved to bookmarks' : 'Post removed from bookmarks'),
+                                duration: const Duration(seconds: 2),
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+
+                    // Post Caption
+                    if (content.isNotEmpty) ...[
+                      RichText(
+                        text: TextSpan(
+                          children: [
+                            TextSpan(
+                              text: '${widget.authorUsername} ',
+                              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: textPrimary),
+                            ),
+                            TextSpan(
+                              text: content,
+                              style: TextStyle(fontSize: 13, color: textPrimary, height: 1.35),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+
+                    const Divider(),
+                    const SizedBox(height: 8),
+
+                    // Comments Title
+                    Text(
+                      'Comments (${_comments.length})',
+                      style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: textPrimary),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Comments List
+                    if (_loadingComments)
+                      const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator.adaptive()))
+                    else if (_comments.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 24),
+                        child: Center(
+                          child: Text(
+                            'No comments yet. Be the first to join the conversation!',
+                            style: TextStyle(color: textSecondary, fontSize: 13),
+                          ),
+                        ),
+                      )
+                    else
+                      ..._comments.map((c) {
+                        final commentUser = c['user'] is Map ? c['user'] as Map : null;
+                        final cName = commentUser?['name'] as String? ?? 'User';
+                        final cAvatar = commentUser?['avatar_url'] as String? ?? '';
+                        final cContent = c['content'] as String? ?? '';
+                        final cTime = formatRelativeTime(DateTime.tryParse(c['created_at']?.toString() ?? ''));
+
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 14),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              CircleAvatar(
+                                radius: 15,
+                                backgroundColor: isDark ? const Color(0xFF1E2638) : const Color(0xFFE2E8F0),
+                                backgroundImage: cAvatar.isNotEmpty ? NetworkImage(ApiClient.resolveUrl(cAvatar) ?? cAvatar) : null,
+                                child: cAvatar.isEmpty ? const Icon(Icons.person, size: 16, color: DesignTokens.primary) : null,
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Text(cName, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: textPrimary)),
+                                        const SizedBox(width: 6),
+                                        Text(cTime, style: TextStyle(fontSize: 11, color: textSecondary)),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(cContent, style: TextStyle(fontSize: 12, color: textPrimary, height: 1.3)),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
+                    const SizedBox(height: 80),
+                  ],
+                ),
+              ),
+
+              // Bottom Comment Composer
+              Container(
+                padding: EdgeInsets.fromLTRB(16, 8, 16, MediaQuery.of(context).viewInsets.bottom + 12),
+                decoration: BoxDecoration(
+                  color: bg,
+                  border: Border(
+                    top: BorderSide(color: isDark ? const Color(0xFF2E384D) : const Color(0xFFE4E7EC)),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _commentController,
+                        decoration: InputDecoration(
+                          hintText: 'Add a comment...',
+                          hintStyle: TextStyle(fontSize: 13, color: textSecondary),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(20),
+                            borderSide: BorderSide(color: isDark ? const Color(0xFF2E384D) : const Color(0xFFE4E7EC)),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(20),
+                            borderSide: BorderSide(color: isDark ? const Color(0xFF2E384D) : const Color(0xFFE4E7EC)),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                          filled: true,
+                          fillColor: isDark ? const Color(0xFF1A1F2C) : const Color(0xFFF8FAFC),
+                        ),
+                        style: TextStyle(fontSize: 13, color: textPrimary),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    _sendingComment
+                        ? const SizedBox(width: 32, height: 32, child: CircularProgressIndicator.adaptive(strokeWidth: 2))
+                        : IconButton(
+                            icon: const Icon(Icons.send_rounded, color: DesignTokens.primary),
+                            onPressed: _submitComment,
+                          ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+

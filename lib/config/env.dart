@@ -86,7 +86,8 @@ class Env {
 
   /// Generates the canonical profile URL for any user handle.
   static String profileUrl(String username) {
-    return absolute(DeepLinks.profile(username));
+    final cleanHandle = username.trim().replaceFirst(RegExp(r'^@'), '');
+    return 'https://murih.me/@$cleanHandle';
   }
 
   /// Generates the canonical link-in-bio URL.

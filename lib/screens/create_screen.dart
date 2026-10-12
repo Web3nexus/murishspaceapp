@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../components/murih_icon.dart';
 import '../core/design_tokens.dart';
 import 'post_composer_sheet.dart';
 
@@ -188,7 +189,7 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
                       color: DesignTokens.primary.withValues(alpha: 0.1),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.auto_awesome_rounded, color: DesignTokens.primary, size: 18),
+                    child: const MurihIcon('Category', color: DesignTokens.primary, size: 18),
                   ),
                   title: Text(t['title']!, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
                   subtitle: Text(t['desc']!, style: const TextStyle(fontSize: 11, color: Color(0xFF667085))),
@@ -443,7 +444,7 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: _toolCard(
-                    icon: Icons.auto_awesome_rounded,
+                    icon: Icons.dashboard_customize_rounded,
                     title: 'Templates',
                     subtitle: 'Viral post hooks',
                     color: const Color(0xFFD97706),
@@ -686,7 +687,7 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
                         onPressed: _aiGenerating ? null : _generateAiCaption,
                         icon: _aiGenerating
                             ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 1.5))
-                            : const Icon(Icons.auto_awesome_rounded, size: 16, color: DesignTokens.primary),
+                            : const MurihIcon('Edit', size: 16, color: DesignTokens.primary),
                         label: Text(
                           _aiGenerating ? 'Generating...' : 'AI Caption Assistant',
                           style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: DesignTokens.primary),
