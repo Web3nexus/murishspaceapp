@@ -16,6 +16,45 @@ final RegExp _emojiRegExp = RegExp(
   '(${kEmojiKeys.map(RegExp.escape).join('|')})',
 );
 
+/// Returns the emojis in [text] when it contains *only* emoji (plus optional
+/// whitespace) and no more than [max] of them — the Telegram "jumbo" case that
+/// should be drawn large rather than at text size. Returns null otherwise.
+List<String>? emojiOnlySequence(String text, {int max = 3}) {
+  final trimmed = text.trim();
+  if (trimmed.isEmpty) return null;
+  final matches = _emojiRegExp.allMatches(trimmed).toList();
+  if (matches.isEmpty || matches.length > max) return null;
+  if (trimmed.replaceAll(_emojiRegExp, '').trim().isNotEmpty) return null;
+  return matches.map((m) => m.group(1)!).toList();
+}
+
+/// True when [text] is made up exclusively of emoji (and whitespace), with no
+/// limit on how many — used to render such messages without the chat bubble.
+bool isEmojiOnlyMessage(String text) {
+  final trimmed = text.trim();
+  if (trimmed.isEmpty) return false;
+  if (!_emojiRegExp.hasMatch(trimmed)) return false;
+  return trimmed.replaceAll(_emojiRegExp, '').trim().isEmpty;
+}
+
+/// Warms the on-disk image cache for [emojis] so they render instantly the next
+/// time they are shown. Safe to call with duplicates or unsupported emoji.
+Future<void> precacheEmojiAssets(
+  BuildContext context,
+  Iterable<String> emojis,
+) async {
+  for (final emoji in emojis.toSet()) {
+    if (!context.mounted) return;
+    final url = emojiAssetUrl(emoji);
+    if (url == null || url.isEmpty) continue;
+    try {
+      await precacheImage(CachedNetworkImageProvider(url), context);
+    } catch (_) {
+      // Missing asset / offline — the widget falls back to the text glyph.
+    }
+  }
+}
+
 /// Splits [text] into [InlineSpan]s, swapping emoji for their animated image.
 List<InlineSpan> buildEmojiSpans(String text, TextStyle style) {
   final spans = <InlineSpan>[];

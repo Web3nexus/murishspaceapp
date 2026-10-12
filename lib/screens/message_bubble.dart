@@ -387,25 +387,34 @@ class _BubbleContent extends StatelessWidget {
         ? Colors.white
         : (isDark ? Colors.white : Colors.black87);
 
+    // An emoji-only message is drawn without the coloured bubble (Telegram
+    // style) so the emoji sits straight on the chat canvas.
+    final bool bubbleLess = !message.deleted &&
+        !message.hasAttachment &&
+        message.replyTo == null &&
+        isEmojiOnlyMessage(message.content);
+
     return AbsorbPointer(
       // In selection mode only the selection toggle should receive gestures;
       // this blocks media viewers, location links, and the call button inside.
       absorbing: selectionMode,
       child: Container(
       constraints: BoxConstraints(maxWidth: maxWidth),
-      margin: const EdgeInsets.only(top: 2, bottom: 2),
-      padding: message.hasAttachment && message.isImage
-          ? const EdgeInsets.all(3)
-          : const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      margin: EdgeInsets.only(top: 2, bottom: bubbleLess ? 0 : 2),
+      padding: bubbleLess
+          ? const EdgeInsets.symmetric(horizontal: 4, vertical: 2)
+          : message.hasAttachment && message.isImage
+              ? const EdgeInsets.all(3)
+              : const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: bubbleColor,
+        color: bubbleLess ? Colors.transparent : bubbleColor,
         borderRadius: BorderRadius.only(
           topLeft: const Radius.circular(16),
           topRight: const Radius.circular(16),
           bottomLeft: Radius.circular(mine ? 16 : 4),
           bottomRight: Radius.circular(mine ? 4 : 16),
         ),
-        border: mine
+        border: (bubbleLess || mine)
             ? null
             : Border.all(
                 color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE5E5EA),
@@ -494,7 +503,7 @@ class _BubbleContent extends StatelessWidget {
               'This message was deleted',
               style: TextStyle(color: textColor.withValues(alpha: 0.8), fontStyle: FontStyle.italic),
             ),
-          _MetaRow(message: message, mine: mine, onRetry: onRetry),
+          _MetaRow(message: message, mine: mine, onRetry: onRetry, bubbleLess: bubbleLess),
         ],
       ),
       ),
@@ -547,34 +556,46 @@ class _MetaRow extends StatelessWidget {
   final Message message;
   final bool mine;
   final VoidCallback? onRetry;
+  final bool bubbleLess;
 
-  const _MetaRow({required this.message, required this.mine, this.onRetry});
+  const _MetaRow({
+    required this.message,
+    required this.mine,
+    this.onRetry,
+    this.bubbleLess = false,
+  });
 
   @override
   Widget build(BuildContext context) {
+    // Over a transparent (emoji-only) bubble the outgoing white treatment
+    // would vanish, so fall back to the secondary grey used on the canvas.
+    final bool onCanvas = mine && !bubbleLess;
+    final Color subtle = onCanvas ? Colors.white70 : DesignTokens.textSecondary;
+    final Color subtleSoft = onCanvas ? Colors.white60 : DesignTokens.textSecondary;
+
     return Padding(
       padding: const EdgeInsets.only(top: 3),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           if (message.replyTo != null)
-            const Padding(
-              padding: EdgeInsets.only(right: 6),
-              child: Icon(Icons.reply, size: 12, color: Colors.white70),
+            Padding(
+              padding: const EdgeInsets.only(right: 6),
+              child: Icon(Icons.reply, size: 12, color: subtle),
             ),
           if (message.forwardedFromMessageId != null)
-            const Padding(
-              padding: EdgeInsets.only(right: 6),
-              child: Icon(Icons.forward, size: 12, color: Colors.white70),
+            Padding(
+              padding: const EdgeInsets.only(right: 6),
+              child: Icon(Icons.forward, size: 12, color: subtle),
             ),
           Text(
             formatMessageTime(message.createdAt),
-            style: TextStyle(fontSize: 11, color: mine ? Colors.white70 : DesignTokens.textSecondary),
+            style: TextStyle(fontSize: 11, color: subtle),
           ),
           if (mine) ...[
             const SizedBox(width: 4),
             if (message.status == 'sending')
-              const Icon(Icons.access_time_rounded, size: 12, color: Colors.white60)
+              Icon(Icons.access_time_rounded, size: 12, color: subtleSoft)
             else if (message.status == 'failed')
               GestureDetector(
                 onTap: onRetry,
@@ -585,10 +606,10 @@ class _MetaRow extends StatelessWidget {
               const Icon(Icons.done_all_rounded, size: 14, color: Color(0xFF34C759))
             else if (message.status == 'delivered')
               // Double grey tick — delivered but not yet read
-              const Icon(Icons.done_all_rounded, size: 14, color: Colors.white70)
+              Icon(Icons.done_all_rounded, size: 14, color: subtle)
             else
               // Single grey tick — sent to server, not yet delivered
-              const Icon(Icons.done_rounded, size: 14, color: Colors.white70),
+              Icon(Icons.done_rounded, size: 14, color: subtle),
           ],
         ],
       ),
@@ -1392,22 +1413,11 @@ class _CommunityMessageWidget extends StatelessWidget {
 
     final textColor = mine ? Colors.white : (isDark ? Colors.white : Colors.black87);
 
-    return Container(
-      width: 250,
-      margin: const EdgeInsets.symmetric(vertical: 2),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: mine
-            ? const Color(0xFF0055B3).withValues(alpha: 0.3)
-            : (isDark ? const Color(0xFF262C38) : const Color(0xFFF1F5F9)),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: const Color(0xFF34C759).withValues(alpha: 0.6),
-          width: 1.5,
-        ),
-      ),
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
           Row(
             children: [
@@ -1461,24 +1471,23 @@ class _CommunityMessageWidget extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
           ],
-          const SizedBox(height: 10),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: () {
-                if (slug.isNotEmpty) {
-                  context.push('/communities/$slug');
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF34C759),
-                foregroundColor: Colors.white,
-                elevation: 0,
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-              child: const Text('View Community', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+          const SizedBox(height: 8),
+          TextButton.icon(
+            onPressed: () {
+              if (slug.isNotEmpty) {
+                context.push('/communities/$slug');
+              }
+            },
+            style: TextButton.styleFrom(
+              foregroundColor: const Color(0xFF34C759),
+              padding: EdgeInsets.zero,
+              minimumSize: const Size(0, 30),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              alignment: Alignment.centerLeft,
             ),
+            icon: const Icon(Icons.arrow_forward_rounded, size: 14),
+            label: const Text('View Community',
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
           ),
         ],
       ),
@@ -1600,32 +1609,25 @@ class _LiveStreamMessageWidgetState extends State<_LiveStreamMessageWidget> {
     final isEnded = _resolved && !_isActive;
     final accent = isEnded ? const Color(0xFF8E8E93) : const Color(0xFFFF3B30);
 
-    final card = Container(
-      width: 250,
-      margin: const EdgeInsets.symmetric(vertical: 2),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: mine
-            ? (isEnded
-                ? const Color(0xFF6B6B6B).withValues(alpha: 0.25)
-                : const Color(0xFFB3261E).withValues(alpha: 0.25))
-            : (isDark ? const Color(0xFF262C38) : const Color(0xFFF1F5F9)),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: accent.withValues(alpha: 0.6), width: 1.5),
-      ),
+    final card = Padding(
+      padding: const EdgeInsets.only(top: 4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
           Row(
             children: [
-              CircleAvatar(
-                radius: 18,
-                backgroundColor: accent.withValues(alpha: 0.15),
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: accent.withValues(alpha: 0.14),
+                ),
                 child: Icon(
                   isEnded ? Icons.sensors_off_rounded : Icons.sensors_rounded,
                   color: accent,
-                  size: 20,
+                  size: 18,
                 ),
               ),
               const SizedBox(width: 10),
@@ -1636,20 +1638,13 @@ class _LiveStreamMessageWidgetState extends State<_LiveStreamMessageWidget> {
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                          decoration: BoxDecoration(
+                        Text(
+                          isEnded ? 'ENDED' : 'LIVE',
+                          style: TextStyle(
                             color: accent,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            isEnded ? 'ENDED' : 'LIVE',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 9,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 0.6,
-                            ),
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.6,
                           ),
                         ),
                         if (hostLine.isNotEmpty) ...[
@@ -1673,7 +1668,7 @@ class _LiveStreamMessageWidgetState extends State<_LiveStreamMessageWidget> {
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Text(
             title,
             style: TextStyle(
@@ -1684,41 +1679,37 @@ class _LiveStreamMessageWidgetState extends State<_LiveStreamMessageWidget> {
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
-          const SizedBox(height: 10),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: isEnded
-                  ? null
-                  : () {
-                      if (url == null || url.isEmpty) return;
-                      final livePart = Uri.tryParse(url);
-                      final sub = livePart?.pathSegments.contains('live') == true
-                          ? livePart!.pathSegments.last
-                          : null;
-                      if (sub != null && sub.isNotEmpty) {
-                        context.push('/live/${Uri.encodeComponent(sub)}');
-                      } else {
-                        launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-                      }
-                    },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: accent,
-                foregroundColor: Colors.white,
-                disabledBackgroundColor: accent.withValues(alpha: 0.4),
-                disabledForegroundColor: Colors.white.withValues(alpha: 0.75),
-                elevation: 0,
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-              icon: Icon(
-                isEnded ? Icons.sensors_off_rounded : Icons.sensors_rounded,
-                size: 16,
-              ),
-              label: Text(
-                isEnded ? 'Broadcast Ended' : 'Watch Live',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-              ),
+          const SizedBox(height: 4),
+          TextButton.icon(
+            onPressed: isEnded
+                ? null
+                : () {
+                    if (url == null || url.isEmpty) return;
+                    final livePart = Uri.tryParse(url);
+                    final sub = livePart?.pathSegments.contains('live') == true
+                        ? livePart!.pathSegments.last
+                        : null;
+                    if (sub != null && sub.isNotEmpty) {
+                      context.push('/live/${Uri.encodeComponent(sub)}');
+                    } else {
+                      launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+                    }
+                  },
+            style: TextButton.styleFrom(
+              foregroundColor: accent,
+              disabledForegroundColor: accent.withValues(alpha: 0.45),
+              padding: EdgeInsets.zero,
+              minimumSize: const Size(0, 30),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              alignment: Alignment.centerLeft,
+            ),
+            icon: Icon(
+              isEnded ? Icons.sensors_off_rounded : Icons.sensors_rounded,
+              size: 14,
+            ),
+            label: Text(
+              isEnded ? 'Broadcast Ended' : 'Watch Live',
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
             ),
           ),
         ],
@@ -1727,6 +1718,49 @@ class _LiveStreamMessageWidgetState extends State<_LiveStreamMessageWidget> {
 
     // A finished broadcast stays readable but visibly de-emphasised.
     return isEnded ? Opacity(opacity: 0.7, child: card) : card;
+  }
+}
+
+/// Renders an emoji-only message (1–3 emoji) at Telegram jumbo scale, warming
+/// the on-disk cache first so the animated asset shows immediately.
+class _JumboEmojiMessage extends StatefulWidget {
+  final List<String> emojis;
+
+  const _JumboEmojiMessage({required this.emojis});
+
+  @override
+  State<_JumboEmojiMessage> createState() => _JumboEmojiMessageState();
+}
+
+class _JumboEmojiMessageState extends State<_JumboEmojiMessage> {
+  // Telegram-style "jumbo" sizing: a lone emoji is drawn at roughly three
+  // lines of text, scaling down as more emoji share the message.
+  static const Map<int, double> _sizes = {1: 68, 2: 50, 3: 40};
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) precacheEmojiAssets(context, widget.emojis);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final size = _sizes[widget.emojis.length] ?? 40;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (var i = 0; i < widget.emojis.length; i++)
+            Padding(
+              padding: EdgeInsets.only(right: i == widget.emojis.length - 1 ? 0 : 4),
+              child: AnimatedEmoji(emoji: widget.emojis[i], size: size),
+            ),
+        ],
+      ),
+    );
   }
 }
 
@@ -1752,6 +1786,14 @@ class _MessageContentWithLinks extends StatelessWidget {
   Widget build(BuildContext context) {
     final matches = _urlRegExp.allMatches(content).toList();
     final baseStyle = TextStyle(color: textColor, fontSize: 15, height: 1.35);
+
+    // A message that is just 1–3 emoji gets the large, Telegram-style
+    // treatment instead of being drawn inline at text size.
+    final jumbo = emojiOnlySequence(content);
+    if (jumbo != null) {
+      return _JumboEmojiMessage(emojis: jumbo);
+    }
+
     if (matches.isEmpty) {
       return Text.rich(
         TextSpan(children: buildEmojiSpans(content, baseStyle)),
@@ -1836,7 +1878,6 @@ class _DeepLinkCardWidget extends StatefulWidget {
   final bool isDark;
 
   const _DeepLinkCardWidget({
-    super.key,
     required this.target,
     required this.mine,
     required this.isDark,
@@ -1855,12 +1896,14 @@ class _PreviewCacheEntry {
   const _PreviewCacheEntry(this.data, this.at);
 }
 
-class _DeepLinkCardWidgetState extends State<_DeepLinkCardWidget> {
+class _DeepLinkCardWidgetState extends State<_DeepLinkCardWidget>
+    with SingleTickerProviderStateMixin {
   static const Duration _statusTtl = Duration(seconds: 30);
   static const Duration _staticTtl = Duration(minutes: 5);
 
   static final Map<String, _PreviewCacheEntry> _cache = {};
   Map<String, dynamic>? _preview;
+  late final AnimationController _livePulse;
 
   Duration get _cacheTtl {
     final type = widget.target.type;
@@ -1872,7 +1915,18 @@ class _DeepLinkCardWidgetState extends State<_DeepLinkCardWidget> {
   @override
   void initState() {
     super.initState();
+    _livePulse = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+      value: 1,
+    );
     _fetchPreview();
+  }
+
+  @override
+  void dispose() {
+    _livePulse.dispose();
+    super.dispose();
   }
 
   @override
@@ -2082,87 +2136,109 @@ class _DeepLinkCardWidgetState extends State<_DeepLinkCardWidget> {
         : (_preview?['label']?.toString() ?? _getButtonLabel(false));
     final isLive = widget.target.type == DeepLinkType.live && !isEnded;
 
-    final cardBg = widget.mine
-        ? Colors.black.withValues(alpha: 0.2)
-        : (widget.isDark ? const Color(0xFF1E232D) : const Color(0xFFF1F5F9));
-    final borderColor = widget.mine
-        ? Colors.white.withValues(alpha: 0.25)
-        : accent.withValues(alpha: 0.35);
+    if (isLive && !_livePulse.isAnimating) {
+      _livePulse.repeat(reverse: true);
+    } else if (!isLive && _livePulse.isAnimating) {
+      _livePulse.stop();
+      _livePulse.value = 1;
+    }
 
-    return Container(
-      width: 250,
-      margin: const EdgeInsets.only(top: 4),
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: cardBg,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: borderColor, width: 1.2),
-      ),
+    final textColor =
+        widget.mine ? Colors.white : (widget.isDark ? Colors.white : Colors.black87);
+    final subtle =
+        widget.mine ? Colors.white60 : (widget.isDark ? Colors.white54 : Colors.black45);
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Row(
-            children: [
-              CircleAvatar(
-                radius: 16,
-                backgroundColor: accent.withValues(alpha: 0.15),
-                child: Icon(_getIcon(isEnded), color: accent, size: 18),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                      decoration: BoxDecoration(
-                        color: isLive ? accent : accent.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        badge,
-                        style: TextStyle(
-                          color: isLive ? Colors.white : accent,
-                          fontSize: 9,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 0.5,
+          InkWell(
+            onTap: () => context.push(widget.target.appRoute),
+            borderRadius: BorderRadius.circular(10),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Row(
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: accent.withValues(alpha: 0.14),
+                    ),
+                    child: Icon(_getIcon(isEnded), color: accent, size: 18),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: textColor,
+                          ),
                         ),
-                      ),
+                        const SizedBox(height: 3),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (isLive) ...[
+                              FadeTransition(
+                                opacity: _livePulse,
+                                child: Container(
+                                  width: 6,
+                                  height: 6,
+                                  decoration: const BoxDecoration(
+                                    color: Color(0xFFFF3B30),
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 5),
+                            ],
+                            Text(
+                              badge,
+                              style: TextStyle(
+                                color: accent,
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.6,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      title,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: widget.mine ? Colors.white : (widget.isDark ? Colors.white : Colors.black87),
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(width: 2),
+                  Icon(Icons.chevron_right_rounded, size: 18, color: subtle),
+                ],
               ),
-            ],
+            ),
           ),
-          const SizedBox(height: 8),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: () => context.push(widget.target.appRoute),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: accent,
-                foregroundColor: Colors.white,
-                elevation: 0,
-                padding: const EdgeInsets.symmetric(vertical: 6),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              ),
-              icon: Icon(_getIcon(isEnded), size: 14),
-              label: Text(
-                buttonLabel,
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-              ),
+          const SizedBox(height: 4),
+          TextButton.icon(
+            onPressed: isEnded ? null : () => context.push(widget.target.appRoute),
+            style: TextButton.styleFrom(
+              foregroundColor: accent,
+              disabledForegroundColor: accent.withValues(alpha: 0.45),
+              padding: EdgeInsets.zero,
+              minimumSize: const Size(0, 30),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              alignment: Alignment.centerLeft,
+            ),
+            icon: Icon(_getIcon(isEnded), size: 14),
+            label: Text(
+              buttonLabel,
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
             ),
           ),
         ],
@@ -2272,7 +2348,7 @@ class _ChatGiftWidget extends StatelessWidget {
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.auto_awesome, color: Color(0xFFFFD700), size: 13),
+                      const Icon(Icons.card_giftcard_rounded, color: Color(0xFFFFD700), size: 13),
                       const SizedBox(width: 4),
                       Text(
                         mine ? 'You sent a gift' : '${message.user?.name ?? "Friend"} sent a gift',

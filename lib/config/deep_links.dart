@@ -148,7 +148,7 @@ class DeepLinks {
       '$chatPath/${Uri.encodeComponent('$conversationId')}';
 
   static String profile(String username) =>
-      '$profilePath/${Uri.encodeComponent(handle(username))}';
+      'https://murih.me/@${Uri.encodeComponent(handle(username))}';
 
   static String community(String slug) =>
       '$communityPath/${Uri.encodeComponent(slug.trim())}';
@@ -300,6 +300,13 @@ class DeepLinks {
           query: rawQuery,
         );
       }
+    } else if (first.startsWith('@') && first.length > 1) {
+      final username = first.substring(1);
+      return DeepLinkTarget(
+        type: DeepLinkType.profile,
+        identifier: handle(username),
+        query: rawQuery,
+      );
     } else if (first == 'live') {
       // /live/{token} and the legacy /live/resolve/{token}
       final token = second == 'resolve' ? id(segments, 2) : id(segments);

@@ -68,6 +68,8 @@ class _ComposerState extends State<Composer> with TickerProviderStateMixin {
   String? _currentRecordingPath;
   late AnimationController _pulseController;
   late AnimationController _emojiFlipController;
+  late final FocusNode _inputFocus;
+  bool _emojiPanelOpen = false;
 
   @override
   void initState() {
@@ -81,10 +83,19 @@ class _ComposerState extends State<Composer> with TickerProviderStateMixin {
       vsync: this,
       duration: const Duration(milliseconds: 300),
     );
+    _inputFocus = FocusNode()..addListener(_onInputFocusChanged);
+  }
+
+  void _onInputFocusChanged() {
+    if (_inputFocus.hasFocus && _emojiPanelOpen && mounted) {
+      setState(() => _emojiPanelOpen = false);
+    }
   }
 
   @override
   void dispose() {
+    _inputFocus.removeListener(_onInputFocusChanged);
+    _inputFocus.dispose();
     _recordTimer?.cancel();
     _audioRecorder.dispose();
     _pulseController.dispose();
@@ -92,7 +103,77 @@ class _ComposerState extends State<Composer> with TickerProviderStateMixin {
     super.dispose();
   }
 
+  void _toggleEmojiPanel() {
+    _emojiFlipController.forward(from: 0);
+    if (_emojiPanelOpen) {
+      setState(() => _emojiPanelOpen = false);
+      // Bring the keyboard (and the caret) straight back so colour fields,
+      // drafts and selection survive the toggle.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_inputFocus.canRequestFocus) _inputFocus.requestFocus();
+      });
+    } else {
+      // Dismiss the keyboard so the panel sits in its place, keeping the
+      // input row and any reply/preview bar visible above it.
+      _inputFocus.unfocus();
+      setState(() => _emojiPanelOpen = true);
+    }
+  }
+
+  void _insertEmoji(String emoji) {
+    final text = widget.controller.text;
+    final selection = widget.controller.selection;
+    final start = selection.baseOffset >= 0 ? selection.baseOffset : text.length;
+    final end = selection.extentOffset >= 0 ? selection.extentOffset : text.length;
+    final newText = text.replaceRange(
+      start < end ? start : end,
+      start < end ? end : start,
+      emoji,
+    );
+    widget.controller.value = TextEditingValue(
+      text: newText,
+      selection: TextSelection.collapsed(offset: (start < end ? start : end) + emoji.length),
+    );
+  }
+
+  void _deleteEmojiAtCursor() {
+    final text = widget.controller.text;
+    if (text.isEmpty) return;
+    final selection = widget.controller.selection;
+    final searchStart = selection.baseOffset >= 0 ? selection.baseOffset : text.length;
+    final searchEnd = selection.extentOffset >= 0 ? selection.extentOffset : text.length;
+    // Normalize so a selection dragged backwards still deletes cleanly.
+    final start = searchStart < searchEnd ? searchStart : searchEnd;
+    final end = searchStart < searchEnd ? searchEnd : searchStart;
+    if (start != end) {
+      widget.controller.value = TextEditingValue(
+        text: text.replaceRange(start, end, ''),
+        selection: TextSelection.collapsed(offset: start),
+      );
+      return;
+    }
+    if (start == 0) return;
+    // Remove the preceding grapheme cluster (native emoji, ZWJ sequences,
+    // and flags) instead of one UTF-16 code unit.
+    final characters = text.characters;
+    var countBefore = 0;
+    var codeUnits = 0;
+    for (final g in characters) {
+      final next = codeUnits + g.length;
+      if (next > start) break;
+      codeUnits = next;
+      countBefore++;
+    }
+    if (countBefore == 0) return;
+    final before = characters.take(countBefore - 1).toString();
+    widget.controller.value = TextEditingValue(
+      text: before + characters.skip(countBefore).toString(),
+      selection: TextSelection.collapsed(offset: before.length),
+    );
+  }
+
   Future<void> _startRecording() async {
+    if (_emojiPanelOpen) setState(() => _emojiPanelOpen = false);
     final status = await Permission.microphone.request();
     if (status.isDenied || status.isPermanentlyDenied) {
       if (mounted) {
@@ -195,6 +276,7 @@ class _ComposerState extends State<Composer> with TickerProviderStateMixin {
   }
 
   void _showAttachmentSheet(BuildContext context) {
+    if (_emojiPanelOpen) setState(() => _emojiPanelOpen = false);
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -233,7 +315,6 @@ class _ComposerState extends State<Composer> with TickerProviderStateMixin {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bg = isDark ? const Color(0xFF181A20) : Colors.white;
-    final inputBg = isDark ? const Color(0xFF222630) : const Color(0xFFF1F5F9);
 
     return Container(
       decoration: BoxDecoration(
@@ -262,101 +343,87 @@ class _ComposerState extends State<Composer> with TickerProviderStateMixin {
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         // Telegram attachment paperclip button
-                        IconButton(
-                          onPressed: widget.uploading ? null : () => _showAttachmentSheet(context),
-                          icon: Icon(
-                            Icons.attach_file_rounded,
-                            color: isDark ? const Color(0xFF8E8E93) : const Color(0xFF61758A),
-                            size: 20,
-                          ),
+                        _leadingIcon(
+                          icon: Icons.attach_file_rounded,
+                          onTap: widget.uploading ? null : () => _showAttachmentSheet(context),
                           tooltip: 'Attachments',
-                          padding: const EdgeInsets.all(6),
-                          constraints: const BoxConstraints(),
+                          isDark: isDark,
                         ),
                         // Quick Camera capture button beside the input field
                         if (widget.onPickCamera != null)
-                          IconButton(
-                            onPressed: widget.uploading ? null : widget.onPickCamera,
-                            icon: Icon(
-                              Icons.camera_alt_rounded,
-                              color: isDark ? const Color(0xFF8E8E93) : const Color(0xFF61758A),
-                              size: 20,
-                            ),
+                          _leadingIcon(
+                            icon: Icons.camera_alt_rounded,
+                            onTap: widget.uploading ? null : widget.onPickCamera,
                             tooltip: 'Take Photo',
-                            padding: const EdgeInsets.only(left: 2, right: 4, bottom: 6, top: 6),
-                            constraints: const BoxConstraints(),
+                            isDark: isDark,
                           ),
-                        // Capsule text field with modern curved radius
+                        const SizedBox(width: 6),
+                        // Field blends with the composer background — no capsule.
                         Expanded(
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: inputBg,
-                              borderRadius: BorderRadius.circular(24),
-                              border: Border.all(
-                                color: isDark ? const Color(0xFF323846) : const Color(0xFFE2E8F0),
-                                width: 1.0,
-                              ),
-                            ),
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
-                            child: Stack(
-                              alignment: Alignment.centerRight,
-                              children: [
-                                TextField(
-                                  controller: widget.controller,
-                                  minLines: 1,
-                                  maxLines: 5,
-                                  style: TextStyle(
-                                    color: isDark ? Colors.white : Colors.black,
-                                    fontSize: 14,
-                                  ),
-                                  textInputAction: TextInputAction.newline,
-                                  onSubmitted: (_) {
-                                    if (widget.canSend) widget.onSend();
-                                  },
-                                  decoration: InputDecoration(
-                                    hintText: 'Message…',
-                                    hintStyle: TextStyle(
-                                      color: isDark ? const Color(0xFF8E8E93) : const Color(0xFF8E8E93),
-                                      fontSize: 14,
-                                    ),
-                                    border: InputBorder.none,
-                                    enabledBorder: InputBorder.none,
-                                    focusedBorder: InputBorder.none,
-                                    isDense: true,
-                                    contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 2).copyWith(right: 30),
-                                  ),
+                          child: Stack(
+                            alignment: Alignment.centerRight,
+                            children: [
+                              TextField(
+                                controller: widget.controller,
+                                focusNode: _inputFocus,
+                                minLines: 1,
+                                maxLines: 5,
+                                style: TextStyle(
+                                  color: isDark ? Colors.white : Colors.black,
+                                  fontSize: 15,
                                 ),
-                                Positioned(
-                                  right: 0,
-                                  child: GestureDetector(
-                                    behavior: HitTestBehavior.opaque,
-                                    onTap: () => _openEmojiPicker(context),
-                                    child: AnimatedBuilder(
-                                      animation: _emojiFlipController,
-                                      builder: (context, child) {
-                                        return Transform(
-                                          transform: Matrix4.identity()
-                                            ..rotateY(_emojiFlipController.value * 3.14159),
-                                          alignment: Alignment.center,
-                                          child: child,
-                                        );
-                                      },
-                                      child: Padding(
-                                        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
-                                        child: Icon(
-                                          Icons.sentiment_satisfied_alt_rounded,
-                                          color: isDark ? const Color(0xFF8E8E93) : const Color(0xFF61758A),
-                                          size: 20,
-                                        ),
+                                textInputAction: TextInputAction.newline,
+                                onSubmitted: (_) {
+                                  if (widget.canSend) widget.onSend();
+                                },
+                                decoration: InputDecoration(
+                                  hintText: 'Message…',
+                                  hintStyle: TextStyle(
+                                    color: isDark ? const Color(0xFF8E8E93) : const Color(0xFF61758A),
+                                    fontSize: 15,
+                                  ),
+                                  border: InputBorder.none,
+                                  enabledBorder: InputBorder.none,
+                                  focusedBorder: InputBorder.none,
+                                  isDense: true,
+                                  contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4).copyWith(right: 32),
+                                ),
+                              ),
+                              Positioned(
+                                right: 0,
+                                child: GestureDetector(
+                                  behavior: HitTestBehavior.opaque,
+                                  onTap: _toggleEmojiPanel,
+                                  child: AnimatedBuilder(
+                                    animation: _emojiFlipController,
+                                    builder: (context, child) {
+                                      return Transform(
+                                        transform: Matrix4.identity()
+                                          ..rotateY(_emojiFlipController.value * 3.14159),
+                                        alignment: Alignment.center,
+                                        child: child,
+                                      );
+                                    },
+                                    child: SizedBox(
+                                      width: 32,
+                                      height: 36,
+                                      child: Icon(
+                                        _emojiPanelOpen
+                                            ? Icons.sentiment_very_satisfied_rounded
+                                            : Icons.sentiment_satisfied_alt_rounded,
+                                        color: _emojiPanelOpen
+                                            ? DesignTokens.primary
+                                            : isDark ? const Color(0xFF8E8E93) : const Color(0xFF61758A),
+                                        size: 20,
                                       ),
                                     ),
                                   ),
                                 ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 6),
                         // Dynamic send / voice mic button
                         widget.uploading
                             ? const Padding(
@@ -383,12 +450,49 @@ class _ComposerState extends State<Composer> with TickerProviderStateMixin {
                                   ),
                                   tooltip: widget.canSend ? 'Send' : 'Hold or Tap to Record',
                                 ),
-                              ),
-                      ],
-                    ),
+),
+                       ],
+                     ),
+            ),
+            // Inline emoji panel: sits directly below the input row so the
+            // composer and any reply/preview stay visible while it is open.
+            AnimatedSize(
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOutCubic,
+              alignment: Alignment.topCenter,
+              child: _emojiPanelOpen
+                  ? EmojiPickerPanel(
+                      onEmojiSelected: _insertEmoji,
+                      onBackspace: _deleteEmojiAtCursor,
+                    )
+                  : const SizedBox(width: double.infinity),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _leadingIcon({
+    required IconData icon,
+    required VoidCallback? onTap,
+    required String tooltip,
+    required bool isDark,
+  }) {
+    return SizedBox(
+      width: 34,
+      height: 36,
+      child: IconButton(
+        onPressed: onTap,
+        icon: Icon(
+          icon,
+          color: isDark ? const Color(0xFF8E8E93) : const Color(0xFF61758A),
+          size: 20,
+        ),
+        tooltip: tooltip,
+        padding: EdgeInsets.zero,
+        constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
+        splashRadius: 20,
       ),
     );
   }
@@ -481,47 +585,6 @@ class _ComposerState extends State<Composer> with TickerProviderStateMixin {
           ),
         ],
       ),
-    );
-  }
-
-  void _openEmojiPicker(BuildContext context) {
-    _emojiFlipController.forward(from: 0);
-    EmojiPickerSheet.show(
-      context,
-      onEmojiSelected: (emoji) {
-        final text = widget.controller.text;
-        final selection = widget.controller.selection;
-        final start = selection.baseOffset >= 0 ? selection.baseOffset : text.length;
-        final end = selection.extentOffset >= 0 ? selection.extentOffset : text.length;
-        final newText = text.replaceRange(
-          start < end ? start : end,
-          start < end ? end : start,
-          emoji,
-        );
-        widget.controller.value = TextEditingValue(
-          text: newText,
-          selection: TextSelection.collapsed(offset: (start < end ? start : end) + emoji.length),
-        );
-      },
-      onBackspace: () {
-        final text = widget.controller.text;
-        if (text.isEmpty) return;
-        final selection = widget.controller.selection;
-        final start = selection.baseOffset >= 0 ? selection.baseOffset : text.length;
-        final end = selection.extentOffset >= 0 ? selection.extentOffset : text.length;
-        if (start != end) {
-          widget.controller.value = TextEditingValue(
-            text: text.replaceRange(start, end, ''),
-            selection: TextSelection.collapsed(offset: start),
-          );
-        } else if (start > 0) {
-          final newText = text.substring(0, start - 1) + text.substring(start);
-          widget.controller.value = TextEditingValue(
-            text: newText,
-            selection: TextSelection.collapsed(offset: start - 1),
-          );
-        }
-      },
     );
   }
 }
