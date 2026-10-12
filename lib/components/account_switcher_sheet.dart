@@ -91,22 +91,29 @@ class _AccountSwitcherSheetState extends ConsumerState<_AccountSwitcherSheet> {
     final borderColor = isDark ? const Color(0xFF2E384D) : const Color(0xFFE4E7EC);
     final currentId = ref.watch(authProvider).user?.id;
 
-    return SafeArea(
-      top: false,
-      child: Container(
-        decoration: BoxDecoration(
-          color: surface,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+    final mediaQuery = MediaQuery.of(context);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: EdgeInsets.only(bottom: mediaQuery.viewInsets.bottom),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: mediaQuery.size.height * 0.85,
+            ),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+              child: _adding
+                  ? _buildAddMode(textPrimary, textSecondary)
+                  : _buildListMode(textPrimary, textSecondary, borderColor, currentId),
+            ),
+          ),
         ),
-        padding: EdgeInsets.fromLTRB(
-          16,
-          12,
-          16,
-          16 + MediaQuery.viewInsetsOf(context).bottom,
-        ),
-        child: _adding
-            ? _buildAddMode(textPrimary, textSecondary)
-            : _buildListMode(textPrimary, textSecondary, borderColor, currentId),
       ),
     );
   }
@@ -166,27 +173,25 @@ class _AccountSwitcherSheetState extends ConsumerState<_AccountSwitcherSheet> {
             ),
           )
         else
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxHeight: 320),
-            child: ListView.separated(
-              shrinkWrap: true,
-              itemCount: _accounts.length,
-              separatorBuilder: (_, _) => Divider(height: 1, color: borderColor),
-              itemBuilder: (_, index) {
-                final account = _accounts[index];
-                final id = account['id'];
-                final isCurrent = id == currentId;
-                final isSwitching = _switchingTo != null && _switchingTo == id;
-                return _AccountTile(
-                  account: account,
-                  isCurrent: isCurrent,
-                  isSwitching: isSwitching,
-                  textPrimary: textPrimary,
-                  textSecondary: textSecondary,
-                  onTap: isCurrent ? null : () => _switchTo(account),
-                );
-              },
-            ),
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: _accounts.length,
+            separatorBuilder: (_, _) => Divider(height: 1, color: borderColor),
+            itemBuilder: (_, index) {
+              final account = _accounts[index];
+              final id = account['id'];
+              final isCurrent = id == currentId;
+              final isSwitching = _switchingTo != null && _switchingTo == id;
+              return _AccountTile(
+                account: account,
+                isCurrent: isCurrent,
+                isSwitching: isSwitching,
+                textPrimary: textPrimary,
+                textSecondary: textSecondary,
+                onTap: isCurrent ? null : () => _switchTo(account),
+              );
+            },
           ),
         const SizedBox(height: 12),
         SizedBox(
@@ -208,36 +213,34 @@ class _AccountSwitcherSheetState extends ConsumerState<_AccountSwitcherSheet> {
   }
 
   Widget _buildAddMode(Color textPrimary, Color textSecondary) {
-    return SingleChildScrollView(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              IconButton(
-                icon: Icon(Icons.arrow_back_rounded, color: textPrimary),
-                onPressed: () => setState(() => _adding = false),
-              ),
-              const SizedBox(width: 4),
-              Text(
-                'Add account',
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: textPrimary),
-              ),
-            ],
-          ),
-          const SizedBox(height: 2),
-          Padding(
-            padding: const EdgeInsets.only(left: 2),
-            child: Text(
-              'Sign in to another account with a code sent to your number.',
-              style: TextStyle(fontSize: 12, color: textSecondary),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            IconButton(
+              icon: Icon(Icons.arrow_back_rounded, color: textPrimary),
+              onPressed: () => setState(() => _adding = false),
             ),
+            const SizedBox(width: 4),
+            Text(
+              'Add account',
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: textPrimary),
+            ),
+          ],
+        ),
+        const SizedBox(height: 2),
+        Padding(
+          padding: const EdgeInsets.only(left: 2),
+          child: Text(
+            'Sign in to another account with a code sent to your number.',
+            style: TextStyle(fontSize: 12, color: textSecondary),
           ),
-          const SizedBox(height: 12),
-          AddAccountFlow(onSuccess: _onAccountAdded),
-        ],
-      ),
+        ),
+        const SizedBox(height: 12),
+        AddAccountFlow(onSuccess: _onAccountAdded),
+      ],
     );
   }
 }

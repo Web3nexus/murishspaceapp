@@ -168,6 +168,7 @@ class _AddAccountFlowState extends ConsumerState<AddAccountFlow> {
 
   Widget _buildPhoneStep(Color textPrimary, Color textSecondary, Color surface, Color border, bool isDark) {
     return Column(
+      mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
@@ -237,6 +238,7 @@ class _AddAccountFlowState extends ConsumerState<AddAccountFlow> {
     final isInApp = _otpChannel == 'in_app_active_device';
 
     return Column(
+      mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Container(
@@ -447,6 +449,7 @@ class _HeaderCard extends StatelessWidget {
         border: Border.all(color: accent.withValues(alpha: 0.18)),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
             padding: const EdgeInsets.all(8),
@@ -460,6 +463,7 @@ class _HeaderCard extends StatelessWidget {
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
                   isInApp ? 'Confirm on your other device' : 'Sign in with your number',
