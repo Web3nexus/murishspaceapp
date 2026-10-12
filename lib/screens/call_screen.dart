@@ -84,8 +84,7 @@ class _CallScreenState extends ConsumerState<CallScreen> with TickerProviderStat
   }
 
   void _minimize() {
-    CallSessionManager.instance.setMinimized(true);
-    _closeScreen();
+    CallSessionManager.instance.minimizeCall(context);
   }
 
   @override
@@ -260,6 +259,11 @@ class _CallScreenState extends ConsumerState<CallScreen> with TickerProviderStat
                   else
                     // 4. Picture-in-Picture Secondary Video Window (Active 1-on-1 call)
                     if (call.isVideo) _buildPipWindow(context, call),
+
+                // 4b. Connected Caller Identity (name + duration) — audio centered,
+                // video as a compact top pill.
+                if (isConnected && !_isMultiParty(call))
+                  _buildConnectedIdentityOverlay(call),
 
                 // 5. Reconnecting Banner if network temporarily drops
                 if (isReconnecting)
@@ -472,6 +476,104 @@ class _CallScreenState extends ConsumerState<CallScreen> with TickerProviderStat
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  // --- 4b. Connected Caller Identity Overlay ---
+  Widget _buildConnectedIdentityOverlay(CallSessionManager call) {
+    if (call.isVideo) {
+      return Positioned(
+        top: MediaQuery.of(context).padding.top + 60,
+        left: 0,
+        right: 0,
+        child: Center(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.45),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const _ConnectedLiveDot(),
+                const SizedBox(width: 8),
+                ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.55),
+                  child: Text(
+                    call.contactName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  _formatDuration(call.callSeconds),
+                  style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Audio call: centered avatar + caller name + running duration.
+    final hasAvatar = call.avatarUrl != null && call.avatarUrl!.isNotEmpty;
+    return Positioned.fill(
+      child: IgnorePointer(
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircleAvatar(
+                radius: 56,
+                backgroundColor: DesignTokens.primary,
+                backgroundImage: hasAvatar ? CachedNetworkImageProvider(call.avatarUrl!) : null,
+                child: !hasAvatar ? const Icon(Icons.person, color: Colors.white, size: 48) : null,
+              ),
+              const SizedBox(height: 20),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Text(
+                  call.contactName,
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                    letterSpacing: -0.3,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.45),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const _ConnectedLiveDot(),
+                    const SizedBox(width: 7),
+                    Text(
+                      _formatDuration(call.callSeconds),
+                      style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -969,7 +1071,7 @@ class _CallScreenState extends ConsumerState<CallScreen> with TickerProviderStat
 
                 const SizedBox(width: 14),
 
-                // 2. Camera Toggle (if Video Call)
+                // 2. Camera Toggle (if Video Call) / Switch to Video (if Audio Call)
                 if (call.isVideo) ...[
                   _buildCompactBarButton(
                     icon: call.isCameraOff ? Icons.videocam_off_rounded : Icons.videocam_rounded,
@@ -978,6 +1080,16 @@ class _CallScreenState extends ConsumerState<CallScreen> with TickerProviderStat
                     activeIconColor: Colors.white,
                     tooltip: call.isCameraOff ? 'Camera Off' : 'Camera On',
                     onTap: () => call.toggleCamera(),
+                  ),
+                  const SizedBox(width: 14),
+                ] else ...[
+                  _buildCompactBarButton(
+                    icon: Icons.videocam_rounded,
+                    isActive: false,
+                    activeBgColor: DesignTokens.primary,
+                    activeIconColor: Colors.white,
+                    tooltip: 'Switch to video',
+                    onTap: () => call.switchToVideo(),
                   ),
                   const SizedBox(width: 14),
                 ],
@@ -1125,6 +1237,23 @@ class _CallScreenState extends ConsumerState<CallScreen> with TickerProviderStat
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Small pulsing green "connected" indicator dot.
+class _ConnectedLiveDot extends StatelessWidget {
+  const _ConnectedLiveDot();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 8,
+      height: 8,
+      decoration: const BoxDecoration(
+        color: Color(0xFF34C759),
+        shape: BoxShape.circle,
       ),
     );
   }

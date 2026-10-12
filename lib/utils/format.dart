@@ -93,3 +93,65 @@ String messagePreview(Message message) {
   return single;
 }
 
+/// Sanitizes an arbitrary notification/title/body string so raw JSON or rich
+/// payloads (call JSON, [GIFT], [POLL], [LOCATION], …) never leak into the UI.
+/// Safe to call on already-human-readable text (returned unchanged).
+String sanitizeNotificationText(String? raw) {
+  final content = (raw ?? '').trim();
+  if (content.isEmpty) return '';
+
+  if (content.startsWith('[LOCATION]')) return '📍 Location';
+  if (content.startsWith('[COMMUNITY]')) return '👥 Community';
+  if (content.startsWith('[POLL]')) return '📊 Poll';
+  if (content.startsWith('[GIFT]')) return '🎁 Gift';
+  if (content.startsWith('🔴 Watch ')) return '🔴 Live stream';
+
+  final looksJson = content.startsWith('{') || content.startsWith('[');
+  if (looksJson) {
+    try {
+      final decoded = jsonDecode(content);
+      if (decoded is Map) {
+        final data = Map<String, dynamic>.from(decoded);
+        if (data.containsKey('call_id')) {
+          final isVideo = data['call_type'] == 'video';
+          final status = (data['status'] as String?) ?? 'ended';
+          if (status == 'missed' || status == 'declined') {
+            return isVideo ? '📹 Missed Video Call' : '📞 Missed Call';
+          }
+          final dur = (data['duration'] as num?)?.toInt() ?? 0;
+          if (dur > 0) {
+            final mins = dur ~/ 60;
+            final secs = dur % 60;
+            final durStr = mins > 0 ? '${mins}m ${secs}s' : '${secs}s';
+            return isVideo ? '📹 Video Call · $durStr' : '📞 Voice Call · $durStr';
+          }
+          return isVideo ? '📹 Video Call' : '📞 Voice Call';
+        }
+        if (data.containsKey('message_preview')) {
+          return sanitizeNotificationText(data['message_preview']?.toString());
+        }
+        if (data.containsKey('message')) {
+          return sanitizeNotificationText(data['message']?.toString());
+        }
+        if (data.containsKey('body')) {
+          return sanitizeNotificationText(data['body']?.toString());
+        }
+        if (data.containsKey('text')) {
+          return sanitizeNotificationText(data['text']?.toString());
+        }
+        if (data.containsKey('name')) {
+          return data['name']?.toString() ?? 'Notification';
+        }
+      }
+      // Unrecognised valid JSON payload: never render raw object/array.
+      return 'Notification';
+    } catch (_) {
+      // Not valid JSON (e.g. text wrapped in brackets): return original content.
+      return content;
+    }
+  }
+
+  return content;
+}
+
+

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../components/brand.dart';
 import '../components/ui_states.dart';
+import '../config/env.dart';
 import '../core/design_tokens.dart';
 import '../providers/auth_provider.dart';
 import '../providers/verification_badge_provider.dart';
@@ -252,7 +253,7 @@ class _VerificationBadgeScreenState extends ConsumerState<VerificationBadgeScree
               const SizedBox(height: 12),
               _featureRow('Official Blue Checkmark badge on your profile', isDark),
               const Divider(height: 20),
-              _featureRow('Premium Vanity Profile Handle & Link (murih.me/@${ref.watch(authProvider).user?.username ?? "username"})', isDark),
+              _featureRow('Premium Vanity Profile Handle & Link (${Env.profileDomain}/@${ref.watch(authProvider).user?.username ?? "username"})', isDark),
               const Divider(height: 20),
               _featureRow('Priority placement in community & discover search', isDark),
               const Divider(height: 20),

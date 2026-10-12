@@ -4,11 +4,13 @@ import 'package:flutter/material.dart' hide ConnectionState;
 import 'package:flutter/services.dart';
 import 'package:livekit_client/livekit_client.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../config/router.dart';
 import '../core/api_client.dart';
 import '../screens/call_screen.dart';
 import 'sound_service.dart';
+import 'pip_service.dart';
 
 enum CallStatus {
   idle,
@@ -72,6 +74,11 @@ class CallSessionManager extends ChangeNotifier {
   bool _isIncoming = false;
   bool _isAccepted = false;
   bool _hasEndedBackendCall = false;
+  // Optional LiveKit credentials handed to us by the incoming-call push so the
+  // callee can join the room immediately on answer (even from the OS CallKit UI)
+  // without an extra HTTP round-trip.
+  String? _pendingLivekitToken;
+  String? _pendingLivekitHost;
   // Bumped whenever a session is torn down so in-flight async work (e.g. the
   // /calls/initiate response) can detect it no longer owns the session.
   int _sessionToken = 0;
@@ -135,6 +142,8 @@ class CallSessionManager extends ChangeNotifier {
     bool isAccepted = false,
     int? recipientId,
     int? conversationId,
+    String? livekitToken,
+    String? livekitHost,
     VoidCallback? onInitiateFailed,
   }) {
     if (isActive) {
@@ -163,6 +172,8 @@ class CallSessionManager extends ChangeNotifier {
     _isAccepted = isAccepted;
     _recipientId = recipientId;
     _conversationId = conversationId;
+    _pendingLivekitToken = (livekitToken != null && livekitToken.isNotEmpty) ? livekitToken : null;
+    _pendingLivekitHost = (livekitHost != null && livekitHost.isNotEmpty) ? livekitHost : null;
     _isCameraOff = !isVideo;
     _isSpeakerOn = isVideo;
     _isMuted = false;
@@ -175,13 +186,17 @@ class CallSessionManager extends ChangeNotifier {
       }
     });
 
+    // Keep the screen awake for the whole duration of a call so the OS does not
+    // sleep the display and tear down the WebRTC session (critical for video).
+    _setWakelock(true);
+
     if (isIncoming) {
       if (isAccepted) {
         // Transitional CONNECTING state while LiveKit negotiates
         _status = CallStatus.connecting;
         _statusMessage = 'Connecting…';
         _callSeconds = 0;
-        _connectLiveKit();
+        _connectLiveKit(overrideToken: _pendingLivekitToken, overrideHost: _pendingLivekitHost);
       } else {
         _status = CallStatus.ringing;
         _statusMessage = 'Incoming Call…';
@@ -250,6 +265,16 @@ class CallSessionManager extends ChangeNotifier {
     }
   }
 
+  void _setWakelock(bool enabled) {
+    try {
+      if (enabled) {
+        WakelockPlus.enable();
+      } else {
+        WakelockPlus.disable();
+      }
+    } catch (_) {}
+  }
+
   Future<void> _requestPermissions() async {
     try {
       await [
@@ -287,6 +312,102 @@ class CallSessionManager extends ChangeNotifier {
         handleUnavailable(message: 'No answer');
       }
     });
+  }
+
+  void _scheduleCleanup(Duration delay) {
+    final token = _sessionToken;
+    Future.delayed(delay, () {
+      if (token == _sessionToken) _cleanupSession();
+    });
+  }
+
+  /// Handles the remote party accepting the call (real-time, no polling delay).
+  void handleRemoteAccepted(Map<String, dynamic> data) {
+    if (!isActive) return;
+    final eventCallId = ((data['call_id'] ?? data['call']?['id'] ?? data['id']) as num?)?.toInt();
+    if (eventCallId != null && _activeCallId != null && eventCallId != _activeCallId) {
+      return;
+    }
+
+    // If this device was ringing with an incoming call, a remote accept means
+    // the call was answered on another device. Stop ringing and finish locally.
+    if (_isIncoming && _status == CallStatus.ringing) {
+      SoundService.instance.stopRinging();
+      _ringingTimeoutTimer?.cancel();
+      _status = CallStatus.ended;
+      _statusMessage = 'Answered on another device';
+      notifyListeners();
+      _scheduleCleanup(const Duration(milliseconds: 900));
+      return;
+    }
+
+    if (_status == CallStatus.connected || _status == CallStatus.connecting) return;
+    if (_status != CallStatus.outgoing && _status != CallStatus.ringing) return;
+    final call = data['call'] is Map ? Map<String, dynamic>.from(data['call'] as Map) : data;
+    final token = (data['livekit_token'] ?? data['token'] ?? call['livekit_token'])?.toString();
+    final host = (data['livekit_host'] ?? data['host'] ?? call['livekit_host'])?.toString();
+    final startedAtStr = (data['started_at'] ?? call['started_at'])?.toString();
+    if (startedAtStr != null && startedAtStr.isNotEmpty) {
+      _startedAt = DateTime.tryParse(startedAtStr);
+    }
+    SoundService.instance.stopRinging();
+    _connectingTimeoutTimer?.cancel();
+    _ringingTimeoutTimer?.cancel();
+    _status = CallStatus.connecting;
+    _statusMessage = 'Connecting…';
+    notifyListeners();
+    _connectLiveKit(overrideToken: token, overrideHost: host);
+  }
+
+  /// Handles the remote party declining the call (real-time).
+  void handleRemoteDeclined({Map<String, dynamic>? data, String message = 'Call declined'}) {
+    if (_status == CallStatus.ended || _status == CallStatus.idle) return;
+    if (data != null) {
+      final eventCallId = ((data['call_id'] ?? data['call']?['id'] ?? data['id']) as num?)?.toInt();
+      if (eventCallId != null && _activeCallId != null && eventCallId != _activeCallId) {
+        return;
+      }
+    }
+    SoundService.instance.stopRinging();
+    _connectingTimeoutTimer?.cancel();
+    _ringingTimeoutTimer?.cancel();
+    _statusPollTimer?.cancel();
+    _callTimer?.cancel();
+    _listener?.dispose();
+    _listener = null;
+    _room?.disconnect();
+    _room?.dispose();
+    _room = null;
+    _status = CallStatus.ended;
+    _statusMessage = message;
+    notifyListeners();
+    _scheduleCleanup(const Duration(milliseconds: 1400));
+  }
+
+  /// Handles the remote party ending the call (real-time). Tears the session
+  /// down immediately on both ends instead of waiting for polling/timeouts.
+  void handleRemoteEnded({Map<String, dynamic>? data, String message = 'Call ended'}) {
+    if (_status == CallStatus.ended || _status == CallStatus.idle) return;
+    if (data != null) {
+      final eventCallId = ((data['call_id'] ?? data['call']?['id'] ?? data['id']) as num?)?.toInt();
+      if (eventCallId != null && _activeCallId != null && eventCallId != _activeCallId) {
+        return;
+      }
+    }
+    SoundService.instance.stopRinging();
+    _connectingTimeoutTimer?.cancel();
+    _ringingTimeoutTimer?.cancel();
+    _statusPollTimer?.cancel();
+    _callTimer?.cancel();
+    _listener?.dispose();
+    _listener = null;
+    _room?.disconnect();
+    _room?.dispose();
+    _room = null;
+    _status = CallStatus.ended;
+    _statusMessage = message;
+    notifyListeners();
+    _scheduleCleanup(const Duration(milliseconds: 900));
   }
 
   void handleUnavailable({String message = 'Contact is unavailable or offline'}) {
@@ -472,6 +593,20 @@ class CallSessionManager extends ChangeNotifier {
             }
           });
         })
+        ..on<ReconnectingEvent>((event) {
+          if (_status == CallStatus.connected || _status == CallStatus.reconnecting) {
+            _status = CallStatus.reconnecting;
+            _statusMessage = 'Reconnecting…';
+            notifyListeners();
+          }
+        })
+        ..on<RoomReconnectedEvent>((event) {
+          if (_status == CallStatus.reconnecting) {
+            _status = CallStatus.connected;
+            _statusMessage = 'Connected';
+            notifyListeners();
+          }
+        })
         ..on<RoomDisconnectedEvent>((event) {
           // If disconnected during active call, transition to RECONNECTING (never flash Disconnected)
           if (_status == CallStatus.connected) {
@@ -601,7 +736,7 @@ class CallSessionManager extends ChangeNotifier {
       } catch (_) {}
     }
 
-    _connectLiveKit();
+    _connectLiveKit(overrideToken: _pendingLivekitToken, overrideHost: _pendingLivekitHost);
   }
 
   void declineCall() {
@@ -675,6 +810,38 @@ class CallSessionManager extends ChangeNotifier {
         }
       }
     } catch (_) {}
+    notifyListeners();
+  }
+
+  /// Upgrades an active audio call to a video call by enabling the camera and
+  /// publishing the local video track mid-session.
+  Future<void> switchToVideo() async {
+    if (_isVideo) return;
+    HapticFeedback.mediumImpact();
+    _isVideo = true;
+    _isCameraOff = false;
+    _isSpeakerOn = true;
+    notifyListeners();
+
+    await _requestPermissions();
+
+    try {
+      if (_room != null && _room!.connectionState == ConnectionState.connected) {
+        if (_localVideoTrack is LocalVideoTrack) {
+          await _room!.localParticipant?.publishVideoTrack(_localVideoTrack as LocalVideoTrack);
+        } else {
+          await _room!.localParticipant?.setCameraEnabled(true);
+          final pubs = _room!.localParticipant?.videoTrackPublications;
+          if (pubs != null && pubs.isNotEmpty) {
+            _localVideoTrack = pubs.first.track as VideoTrack?;
+          }
+        }
+      } else {
+        await _initLocalCameraPreview();
+      }
+    } catch (e) {
+      debugPrint('[CallSessionManager] Error switching to video: $e');
+    }
     notifyListeners();
   }
 
@@ -754,6 +921,12 @@ class CallSessionManager extends ChangeNotifier {
     } catch (_) {}
   }
 
+  @override
+  void notifyListeners() {
+    super.notifyListeners();
+    PipService.updateCallState(isActive: isActive, isVideo: _isVideo);
+  }
+
   void restoreCall(BuildContext context) {
     _isMinimized = false;
     notifyListeners();
@@ -810,6 +983,7 @@ class CallSessionManager extends ChangeNotifier {
 
   void _cleanupSession({bool notify = true}) {
     _sessionToken++;
+    _setWakelock(false);
     _connectingTimeoutTimer?.cancel();
     _ringingTimeoutTimer?.cancel();
     _statusPollTimer?.cancel();

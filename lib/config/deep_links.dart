@@ -148,7 +148,7 @@ class DeepLinks {
       '$chatPath/${Uri.encodeComponent('$conversationId')}';
 
   static String profile(String username) =>
-      'https://murih.me/@${Uri.encodeComponent(handle(username))}';
+      '$profilePath/${Uri.encodeComponent(handle(username))}';
 
   static String community(String slug) =>
       '$communityPath/${Uri.encodeComponent(slug.trim())}';

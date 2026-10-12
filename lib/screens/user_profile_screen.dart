@@ -1198,9 +1198,9 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                       ),
                     GestureDetector(
                       onTap: () {
-                        Clipboard.setData(ClipboardData(text: 'https://murih.me/@${widget.username}'));
+                        Clipboard.setData(ClipboardData(text: Env.profileUrl(widget.username)));
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Profile link copied: murih.me/@${widget.username}')),
+                          SnackBar(content: Text('Profile link copied: ${Env.profileUrl(widget.username)}')),
                         );
                       },
                       child: Row(
@@ -1209,7 +1209,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                           const Icon(Icons.link_rounded, size: 14, color: DesignTokens.primary),
                           const SizedBox(width: 4),
                           Text(
-                            'murih.me/@${widget.username}',
+                            '${Env.profileDomain}/@${widget.username}',
                             style: const TextStyle(fontSize: 12, color: DesignTokens.primary, fontWeight: FontWeight.w700),
                           ),
                         ],
@@ -1903,7 +1903,7 @@ class _Badge3DToken extends StatelessWidget {
     required this.badge,
     required this.onTap,
     required this.isDark,
-    this.size = 72,
+    this.size = 42,
   });
 
   @override
@@ -1920,7 +1920,7 @@ class _Badge3DToken extends StatelessWidget {
               width: size,
               height: size,
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(size * 0.32),
+                borderRadius: BorderRadius.circular(size * 0.3),
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
@@ -1932,19 +1932,19 @@ class _Badge3DToken extends StatelessWidget {
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: badge.gradientEnd.withValues(alpha: 0.45),
-                    blurRadius: 10,
-                    offset: const Offset(0, 5),
+                    color: badge.gradientEnd.withValues(alpha: 0.4),
+                    blurRadius: 6,
+                    offset: const Offset(0, 3),
                   ),
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: isDark ? 0.4 : 0.15),
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
+                    color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.1),
+                    blurRadius: 4,
+                    offset: const Offset(0, 1),
                   ),
                 ],
                 border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.45),
-                  width: 1.2,
+                  color: Colors.white.withValues(alpha: 0.4),
+                  width: 1.0,
                 ),
               ),
               child: Stack(
@@ -1952,14 +1952,14 @@ class _Badge3DToken extends StatelessWidget {
                 children: [
                   // Top Gloss Specular Highlight Arc
                   Positioned(
-                    top: 2,
-                    left: 6,
-                    right: 6,
-                    height: size * 0.38,
+                    top: 1.5,
+                    left: 3,
+                    right: 3,
+                    height: size * 0.36,
                     child: Container(
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.vertical(
-                          top: Radius.circular(size * 0.28),
+                          top: Radius.circular(size * 0.26),
                         ),
                         gradient: LinearGradient(
                           begin: Alignment.topCenter,
@@ -1977,22 +1977,22 @@ class _Badge3DToken extends StatelessWidget {
                   Icon(
                     badge.icon,
                     color: Colors.white,
-                    size: size * 0.48,
+                    size: size * 0.52,
                     shadows: [
                       Shadow(
                         color: Colors.black.withValues(alpha: 0.45),
-                        blurRadius: 6,
-                        offset: const Offset(0, 2),
+                        blurRadius: 4,
+                        offset: const Offset(0, 1.5),
                       ),
                     ],
                   ),
 
                   // Bottom Specular Edge Highlight
                   Positioned(
-                    bottom: 3,
+                    bottom: 2,
                     child: Container(
-                      width: size * 0.45,
-                      height: 2,
+                      width: size * 0.4,
+                      height: 1.5,
                       decoration: BoxDecoration(
                         color: Colors.white.withValues(alpha: 0.4),
                         borderRadius: BorderRadius.circular(2),
@@ -2002,7 +2002,7 @@ class _Badge3DToken extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 4),
             // Badge Short Title
             Text(
               badge.shortTitle,
@@ -2010,21 +2010,9 @@ class _Badge3DToken extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize: 11,
+                fontSize: 10,
                 fontWeight: FontWeight.w700,
                 color: isDark ? Colors.white : const Color(0xFF1F2937),
-              ),
-            ),
-            // Level / Tier Micro Subtitle
-            Text(
-              badge.level.split('·').first.trim(),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 9.5,
-                fontWeight: FontWeight.w600,
-                color: isDark ? Colors.grey[400] : const Color(0xFF6B7280),
               ),
             ),
           ],
@@ -2053,153 +2041,183 @@ class _UserActivityBadgesSection extends StatelessWidget {
     required this.textSecondary,
   });
 
+  ActivityBadgeItem _mapBadgeFromBackend({
+    required String slug,
+    required String title,
+    required String level,
+    required String description,
+    required String icon3dType,
+    required String criteria,
+  }) {
+    IconData icon;
+    Color color;
+    Color gradStart;
+    Color gradMid;
+    Color gradEnd;
+    String shortTitle;
+
+    switch (icon3dType) {
+      case '3d-cube':
+        icon = Icons.view_in_ar_rounded;
+        color = const Color(0xFF818CF8);
+        gradStart = const Color(0xFF818CF8);
+        gradMid = const Color(0xFF9333EA);
+        gradEnd = const Color(0xFF4338CA);
+        shortTitle = 'Web3';
+        break;
+      case '3d-shield':
+        icon = Icons.shield_rounded;
+        color = const Color(0xFF10B981);
+        gradStart = const Color(0xFF34D399);
+        gradMid = const Color(0xFF10B981);
+        gradEnd = const Color(0xFF0F766E);
+        shortTitle = 'Escrow';
+        break;
+      case '3d-trophy':
+        icon = Icons.emoji_events_rounded;
+        color = const Color(0xFF0284C7);
+        gradStart = const Color(0xFF60A5FA);
+        gradMid = const Color(0xFF0284C7);
+        gradEnd = const Color(0xFF1D4ED8);
+        shortTitle = 'Champion';
+        break;
+      case '3d-gem':
+        icon = Icons.military_tech_rounded;
+        color = const Color(0xFFE11D48);
+        gradStart = const Color(0xFFF472B6);
+        gradMid = const Color(0xFFE11D48);
+        gradEnd = const Color(0xFF9F1239);
+        shortTitle = 'Genesis';
+        break;
+      case '3d-badge':
+        icon = Icons.verified_rounded;
+        color = const Color(0xFFA855F7);
+        gradStart = const Color(0xFFA78BFA);
+        gradMid = const Color(0xFFC026D3);
+        gradEnd = const Color(0xFF7C3AED);
+        shortTitle = 'Storyteller';
+        break;
+      case '3d-award':
+        icon = Icons.workspace_premium_rounded;
+        color = const Color(0xFFD97706);
+        gradStart = const Color(0xFFFDE047);
+        gradMid = const Color(0xFFF59E0B);
+        gradEnd = const Color(0xFFD97706);
+        shortTitle = 'Merchant';
+        break;
+      case '3d-star':
+      default:
+        icon = Icons.star_rounded;
+        color = const Color(0xFFF59E0B);
+        gradStart = const Color(0xFFFBBF24);
+        gradMid = const Color(0xFFF97316);
+        gradEnd = const Color(0xFFB45309);
+        shortTitle = 'Creator';
+        break;
+    }
+
+    return ActivityBadgeItem(
+      id: slug,
+      title: title,
+      shortTitle: shortTitle,
+      level: level,
+      description: description,
+      icon: icon,
+      color: color,
+      gradientStart: gradStart,
+      gradientMid: gradMid,
+      gradientEnd: gradEnd,
+      status: 'Verified',
+      criteria: criteria.isNotEmpty ? criteria : 'Automated ecosystem verification',
+      icon3dType: icon3dType,
+    );
+  }
+
   List<ActivityBadgeItem> _generateBadges() {
     final badges = <ActivityBadgeItem>[];
 
-    // 1. Creator Star
-    if (roleLabel.toLowerCase().contains('creator') || userId % 2 == 0) {
-      badges.add(
-        const ActivityBadgeItem(
-          id: 'creator_economy',
-          title: 'Creator Economy Star',
-          shortTitle: 'Creator',
-          level: 'Master Creator · Level 2',
-          description: 'Published interactive courses, digital assets and creator storefront offerings on MurihSpace.',
-          icon: Icons.star_rounded,
-          color: Color(0xFFF59E0B),
-          gradientStart: Color(0xFFFBBF24),
-          gradientMid: Color(0xFFF97316),
-          gradientEnd: Color(0xFFB45309),
-          status: 'Active Creator',
-          criteria: 'Active creator or vendor account with published catalogue.',
-          icon3dType: '3d-star',
-        ),
-      );
+    // 1. Primary: Parse dynamic badges evaluated and returned from backend API
+    final rawBadges = profileData?['badges'];
+    if (rawBadges is List && rawBadges.isNotEmpty) {
+      for (final item in rawBadges) {
+        if (item is Map) {
+          final mapItem = Map<String, dynamic>.from(item);
+          final slug = mapItem['slug'] as String? ?? '';
+          final name = mapItem['name'] as String? ?? '';
+          final levelLabel = mapItem['level_label'] as String? ?? 'Verified';
+          final desc = mapItem['description'] as String? ?? '';
+          final icon3d = mapItem['icon_3d'] as String? ?? '3d-star';
+          final ruleText = mapItem['criteria'] is Map
+              ? (mapItem['criteria']['rule'] as String? ?? '')
+              : '';
+
+          badges.add(_mapBadgeFromBackend(
+            slug: slug,
+            title: name.isNotEmpty ? name : 'Activity Badge',
+            level: levelLabel,
+            description: desc,
+            icon3dType: icon3d,
+            criteria: ruleText,
+          ));
+        }
+      }
+      return badges;
     }
 
-    // 2. Web3 Pioneer
-    badges.add(
-      const ActivityBadgeItem(
-        id: 'web3_pioneer',
+    // 2. Strict Fallback Logic based ONLY on actual profile properties (NO hardcoded grants!)
+    final role = (profileData?['role'] as String? ?? roleLabel).toLowerCase();
+    final isKycVerified = profileData?['kyc_status'] == 'verified';
+    final postsCount = (profileData?['posts_count'] as num?)?.toInt() ?? 0;
+    final followersCount = (profileData?['followers_count'] ?? 0) is num
+        ? (profileData!['followers_count'] as num).toInt()
+        : 0;
+
+    // Rule: Must be a genuine creator or vendor role
+    if (role == 'creator' || role == 'vendor') {
+      badges.add(_mapBadgeFromBackend(
+        slug: 'creator_economy',
+        title: 'Creator Economy Star',
+        level: 'Master Creator · Level 2',
+        description: 'Published interactive courses, digital assets and creator storefront offerings on MurihSpace.',
+        icon3dType: '3d-star',
+        criteria: 'Active creator or vendor account with published catalogue.',
+      ));
+    }
+
+    // Rule: Must have completed real KYC identity verification
+    if (isKycVerified) {
+      badges.add(_mapBadgeFromBackend(
+        slug: 'web3_pioneer',
         title: 'Web3 Pioneer',
-        shortTitle: 'Web3 Pioneer',
         level: 'Smart Account · Tier 1',
         description: 'Verified smart wallet participant across decentralized governance & Web3 communities.',
-        icon: Icons.view_in_ar_rounded,
-        color: Color(0xFF818CF8),
-        gradientStart: Color(0xFF818CF8),
-        gradientMid: Color(0xFF9333EA),
-        gradientEnd: Color(0xFF4338CA),
-        status: 'On-Chain Verified',
-        criteria: 'KYC identity verified with linked smart account wallet.',
         icon3dType: '3d-cube',
-      ),
-    );
+        criteria: 'KYC identity verified with linked smart account wallet.',
+      ));
+    }
 
-    // 3. Escrow Trusted Trader
-    badges.add(
-      const ActivityBadgeItem(
-        id: 'escrow_trusted',
-        title: 'Escrow Trusted Trader',
-        shortTitle: 'Escrow Trader',
-        level: '100% Reliable · Dispute-Free',
-        description: 'Consistently completes high-trust peer transactions using MurihSpace Escrow Protection.',
-        icon: Icons.shield_rounded,
-        color: Color(0xFF10B981),
-        gradientStart: Color(0xFF34D399),
-        gradientMid: Color(0xFF10B981),
-        gradientEnd: Color(0xFF0F766E),
-        status: 'Escrow Protected',
-        criteria: 'At least 1 completed dispute-free escrow transaction.',
-        icon3dType: '3d-shield',
-      ),
-    );
-
-    // 4. Community Champion
-    badges.add(
-      const ActivityBadgeItem(
-        id: 'community_leader',
+    // Rule: Must have 20+ followers
+    if (followersCount >= 20) {
+      badges.add(_mapBadgeFromBackend(
+        slug: 'community_leader',
         title: 'Community Champion',
-        shortTitle: 'Champion',
         level: 'Top 5% Contributor',
-        description: 'Consistent participant across discussion hubs, mutual spaces, and real-time community polls.',
-        icon: Icons.emoji_events_rounded,
-        color: Color(0xFF0284C7),
-        gradientStart: Color(0xFF60A5FA),
-        gradientMid: Color(0xFF0284C7),
-        gradientEnd: Color(0xFF1D4ED8),
-        status: 'Active 24h',
-        criteria: 'Reached 20+ followers and active community interactions.',
+        description: 'Consistent participant across discussion hubs, mutual spaces, and real-time community rooms.',
         icon3dType: '3d-trophy',
-      ),
-    );
-
-    // 5. Genesis Member
-    if (userId < 100 || userId % 3 == 0) {
-      badges.add(
-        const ActivityBadgeItem(
-          id: 'early_adopter',
-          title: 'Genesis Member',
-          shortTitle: 'Genesis',
-          level: 'Early Adopter',
-          description: 'Joined during the foundational genesis period and helped establish the community foundation.',
-          icon: Icons.military_tech_rounded,
-          color: Color(0xFFE11D48),
-          gradientStart: Color(0xFFF472B6),
-          gradientMid: Color(0xFFE11D48),
-          gradientEnd: Color(0xFF9F1239),
-          status: 'Genesis',
-          criteria: 'Registered pioneer member from early platform release.',
-          icon3dType: '3d-gem',
-        ),
-      );
+        criteria: 'Reached 20+ followers and active community interactions.',
+      ));
     }
 
-    // 6. Content Maestro / Storyteller
-    final postsCount = (profileData?['posts_count'] as num?)?.toInt() ?? 0;
+    // Rule: Must have 10+ posts
     if (postsCount >= 10) {
-      badges.add(
-        const ActivityBadgeItem(
-          id: 'viral_publisher',
-          title: 'Content Maestro',
-          shortTitle: 'Storyteller',
-          level: 'Top Storyteller',
-          description: 'Published 10+ high-engagement posts, stories, or live broadcasts on MurihSpace.',
-          icon: Icons.verified_rounded,
-          color: Color(0xFFA855F7),
-          gradientStart: Color(0xFFA78BFA),
-          gradientMid: Color(0xFFC026D3),
-          gradientEnd: Color(0xFF7C3AED),
-          status: 'Storyteller',
-          criteria: 'Published 10 or more posts, reels, or story highlights.',
-          icon3dType: '3d-badge',
-        ),
-      );
-    }
-
-    // 7. Top Vendor / Merchant
-    final isVerified = profileData?['has_active_verification_badge'] == true ||
-        profileData?['kyc_status'] == 'verified';
-    final reviewsCount = (profileData?['reviews_count'] as num?)?.toInt() ?? 0;
-    final averageRating = (profileData?['average_rating'] as num?)?.toDouble() ?? 0;
-    if (isVerified && reviewsCount >= 5 && averageRating >= 4.5) {
-      badges.add(
-        const ActivityBadgeItem(
-          id: 'top_vendor',
-          title: 'Master Merchant',
-          shortTitle: 'Merchant',
-          level: 'Gold Merchant',
-          description: 'Consistently provides top-rated merchant fulfilment with verified customer reviews.',
-          icon: Icons.workspace_premium_rounded,
-          color: Color(0xFFD97706),
-          gradientStart: Color(0xFFFDE047),
-          gradientMid: Color(0xFFF59E0B),
-          gradientEnd: Color(0xFFD97706),
-          status: 'Verified Merchant',
-          criteria: 'Completed 5+ successful storefront orders with high rating.',
-          icon3dType: '3d-award',
-        ),
-      );
+      badges.add(_mapBadgeFromBackend(
+        slug: 'viral_publisher',
+        title: 'Content Maestro',
+        level: 'Top Storyteller',
+        description: 'Published 10 or more viral posts, articles, and short reels across MurihSpace.',
+        icon3dType: '3d-badge',
+        criteria: 'Published 10 or more posts or reels.',
+      ));
     }
 
     return badges;
@@ -2231,43 +2249,43 @@ class _UserActivityBadgesSection extends StatelessWidget {
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 18),
 
-                // Large 3D Badge Representation
+                // 3D Badge Representation (Proportionally sized)
                 _Badge3DToken(
                   badge: badge,
                   onTap: () {},
                   isDark: isDark,
-                  size: 80,
+                  size: 58,
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 10),
 
                 Text(
                   badge.title,
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 4),
 
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3.5),
                   decoration: BoxDecoration(
                     color: badge.color.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
                     badge.level,
-                    style: TextStyle(color: badge.color, fontWeight: FontWeight.w800, fontSize: 12),
+                    style: TextStyle(color: badge.color, fontWeight: FontWeight.w800, fontSize: 11.5),
                   ),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 12),
 
                 Text(
                   badge.description,
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 13.5, color: textSecondary, height: 1.4),
+                  style: TextStyle(fontSize: 13, color: textSecondary, height: 1.4),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 14),
 
                 Container(
                   padding: const EdgeInsets.all(12),
@@ -2277,20 +2295,20 @@ class _UserActivityBadgesSection extends StatelessWidget {
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.verified_rounded, color: Color(0xFF10B981), size: 20),
+                      const Icon(Icons.verified_rounded, color: Color(0xFF10B981), size: 18),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const Text(
-                              'Automated Verification Rule',
+                              'Verification Rule',
                               style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF10B981)),
                             ),
                             const SizedBox(height: 2),
                             Text(
                               badge.criteria,
-                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                              style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w500),
                             ),
                           ],
                         ),
@@ -2298,7 +2316,7 @@ class _UserActivityBadgesSection extends StatelessWidget {
                     ],
                   ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 18),
 
                 SizedBox(
                   width: double.infinity,
@@ -2306,8 +2324,8 @@ class _UserActivityBadgesSection extends StatelessWidget {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: DesignTokens.primary,
                       foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                      padding: const EdgeInsets.symmetric(vertical: 13),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
                     onPressed: () => Navigator.pop(ctx),
                     child: const Text('Close Verification Details', style: TextStyle(fontWeight: FontWeight.w700)),
@@ -2325,46 +2343,35 @@ class _UserActivityBadgesSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final badges = _generateBadges();
 
+    // If no badges have been earned by the user, cleanly hide the section
+    if (badges.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Activity Badges & Verifications',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: textPrimary),
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3.5),
-              decoration: BoxDecoration(
-                color: DesignTokens.primary.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Text(
-                '${badges.length} Earned · 3D',
-                style: const TextStyle(color: DesignTokens.primary, fontWeight: FontWeight.bold, fontSize: 11),
-              ),
-            ),
-          ],
+        Text(
+          'Activity Badges',
+          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: textPrimary),
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 10),
 
-        // Horizontal 3D Badge Shelf
+        // Sleek compact 3D Badge Shelf
         SizedBox(
-          height: 116,
+          height: 68,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             physics: const BouncingScrollPhysics(),
             itemCount: badges.length,
-            separatorBuilder: (context, index) => const SizedBox(width: 14),
+            separatorBuilder: (context, index) => const SizedBox(width: 10),
             itemBuilder: (ctx, index) {
               final b = badges[index];
               return _Badge3DToken(
                 badge: b,
                 onTap: () => _showBadgeDetailSheet(context, b),
                 isDark: isDark,
-                size: 68,
+                size: 42,
               );
             },
           ),

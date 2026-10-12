@@ -5,6 +5,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 
 import '../components/followers_list_dialog.dart';
 import '../components/murih_icon.dart';
+import '../components/navigation_shell.dart';
 import '../components/reels_viewer_sheet.dart';
 import '../components/share_sheet.dart';
 import '../config/env.dart';
@@ -262,17 +263,6 @@ class _YouScreenState extends ConsumerState<YouScreen>
                   );
                 },
               ),
-              _actionSheetItem(
-                ctx: ctx,
-                icon: Icons.settings_outlined,
-                title: 'Settings & Privacy',
-                subtitle: 'Account security, notifications & preferences',
-                color: textPrimary,
-                onTap: () {
-                  Navigator.pop(ctx);
-                  context.push('/settings');
-                },
-              ),
               Divider(height: 16, color: borderColor),
               _actionSheetItem(
                 ctx: ctx,
@@ -380,11 +370,10 @@ class _YouScreenState extends ConsumerState<YouScreen>
                 color: textPrimary,
                 onPressed: () => Navigator.of(context).pop(),
               )
-            : Padding(
-                padding: const EdgeInsets.only(left: 16),
-                child: Center(
-                  child: MurihIcon('Profile', size: 22, color: DesignTokens.primary),
-                ),
+            : IconButton(
+                icon: Icon(Icons.menu_rounded, color: textPrimary),
+                tooltip: 'Menu',
+                onPressed: () => appShellScaffoldKey.currentState?.openDrawer(),
               ),
         title: Row(
           mainAxisSize: MainAxisSize.min,
@@ -641,7 +630,7 @@ class _YouScreenState extends ConsumerState<YouScreen>
                               const Icon(Icons.link_rounded, size: 14, color: DesignTokens.primary),
                               const SizedBox(width: 4),
                               Text(
-                                'murih.me/@$authorUsername',
+                                '${Env.profileDomain}/@$authorUsername',
                                 style: const TextStyle(fontSize: 12, color: DesignTokens.primary, fontWeight: FontWeight.w700),
                               ),
                             ],

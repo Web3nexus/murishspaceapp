@@ -64,6 +64,7 @@ dependencies:
   in_app_purchase: ^3.2.0
   font_awesome_flutter: ^11.0.0
   flutter_svg: ^2.3.0
+  wakelock_plus: ^1.5.2
 
 dev_dependencies:
   flutter_test:

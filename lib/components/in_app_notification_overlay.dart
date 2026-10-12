@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../models/chat_models.dart';
 import '../models/notification_models.dart';
+import '../utils/format.dart';
 
 class InAppNotificationItem {
   final String id;
@@ -49,8 +50,10 @@ class InAppNotificationNotifier extends Notifier<InAppNotificationItem?> {
   }
 
   void showFromAppNotification(AppNotification notif) {
-    String title = notif.title;
-    String body = notif.body;
+    String title = sanitizeNotificationText(notif.title);
+    String body = sanitizeNotificationText(notif.body);
+    if (title.isEmpty) title = 'MurihSpace Notification';
+    if (body.isEmpty) body = title;
     String? route = notif.route;
     IconData icon = Icons.notifications_rounded;
     Color color = DesignTokens.primary;
@@ -111,10 +114,13 @@ class InAppNotificationNotifier extends Notifier<InAppNotificationItem?> {
     final sender = msg.user?.name.isNotEmpty == true
         ? msg.user!.name
         : (msg.user?.username.isNotEmpty == true ? '@${msg.user!.username}' : 'New Message');
+    final preview = messagePreview(msg);
     show(InAppNotificationItem(
       id: 'msg_${msg.id}',
       title: sender,
-      body: msg.content.isNotEmpty ? msg.content : (msg.attachmentType != null ? 'Sent an attachment' : 'Sent a message'),
+      body: preview.isNotEmpty
+          ? preview
+          : (msg.attachmentType != null ? 'Sent an attachment' : 'Sent a message'),
       subtitle: msg.user?.username != null && msg.user!.username.isNotEmpty ? '@${msg.user!.username}' : null,
       route: '/app/conversation/${msg.conversationId}',
       icon: Icons.chat_bubble_rounded,

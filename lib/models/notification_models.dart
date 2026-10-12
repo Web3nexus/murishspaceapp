@@ -2,6 +2,8 @@
 /// notification payloads (`data` holds the app-specific payload map).
 library;
 
+import '../utils/format.dart';
+
 class AppNotification {
   final String id;
   final String type;
@@ -21,8 +23,11 @@ class AppNotification {
   String? get messagePreview => data['message_preview']?.toString();
   int? get conversationId => (data['conversation_id'] as num?)?.toInt();
   String? get notificationType => data['type']?.toString() ?? type.split('.').last;
-  String get title => data['title']?.toString() ?? (isOfficial ? 'Murih Notifications Official' : senderName ?? data['name']?.toString() ?? 'Notification');
-  String get body => data['body']?.toString() ?? data['message']?.toString() ?? messagePreview ?? '';
+  String get title => sanitizeNotificationText(
+      data['title']?.toString() ??
+          (isOfficial ? 'Murih Notifications Official' : senderName ?? data['name']?.toString() ?? 'Notification'));
+  String get body => sanitizeNotificationText(
+      data['body']?.toString() ?? data['message']?.toString() ?? messagePreview ?? '');
   String? get route => data['route']?.toString() ?? data['action_url']?.toString();
   String? get actionLabel => data['action_label']?.toString();
 

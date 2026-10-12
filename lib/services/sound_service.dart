@@ -61,12 +61,24 @@ class SoundService {
 
   bool _isRinging = false;
 
+  /// Disposes the ringing player WITHOUT clearing [_isRinging]. Used internally
+  /// so starting a new ringtone does not cancel itself via [stopRinging].
+  Future<void> _disposeRingingPlayer() async {
+    try {
+      final p = _ringingPlayer;
+      _ringingPlayer = null;
+      if (p != null) {
+        await p.stop();
+        await p.dispose();
+      }
+    } catch (_) {}
+  }
+
   /// Starts the outgoing telecom ringback tone (when calling someone).
   Future<void> startOutgoingRingback() async {
+    await _disposeRingingPlayer();
     _isRinging = true;
     try {
-      await stopRinging();
-      if (!_isRinging) return;
       final player = AudioPlayer();
       _ringingPlayer = player;
       await player.setAudioContext(AudioContext(
@@ -108,10 +120,9 @@ class SoundService {
 
   /// Starts the incoming phone ringtone (when someone calls you).
   Future<void> startIncomingRingtone() async {
+    await _disposeRingingPlayer();
     _isRinging = true;
     try {
-      await stopRinging();
-      if (!_isRinging) return;
       final player = AudioPlayer();
       _ringingPlayer = player;
       await player.setAudioContext(AudioContext(

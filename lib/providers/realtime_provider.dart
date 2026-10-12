@@ -9,6 +9,7 @@ import '../core/realtime_client.dart';
 import '../models/chat_models.dart';
 import '../models/notification_models.dart';
 import '../services/sound_service.dart';
+import '../services/call_session_manager.dart';
 import 'auth_provider.dart';
 import 'broadcast_provider.dart';
 import 'calls_provider.dart';
@@ -128,14 +129,17 @@ class RealtimeService {
         return;
       }
       if (normalizedEvent == 'call.accepted' || event.event.contains('CallAccepted')) {
+        CallSessionManager.instance.handleRemoteAccepted(data);
         _ref.read(callsProvider.notifier).handleCallAccepted(data);
         return;
       }
       if (normalizedEvent == 'call.declined' || event.event.contains('CallDeclined')) {
+        CallSessionManager.instance.handleRemoteDeclined(data: data);
         _ref.read(callsProvider.notifier).handleCallDeclined(data);
         return;
       }
       if (normalizedEvent == 'call.ended' || event.event.contains('CallEnded')) {
+        CallSessionManager.instance.handleRemoteEnded(data: data);
         _ref.read(callsProvider.notifier).handleCallEnded(data);
         return;
       }
@@ -173,6 +177,17 @@ class RealtimeService {
           _ref.read(notificationsProvider.notifier).refresh();
           _ref.read(broadcastProvider.notifier).fetchBackendBroadcasts();
         } catch (_) {}
+      }
+
+      // Read/unread state changed on another device (e.g. Web). Reconcile the
+      // feed and badge without showing a spinner or a toast.
+      if (normalizedEvent == 'notification.state' ||
+          event.event.contains('NotificationStateChanged')) {
+        try {
+          _ref.read(notificationsProvider.notifier).sync();
+          _ref.read(broadcastProvider.notifier).fetchBackendBroadcasts();
+        } catch (_) {}
+        return;
       }
 
       // Handle incoming MessageSent on user personal channel — this is what delivers

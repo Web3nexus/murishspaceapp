@@ -39,16 +39,23 @@ bool isEmojiOnlyMessage(String text) {
 
 /// Warms the on-disk image cache for [emojis] so they render instantly the next
 /// time they are shown. Safe to call with duplicates or unsupported emoji.
+///
+/// [maxSize] caps the decoded resolution (physical pixels) so warming dozens of
+/// 512×512 / 45-frame animations does not blow up memory.
 Future<void> precacheEmojiAssets(
   BuildContext context,
-  Iterable<String> emojis,
-) async {
+  Iterable<String> emojis, {
+  int maxSize = 96,
+}) async {
   for (final emoji in emojis.toSet()) {
     if (!context.mounted) return;
     final url = emojiAssetUrl(emoji);
     if (url == null || url.isEmpty) continue;
     try {
-      await precacheImage(CachedNetworkImageProvider(url), context);
+      await precacheImage(
+        CachedNetworkImageProvider(url, maxWidth: maxSize, maxHeight: maxSize),
+        context,
+      );
     } catch (_) {
       // Missing asset / offline — the widget falls back to the text glyph.
     }
@@ -105,11 +112,19 @@ class AnimatedEmoji extends StatelessWidget {
       return Text(emoji, style: fallbackStyle);
     }
 
+    // Downscale the decoded animation to the actual on-screen size. The pack
+    // ships 512×512 / ~45-frame webp files; decoding them at full resolution
+    // (especially dozens at once in the picker) is what causes the jank.
+    final dpr = MediaQuery.maybeDevicePixelRatioOf(context) ?? 1.0;
+    final cacheSize = (size * dpr).ceil().clamp(1, 512);
+
     return CachedNetworkImage(
       imageUrl: url,
       width: size,
       height: size,
       fit: BoxFit.contain,
+      memCacheWidth: cacheSize,
+      memCacheHeight: cacheSize,
       errorWidget: (_, _, _) => Text(emoji, style: fallbackStyle),
       placeholder: (_, _) => SizedBox(width: size, height: size),
     );

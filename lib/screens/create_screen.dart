@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../components/murih_icon.dart';
 import '../core/design_tokens.dart';
+import '../providers/hashtag_provider.dart';
 import 'post_composer_sheet.dart';
 
 /// Complete Redesigned Creator Studio / Publishing Tools (Page D)
@@ -36,16 +37,6 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
   bool _aiGenerating = false;
 
   final List<XFile> _selectedMedia = [];
-
-  final List<String> _suggestedHashtags = [
-    '#MurihSpace',
-    '#CreatorEconomy',
-    '#DailyVibe',
-    '#Inspiration',
-    '#TechTrends',
-    '#FitnessLifestyle',
-    '#CostaBlanca',
-  ];
 
   final List<Map<String, dynamic>> _scheduledPosts = [
     {
@@ -86,9 +77,9 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
     setState(() => _aiGenerating = true);
     await Future.delayed(const Duration(milliseconds: 700));
     final prompts = [
-      'Embrace the journey and keep pushing your craft forward. Every step counts! 🚀 #MurihSpace #CreatorEconomy',
-      'Behind the scenes of today’s creative workflow. What are you building this week? Drop your thoughts below! 💡 #DailyVibe',
-      'Consistency is not about perfection, it is about showing up daily and delivering value. Let’s make it count! ⚡️ #TechTrends',
+      'Embrace the journey and keep pushing your craft forward. Every step counts! 🚀',
+      'Behind the scenes of today’s creative workflow. What are you building this week? Drop your thoughts below! 💡',
+      'Consistency is not about perfection, it is about showing up daily and delivering value. Let’s make it count! ⚡️',
     ];
     final selectedPrompt = prompts[DateTime.now().second % prompts.length];
     setState(() {
@@ -196,7 +187,7 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
                   trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 12),
                   onTap: () {
                     Navigator.pop(ctx);
-                    _captionController.text = '📌 ${t['title']}\n\n1. The Hook:\n2. The Story:\n3. Key Takeaway:\n\n#MurihSpace';
+                    _captionController.text = '📌 ${t['title']}\n\n1. The Hook:\n2. The Story:\n3. Key Takeaway:\n\n';
                   },
                 ),
             ],
@@ -208,6 +199,12 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final trendingState = ref.watch(trendingTopicsProvider);
+    final suggestedHashtags = trendingState.topics
+        .map((t) => t.displayTag)
+        .where((t) => t.isNotEmpty)
+        .toList();
+
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bg = isDark ? const Color(0xFF0F1319) : const Color(0xFFF3F5F8);
     final cardBg = isDark ? const Color(0xFF161B26) : Colors.white;
@@ -701,36 +698,38 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
                   ),
 
                   // Suggested Hashtags Pills
-                  SizedBox(
-                    height: 32,
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: _suggestedHashtags.length,
-                      separatorBuilder: (_, _) => const SizedBox(width: 6),
-                      itemBuilder: (ctx, i) {
-                        final tag = _suggestedHashtags[i];
-                        return GestureDetector(
-                          onTap: () => _addHashtag(tag),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: isDark ? const Color(0xFF1E2638) : const Color(0xFFE8F1FD),
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            child: Text(
-                              tag,
-                              style: const TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: DesignTokens.primary,
+                  if (suggestedHashtags.isNotEmpty) ...[
+                    SizedBox(
+                      height: 32,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: suggestedHashtags.length,
+                        separatorBuilder: (_, _) => const SizedBox(width: 6),
+                        itemBuilder: (ctx, i) {
+                          final tag = suggestedHashtags[i];
+                          return GestureDetector(
+                            onTap: () => _addHashtag(tag),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: isDark ? const Color(0xFF1E2638) : const Color(0xFFE8F1FD),
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: Text(
+                                tag,
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: DesignTokens.primary,
+                                ),
                               ),
                             ),
-                          ),
-                        );
-                      },
+                          );
+                        },
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
+                    const SizedBox(height: 16),
+                  ],
                   Divider(height: 1, color: borderColor),
                   const SizedBox(height: 12),
 

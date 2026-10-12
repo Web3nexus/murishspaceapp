@@ -46,13 +46,17 @@ class NotificationsNotifier extends Notifier<NotificationsState> {
     if (showLoading) state = state.copyWith(loading: true, clearError: true);
     try {
       final response = await _dio.get('/notifications');
-      final payload = ApiClient.instance.unwrap(response);
-      final paginator = payload is Map<String, dynamic> ? payload['data'] : payload;
-      final rawList = paginator is Map<String, dynamic> ? paginator['data'] : paginator;
+      // Validate the envelope (throws ApiException on error) but read the raw
+      // body, because `unwrap` collapses the response to just the items array
+      // and drops the sibling `unread` count the badge needs.
+      ApiClient.instance.unwrap(response);
+      final root = response.data;
+      final map = root is Map<String, dynamic> ? root : null;
+      final rawList = map?['notifications'] ?? map?['data'] ?? map?['items'];
       final list = rawList is List
           ? rawList.whereType<Map<String, dynamic>>().map(AppNotification.fromJson).toList()
           : <AppNotification>[];
-      final unread = payload is Map<String, dynamic> ? (payload['unread'] as num?)?.toInt() ?? 0 : 0;
+      final unread = map != null ? (map['unread'] as num?)?.toInt() ?? 0 : 0;
       state = NotificationsState(notifications: list, unread: unread);
     } on DioException catch (e) {
       state = state.copyWith(loading: false, error: _errorMessage(e));
@@ -62,6 +66,10 @@ class NotificationsNotifier extends Notifier<NotificationsState> {
   }
 
   Future<void> refresh() => _load(showLoading: true);
+
+  /// Quiet refresh (no loading spinner). Used to reconcile the feed/badge
+  /// when another of the user's devices changes read state.
+  Future<void> sync() => _load();
 
   Future<void> markRead(String id) async {
     final index = state.notifications.indexWhere((n) => n.id == id);

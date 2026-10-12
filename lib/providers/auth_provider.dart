@@ -24,6 +24,16 @@ class UserProfile {
   String? get avatar => avatarUrl;
   String? get coverImage => bannerUrl;
   final String? bio;
+  final String? website;
+  final String? category;
+  final String? gender;
+  final List<String> interests;
+  final List<String> languages;
+  final bool isCreatorAccount;
+  final bool showInterests;
+  final bool allowTagging;
+  final bool showContactInfo;
+  final String accountPrivacy;
   final String? phone;
   final DateTime? birthday;
   final String? country;
@@ -50,6 +60,16 @@ class UserProfile {
     this.bannerUrl,
     this.avatarUrl,
     this.bio,
+    this.website,
+    this.category,
+    this.gender,
+    this.interests = const [],
+    this.languages = const [],
+    this.isCreatorAccount = true,
+    this.showInterests = true,
+    this.allowTagging = true,
+    this.showContactInfo = true,
+    this.accountPrivacy = 'public',
     this.phone,
     this.birthday,
     this.country,
@@ -71,6 +91,16 @@ class UserProfile {
       parsedBirthday = DateTime.tryParse(json['birthday'].toString());
     }
 
+    final rawInterests = json['interests'];
+    final parsedInterests = rawInterests is List
+        ? rawInterests.map((e) => e.toString()).toList()
+        : <String>[];
+
+    final rawLanguages = json['languages'];
+    final parsedLanguages = rawLanguages is List
+        ? rawLanguages.map((e) => e.toString()).toList()
+        : <String>[];
+
     return UserProfile(
       id: (json['id'] as num?)?.toInt() ?? 0,
       name: json['name'] as String? ?? '',
@@ -83,6 +113,16 @@ class UserProfile {
       bannerUrl: json['banner_url'] as String? ?? json['cover_image'] as String?,
       avatarUrl: json['avatar_url'] as String? ?? json['avatar'] as String?,
       bio: json['bio'] as String?,
+      website: json['website'] as String?,
+      category: json['category'] as String?,
+      gender: json['gender'] as String?,
+      interests: parsedInterests,
+      languages: parsedLanguages,
+      isCreatorAccount: json['is_creator_account'] as bool? ?? true,
+      showInterests: json['show_interests'] as bool? ?? true,
+      allowTagging: json['allow_tagging'] as bool? ?? true,
+      showContactInfo: json['show_contact_info'] as bool? ?? true,
+      accountPrivacy: json['account_privacy'] as String? ?? 'public',
       phone: json['mobile_number'] as String? ?? json['phone'] as String?,
       birthday: parsedBirthday,
       country: json['country'] as String?,
@@ -112,6 +152,16 @@ class UserProfile {
       'banner_url': bannerUrl,
       'avatar_url': avatarUrl,
       'bio': bio,
+      'website': website,
+      'category': category,
+      'gender': gender,
+      'interests': interests,
+      'languages': languages,
+      'is_creator_account': isCreatorAccount,
+      'show_interests': showInterests,
+      'allow_tagging': allowTagging,
+      'show_contact_info': showContactInfo,
+      'account_privacy': accountPrivacy,
       'mobile_number': phone,
       'phone': phone,
       'birthday': birthday?.toIso8601String().split('T').first,
@@ -143,6 +193,16 @@ class UserProfile {
     String? bannerUrl,
     String? avatarUrl,
     String? bio,
+    String? website,
+    String? category,
+    String? gender,
+    List<String>? interests,
+    List<String>? languages,
+    bool? isCreatorAccount,
+    bool? showInterests,
+    bool? allowTagging,
+    bool? showContactInfo,
+    String? accountPrivacy,
     String? phone,
     DateTime? birthday,
     String? country,
@@ -169,6 +229,16 @@ class UserProfile {
       bannerUrl: bannerUrl ?? this.bannerUrl,
       avatarUrl: avatarUrl ?? this.avatarUrl,
       bio: bio ?? this.bio,
+      website: website ?? this.website,
+      category: category ?? this.category,
+      gender: gender ?? this.gender,
+      interests: interests ?? this.interests,
+      languages: languages ?? this.languages,
+      isCreatorAccount: isCreatorAccount ?? this.isCreatorAccount,
+      showInterests: showInterests ?? this.showInterests,
+      allowTagging: allowTagging ?? this.allowTagging,
+      showContactInfo: showContactInfo ?? this.showContactInfo,
+      accountPrivacy: accountPrivacy ?? this.accountPrivacy,
       phone: phone ?? this.phone,
       birthday: birthday ?? this.birthday,
       country: country ?? this.country,
@@ -418,6 +488,7 @@ class AuthNotifier extends Notifier<AuthState> {
         'username': user.username,
         'email': user.email,
         'phone': user.phone,
+        'role': user.role.apiValue,
         'avatar_url': user.avatarUrl,
         'token': token,
       });
@@ -727,18 +798,17 @@ class AuthNotifier extends Notifier<AuthState> {
   /// Switches active profile mode (Member ↔ Creator ↔ Vendor).
   Future<bool> switchRole(UserRole targetRole) async {
     final u = state.user;
-    if (u == null) return false;
+    if (u == null || u.role == targetRole) return u != null;
     state = state.copyWith(loading: true);
     try {
       await _dio.post('/profile/switch-role', data: {'role': targetRole.apiValue});
       final updatedUser = u.copyWith(role: targetRole);
       state = state.copyWith(user: updatedUser, loading: false);
+      ApiClient.saveUserProfile(jsonEncode(updatedUser.toJson())).then<void>((_) {}, onError: (_) {});
       return true;
     } catch (_) {
-      // Optimistic state update for testing
-      final updatedUser = u.copyWith(role: targetRole);
-      state = state.copyWith(user: updatedUser, loading: false);
-      return true;
+      state = state.copyWith(loading: false);
+      return false;
     }
   }
 

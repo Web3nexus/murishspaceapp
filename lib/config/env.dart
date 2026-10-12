@@ -84,10 +84,18 @@ class Env {
     return webBaseUrl.replaceAll(RegExp(r'/+$'), '');
   }
 
+  /// Host that serves vanity profile / link-in-bio pages (bare, no scheme).
+  /// Override at build time with `--dart-define=PROFILE_DOMAIN=...`; keep it
+  /// aligned with the backend CANONICAL_PROFILE_DOMAIN and web VITE_PROFILE_DOMAIN.
+  static const String profileDomain = String.fromEnvironment(
+    'PROFILE_DOMAIN',
+    defaultValue: 'murih.me',
+  );
+
   /// Generates the canonical profile URL for any user handle.
   static String profileUrl(String username) {
     final cleanHandle = username.trim().replaceFirst(RegExp(r'^@'), '');
-    return 'https://murih.me/@$cleanHandle';
+    return 'https://$profileDomain/@$cleanHandle';
   }
 
   /// Generates the canonical link-in-bio URL.

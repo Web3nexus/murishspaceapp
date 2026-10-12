@@ -21,6 +21,7 @@ class LiveStreamTopHeader extends StatelessWidget {
     required this.coinBalance,
     required this.onShare,
     required this.onClose,
+    this.onMinimize,
     this.logoAsset = 'assets/images/murihspace-live-logo.png',
   });
 
@@ -28,6 +29,7 @@ class LiveStreamTopHeader extends StatelessWidget {
   final num coinBalance;
   final VoidCallback onShare;
   final VoidCallback onClose;
+  final VoidCallback? onMinimize;
   final String logoAsset;
 
   /// Width at or above which each optional element is shown.
@@ -59,12 +61,14 @@ class LiveStreamTopHeader extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth;
-        final showLogo = width >= logoMinWidth;
-        final showViewerCount = width >= viewerCountMinWidth;
-        final showWallet = width >= walletMinWidth;
-        final showLivePill = width >= livePillMinWidth;
-        final showSuffix = width >= 340;
-        final showCoinIcon = width >= 240;
+        final extraControlWidth = onMinimize != null ? 52.0 : 0.0;
+        final showLogo = width >= (logoMinWidth + extraControlWidth);
+        final showViewerCount =
+            width >= (viewerCountMinWidth + extraControlWidth);
+        final showWallet = width >= (walletMinWidth + extraControlWidth);
+        final showLivePill = width >= (livePillMinWidth + extraControlWidth);
+        final showSuffix = width >= (340 + extraControlWidth);
+        final showCoinIcon = width >= (240 + extraControlWidth);
 
         return Row(
           children: [
@@ -167,6 +171,14 @@ class LiveStreamTopHeader extends StatelessWidget {
               tooltip: 'Share live stream',
               onPressed: onShare,
             ),
+            if (onMinimize != null) ...[
+              const SizedBox(width: 4),
+              _CircleControl(
+                icon: Icons.keyboard_arrow_down_rounded,
+                tooltip: 'Minimize broadcast',
+                onPressed: onMinimize!,
+              ),
+            ],
             const SizedBox(width: 4),
             _CircleControl(
               icon: Icons.close_rounded,

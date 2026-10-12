@@ -1,5 +1,5 @@
-import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'package:flutter_callkit_incoming/entities/call_event.dart';
@@ -9,8 +9,9 @@ import 'package:flutter_callkit_incoming/entities/android_params.dart';
 import 'package:flutter_callkit_incoming/entities/ios_params.dart';
 
 import '../core/api_client.dart';
-import '../config/env.dart';
-import '../providers/auth_provider.dart';
+import '../config/router.dart';
+import '../screens/call_screen.dart';
+import 'call_session_manager.dart';
 
 class PushService {
   PushService._();
@@ -74,7 +75,11 @@ class PushService {
         debugPrint('[PushService] User not logged in yet. Token stored, will sync upon login.');
         return;
       }
-      await ApiClient.instance.post('/profile/fcm-token', data: {'fcm_token': token});
+      final platform = defaultTargetPlatform == TargetPlatform.iOS ? 'ios' : 'android';
+      await ApiClient.instance.post('/profile/fcm-token', data: {
+        'fcm_token': token,
+        'platform': platform,
+      });
       debugPrint('[PushService] Successfully registered FCM token with backend.');
     } catch (e) {
       debugPrint('[PushService] Failed to send FCM token to backend: $e');
@@ -156,12 +161,46 @@ class PushService {
     
     if (event is CallEventActionCallAccept) {
         debugPrint('[PushService] Call Accepted: ${event.callKitParams}');
-        final callId = event.callKitParams.extra?['call_id'];
-        if (callId != null) {
+        final extra = event.callKitParams.extra ?? const <String, dynamic>{};
+        final callId = int.tryParse((extra['call_id'] ?? event.callKitParams.id)?.toString() ?? '');
+        final isVideo = event.callKitParams.type == 1;
+        final callerName = event.callKitParams.nameCaller ?? 'Contact';
+        final callerAvatar = event.callKitParams.avatar;
+        final livekitToken = extra['livekit_token']?.toString();
+        final livekitHost = extra['livekit_host']?.toString();
+        if (callId != null && callId > 0) {
           try {
             await ApiClient.instance.post('/calls/$callId/accept');
           } catch (e) {
             debugPrint('[PushService] Failed to accept call: $e');
+          }
+          // Bring the in-app call session + LiveKit connection up so answering
+          // from the OS CallKit UI (lock screen / background) actually connects.
+          CallSessionManager.instance.initOrAttachCall(
+            contactName: callerName,
+            avatarUrl: (callerAvatar != null && callerAvatar.isNotEmpty) ? callerAvatar : null,
+            isVideo: isVideo,
+            callId: callId,
+            isIncoming: true,
+            isAccepted: true,
+            livekitToken: livekitToken,
+            livekitHost: livekitHost,
+          );
+          try {
+            rootNavigatorKey.currentState?.push(
+              MaterialPageRoute(
+                builder: (_) => CallScreen(
+                  contactName: callerName,
+                  avatarUrl: (callerAvatar != null && callerAvatar.isNotEmpty) ? callerAvatar : null,
+                  isVideo: isVideo,
+                  callId: callId,
+                  isIncoming: true,
+                  isAccepted: true,
+                ),
+              ),
+            );
+          } catch (e) {
+            debugPrint('[PushService] Failed to open call screen: $e');
           }
         }
     } else if (event is CallEventActionCallDecline) {

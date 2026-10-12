@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../screens/admin_moderation_screen.dart';
 import '../screens/appearance_screen.dart';
+import '../screens/add_account_screen.dart';
 import '../screens/ads_manager_screen.dart';
 import '../screens/brand_deals_screen.dart';
 import '../screens/calls_screen.dart';
@@ -86,9 +87,10 @@ const Set<String> _authRequiredExactPaths = <String>{
   '/profile',
   '/kyc',
   '/social-accounts',
-'/friends',
+  '/friends',
   '/followers',
   '/settings',
+  '/add-account',
   '/create',
   '/create-community',
   '/create-channel',
@@ -453,6 +455,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/creators', builder: (_, _) => const SuggestedCreatorsScreen()),
       GoRoute(path: '/suggested-creators', builder: (_, _) => const SuggestedCreatorsScreen()),
       GoRoute(path: '/settings', builder: (_, _) => const SettingsScreen()),
+      GoRoute(path: '/add-account', builder: (_, _) => const AddAccountScreen()),
       GoRoute(
         path: '/profile/user/:id',
         builder: (_, state) => UserProfileScreen(

@@ -35,6 +35,14 @@ enum UserRole {
   /// Roles that can sell products.
   bool get isSeller =>
       this == UserRole.creator || this == UserRole.vendor || this == UserRole.admin;
+
+  /// The profile modes a user can operate in, in display order. Admin is a
+  /// privileged mode appended only when the account actually holds it.
+  static const List<UserRole> profileModes = [
+    UserRole.member,
+    UserRole.creator,
+    UserRole.vendor,
+  ];
 }
 
 /// Centralized permission registry mirroring the backend

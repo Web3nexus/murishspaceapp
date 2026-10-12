@@ -8,6 +8,11 @@ import '../components/murih_icon.dart';
 import '../core/design_tokens.dart';
 import '../providers/auth_provider.dart';
 import '../providers/chat_provider.dart';
+import 'profile_drawer.dart';
+
+/// Global scaffold key for the main shell, used to open the profile drawer
+/// from the profile ("You") page's app bar.
+final GlobalKey<ScaffoldState> appShellScaffoldKey = GlobalKey<ScaffoldState>();
 
 /// The app's main persistent shell with the unified five-item fintech/social navigation:
 /// 1. Home · 2. Discover · 3. Create (Elevated +) · 4. Messages (BrandFavicon) · 5. Profile
@@ -124,7 +129,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                       context: ctx,
                       title: 'Creator Studio',
                       subtitle: 'Publishing & tools',
-                      iconName: 'Category',
+                      iconName: 'Camera',
                       color: const Color(0xFF0284C7),
                       onTap: () {
                         Navigator.pop(ctx);
@@ -207,6 +212,9 @@ class _AppShellState extends ConsumerState<AppShell> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
+      key: appShellScaffoldKey,
+      drawer: const ProfileDrawer(),
+      drawerEnableOpenDragGesture: false,
       body: Column(
         children: [
           if (auth.user != null && !isOnboarded && !_bannerDismissed)

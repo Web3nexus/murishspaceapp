@@ -11,6 +11,7 @@ import 'components/gift_animation_overlay.dart';
 import 'components/in_app_notification_overlay.dart';
 import 'components/incoming_call_overlay.dart';
 import 'components/floating_call_overlay.dart';
+import 'components/floating_live_overlay.dart';
 import 'core/api_client.dart';
 import 'providers/appearance_provider.dart';
 import 'providers/auth_provider.dart';
@@ -127,7 +128,9 @@ class _MurihSpaceAppState extends ConsumerState<MurihSpaceApp> with WidgetsBindi
           child: IncomingCallOverlay(
             child: InAppNotificationOverlay(
               child: GiftAnimationOverlay(
-                child: FloatingCallOverlay(child: child),
+                child: FloatingCallOverlay(
+                  child: FloatingLiveOverlay(child: child),
+                ),
               ),
             ),
           ),

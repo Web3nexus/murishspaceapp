@@ -11,6 +11,7 @@ import '../models/community_models.dart';
 import '../providers/auth_provider.dart';
 import '../providers/community_provider.dart';
 import '../providers/follow_provider.dart';
+import '../providers/hashtag_provider.dart';
 
 /// Full-featured advanced creator studio for public wall and community posts.
 /// Designed after Facebook/Threads creator experience with open canvas, rich bottom tools, and safe status bar handling.
@@ -53,15 +54,6 @@ class _PostComposerState extends ConsumerState<_PostComposer> {
   bool _commentsDisabled = false;
   bool _submitting = false;
 
-  final List<String> _suggestedTags = [
-    'General',
-    'Tech',
-    'Design',
-    'Crypto',
-    'Business',
-    'Education',
-    'Announcement',
-  ];
   final Set<String> _selectedTags = {};
 
   final List<String> _popularLocations = [
@@ -587,6 +579,16 @@ class _PostComposerState extends ConsumerState<_PostComposer> {
 
     final canSubmit = !_submitting && (hasText || hasImages || hasPollContent);
 
+    final trendingState = ref.watch(trendingTopicsProvider);
+    final dynamicTags = trendingState.topics
+        .map((t) => t.tag.replaceFirst(RegExp(r'^#'), ''))
+        .where((t) => t.isNotEmpty)
+        .toList();
+    final availableTags = {
+      ...dynamicTags,
+      ..._selectedTags,
+    }.toList();
+
     final bg = isDark ? const Color(0xFF141416) : Colors.white;
     final textPrimary = isDark ? Colors.white : const Color(0xFF0F172A);
     final textSecondary = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
@@ -853,7 +855,7 @@ class _PostComposerState extends ConsumerState<_PostComposer> {
                             : "What's on your mind, $firstName?",
                     hintStyle: TextStyle(
                       fontSize: _contentController.text.length < 80 ? 19 : 16,
-                      color: textSecondary?.withValues(alpha: 0.65),
+                      color: textSecondary.withValues(alpha: 0.65),
                       fontWeight: FontWeight.w400,
                     ),
                     border: InputBorder.none,
@@ -1093,7 +1095,24 @@ class _PostComposerState extends ConsumerState<_PostComposer> {
                       physics: const BouncingScrollPhysics(),
                       child: Row(
                         children: [
-                          for (final tag in _suggestedTags) ...[
+                          if (trendingState.loading && availableTags.isEmpty) ...[
+                            Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: Text(
+                                'Loading topics...',
+                                style: TextStyle(fontSize: 11, color: textSecondary, fontStyle: FontStyle.italic),
+                              ),
+                            ),
+                          ] else if (availableTags.isEmpty) ...[
+                            Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: Text(
+                                'No trending topics yet',
+                                style: TextStyle(fontSize: 11, color: textSecondary, fontStyle: FontStyle.italic),
+                              ),
+                            ),
+                          ],
+                          for (final tag in availableTags) ...[
                             Padding(
                               padding: const EdgeInsets.only(right: 8),
                               child: FilterChip(

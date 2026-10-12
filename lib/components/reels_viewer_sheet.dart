@@ -17,7 +17,7 @@ class ReelsViewerSheet extends StatefulWidget {
     super.key,
     this.authorName = 'Amina Bello',
     this.authorAvatar,
-    this.caption = 'Unforgettable night at the Sunset Party! 🌅 Music, friends and good vibes only! 💙 #MurihSpace #GoodLife',
+    this.caption = 'Unforgettable night at the Sunset Party! 🌅 Music, friends and good vibes only! 💙',
     this.location = 'Calpe, Spain',
     this.videoThumbnail = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=900&auto=format&fit=crop&q=80',
     this.likesCount = '12.4K',
@@ -29,7 +29,7 @@ class ReelsViewerSheet extends StatefulWidget {
     BuildContext context, {
     String authorName = 'Amina Bello',
     String? authorAvatar,
-    String caption = 'Unforgettable night at the Sunset Party! 🌅 Music, friends and good vibes only! 💙 #MurihSpace #GoodLife',
+    String caption = 'Unforgettable night at the Sunset Party! 🌅 Music, friends and good vibes only! 💙',
     String location = 'Calpe, Spain',
     String videoThumbnail = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=900&auto=format&fit=crop&q=80',
     String likesCount = '12.4K',

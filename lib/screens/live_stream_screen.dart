@@ -20,6 +20,7 @@ import '../components/kyc_live_gate_dialog.dart';
 import '../components/live_stream_top_header.dart';
 import '../components/send_gift_dialog.dart';
 import '../config/env.dart';
+import '../services/live_session_manager.dart';
 import '../core/api_client.dart';
 import '../core/roles.dart';
 import '../core/realtime_client.dart';
@@ -158,6 +159,16 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
   Timer? _likeDebounceTimer;
   Map<String, dynamic>? _pinnedComment;
 
+  // Host participant management / moderation roster.
+  String? _subscribedLiveRoomChannel;
+  StreamSubscription<RealtimeEvent>? _liveRoomSub;
+  final List<Map<String, dynamic>> _participants = [];
+  bool _isFetchingParticipants = false;
+  bool _isParticipantBusy = false;
+  bool _isParticipantsSheetOpen = false;
+  StateSetter? _participantsModalSetState;
+  bool _selfIsCoHost = false;
+
   Timer? _metricsTimer;
   String? _connectionError;
   bool _leaveSent = false;
@@ -238,6 +249,24 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
 
   Future<void> _connectToBackendStream() async {
     try {
+      final activeLive = LiveSessionManager.instance;
+      if (activeLive.isActive &&
+          activeLive.liveKitRoom != null &&
+          ((_activeStreamId != null && activeLive.activeStreamId == _activeStreamId) ||
+           (_trackingId != null && activeLive.trackingId == _trackingId))) {
+        _liveKitRoom = activeLive.liveKitRoom;
+        _attachRoomListeners(_liveKitRoom!);
+        activeLive.setMinimized(false);
+        _syncLocalVideoTrack();
+        _syncRemoteVideoTrack();
+        if (_activeStreamId != null) {
+          _subscribeToRealtimeChannel(_activeStreamId!);
+          _subscribeToLiveRoomChannel(_activeStreamId!);
+        }
+        await _pollLiveMetricsAndChat();
+        return;
+      }
+
       final api = ref.read(apiClientProvider);
 
       if (widget.isHost && _activeStreamId == null) {
@@ -316,6 +345,18 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
 
       if (_activeStreamId != null) {
         _subscribeToRealtimeChannel(_activeStreamId!);
+        _subscribeToLiveRoomChannel(_activeStreamId!);
+        LiveSessionManager.instance.startLiveSession(
+          streamId: _activeStreamId!,
+          trackingId: _trackingId,
+          streamTitle: widget.streamTitle,
+          hostName: _effectiveHostName,
+          hostAvatarUrl: _hostAvatarUrl,
+          isHost: widget.isHost,
+          streamMode: widget.streamMode,
+          room: _liveKitRoom,
+          videoTrack: _remoteVideoTrack ?? (widget.isHost ? _localVideoTrack : null),
+        );
       }
 
       await _pollLiveMetricsAndChat();
@@ -387,6 +428,62 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
     }
   }
 
+  void _attachRoomListeners(Room room) {
+    _liveKitListener?.dispose();
+    final listener = room.createListener();
+    _liveKitListener = listener;
+    listener
+      ..on<AudioPlaybackStatusChanged>((event) async {
+        if (!event.isPlaying) {
+          try {
+            await room.startAudio();
+            await AudioManager.instance.setSpeakerOutputPreferred(true, force: true);
+            await Hardware.instance.setSpeakerphoneOn(true);
+          } catch (_) {}
+        }
+      })
+      ..on<TrackSubscribedEvent>((event) async {
+        if (event.track is AudioTrack) {
+          try {
+            await event.track.start();
+            await AudioManager.instance.setSpeakerOutputPreferred(true, force: true);
+            await Hardware.instance.setSpeakerphoneOn(true);
+          } catch (e) {
+            debugPrint('[LiveKit] Error starting subscribed audio track: $e');
+          }
+        }
+        _syncRemoteVideoTrack();
+      })
+      ..on<TrackUnmutedEvent>((event) async {
+        final track = event.publication.track;
+        if (track is AudioTrack) {
+          try {
+            await track.start();
+            await AudioManager.instance.setSpeakerOutputPreferred(true, force: true);
+            await Hardware.instance.setSpeakerphoneOn(true);
+          } catch (_) {}
+        }
+      })
+      ..on<TrackUnsubscribedEvent>((_) {
+        _syncRemoteVideoTrack();
+      })
+      ..on<ParticipantConnectedEvent>((_) {
+        _syncRemoteVideoTrack();
+      })
+      ..on<ParticipantDisconnectedEvent>((_) {
+        _syncRemoteVideoTrack();
+      })
+      ..on<RoomDisconnectedEvent>((_) {
+        if (_isLeavingLiveKit) return;
+        unawaited(_disposeLiveKitConnection());
+        if (mounted) {
+          setState(() {
+            _connectionError = 'The live video connection ended.';
+          });
+        }
+      });
+  }
+
   Future<void> _connectToLiveKit(
     Map<dynamic, dynamic> credentials, {
     required bool isPublisher,
@@ -442,58 +539,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
         ),
       );
       _liveKitRoom = room;
-      final listener = room.createListener();
-      _liveKitListener = listener;
-      listener
-        ..on<AudioPlaybackStatusChanged>((event) async {
-          if (!event.isPlaying) {
-            try {
-              await room.startAudio();
-              await AudioManager.instance.setSpeakerOutputPreferred(true, force: true);
-              await Hardware.instance.setSpeakerphoneOn(true);
-            } catch (_) {}
-          }
-        })
-        ..on<TrackSubscribedEvent>((event) async {
-          if (event.track is AudioTrack) {
-            try {
-              await event.track.start();
-              await AudioManager.instance.setSpeakerOutputPreferred(true, force: true);
-              await Hardware.instance.setSpeakerphoneOn(true);
-            } catch (e) {
-              debugPrint('[LiveKit] Error starting subscribed audio track: $e');
-            }
-          }
-          _syncRemoteVideoTrack();
-        })
-        ..on<TrackUnmutedEvent>((event) async {
-          final track = event.publication.track;
-          if (track is AudioTrack) {
-            try {
-              await track.start();
-              await AudioManager.instance.setSpeakerOutputPreferred(true, force: true);
-              await Hardware.instance.setSpeakerphoneOn(true);
-            } catch (_) {}
-          }
-        })
-        ..on<TrackUnsubscribedEvent>((_) {
-          _syncRemoteVideoTrack();
-        })
-        ..on<ParticipantConnectedEvent>((_) {
-          _syncRemoteVideoTrack();
-        })
-        ..on<ParticipantDisconnectedEvent>((_) {
-          _syncRemoteVideoTrack();
-        })
-        ..on<RoomDisconnectedEvent>((_) {
-          if (_isLeavingLiveKit) return;
-          unawaited(_disposeLiveKitConnection());
-          if (mounted) {
-            setState(() {
-              _connectionError = 'The live video connection ended.';
-            });
-          }
-        });
+      _attachRoomListeners(room);
 
       await room.connect(host, token);
       if (!mounted || _isLeavingLiveKit) {
@@ -611,6 +657,9 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
       _localVideoTrack = nextTrack;
       _isCameraReady = nextTrack != null;
     });
+    LiveSessionManager.instance.updateVideoTrack(
+      _remoteVideoTrack ?? (widget.isHost ? _localVideoTrack : null),
+    );
   }
 
   void _syncRemoteVideoTrack() {
@@ -635,6 +684,9 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
     setState(() {
       _remoteVideoTrack = nextTrack;
     });
+    LiveSessionManager.instance.updateVideoTrack(
+      _remoteVideoTrack ?? (widget.isHost ? _localVideoTrack : null),
+    );
   }
 
   Future<void> _disconnectLiveKit() async {
@@ -703,7 +755,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
               final senderName = user?['name'] ?? 'A Viewer';
               final giftName = m['gift_name']?.toString() ?? 'Celebration Gift';
               final coinPrice = (m['coin_price'] as num?)?.toInt() ?? 100;
-              final animType = m['animation_type']?.toString()?.isNotEmpty == true
+              final animType = m['animation_type']?.toString().isNotEmpty == true
                   ? m['animation_type']!.toString()
                   : (coinPrice >= 1000
                         ? 'full_screen'
@@ -776,8 +828,13 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
 
   @override
   void dispose() {
-    unawaited(_leaveViewerStream());
-    unawaited(_disconnectLiveKit());
+    final isMinimized = LiveSessionManager.instance.isMinimized;
+    if (!isMinimized) {
+      LiveSessionManager.instance.onTeardown = null;
+      unawaited(_leaveViewerStream());
+      unawaited(_disconnectLiveKit());
+      LiveSessionManager.instance.closeLive();
+    }
     _metricsTimer?.cancel();
     _likeDebounceTimer?.cancel();
     _likeDebounceTimer = null;
@@ -786,7 +843,15 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
     unawaited(_flushPendingLikes());
     _realtimeSub?.cancel();
     if (_subscribedLiveChannel != null) {
-      ref.read(realtimeProvider).unsubscribe(_subscribedLiveChannel!);
+      try {
+        ref.read(realtimeProvider).unsubscribe(_subscribedLiveChannel!);
+      } catch (_) {}
+    }
+    _liveRoomSub?.cancel();
+    if (_subscribedLiveRoomChannel != null) {
+      try {
+        ref.read(realtimeProvider).unsubscribe(_subscribedLiveRoomChannel!);
+      } catch (_) {}
     }
     _chatCtrl.dispose();
     _chatFocusNode.dispose();
@@ -960,6 +1025,210 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
         _handleRealtimeViewerCount(data);
       }
     });
+  }
+
+  /// Private `live-room.{id}` channel: carries roster and moderation events for
+  /// the host, moderators, and active participants. A promoted co-host learns
+  /// here that they may now publish, so their microphone can be enabled without
+  /// the user manually rejoining.
+  void _subscribeToLiveRoomChannel(int streamId) {
+    final channelName = 'private-live-room.$streamId';
+    if (_subscribedLiveRoomChannel == channelName) return;
+    if (_subscribedLiveRoomChannel != null) {
+      ref.read(realtimeProvider).unsubscribe(_subscribedLiveRoomChannel!);
+    }
+    _subscribedLiveRoomChannel = channelName;
+    final realtime = ref.read(realtimeProvider);
+    realtime.subscribe(channelName);
+
+    _liveRoomSub?.cancel();
+    _liveRoomSub = realtime.events.listen((event) {
+      if (event.channel != _subscribedLiveRoomChannel) return;
+      final eventName = event.event.replaceFirst(RegExp(r'^\.+'), '');
+      if (eventName != 'LiveStreamParticipantPresence' &&
+          !event.event.contains('LiveStreamParticipantPresence')) {
+        return;
+      }
+      final data = event.data is Map
+          ? Map<String, dynamic>.from(event.data as Map)
+          : <String, dynamic>{};
+      _handleParticipantPresence(data);
+    });
+  }
+
+  void _handleParticipantPresence(Map<String, dynamic> data) {
+    if (!mounted) return;
+    final participant = (data['participant'] ?? data['participant_payload']) is Map
+        ? Map<String, dynamic>.from((data['participant'] ?? data['participant_payload']) as Map)
+        : <String, dynamic>{};
+    final userId = (participant['user_id'] as num?)?.toInt();
+
+    // Keep an open roster sheet fresh.
+    if (_isParticipantsSheetOpen && userId != null) {
+      final index = _participants.indexWhere((p) => (p['user_id'] as num?)?.toInt() == userId);
+      if (index >= 0) {
+        _participants[index] = {..._participants[index], ...participant};
+      } else {
+        _participants.add(participant);
+      }
+      _participantsModalSetState?.call(() {});
+    }
+
+    // React to our own role change so a promoted co-host can speak.
+    final myId = ref.read(authProvider).user?.id;
+    final isSelf = myId != null && userId != null && userId == myId;
+    if (!isSelf) return;
+
+    final role = participant['role']?.toString();
+    final restricted = participant['is_restricted'] == true;
+    final canPublish = !restricted && (role == 'co_host' || role == 'moderator' || role == 'host');
+    final wasPublisher = _selfIsCoHost;
+    setState(() => _selfIsCoHost = canPublish);
+
+    if (canPublish && !wasPublisher && !widget.isHost) {
+      unawaited(_ensureMicEnabled());
+    } else if (!canPublish && !widget.isHost) {
+      unawaited(_forceMicDisabled());
+    }
+  }
+
+  /// Enables the local microphone for a newly-promoted co-host/moderator.
+  Future<void> _ensureMicEnabled() async {
+    final participant = _liveKitRoom?.localParticipant;
+    if (participant == null) return;
+    try {
+      await participant.setMicrophoneEnabled(true);
+      if (mounted) setState(() => _micOn = true);
+    } catch (_) {}
+  }
+
+  /// Revokes local publishing when the host restricts or demotes us.
+  Future<void> _forceMicDisabled() async {
+    final participant = _liveKitRoom?.localParticipant;
+    if (participant == null) return;
+    try {
+      await participant.setMicrophoneEnabled(false);
+    } catch (_) {}
+    if (mounted) setState(() => _micOn = false);
+  }
+
+  bool get _canModerate =>
+      widget.isHost ||
+      _selfIsCoHost ||
+      (_hostUserId != null && ref.read(authProvider).user?.id == _hostUserId);
+
+  Future<void> _fetchParticipants() async {
+    final streamId = _activeStreamId;
+    if (streamId == null) return;
+    setState(() => _isFetchingParticipants = true);
+    try {
+      final res = await ref.read(apiClientProvider).get('/live/$streamId/participants');
+      final body = res.data is Map ? Map<String, dynamic>.from(res.data as Map) : <String, dynamic>{};
+      final payload = body['data'] is Map ? Map<String, dynamic>.from(body['data'] as Map) : body;
+      final list = payload['participants'] is List ? payload['participants'] as List : const [];
+      if (!mounted) return;
+      setState(() {
+        _participants
+          ..clear()
+          ..addAll(list.whereType<Map>().map((e) => Map<String, dynamic>.from(e)));
+      });
+      _participantsModalSetState?.call(() {});
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not load participants.')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isFetchingParticipants = false);
+        _participantsModalSetState?.call(() {});
+      }
+    }
+  }
+
+  Future<void> _openParticipantsSheet() async {
+    if (!_canModerate) return;
+    setState(() => _isParticipantsSheetOpen = true);
+    await _fetchParticipants();
+    if (!mounted) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setModalState) {
+          _participantsModalSetState = setModalState;
+          return _LiveParticipantsSheet(
+            participants: _participants,
+            isFetching: _isFetchingParticipants,
+            isBusy: _isParticipantBusy,
+            hostUserId: _hostUserId,
+            onPromote: (userId) => _moderateParticipant(userId, role: 'co_host'),
+            onDemote: (userId) => _moderateParticipant(userId, role: 'viewer'),
+            onToggleRestrict: (userId, restricted) =>
+                _moderateParticipant(userId, restricted: restricted),
+            onRemove: (userId) => _moderateParticipant(userId, remove: true),
+            onRefresh: _fetchParticipants,
+          );
+        },
+      ),
+    );
+    _participantsModalSetState = null;
+    if (mounted) setState(() => _isParticipantsSheetOpen = false);
+  }
+
+  Future<void> _moderateParticipant(
+    int userId, {
+    String? role,
+    bool? restricted,
+    bool remove = false,
+  }) async {
+    final streamId = _activeStreamId;
+    if (streamId == null || _isParticipantBusy) return;
+    setState(() => _isParticipantBusy = true);
+    _participantsModalSetState?.call(() {});
+    try {
+      final path = remove
+          ? '/live/$streamId/participants/$userId'
+          : role != null
+              ? '/live/$streamId/participants/$userId/role'
+              : '/live/$streamId/participants/$userId/restrict';
+      final data = remove
+          ? null
+          : role != null
+              ? {'role': role}
+              : {'restricted': restricted ?? true};
+      final api = ref.read(apiClientProvider);
+      final res = remove
+          ? await api.delete(path)
+          : await api.post(path, data: data);
+      final body = res.data is Map ? Map<String, dynamic>.from(res.data as Map) : <String, dynamic>{};
+      final payload = body['data'] is Map ? Map<String, dynamic>.from(body['data'] as Map) : body;
+      final list = payload['participants'] is List ? payload['participants'] as List : null;
+      if (!mounted) return;
+      if (list != null) {
+        setState(() {
+          _participants
+            ..clear()
+            ..addAll(list.whereType<Map>().map((e) => Map<String, dynamic>.from(e)));
+        });
+        _participantsModalSetState?.call(() {});
+      } else {
+        await _fetchParticipants();
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Action failed.')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isParticipantBusy = false);
+        _participantsModalSetState?.call(() {});
+      }
+    }
   }
 
   void _handleRealtimeLike(Map<String, dynamic> data) {
@@ -1587,6 +1856,8 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
     );
 
     if (shouldLeave == true && mounted) {
+      LiveSessionManager.instance.onTeardown = null;
+      LiveSessionManager.instance.closeLive();
       await _disconnectLiveKit();
       if (isHost && _activeStreamId != null) {
         try {
@@ -1611,6 +1882,39 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
     }
   }
 
+  void _minimizeLiveStream() {
+    if (_activeStreamId == null) return;
+    final api = ref.read(apiClientProvider);
+    final realtime = ref.read(realtimeProvider);
+    final streamId = _activeStreamId!;
+    final isHost = widget.isHost;
+    final liveChannel = _subscribedLiveChannel;
+    final roomChannel = _subscribedLiveRoomChannel;
+
+    LiveSessionManager.instance.onTeardown = () async {
+      if (!isHost && !_leaveSent) {
+        _leaveSent = true;
+        try {
+          await api.post('/live/$streamId/leave');
+        } catch (_) {}
+      }
+      await _disconnectLiveKit();
+      _realtimeSub?.cancel();
+      if (liveChannel != null) {
+        try {
+          realtime.unsubscribe(liveChannel);
+        } catch (_) {}
+      }
+      _liveRoomSub?.cancel();
+      if (roomChannel != null) {
+        try {
+          realtime.unsubscribe(roomChannel);
+        } catch (_) {}
+      }
+    };
+    LiveSessionManager.instance.minimizeLive(context);
+  }
+
   @override
   Widget build(BuildContext context) {
     final authUser = ref.watch(authProvider).user;
@@ -1625,7 +1929,13 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
       canPop: false,
       onPopInvokedWithResult: (didPop, result) async {
         if (didPop) return;
-        await _endOrLeaveStream();
+        if (!widget.isHost &&
+            _activeStreamId != null &&
+            LiveSessionManager.instance.isActive) {
+          _minimizeLiveStream();
+        } else {
+          await _endOrLeaveStream();
+        }
       },
       child: Scaffold(
       backgroundColor: Colors.black,
@@ -1832,9 +2142,34 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
                 viewerCount: _viewerCount,
                 coinBalance: coinBalance,
                 onShare: _openShareModal,
+                onMinimize: _minimizeLiveStream,
                 onClose: _endOrLeaveStream,
               ),
             ),
+
+            // 4b. Host engagement counters (likes + gift coins).
+            if (widget.isHost)
+              Positioned(
+                top: MediaQuery.of(context).padding.top +
+                    (_pinnedProduct != null ? 126 : 58),
+                left: 16,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _LiveStatChip(
+                      icon: Icons.favorite_rounded,
+                      color: const Color(0xFFFF2D55),
+                      value: _likesCount,
+                    ),
+                    const SizedBox(width: 8),
+                    _LiveStatChip(
+                      icon: Icons.monetization_on_rounded,
+                      color: const Color(0xFFFFCC00),
+                      value: _totalGiftsCoins,
+                    ),
+                  ],
+                ),
+              ),
 
             // 5. TikTok-Style Live Chat Feed Overlay (Transparent, popping below, constrained height, no scrollbars)
             Positioned(
@@ -2151,9 +2486,27 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
                     ),
                   ],
 
-                  // Non-Host Viewers: Real Gifting Button & Heart/Like Button
-                  if (!widget.isHost) ...[
+                  // Host Controls: Manage Participants
+                  if (widget.isHost) ...[
                     const SizedBox(width: 6),
+                    IconButton(
+                      style: IconButton.styleFrom(
+                        backgroundColor: const Color(
+                          0xFF1E232B,
+                        ).withValues(alpha: 0.92),
+                        padding: const EdgeInsets.all(10),
+                      ),
+                      icon: const Icon(
+                        Icons.groups_rounded,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                      onPressed: _openParticipantsSheet,
+                    ),
+                  ],
+
+                  // Non-Host Viewers: Real Gifting Button & Heart/Like Button
+                  if (!widget.isHost) ...[                    const SizedBox(width: 6),
                     IconButton(
                       style: IconButton.styleFrom(
                         backgroundColor: const Color(0xFFFF9500),
@@ -3676,6 +4029,360 @@ class _LiveRingAvatarState extends State<_LiveRingAvatar>
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+/// Compact pill showing an engagement counter (likes / gift coins) on the host
+/// overlay.
+class _LiveStatChip extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final int value;
+
+  const _LiveStatChip({
+    required this.icon,
+    required this.color,
+    required this.value,
+  });
+
+  String get _formatted {
+    if (value >= 1000000) return '${(value / 1000000).toStringAsFixed(1)}M';
+    if (value >= 1000) return '${(value / 1000).toStringAsFixed(1)}K';
+    return value.toString();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.42),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 14),
+          const SizedBox(width: 5),
+          Text(
+            _formatted,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Host/moderator bottom sheet listing the broadcast roster with moderation
+/// actions (promote to co-host, revoke publishing, remove).
+class _LiveParticipantsSheet extends StatelessWidget {
+  final List<Map<String, dynamic>> participants;
+  final bool isFetching;
+  final bool isBusy;
+  final int? hostUserId;
+  final ValueChanged<int> onPromote;
+  final ValueChanged<int> onDemote;
+  final void Function(int userId, bool restricted) onToggleRestrict;
+  final ValueChanged<int> onRemove;
+  final Future<void> Function() onRefresh;
+
+  const _LiveParticipantsSheet({
+    required this.participants,
+    required this.isFetching,
+    required this.isBusy,
+    required this.hostUserId,
+    required this.onPromote,
+    required this.onDemote,
+    required this.onToggleRestrict,
+    required this.onRemove,
+    required this.onRefresh,
+  });
+
+  String _roleLabel(String? role) {
+    switch (role) {
+      case 'host':
+        return 'Host';
+      case 'co_host':
+        return 'Co-host';
+      case 'moderator':
+        return 'Moderator';
+      default:
+        return 'Viewer';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final activeCount = participants
+        .where((p) => p['is_active'] == true)
+        .length;
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.6,
+      minChildSize: 0.35,
+      maxChildSize: 0.9,
+      expand: false,
+      builder: (context, scrollController) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: Color(0xFF121620),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+          ),
+          child: Column(
+            children: [
+              const SizedBox(height: 10),
+              Container(
+                width: 42,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.white24,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 14, 12, 10),
+                child: Row(
+                  children: [
+                    const Icon(Icons.groups_rounded,
+                        color: Color(0xFF64D2FF), size: 20),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Participants',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        '$activeCount',
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      icon: const Icon(Icons.refresh_rounded,
+                          color: Colors.white70, size: 20),
+                      onPressed: isFetching ? null : () => onRefresh(),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded,
+                          color: Colors.white70, size: 20),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: isFetching && participants.isEmpty
+                    ? const Center(
+                        child: CircularProgressIndicator(
+                          color: DesignTokens.primary,
+                        ),
+                      )
+                    : participants.isEmpty
+                        ? const Center(
+                            child: Text(
+                              'No participants yet.',
+                              style: TextStyle(
+                                  color: Colors.white38, fontSize: 13),
+                            ),
+                          )
+                        : ListView.separated(
+                            controller: scrollController,
+                            padding:
+                                const EdgeInsets.fromLTRB(16, 4, 16, 24),
+                            itemCount: participants.length,
+                            separatorBuilder: (_, _) =>
+                                const SizedBox(height: 8),
+                            itemBuilder: (context, index) {
+                              final p = participants[index];
+                              final userId =
+                                  (p['user_id'] as num?)?.toInt() ?? 0;
+                              final isOwner =
+                                  hostUserId != null && userId == hostUserId;
+                              final role = p['role']?.toString();
+                              final isActive = p['is_active'] == true;
+                              final isRestricted = p['is_restricted'] == true;
+                              final name =
+                                  p['name']?.toString() ?? 'Viewer';
+                              final avatar = p['avatar_url']?.toString();
+                              final isCoHost = role == 'co_host';
+
+                              return Opacity(
+                                opacity: isActive ? 1 : 0.5,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 12, vertical: 10),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white
+                                        .withValues(alpha: 0.05),
+                                    borderRadius:
+                                        BorderRadius.circular(14),
+                                    border: Border.all(
+                                      color: Colors.white
+                                          .withValues(alpha: 0.06),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      CircleAvatar(
+                                        radius: 18,
+                                        backgroundColor: DesignTokens.primary,
+                                        backgroundImage:
+                                            (avatar != null &&
+                                                    avatar.isNotEmpty)
+                                                ? NetworkImage(avatar)
+                                                : null,
+                                        child: (avatar == null ||
+                                                avatar.isEmpty)
+                                            ? Text(
+                                                name.isNotEmpty
+                                                    ? name[0]
+                                                        .toUpperCase()
+                                                    : 'V',
+                                                style: const TextStyle(
+                                                  color: Colors.white,
+                                                  fontWeight: FontWeight.w700,
+                                                ),
+                                              )
+                                            : null,
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              name,
+                                              maxLines: 1,
+                                              overflow:
+                                                  TextOverflow.ellipsis,
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                            ),
+                                            Text(
+                                              isOwner
+                                                  ? 'Host'
+                                                  : _roleLabel(role),
+                                              style: TextStyle(
+                                                color: Colors.white
+                                                    .withValues(alpha: 0.5),
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.w700,
+                                                letterSpacing: 0.4,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      if (!isOwner) ...[
+                                        if (isCoHost)
+                                          _SheetAction(
+                                            label: 'Unfeature',
+                                            color: Colors.white70,
+                                            onTap: isBusy
+                                                ? null
+                                                : () => onDemote(userId),
+                                          )
+                                        else
+                                          _SheetAction(
+                                            label: 'Co-host',
+                                            color: const Color(0xFF34D399),
+                                            onTap: isBusy
+                                                ? null
+                                                : () => onPromote(userId),
+                                          ),
+                                        const SizedBox(width: 6),
+                                        _SheetAction(
+                                          label: isRestricted
+                                              ? 'Restore'
+                                              : 'Mute',
+                                          color: isRestricted
+                                              ? Colors.white70
+                                              : const Color(0xFFFBBF24),
+                                          onTap: isBusy
+                                              ? null
+                                              : () => onToggleRestrict(
+                                                  userId, !isRestricted),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        _SheetAction(
+                                          label: 'Remove',
+                                          color: const Color(0xFFF87171),
+                                          onTap: isBusy
+                                              ? null
+                                              : () => onRemove(userId),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _SheetAction extends StatelessWidget {
+  final String label;
+  final Color color;
+  final VoidCallback? onTap;
+
+  const _SheetAction({
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.16),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: color,
+            fontSize: 10,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
       ),
     );
   }
