@@ -72,18 +72,27 @@ class ProfileDrawer extends ConsumerWidget {
     final role = user?.role ?? UserRole.member;
     final avatar = user?.avatarUrl != null ? ApiClient.resolveUrl(user!.avatarUrl) : null;
 
-    // Profile modes the account can operate in: personal (always) plus every
-    // role it currently holds or has previously been approved for.
+    // Profile modes the account can operate in: a business profile it holds or
+    // has been approved for, plus the personal Member profile only while the
+    // account has never upgraded. Once upgraded to Creator/Vendor the plain
+    // Member mode disappears and the account switches between Creator/Vendor.
     final history = ref.watch(roleUpgradeProvider).history;
-    final modes = <UserRole>{UserRole.member};
+    final upgraded = role == UserRole.creator ||
+        role == UserRole.vendor ||
+        role == UserRole.admin ||
+        history.any((app) =>
+            app.status == 'approved' &&
+            (app.requestedRole == 'creator' || app.requestedRole == 'vendor'));
+    final modes = <UserRole>{};
     if (role == UserRole.admin) {
       modes.addAll(const [UserRole.creator, UserRole.vendor, UserRole.admin]);
-    } else {
+    } else if (role != UserRole.member) {
       modes.add(role);
     }
     for (final app in history) {
       if (app.status == 'approved') modes.add(UserRole.fromApi(app.requestedRole));
     }
+    if (!upgraded) modes.add(UserRole.member);
     final orderedModes = [
       ...UserRole.profileModes.where(modes.contains),
       if (modes.contains(UserRole.admin)) UserRole.admin,

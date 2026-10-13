@@ -2385,10 +2385,10 @@ class _PreviewProfileScreenState extends ConsumerState<PreviewProfileScreen> {
     final followersCount = (_profileData?['followers_count'] as num?)?.toInt() ?? currentUser?.followersCount ?? 0;
     final followingCount = (_profileData?['following_count'] as num?)?.toInt() ?? currentUser?.followingCount ?? 0;
     final postsCount = (_profileData?['posts_count'] as num?)?.toInt() ?? currentUser?.postsCount ?? _userPosts.length;
-    final createdAt = currentUser?.createdAt;
+    final createdAt = currentUser?.createdAt ?? (_profileData?['created_at'] != null ? DateTime.tryParse(_profileData!['created_at'].toString()) : null);
     final joinedText = createdAt != null
         ? 'Joined ${DateFormat('MMMM yyyy').format(createdAt)}'
-        : 'Joined Recent';
+        : 'Joined ${DateTime.now().year}';
 
     final effectiveBio = widget.bio.trim().isNotEmpty
         ? widget.bio.trim()

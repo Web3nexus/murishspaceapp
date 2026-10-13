@@ -71,10 +71,10 @@ class RoleFeatures {
 
   static const vendorFeatures = {
     'community': true,
-    'events': false,
-    'audio_rooms': false,
-    'stories': false,
-    'feed': false,
+    'events': true, // Normal member profile feature, retained after upgrade
+    'audio_rooms': true, // Normal member profile feature, retained after upgrade
+    'stories': true, // Normal member profile feature, retained after upgrade
+    'feed': true, // Normal member profile feature, retained after upgrade
     'content_studio': false,
     'link_in_bio': false,
     'courses': true, // Can sell courses
@@ -98,7 +98,7 @@ class RoleFeatures {
     'wallet': true,
     'payouts': true,
     'escrow': true,
-    'gifts': false,
+    'gifts': true, // Normal member profile feature, retained after upgrade
     'kyc': true,
   };
 

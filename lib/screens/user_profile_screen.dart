@@ -1222,8 +1222,8 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                         const SizedBox(width: 4),
                         Text(
                           _profileData?['created_at'] != null
-                              ? 'Joined ${DateTime.tryParse(_profileData!['created_at'].toString())?.year ?? 'recently'}'
-                              : 'Member',
+                              ? 'Joined ${DateTime.tryParse(_profileData!['created_at'].toString())?.year ?? DateTime.now().year}'
+                              : 'Joined ${DateTime.now().year}',
                           style: TextStyle(fontSize: 12, color: textSecondary, fontWeight: FontWeight.w500),
                         ),
                       ],
@@ -2168,9 +2168,7 @@ class _UserActivityBadgesSection extends StatelessWidget {
     final role = (profileData?['role'] as String? ?? roleLabel).toLowerCase();
     final isKycVerified = profileData?['kyc_status'] == 'verified';
     final postsCount = (profileData?['posts_count'] as num?)?.toInt() ?? 0;
-    final followersCount = (profileData?['followers_count'] ?? 0) is num
-        ? (profileData!['followers_count'] as num).toInt()
-        : 0;
+    final followersCount = (profileData?['followers_count'] as num?)?.toInt() ?? 0;
 
     // Rule: Must be a genuine creator or vendor role
     if (role == 'creator' || role == 'vendor') {

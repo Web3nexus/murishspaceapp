@@ -63,6 +63,7 @@ class _YouScreenState extends ConsumerState<YouScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _fetchTabContent(0);
       _fetchUserStories();
+      ref.read(authProvider.notifier).refreshProfile();
     });
   }
 
@@ -644,7 +645,7 @@ class _YouScreenState extends ConsumerState<YouScreen>
                             Text(
                               user?.createdAt != null
                                   ? 'Joined ${user!.createdAt!.year}'
-                                  : 'Member',
+                                  : 'Joined ${DateTime.now().year}',
                               style: TextStyle(fontSize: 12, color: textSecondary, fontWeight: FontWeight.w500),
                             ),
                           ],
