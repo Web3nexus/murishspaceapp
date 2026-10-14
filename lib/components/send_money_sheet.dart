@@ -23,7 +23,9 @@ class SendMoneySheet extends ConsumerStatefulWidget {
 
 class _SendMoneySheetState extends ConsumerState<SendMoneySheet> {
   final TextEditingController _recipientCtrl = TextEditingController();
-  final TextEditingController _amountCtrl = TextEditingController(text: '50.00');
+  final TextEditingController _amountCtrl = TextEditingController(
+    text: '50.00',
+  );
   final TextEditingController _noteCtrl = TextEditingController();
   final TextEditingController _pinCtrl = TextEditingController();
 
@@ -55,7 +57,9 @@ class _SendMoneySheetState extends ConsumerState<SendMoneySheet> {
 
     if (recipient.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select or enter a recipient username.')),
+        const SnackBar(
+          content: Text('Please select or enter a recipient username.'),
+        ),
       );
       return;
     }
@@ -72,12 +76,16 @@ class _SendMoneySheetState extends ConsumerState<SendMoneySheet> {
       final pin = _pinCtrl.text.trim();
       if (pin.length != 4) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please enter your 4-digit transaction PIN.')),
+          const SnackBar(
+            content: Text('Please enter your 4-digit transaction PIN.'),
+          ),
         );
         return;
       }
 
-      final ok = await ref.read(securityProvider.notifier).verifyTransactionPin(pin);
+      final ok = await ref
+          .read(securityProvider.notifier)
+          .verifyTransactionPin(pin);
       if (!ok) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
@@ -91,13 +99,18 @@ class _SendMoneySheetState extends ConsumerState<SendMoneySheet> {
 
     try {
       final dio = ApiClient.instance.dio;
-      await dio.post('/wallet/transfers/send', data: {
-        'recipient_username': recipient.replaceFirst('@', ''),
-        'amount': minor,
-        'currency': 'USD',
-        'note': _noteCtrl.text.trim().isNotEmpty ? _noteCtrl.text.trim() : null,
-        if (security.isTransactionPinSet) 'pin': _pinCtrl.text.trim(),
-      });
+      await dio.post(
+        '/wallet/transfers/send',
+        data: {
+          'recipient_username': recipient.replaceFirst('@', ''),
+          'amount': minor,
+          'currency': 'USD',
+          'note': _noteCtrl.text.trim().isNotEmpty
+              ? _noteCtrl.text.trim()
+              : null,
+          if (security.isTransactionPinSet) 'pin': _pinCtrl.text.trim(),
+        },
+      );
 
       await ref.read(walletProvider.notifier).refresh();
 
@@ -105,7 +118,9 @@ class _SendMoneySheetState extends ConsumerState<SendMoneySheet> {
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Successfully sent \$${rawAmt.toStringAsFixed(2)} to @$recipient!'),
+          content: Text(
+            'Successfully sent \$${rawAmt.toStringAsFixed(2)} to @$recipient!',
+          ),
           backgroundColor: const Color(0xFF10B981),
         ),
       );
@@ -113,7 +128,9 @@ class _SendMoneySheetState extends ConsumerState<SendMoneySheet> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Transfer failed. Please check recipient details and available balance.'),
+          content: Text(
+            'Transfer failed. Please check recipient details and available balance.',
+          ),
           backgroundColor: Colors.redAccent,
         ),
       );
@@ -128,7 +145,9 @@ class _SendMoneySheetState extends ConsumerState<SendMoneySheet> {
     final bg = isDark ? const Color(0xFF14171E) : Colors.white;
     final textPrimary = isDark ? Colors.white : const Color(0xFF111827);
     final textSecondary = isDark ? Colors.grey[400] : const Color(0xFF6B7280);
-    final borderColor = isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE5E7EB);
+    final borderColor = isDark
+        ? const Color(0xFF2C2C2E)
+        : const Color(0xFFE5E7EB);
     final media = MediaQuery.of(context);
     final security = ref.watch(securityProvider);
 
@@ -166,7 +185,11 @@ class _SendMoneySheetState extends ConsumerState<SendMoneySheet> {
               children: [
                 GestureDetector(
                   onTap: () => Navigator.pop(context),
-                  child: Icon(Icons.arrow_back_rounded, color: textPrimary, size: 22),
+                  child: Icon(
+                    Icons.arrow_back_rounded,
+                    color: textPrimary,
+                    size: 22,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Text(
@@ -187,7 +210,9 @@ class _SendMoneySheetState extends ConsumerState<SendMoneySheet> {
               height: 46,
               padding: const EdgeInsets.symmetric(horizontal: 14),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1C1C1E) : const Color(0xFFF3F4F6),
+                color: isDark
+                    ? const Color(0xFF1C1C1E)
+                    : const Color(0xFFF3F4F6),
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: borderColor, width: 0.8),
               ),
@@ -200,8 +225,12 @@ class _SendMoneySheetState extends ConsumerState<SendMoneySheet> {
                       controller: _recipientCtrl,
                       style: TextStyle(fontSize: 14, color: textPrimary),
                       decoration: InputDecoration(
+                        filled: false,
                         hintText: 'Search people, username or phone...',
-                        hintStyle: TextStyle(fontSize: 14, color: textSecondary),
+                        hintStyle: TextStyle(
+                          fontSize: 14,
+                          color: textSecondary,
+                        ),
                         border: InputBorder.none,
                         isDense: true,
                         contentPadding: EdgeInsets.zero,
@@ -222,7 +251,8 @@ class _SendMoneySheetState extends ConsumerState<SendMoneySheet> {
                   return Padding(
                     padding: const EdgeInsets.only(right: 14),
                     child: GestureDetector(
-                      onTap: () => setState(() => _recipientCtrl.text = c.username),
+                      onTap: () =>
+                          setState(() => _recipientCtrl.text = c.username),
                       child: Column(
                         children: [
                           Container(
@@ -230,9 +260,15 @@ class _SendMoneySheetState extends ConsumerState<SendMoneySheet> {
                             height: 50,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: isSel ? DesignTokens.primary : (isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE5E7EB)),
+                              color: isSel
+                                  ? DesignTokens.primary
+                                  : (isDark
+                                        ? const Color(0xFF2C2C2E)
+                                        : const Color(0xFFE5E7EB)),
                               border: Border.all(
-                                color: isSel ? DesignTokens.primary : Colors.transparent,
+                                color: isSel
+                                    ? DesignTokens.primary
+                                    : Colors.transparent,
                                 width: 2,
                               ),
                             ),
@@ -269,13 +305,21 @@ class _SendMoneySheetState extends ConsumerState<SendMoneySheet> {
                       height: 50,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF3F4F6),
+                        color: isDark
+                            ? const Color(0xFF2C2C2E)
+                            : const Color(0xFFF3F4F6),
                         border: Border.all(color: borderColor, width: 0.8),
                       ),
-                      child: Icon(Icons.more_horiz_rounded, color: textSecondary),
+                      child: Icon(
+                        Icons.more_horiz_rounded,
+                        color: textSecondary,
+                      ),
                     ),
                     const SizedBox(height: 4),
-                    Text('More', style: TextStyle(fontSize: 11, color: textSecondary)),
+                    Text(
+                      'More',
+                      style: TextStyle(fontSize: 11, color: textSecondary),
+                    ),
                   ],
                 ),
               ],
@@ -311,7 +355,9 @@ class _SendMoneySheetState extends ConsumerState<SendMoneySheet> {
                       Expanded(
                         child: TextField(
                           controller: _amountCtrl,
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
                           style: TextStyle(
                             fontSize: 32,
                             fontWeight: FontWeight.w900,
@@ -319,6 +365,7 @@ class _SendMoneySheetState extends ConsumerState<SendMoneySheet> {
                             letterSpacing: -0.5,
                           ),
                           decoration: const InputDecoration(
+                            filled: false,
                             border: InputBorder.none,
                             contentPadding: EdgeInsets.zero,
                           ),
@@ -331,9 +378,14 @@ class _SendMoneySheetState extends ConsumerState<SendMoneySheet> {
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF3F4F6),
+                    color: isDark
+                        ? const Color(0xFF2C2C2E)
+                        : const Color(0xFFF3F4F6),
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(color: borderColor, width: 0.8),
                   ),
@@ -350,7 +402,11 @@ class _SendMoneySheetState extends ConsumerState<SendMoneySheet> {
                         ),
                       ),
                       const SizedBox(width: 4),
-                      Icon(Icons.keyboard_arrow_down_rounded, size: 16, color: textSecondary),
+                      Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        size: 16,
+                        color: textSecondary,
+                      ),
                     ],
                   ),
                 ),
@@ -361,7 +417,10 @@ class _SendMoneySheetState extends ConsumerState<SendMoneySheet> {
             // Quick Amount Chips
             Row(
               children: _presets.map((p) {
-                final isSel = _selectedAmount == p || _amountCtrl.text == p || _amountCtrl.text == '$p.00';
+                final isSel =
+                    _selectedAmount == p ||
+                    _amountCtrl.text == p ||
+                    _amountCtrl.text == '$p.00';
                 return Expanded(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -376,7 +435,9 @@ class _SendMoneySheetState extends ConsumerState<SendMoneySheet> {
                       child: Container(
                         padding: const EdgeInsets.symmetric(vertical: 8),
                         decoration: BoxDecoration(
-                          color: isSel ? DesignTokens.primary.withValues(alpha: 0.12) : Colors.transparent,
+                          color: isSel
+                              ? DesignTokens.primary.withValues(alpha: 0.12)
+                              : Colors.transparent,
                           borderRadius: BorderRadius.circular(10),
                           border: Border.all(
                             color: isSel ? DesignTokens.primary : borderColor,
@@ -423,7 +484,9 @@ class _SendMoneySheetState extends ConsumerState<SendMoneySheet> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1C1C1E) : const Color(0xFFF3F4F6),
+                color: isDark
+                    ? const Color(0xFF1C1C1E)
+                    : const Color(0xFFF3F4F6),
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: borderColor, width: 0.8),
               ),
@@ -433,6 +496,7 @@ class _SendMoneySheetState extends ConsumerState<SendMoneySheet> {
                 maxLines: 2,
                 style: TextStyle(fontSize: 13, color: textPrimary),
                 decoration: InputDecoration(
+                  filled: false,
                   hintText: 'Thanks for your help! 🙏',
                   hintStyle: TextStyle(fontSize: 13, color: textSecondary),
                   border: InputBorder.none,
@@ -459,7 +523,9 @@ class _SendMoneySheetState extends ConsumerState<SendMoneySheet> {
                 height: 48,
                 padding: const EdgeInsets.symmetric(horizontal: 14),
                 decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF1C1C1E) : const Color(0xFFF3F4F6),
+                  color: isDark
+                      ? const Color(0xFF1C1C1E)
+                      : const Color(0xFFF3F4F6),
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(color: borderColor, width: 0.8),
                 ),
@@ -477,8 +543,12 @@ class _SendMoneySheetState extends ConsumerState<SendMoneySheet> {
                       color: textPrimary,
                     ),
                     decoration: InputDecoration(
+                      filled: false,
                       hintText: '••••',
-                      hintStyle: TextStyle(letterSpacing: 8, color: textSecondary),
+                      hintStyle: TextStyle(
+                        letterSpacing: 8,
+                        color: textSecondary,
+                      ),
                       border: InputBorder.none,
                       counterText: '',
                       contentPadding: EdgeInsets.zero,
@@ -498,18 +568,26 @@ class _SendMoneySheetState extends ConsumerState<SendMoneySheet> {
                   backgroundColor: DesignTokens.primary,
                   foregroundColor: Colors.white,
                   elevation: 0,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
                 ),
                 onPressed: _loading ? null : _handleSend,
                 child: _loading
                     ? const SizedBox(
                         width: 22,
                         height: 22,
-                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.2),
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2.2,
+                        ),
                       )
                     : const Text(
                         'Continue',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
               ),
             ),
@@ -527,4 +605,3 @@ class _Contact {
 
   const _Contact(this.name, this.username, this.avatar);
 }
-

@@ -33,28 +33,7 @@ class CommunityDetailScreen extends ConsumerStatefulWidget {
   ConsumerState<CommunityDetailScreen> createState() => _CommunityDetailScreenState();
 }
 
-class _CommunityDetailScreenState extends ConsumerState<CommunityDetailScreen>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 4, vsync: this);
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
-
-  void _syncTabCount(int length) {
-    if (_tabController.length == length) return;
-    final index = _tabController.index.clamp(0, length - 1);
-    _tabController.dispose();
-    _tabController = TabController(length: length, vsync: this, initialIndex: index);
-  }
+class _CommunityDetailScreenState extends ConsumerState<CommunityDetailScreen> {
 
   Future<void> _openChat(int communityId) async {
     final conversation =
@@ -232,67 +211,68 @@ class _CommunityDetailScreenState extends ConsumerState<CommunityDetailScreen>
         ref.watch(myCommunitiesProvider).communities.any((c) => c.id == community.id);
     final isMember = isCreator || (membership?.isMember ?? false) || inMyList || community.isJoined;
     final tabCount = isCreator ? 5 : 4;
-    _syncTabCount(tabCount);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final cardBg = isDark ? const Color(0xFF1C1C1E) : Colors.white;
     final textSecondary = isDark ? Colors.grey[400] : const Color(0xFF8E8E93);
 
-    return NestedScrollView(
-      headerSliverBuilder: (BuildContext context, bool innerBoxIsScrolled) {
-        return [
-          SliverToBoxAdapter(
-            child: _CommunityHeader(
-              community: community,
-              membership: membership,
-              isMember: isMember,
-              isCreator: isCreator,
-              onJoin: () => _join(community),
-              onLeave: () => _leave(community),
-            ),
-          ),
-          SliverPersistentHeader(
-            pinned: true,
-            delegate: _SliverTabBarDelegate(
-              TabBar(
-                controller: _tabController,
-                isScrollable: true,
-                tabAlignment: TabAlignment.start,
-                labelColor: DesignTokens.primary,
-                unselectedLabelColor: textSecondary,
-                indicatorColor: DesignTokens.primary,
-                tabs: [
-                  const Tab(text: 'Feed'),
-                  const Tab(text: 'Courses & Goods'),
-                  const Tab(text: 'Chats'),
-                  const Tab(text: 'Members'),
-                  if (isCreator) const Tab(text: 'Requests'),
-                ],
+    return DefaultTabController(
+      key: ValueKey('community_tabs_${community.id}_$tabCount'),
+      length: tabCount,
+      child: NestedScrollView(
+        headerSliverBuilder: (BuildContext context, bool innerBoxIsScrolled) {
+          return [
+            SliverToBoxAdapter(
+              child: _CommunityHeader(
+                community: community,
+                membership: membership,
+                isMember: isMember,
+                isCreator: isCreator,
+                onJoin: () => _join(community),
+                onLeave: () => _leave(community),
               ),
-              backgroundColor: cardBg,
             ),
-          ),
-        ];
-      },
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          _FeedTab(
-            community: community,
-            isMember: isMember,
-            onCompose: () => _compose(community),
-          ),
-          _CoursesAndGoodsTab(
-            community: community,
-            isMember: isMember,
-          ),
-          _ChatsTab(
-            community: community,
-            isMember: isMember,
-            onOpenChat: () => _openChat(community.id),
-          ),
-          _MembersTab(communityId: community.id),
-          if (isCreator) _RequestsTab(communityId: community.id),
-        ],
+            SliverPersistentHeader(
+              pinned: true,
+              delegate: _SliverTabBarDelegate(
+                TabBar(
+                  isScrollable: true,
+                  tabAlignment: TabAlignment.start,
+                  labelColor: DesignTokens.primary,
+                  unselectedLabelColor: textSecondary,
+                  indicatorColor: DesignTokens.primary,
+                  tabs: [
+                    const Tab(text: 'Feed'),
+                    const Tab(text: 'Courses & Goods'),
+                    const Tab(text: 'Chats'),
+                    const Tab(text: 'Members'),
+                    if (isCreator) const Tab(text: 'Requests'),
+                  ],
+                ),
+                backgroundColor: cardBg,
+              ),
+            ),
+          ];
+        },
+        body: TabBarView(
+          children: [
+            _FeedTab(
+              community: community,
+              isMember: isMember,
+              onCompose: () => _compose(community),
+            ),
+            _CoursesAndGoodsTab(
+              community: community,
+              isMember: isMember,
+            ),
+            _ChatsTab(
+              community: community,
+              isMember: isMember,
+              onOpenChat: () => _openChat(community.id),
+            ),
+            _MembersTab(communityId: community.id),
+            if (isCreator) _RequestsTab(communityId: community.id),
+          ],
+        ),
       ),
     );
   }

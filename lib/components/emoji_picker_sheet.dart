@@ -66,8 +66,11 @@ Map<String, List<String>> _buildSearchIndex() {
     final name = entry.value
         .substring(entry.value.lastIndexOf('/') + 1)
         .replaceAll('.webp', '');
-    index[entry.key] =
-        name.toLowerCase().split(RegExp('[^a-z0-9]+')).where((w) => w.isNotEmpty).toList();
+    index[entry.key] = name
+        .toLowerCase()
+        .split(RegExp('[^a-z0-9]+'))
+        .where((w) => w.isNotEmpty)
+        .toList();
   }
   return index;
 }
@@ -191,8 +194,11 @@ class _EmojiPickerPanelState extends State<EmojiPickerPanel> {
       child: Row(
         children: [
           const SizedBox(width: 10),
-          Icon(Icons.search_rounded,
-              size: 16, color: isDark ? const Color(0xFF8E8E93) : const Color(0xFF61758A)),
+          Icon(
+            Icons.search_rounded,
+            size: 16,
+            color: isDark ? const Color(0xFF8E8E93) : const Color(0xFF61758A),
+          ),
           const SizedBox(width: 6),
           Expanded(
             child: TextField(
@@ -207,6 +213,7 @@ class _EmojiPickerPanelState extends State<EmojiPickerPanel> {
                 color: isDark ? Colors.white : Colors.black,
               ),
               decoration: InputDecoration(
+                filled: false,
                 hintText: 'Search emoji…',
                 isDense: true,
                 border: InputBorder.none,
@@ -215,7 +222,9 @@ class _EmojiPickerPanelState extends State<EmojiPickerPanel> {
                 contentPadding: const EdgeInsets.symmetric(vertical: 8),
                 hintStyle: TextStyle(
                   fontSize: 13,
-                  color: isDark ? const Color(0xFF8E8E93) : const Color(0xFF8E8E93),
+                  color: isDark
+                      ? const Color(0xFF8E8E93)
+                      : const Color(0xFF8E8E93),
                 ),
               ),
             ),
@@ -226,8 +235,13 @@ class _EmojiPickerPanelState extends State<EmojiPickerPanel> {
                 _searchController.clear();
                 setState(() => _query = '');
               },
-              icon: Icon(Icons.cancel_rounded,
-                  size: 16, color: isDark ? const Color(0xFF8E8E93) : const Color(0xFF61758A)),
+              icon: Icon(
+                Icons.cancel_rounded,
+                size: 16,
+                color: isDark
+                    ? const Color(0xFF8E8E93)
+                    : const Color(0xFF61758A),
+              ),
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
             ),
@@ -235,8 +249,13 @@ class _EmojiPickerPanelState extends State<EmojiPickerPanel> {
             const SizedBox(width: 2),
             IconButton(
               onPressed: widget.onBackspace,
-              icon: Icon(Icons.backspace_outlined,
-                  size: 18, color: isDark ? const Color(0xFF8E8E93) : const Color(0xFF61758A)),
+              icon: Icon(
+                Icons.backspace_outlined,
+                size: 18,
+                color: isDark
+                    ? const Color(0xFF8E8E93)
+                    : const Color(0xFF61758A),
+              ),
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
               tooltip: 'Backspace',
@@ -264,7 +283,11 @@ class _EmojiPickerPanelState extends State<EmojiPickerPanel> {
           return GestureDetector(
             onTap: () {
               setState(() => _tab = index);
-              _warm(isRecent ? _recents : _emojisForFolder(_kCategories[index - 1].folder));
+              _warm(
+                isRecent
+                    ? _recents
+                    : _emojisForFolder(_kCategories[index - 1].folder),
+              );
             },
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 150),
@@ -280,14 +303,17 @@ class _EmojiPickerPanelState extends State<EmojiPickerPanel> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   if (isRecent)
-                    Icon(Icons.history_rounded,
-                        size: 15,
-                        color: selected ? DesignTokens.primary : (isDark ? const Color(0xFF8E8E93) : const Color(0xFF61758A)))
+                    Icon(
+                      Icons.history_rounded,
+                      size: 15,
+                      color: selected
+                          ? DesignTokens.primary
+                          : (isDark
+                                ? const Color(0xFF8E8E93)
+                                : const Color(0xFF61758A)),
+                    )
                   else
-                    AnimatedEmoji(
-                      emoji: _kCategories[index - 1].rep,
-                      size: 20,
-                    ),
+                    AnimatedEmoji(emoji: _kCategories[index - 1].rep, size: 20),
                   const SizedBox(width: 4),
                   Text(
                     label,
@@ -323,8 +349,8 @@ class _EmojiPickerPanelState extends State<EmojiPickerPanel> {
     final emptyLabel = searching
         ? 'No emojis found for "$_query"'
         : _tab == _recentTab
-            ? 'Emojis you use will appear here'
-            : 'No emojis in this category';
+        ? 'Emojis you use will appear here'
+        : 'No emojis in this category';
 
     if (empty) {
       return Center(
@@ -356,9 +382,7 @@ class _EmojiPickerPanelState extends State<EmojiPickerPanel> {
               borderRadius: BorderRadius.circular(9),
               splashColor: DesignTokens.primary.withValues(alpha: 0.18),
               highlightColor: DesignTokens.primary.withValues(alpha: 0.08),
-              child: Center(
-                child: AnimatedEmoji(emoji: emoji, size: 26),
-              ),
+              child: Center(child: AnimatedEmoji(emoji: emoji, size: 26)),
             );
           },
         );

@@ -136,8 +136,11 @@ class _BrandDealsScreenState extends ConsumerState<BrandDealsScreen>
     // Filter by Category
     if (_selectedCategory != 'All') {
       filtered = filtered.where((d) {
-        final cat = d['category'] ?? d['industry'] ?? d['brand']?['industry'] ?? '';
-        return cat.toString().toLowerCase().contains(_selectedCategory.toLowerCase());
+        final cat =
+            d['category'] ?? d['industry'] ?? d['brand']?['industry'] ?? '';
+        return cat.toString().toLowerCase().contains(
+          _selectedCategory.toLowerCase(),
+        );
       }).toList();
     }
 
@@ -146,7 +149,9 @@ class _BrandDealsScreenState extends ConsumerState<BrandDealsScreen>
       final q = _searchQuery.toLowerCase();
       filtered = filtered.where((d) {
         final title = (d['title'] ?? '').toString().toLowerCase();
-        final brand = (d['brand']?['name'] ?? d['brandName'] ?? '').toString().toLowerCase();
+        final brand = (d['brand']?['name'] ?? d['brandName'] ?? '')
+            .toString()
+            .toLowerCase();
         return title.contains(q) || brand.contains(q);
       }).toList();
     }
@@ -226,10 +231,16 @@ class _BrandDealsScreenState extends ConsumerState<BrandDealsScreen>
                         Container(
                           padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFFF9500).withValues(alpha: 0.15),
+                            color: const Color(
+                              0xFFFF9500,
+                            ).withValues(alpha: 0.15),
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(Icons.campaign_rounded, color: Color(0xFFFF9500), size: 24),
+                          child: const Icon(
+                            Icons.campaign_rounded,
+                            color: Color(0xFFFF9500),
+                            size: 24,
+                          ),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
@@ -246,7 +257,10 @@ class _BrandDealsScreenState extends ConsumerState<BrandDealsScreen>
                               ),
                               Text(
                                 'Lock budget in Escrow to hire verified creators',
-                                style: TextStyle(fontSize: 12, color: textSecondary),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: textSecondary,
+                                ),
                               ),
                             ],
                           ),
@@ -266,7 +280,9 @@ class _BrandDealsScreenState extends ConsumerState<BrandDealsScreen>
                         prefixIcon: const Icon(Icons.title_rounded),
                         labelText: 'Campaign Title',
                         hintText: 'e.g. Summer Showcase Video Review',
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -278,30 +294,55 @@ class _BrandDealsScreenState extends ConsumerState<BrandDealsScreen>
                         prefixIcon: const Icon(Icons.business_rounded),
                         labelText: 'Brand / Company Name',
                         hintText: 'e.g. Acme Tech',
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 12),
 
                     DropdownButtonFormField<String>(
                       value: selectedCategory,
-                      dropdownColor: isDark ? const Color(0xFF2C2C2E) : Colors.white,
+                      dropdownColor: isDark
+                          ? const Color(0xFF2C2C2E)
+                          : Colors.white,
                       style: TextStyle(color: textPrimary),
                       decoration: InputDecoration(
                         prefixIcon: const Icon(Icons.category_rounded),
                         labelText: 'Category',
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
                       ),
                       items: const [
-                        DropdownMenuItem(value: 'Tech & Electronics', child: Text('Tech & Electronics')),
-                        DropdownMenuItem(value: 'Fashion & Beauty', child: Text('Fashion & Beauty')),
-                        DropdownMenuItem(value: 'Fitness & Lifestyle', child: Text('Fitness & Lifestyle')),
-                        DropdownMenuItem(value: 'FinTech', child: Text('FinTech & Crypto')),
-                        DropdownMenuItem(value: 'Gaming & Streaming', child: Text('Gaming & Streaming')),
-                        DropdownMenuItem(value: 'Food & Travel', child: Text('Food & Travel')),
+                        DropdownMenuItem(
+                          value: 'Tech & Electronics',
+                          child: Text('Tech & Electronics'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'Fashion & Beauty',
+                          child: Text('Fashion & Beauty'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'Fitness & Lifestyle',
+                          child: Text('Fitness & Lifestyle'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'FinTech',
+                          child: Text('FinTech & Crypto'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'Gaming & Streaming',
+                          child: Text('Gaming & Streaming'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'Food & Travel',
+                          child: Text('Food & Travel'),
+                        ),
                       ],
                       onChanged: (v) {
-                        if (v != null) setModalState(() => selectedCategory = v);
+                        if (v != null)
+                          setModalState(() => selectedCategory = v);
                       },
                     ),
                     const SizedBox(height: 12),
@@ -309,11 +350,17 @@ class _BrandDealsScreenState extends ConsumerState<BrandDealsScreen>
                     TextField(
                       controller: budgetCtrl,
                       keyboardType: TextInputType.number,
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textPrimary),
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: textPrimary,
+                      ),
                       decoration: InputDecoration(
                         prefixText: '\$ ',
                         labelText: 'Escrow Budget (USD \$)',
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -322,10 +369,18 @@ class _BrandDealsScreenState extends ConsumerState<BrandDealsScreen>
                         return Padding(
                           padding: const EdgeInsets.only(right: 6),
                           child: ChoiceChip(
-                            label: Text('\$$preset', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+                            label: Text(
+                              '\$$preset',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 11,
+                              ),
+                            ),
                             selected: budgetCtrl.text == preset.toString(),
                             onSelected: (_) {
-                              setModalState(() => budgetCtrl.text = preset.toString());
+                              setModalState(
+                                () => budgetCtrl.text = preset.toString(),
+                              );
                             },
                           ),
                         );
@@ -340,8 +395,11 @@ class _BrandDealsScreenState extends ConsumerState<BrandDealsScreen>
                       decoration: InputDecoration(
                         prefixIcon: const Icon(Icons.assignment_outlined),
                         labelText: 'Required Deliverables',
-                        hintText: 'e.g. 1 60s Reel Video + 2 Story mentions with swipe-up link',
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                        hintText:
+                            'e.g. 1 60s Reel Video + 2 Story mentions with swipe-up link',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 20),
@@ -352,19 +410,27 @@ class _BrandDealsScreenState extends ConsumerState<BrandDealsScreen>
                       child: FilledButton(
                         style: FilledButton.styleFrom(
                           backgroundColor: const Color(0xFF10B981),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
                         ),
                         onPressed: isSubmitting
                             ? null
                             : () async {
                                 final title = titleCtrl.text.trim();
                                 final brandName = brandCtrl.text.trim();
-                                final budget = double.tryParse(budgetCtrl.text.trim()) ?? 500;
+                                final budget =
+                                    double.tryParse(budgetCtrl.text.trim()) ??
+                                    500;
                                 final deliverables = deliverCtrl.text.trim();
 
                                 if (title.isEmpty || brandName.isEmpty) {
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('Please fill out campaign title and brand name.')),
+                                    const SnackBar(
+                                      content: Text(
+                                        'Please fill out campaign title and brand name.',
+                                      ),
+                                    ),
                                   );
                                   return;
                                 }
@@ -374,52 +440,77 @@ class _BrandDealsScreenState extends ConsumerState<BrandDealsScreen>
                                 try {
                                   // Match an existing brand by the entered name (case-insensitive).
                                   int? brandId;
-                                  final normalizedName = brandName.trim().toLowerCase();
+                                  final normalizedName = brandName
+                                      .trim()
+                                      .toLowerCase();
                                   if (normalizedName.isNotEmpty) {
                                     for (final brand in _brands) {
-                                      final name = (brand['name'] as String?)?.trim().toLowerCase();
+                                      final name = (brand['name'] as String?)
+                                          ?.trim()
+                                          .toLowerCase();
                                       if (name == normalizedName) {
                                         final rawId = brand['id'];
                                         brandId = rawId is int
                                             ? rawId
                                             : (rawId is num
-                                                ? rawId.toInt()
-                                                : int.tryParse(rawId?.toString() ?? ''));
+                                                  ? rawId.toInt()
+                                                  : int.tryParse(
+                                                      rawId?.toString() ?? '',
+                                                    ));
                                         break;
                                       }
                                     }
                                   }
 
                                   if (brandId == null) {
-                                    final brandRes = await ApiClient.instance.dio.post('/brands', data: {
-                                      'name': brandName,
-                                      'industry': selectedCategory,
-                                    });
-                                    final rawNewId = brandRes.data['data']?['id'] ?? brandRes.data['id'];
+                                    final brandRes = await ApiClient
+                                        .instance
+                                        .dio
+                                        .post(
+                                          '/brands',
+                                          data: {
+                                            'name': brandName,
+                                            'industry': selectedCategory,
+                                          },
+                                        );
+                                    final rawNewId =
+                                        brandRes.data['data']?['id'] ??
+                                        brandRes.data['id'];
                                     brandId = rawNewId is int
                                         ? rawNewId
                                         : (rawNewId is num
-                                            ? rawNewId.toInt()
-                                            : int.tryParse(rawNewId?.toString() ?? ''));
+                                              ? rawNewId.toInt()
+                                              : int.tryParse(
+                                                  rawNewId?.toString() ?? '',
+                                                ));
                                   }
 
                                   if (brandId == null) {
-                                    throw Exception('Could not resolve a brand for this deal.');
+                                    throw Exception(
+                                      'Could not resolve a brand for this deal.',
+                                    );
                                   }
 
-                                  await ApiClient.instance.dio.post('/brand-deals', data: {
-                                    'brand_id': brandId,
-                                    'title': title,
-                                    'deal_type': selectedDealType,
-                                    'budget': budget.toInt(),
-                                    'currency': 'USD',
-                                    'deliverables': deliverables,
-                                  });
+                                  await ApiClient.instance.dio.post(
+                                    '/brand-deals',
+                                    data: {
+                                      'brand_id': brandId,
+                                      'title': title,
+                                      'deal_type': selectedDealType,
+                                      'budget': budget.toInt(),
+                                      'currency': 'USD',
+                                      'deliverables': deliverables,
+                                    },
+                                  );
 
                                   if (context.mounted) {
                                     Navigator.pop(ctx);
                                     ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('Brand deal posted and secured in escrow!')),
+                                      const SnackBar(
+                                        content: Text(
+                                          'Brand deal posted and secured in escrow!',
+                                        ),
+                                      ),
                                     );
                                     _fetchDealsAndBrands();
                                   }
@@ -427,16 +518,25 @@ class _BrandDealsScreenState extends ConsumerState<BrandDealsScreen>
                                   setModalState(() => isSubmitting = false);
                                   if (context.mounted) {
                                     ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(content: Text('Failed to post deal: $e')),
+                                      SnackBar(
+                                        content: Text(
+                                          'Failed to post deal: $e',
+                                        ),
+                                      ),
                                     );
                                   }
                                 }
                               },
                         child: isSubmitting
-                            ? const CircularProgressIndicator(color: Colors.white)
+                            ? const CircularProgressIndicator(
+                                color: Colors.white,
+                              )
                             : const Text(
                                 'Lock Escrow & Publish Deal',
-                                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 15,
+                                ),
                               ),
                       ),
                     ),
@@ -458,9 +558,12 @@ class _BrandDealsScreenState extends ConsumerState<BrandDealsScreen>
     bool submitting = false;
 
     final title = (deal['title'] ?? 'Brand Campaign').toString();
-    final brandName = (deal['brand']?['name'] ?? deal['brandName'] ?? 'Brand Partner').toString();
+    final brandName =
+        (deal['brand']?['name'] ?? deal['brandName'] ?? 'Brand Partner')
+            .toString();
     final budget = _parseBudget(deal['budget'] ?? deal['budgetEscrow']);
-    final deliverables = (deal['deliverables'] ?? 'Deliverables specified in brief').toString();
+    final deliverables =
+        (deal['deliverables'] ?? 'Deliverables specified in brief').toString();
 
     showModalBottomSheet<void>(
       context: context,
@@ -502,24 +605,39 @@ class _BrandDealsScreenState extends ConsumerState<BrandDealsScreen>
                         children: [
                           Text(
                             'Campaign Brief & Pitch',
-                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: textPrimary),
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                              color: textPrimary,
+                            ),
                           ),
                           Text(
                             brandName,
-                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: DesignTokens.primary),
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: DesignTokens.primary,
+                            ),
                           ),
                         ],
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFF10B981).withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
                         '\$${budget.toStringAsFixed(0)} ESCROW',
-                        style: const TextStyle(color: Color(0xFF10B981), fontWeight: FontWeight.w800, fontSize: 12),
+                        style: const TextStyle(
+                          color: Color(0xFF10B981),
+                          fontWeight: FontWeight.w800,
+                          fontSize: 12,
+                        ),
                       ),
                     ),
                   ],
@@ -527,23 +645,37 @@ class _BrandDealsScreenState extends ConsumerState<BrandDealsScreen>
                 const SizedBox(height: 14),
                 Text(
                   title,
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: textPrimary),
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: textPrimary,
+                  ),
                 ),
                 const SizedBox(height: 8),
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF3F4F6),
+                    color: isDark
+                        ? const Color(0xFF2C2C2E)
+                        : const Color(0xFFF3F4F6),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.inventory_2_outlined, size: 18, color: DesignTokens.primary),
+                      const Icon(
+                        Icons.inventory_2_outlined,
+                        size: 18,
+                        color: DesignTokens.primary,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           deliverables,
-                          style: TextStyle(fontSize: 12, color: textPrimary, fontWeight: FontWeight.w500),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: textPrimary,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ),
                     ],
@@ -555,13 +687,18 @@ class _BrandDealsScreenState extends ConsumerState<BrandDealsScreen>
                   maxLines: 4,
                   style: TextStyle(color: textPrimary, fontSize: 14),
                   decoration: InputDecoration(
-                    hintText: 'Introduce yourself, why you are a great match, and propose your production timeline...',
+                    hintText:
+                        'Introduce yourself, why you are a great match, and propose your production timeline...',
                     hintStyle: TextStyle(color: textSecondary, fontSize: 13),
                     filled: true,
-                    fillColor: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF9FAFB),
+                    fillColor: isDark
+                        ? const Color(0xFF2C2C2E)
+                        : const Color(0xFFF9FAFB),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(14),
-                      borderSide: BorderSide(color: isDark ? Colors.white12 : Colors.black12),
+                      borderSide: BorderSide(
+                        color: isDark ? Colors.white12 : Colors.black12,
+                      ),
                     ),
                   ),
                 ),
@@ -576,22 +713,33 @@ class _BrandDealsScreenState extends ConsumerState<BrandDealsScreen>
                             final pitch = pitchCtrl.text.trim();
                             if (pitch.isEmpty) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Please write a short pitch to submit proposal.')),
+                                const SnackBar(
+                                  content: Text(
+                                    'Please write a short pitch to submit proposal.',
+                                  ),
+                                ),
                               );
                               return;
                             }
                             setModalState(() => submitting = true);
                             try {
-                              await ApiClient.instance.dio.post('/brand-proposals', data: {
-                                'brand_deal_id': deal['id'],
-                                'cover_letter': pitch,
-                                'proposed_budget': budget.toInt(),
-                              });
+                              await ApiClient.instance.dio.post(
+                                '/brand-proposals',
+                                data: {
+                                  'brand_deal_id': deal['id'],
+                                  'cover_letter': pitch,
+                                  'proposed_budget': budget.toInt(),
+                                },
+                              );
                             } catch (e) {
                               if (context.mounted) {
                                 setModalState(() => submitting = false);
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('Could not submit your application: $e')),
+                                  SnackBar(
+                                    content: Text(
+                                      'Could not submit your application: $e',
+                                    ),
+                                  ),
                                 );
                               }
                               return;
@@ -600,18 +748,27 @@ class _BrandDealsScreenState extends ConsumerState<BrandDealsScreen>
                             if (context.mounted) {
                               Navigator.pop(ctx);
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Application submitted successfully!')),
+                                const SnackBar(
+                                  content: Text(
+                                    'Application submitted successfully!',
+                                  ),
+                                ),
                               );
                               _fetchDealsAndBrands();
                             }
                           },
                     style: FilledButton.styleFrom(
                       backgroundColor: DesignTokens.primary,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                     child: submitting
                         ? const CircularProgressIndicator(color: Colors.white)
-                        : const Text('Submit Application & Lock Pitch', style: TextStyle(fontWeight: FontWeight.w700)),
+                        : const Text(
+                            'Submit Application & Lock Pitch',
+                            style: TextStyle(fontWeight: FontWeight.w700),
+                          ),
                   ),
                 ),
               ],
@@ -628,8 +785,12 @@ class _BrandDealsScreenState extends ConsumerState<BrandDealsScreen>
     final bg = isDark ? Colors.black : const Color(0xFFF8F9FA);
     final cardBg = isDark ? const Color(0xFF1C1C1E) : Colors.white;
     final textPrimary = isDark ? Colors.white : const Color(0xFF111827);
-    final textSecondary = isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280);
-    final borderColor = isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE5E7EB);
+    final textSecondary = isDark
+        ? const Color(0xFF9CA3AF)
+        : const Color(0xFF6B7280);
+    final borderColor = isDark
+        ? const Color(0xFF2C2C2E)
+        : const Color(0xFFE5E7EB);
 
     return Scaffold(
       backgroundColor: bg,
@@ -639,7 +800,11 @@ class _BrandDealsScreenState extends ConsumerState<BrandDealsScreen>
         scrolledUnderElevation: 0,
         leading: Navigator.canPop(context)
             ? IconButton(
-                icon: Icon(Icons.arrow_back_ios_new_rounded, color: textPrimary, size: 20),
+                icon: Icon(
+                  Icons.arrow_back_ios_new_rounded,
+                  color: textPrimary,
+                  size: 20,
+                ),
                 onPressed: () => Navigator.pop(context),
               )
             : null,
@@ -673,12 +838,20 @@ class _BrandDealsScreenState extends ConsumerState<BrandDealsScreen>
                 MaterialPageRoute(builder: (_) => const BrandDealsHelpScreen()),
               );
             },
-            icon: const Icon(Icons.shield_outlined, color: Color(0xFF10B981), size: 22),
+            icon: const Icon(
+              Icons.shield_outlined,
+              color: Color(0xFF10B981),
+              size: 22,
+            ),
             tooltip: 'Escrow Protection Guide',
           ),
           IconButton(
             onPressed: _showPostBrandDealDialog,
-            icon: const Icon(Icons.add_circle_outline_rounded, color: DesignTokens.primary, size: 24),
+            icon: const Icon(
+              Icons.add_circle_outline_rounded,
+              color: DesignTokens.primary,
+              size: 24,
+            ),
             tooltip: 'Post Sponsorship Deal',
           ),
           const SizedBox(width: 4),
@@ -687,7 +860,9 @@ class _BrandDealsScreenState extends ConsumerState<BrandDealsScreen>
           preferredSize: const Size.fromHeight(48),
           child: Container(
             decoration: BoxDecoration(
-              border: Border(bottom: BorderSide(color: borderColor, width: 0.8)),
+              border: Border(
+                bottom: BorderSide(color: borderColor, width: 0.8),
+              ),
             ),
             child: TabBar(
               controller: _tab,
@@ -695,8 +870,14 @@ class _BrandDealsScreenState extends ConsumerState<BrandDealsScreen>
               unselectedLabelColor: textSecondary,
               indicatorColor: DesignTokens.primary,
               indicatorWeight: 3,
-              labelStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
-              unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+              labelStyle: const TextStyle(
+                fontWeight: FontWeight.w800,
+                fontSize: 13,
+              ),
+              unselectedLabelStyle: const TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+              ),
               tabs: const [
                 Tab(text: 'Available'),
                 Tab(text: 'Applied'),
@@ -727,12 +908,24 @@ class _BrandDealsScreenState extends ConsumerState<BrandDealsScreen>
                       onChanged: (val) => setState(() => _searchQuery = val),
                       style: TextStyle(color: textPrimary, fontSize: 13),
                       decoration: InputDecoration(
+                        filled: false,
                         hintText: 'Search brand or campaign title...',
-                        hintStyle: TextStyle(color: textSecondary, fontSize: 12),
-                        prefixIcon: Icon(Icons.search_rounded, size: 18, color: textSecondary),
+                        hintStyle: TextStyle(
+                          color: textSecondary,
+                          fontSize: 12,
+                        ),
+                        prefixIcon: Icon(
+                          Icons.search_rounded,
+                          size: 18,
+                          color: textSecondary,
+                        ),
                         suffixIcon: _searchQuery.isNotEmpty
                             ? IconButton(
-                                icon: Icon(Icons.clear_rounded, size: 16, color: textSecondary),
+                                icon: Icon(
+                                  Icons.clear_rounded,
+                                  size: 16,
+                                  color: textSecondary,
+                                ),
                                 onPressed: () {
                                   _searchCtrl.clear();
                                   setState(() => _searchQuery = '');
@@ -740,7 +933,9 @@ class _BrandDealsScreenState extends ConsumerState<BrandDealsScreen>
                               )
                             : null,
                         border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                        contentPadding: const EdgeInsets.symmetric(
+                          vertical: 10,
+                        ),
                       ),
                     ),
                   ),
@@ -765,7 +960,9 @@ class _BrandDealsScreenState extends ConsumerState<BrandDealsScreen>
                     cat,
                     style: TextStyle(
                       fontSize: 11,
-                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                      fontWeight: isSelected
+                          ? FontWeight.w700
+                          : FontWeight.w500,
                       color: isSelected ? Colors.white : textSecondary,
                     ),
                   ),
@@ -785,7 +982,11 @@ class _BrandDealsScreenState extends ConsumerState<BrandDealsScreen>
           // ── TAB BAR VIEW ──────────────────────────────────────────
           Expanded(
             child: _isLoading
-                ? const Center(child: CircularProgressIndicator(color: DesignTokens.primary))
+                ? const Center(
+                    child: CircularProgressIndicator(
+                      color: DesignTokens.primary,
+                    ),
+                  )
                 : TabBarView(
                     controller: _tab,
                     children: List.generate(4, (tabIndex) {
@@ -806,7 +1007,8 @@ class _BrandDealsScreenState extends ConsumerState<BrandDealsScreen>
                         child: ListView.separated(
                           padding: const EdgeInsets.all(16),
                           itemCount: deals.length,
-                          separatorBuilder: (_, _) => const SizedBox(height: 14),
+                          separatorBuilder: (_, _) =>
+                              const SizedBox(height: 14),
                           itemBuilder: (ctx, i) => _buildDealCard(
                             deal: deals[i],
                             tabIndex: tabIndex,
@@ -833,7 +1035,8 @@ class _BrandDealsScreenState extends ConsumerState<BrandDealsScreen>
     required Color textSecondary,
   }) {
     String title = 'No brand deals available';
-    String subtitle = 'Check back soon or post a sponsorship brief to hire creators.';
+    String subtitle =
+        'Check back soon or post a sponsorship brief to hire creators.';
     IconData icon = Icons.campaign_outlined;
 
     if (tabIndex == 1) {
@@ -842,11 +1045,13 @@ class _BrandDealsScreenState extends ConsumerState<BrandDealsScreen>
       icon = Icons.assignment_outlined;
     } else if (tabIndex == 2) {
       title = 'No active campaigns';
-      subtitle = 'Once a brand approves your proposal, active milestones will appear here.';
+      subtitle =
+          'Once a brand approves your proposal, active milestones will appear here.';
       icon = Icons.verified_user_outlined;
     } else if (tabIndex == 3) {
       title = 'No completed deals yet';
-      subtitle = 'Successfully delivered brand deals with escrow certificates will appear here.';
+      subtitle =
+          'Successfully delivered brand deals with escrow certificates will appear here.';
       icon = Icons.workspace_premium_outlined;
     }
 
@@ -884,10 +1089,15 @@ class _BrandDealsScreenState extends ConsumerState<BrandDealsScreen>
               onPressed: _showPostBrandDealDialog,
               style: FilledButton.styleFrom(
                 backgroundColor: DesignTokens.primary,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
               icon: const Icon(Icons.add_rounded, size: 18),
-              label: const Text('Post Brand Deal', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+              label: const Text(
+                'Post Brand Deal',
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+              ),
             ),
           ],
         ),
@@ -906,11 +1116,14 @@ class _BrandDealsScreenState extends ConsumerState<BrandDealsScreen>
   }) {
     final title = (deal['title'] ?? 'Campaign Title').toString();
     final brand = deal['brand'] as Map<String, dynamic>?;
-    final brandName = (brand?['name'] ?? deal['brandName'] ?? 'Brand Partner').toString();
+    final brandName = (brand?['name'] ?? deal['brandName'] ?? 'Brand Partner')
+        .toString();
     final logoUrl = brand?['logo_url'] ?? deal['logo'];
-    final category = (deal['category'] ?? brand?['industry'] ?? 'General').toString();
+    final category = (deal['category'] ?? brand?['industry'] ?? 'General')
+        .toString();
     final budget = _parseBudget(deal['budget'] ?? deal['budgetEscrow']);
-    final deliverables = (deal['deliverables'] ?? '1 Reel + 2 Stories').toString();
+    final deliverables = (deal['deliverables'] ?? '1 Reel + 2 Stories')
+        .toString();
     final dealId = _parseDealId(deal['id']);
 
     return Container(
@@ -935,14 +1148,20 @@ class _BrandDealsScreenState extends ConsumerState<BrandDealsScreen>
             children: [
               CircleAvatar(
                 radius: 20,
-                backgroundColor: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE5E7EB),
-                backgroundImage: logoUrl != null && logoUrl.toString().isNotEmpty
+                backgroundColor: isDark
+                    ? const Color(0xFF2C2C2E)
+                    : const Color(0xFFE5E7EB),
+                backgroundImage:
+                    logoUrl != null && logoUrl.toString().isNotEmpty
                     ? CachedNetworkImageProvider(logoUrl.toString())
                     : null,
                 child: logoUrl == null || logoUrl.toString().isEmpty
                     ? Text(
                         brandName.isNotEmpty ? brandName[0].toUpperCase() : 'B',
-                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 16,
+                        ),
                       )
                     : null,
               ),
@@ -965,26 +1184,41 @@ class _BrandDealsScreenState extends ConsumerState<BrandDealsScreen>
                           ),
                         ),
                         const SizedBox(width: 4),
-                        const Icon(Icons.verified_rounded, color: DesignTokens.primary, size: 15),
+                        const Icon(
+                          Icons.verified_rounded,
+                          color: DesignTokens.primary,
+                          size: 15,
+                        ),
                       ],
                     ),
                     Text(
                       category,
-                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: textSecondary),
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        color: textSecondary,
+                      ),
                     ),
                   ],
                 ),
               ),
               // Escrow Protection Pill
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFF10B981).withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.shield_rounded, color: Color(0xFF10B981), size: 14),
+                    const Icon(
+                      Icons.shield_rounded,
+                      color: Color(0xFF10B981),
+                      size: 14,
+                    ),
                     const SizedBox(width: 4),
                     Text(
                       '\$${budget.toStringAsFixed(0)} ESCROW',
@@ -1022,12 +1256,20 @@ class _BrandDealsScreenState extends ConsumerState<BrandDealsScreen>
             ),
             child: Row(
               children: [
-                const Icon(Icons.assignment_outlined, size: 16, color: DesignTokens.primary),
+                const Icon(
+                  Icons.assignment_outlined,
+                  size: 16,
+                  color: DesignTokens.primary,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     deliverables,
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: textPrimary),
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: textPrimary,
+                    ),
                   ),
                 ),
               ],
@@ -1041,14 +1283,24 @@ class _BrandDealsScreenState extends ConsumerState<BrandDealsScreen>
               if (tabIndex == 0) ...[
                 Expanded(
                   child: FilledButton.icon(
-                    onPressed: dealId == null ? null : () => _showApplyModal(deal),
+                    onPressed: dealId == null
+                        ? null
+                        : () => _showApplyModal(deal),
                     style: FilledButton.styleFrom(
                       backgroundColor: DesignTokens.primary,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                       padding: const EdgeInsets.symmetric(vertical: 10),
                     ),
                     icon: const Icon(Icons.send_rounded, size: 16),
-                    label: const Text('View Brief & Apply', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                    label: const Text(
+                      'View Brief & Apply',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                      ),
+                    ),
                   ),
                 ),
               ] else if (tabIndex == 2) ...[
@@ -1066,11 +1318,19 @@ class _BrandDealsScreenState extends ConsumerState<BrandDealsScreen>
                           },
                     style: FilledButton.styleFrom(
                       backgroundColor: const Color(0xFF10B981),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                       padding: const EdgeInsets.symmetric(vertical: 10),
                     ),
                     icon: const Icon(Icons.rule_folder_rounded, size: 16),
-                    label: const Text('Track Milestones', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                    label: const Text(
+                      'Track Milestones',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                      ),
+                    ),
                   ),
                 ),
               ] else if (tabIndex == 3) ...[
@@ -1094,24 +1354,46 @@ class _BrandDealsScreenState extends ConsumerState<BrandDealsScreen>
                     style: OutlinedButton.styleFrom(
                       foregroundColor: textPrimary,
                       side: BorderSide(color: borderColor),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                       padding: const EdgeInsets.symmetric(vertical: 10),
                     ),
-                    icon: const Icon(Icons.verified_rounded, color: Color(0xFF10B981), size: 16),
-                    label: const Text('View Certificate', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                    icon: const Icon(
+                      Icons.verified_rounded,
+                      color: Color(0xFF10B981),
+                      size: 16,
+                    ),
+                    label: const Text(
+                      'View Certificate',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                      ),
+                    ),
                   ),
                 ),
               ] else ...[
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: dealId == null ? null : () => _showApplyModal(deal),
+                    onPressed: dealId == null
+                        ? null
+                        : () => _showApplyModal(deal),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: textPrimary,
                       side: BorderSide(color: borderColor),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                       padding: const EdgeInsets.symmetric(vertical: 10),
                     ),
-                    child: const Text('Review Proposal', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                    child: const Text(
+                      'Review Proposal',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                      ),
+                    ),
                   ),
                 ),
               ],

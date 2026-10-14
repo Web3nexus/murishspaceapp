@@ -80,7 +80,10 @@ class _CommunitiesScreenState extends ConsumerState<CommunitiesScreen>
   Future<void> _showCreateCommunity() async {
     final user = ref.read(authProvider).user;
     final role = user?.role ?? UserRole.member;
-    final canCreate = role == UserRole.creator || role == UserRole.vendor || role == UserRole.admin;
+    final canCreate =
+        role == UserRole.creator ||
+        role == UserRole.vendor ||
+        role == UserRole.admin;
 
     if (!canCreate) {
       showRoleRestrictedCommunitySheet(context);
@@ -97,7 +100,10 @@ class _CommunitiesScreenState extends ConsumerState<CommunitiesScreen>
   Widget build(BuildContext context) {
     final user = ref.watch(authProvider).user;
     final role = user?.role ?? UserRole.member;
-    final canCreate = role == UserRole.creator || role == UserRole.vendor || role == UserRole.admin;
+    final canCreate =
+        role == UserRole.creator ||
+        role == UserRole.vendor ||
+        role == UserRole.admin;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bg = isDark ? Colors.black : const Color(0xFFFAFAFA);
     final searchBg = isDark ? const Color(0xFF1C1C1E) : const Color(0xFFEFEFEF);
@@ -123,7 +129,9 @@ class _CommunitiesScreenState extends ConsumerState<CommunitiesScreen>
               Icons.add_circle_outline_rounded,
               color: isDark ? Colors.white : Colors.black,
             ),
-            tooltip: canCreate ? 'Create Group / Community' : 'Group Creation Info',
+            tooltip: canCreate
+                ? 'Create Group / Community'
+                : 'Group Creation Info',
           ),
         ],
         bottom: PreferredSize(
@@ -141,8 +149,11 @@ class _CommunitiesScreenState extends ConsumerState<CommunitiesScreen>
                   padding: const EdgeInsets.symmetric(horizontal: 14),
                   child: Row(
                     children: [
-                      const Icon(Icons.search_rounded,
-                          color: Color(0xFF8E8E93), size: 20),
+                      const Icon(
+                        Icons.search_rounded,
+                        color: Color(0xFF8E8E93),
+                        size: 20,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: TextField(
@@ -153,6 +164,7 @@ class _CommunitiesScreenState extends ConsumerState<CommunitiesScreen>
                             color: isDark ? Colors.white : Colors.black,
                           ),
                           decoration: InputDecoration(
+                            filled: false,
                             hintText: 'Search communities & groups…',
                             hintStyle: const TextStyle(
                               fontSize: 14,
@@ -188,12 +200,20 @@ class _CommunitiesScreenState extends ConsumerState<CommunitiesScreen>
               TabBar(
                 controller: _tab,
                 labelColor: DesignTokens.primary,
-                unselectedLabelColor: isDark ? const Color(0xFF8E8E93) : const Color(0xFF61758A),
+                unselectedLabelColor: isDark
+                    ? const Color(0xFF8E8E93)
+                    : const Color(0xFF61758A),
                 indicatorColor: DesignTokens.primary,
                 indicatorWeight: 3,
                 indicatorSize: TabBarIndicatorSize.label,
-                labelStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
-                unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                labelStyle: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 14,
+                ),
+                unselectedLabelStyle: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                ),
                 tabs: const [
                   Tab(text: 'My Space'),
                   Tab(text: 'Communities'),
@@ -256,19 +276,19 @@ class _CircleLogo extends StatelessWidget {
   }
 
   Widget _logoFallback() => Container(
-        color: DesignTokens.primarySoft,
-        alignment: Alignment.center,
-        child: initials.isNotEmpty
-            ? Text(
-                initials,
-                style: const TextStyle(
-                  color: DesignTokens.primary,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 16,
-                ),
-              )
-            : Icon(fallbackIcon, color: DesignTokens.primary, size: size * 0.48),
-      );
+    color: DesignTokens.primarySoft,
+    alignment: Alignment.center,
+    child: initials.isNotEmpty
+        ? Text(
+            initials,
+            style: const TextStyle(
+              color: DesignTokens.primary,
+              fontWeight: FontWeight.w800,
+              fontSize: 16,
+            ),
+          )
+        : Icon(fallbackIcon, color: DesignTokens.primary, size: size * 0.48),
+  );
 }
 
 /// IG-style section label ("Your Communities", "Suggested for you").
@@ -283,20 +303,24 @@ class _SectionLabel extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
       child: Row(
         children: [
-          Container(width: 4, height: 14, decoration: BoxDecoration(
-            color: DesignTokens.primary,
-            borderRadius: BorderRadius.circular(2),
-          )),
+          Container(
+            width: 4,
+            height: 14,
+            decoration: BoxDecoration(
+              color: DesignTokens.primary,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               text,
               style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w800,
-                    color: Theme.of(context).brightness == Brightness.dark
-                        ? Colors.white
-                        : Colors.black,
-                  ),
+                fontWeight: FontWeight.w800,
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.white
+                    : Colors.black,
+              ),
             ),
           ),
         ],
@@ -321,9 +345,21 @@ class _MySpaceHeader extends StatelessWidget {
       title: 'My Space',
       subtitle: 'The communities & groups you created',
       rows: [
-        _StatRow(icon: Icons.people_rounded, label: 'Communities', count: communityCount),
-        _StatRow(icon: Icons.groups_rounded, label: 'Groups', count: groupCount),
-        _StatRow(icon: Icons.visibility_rounded, label: 'Discover', count: communityCount + groupCount),
+        _StatRow(
+          icon: Icons.people_rounded,
+          label: 'Communities',
+          count: communityCount,
+        ),
+        _StatRow(
+          icon: Icons.groups_rounded,
+          label: 'Groups',
+          count: groupCount,
+        ),
+        _StatRow(
+          icon: Icons.visibility_rounded,
+          label: 'Discover',
+          count: communityCount + groupCount,
+        ),
       ],
     );
   }
@@ -334,12 +370,18 @@ class _StatCard extends StatelessWidget {
   final String subtitle;
   final List<Widget> rows;
 
-  const _StatCard({required this.title, required this.subtitle, required this.rows});
+  const _StatCard({
+    required this.title,
+    required this.subtitle,
+    required this.rows,
+  });
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final borderCol = isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE5E5EA);
+    final borderCol = isDark
+        ? const Color(0xFF2C2C2E)
+        : const Color(0xFFE5E5EA);
     return Container(
       margin: const EdgeInsets.fromLTRB(12, 8, 12, 4),
       padding: const EdgeInsets.all(16),
@@ -376,13 +418,13 @@ class _StatCard extends StatelessWidget {
           const SizedBox(height: 2),
           Text(
             subtitle,
-            style: TextStyle(fontSize: 12, color: isDark ? Colors.grey[400] : const Color(0xFF61758A)),
+            style: TextStyle(
+              fontSize: 12,
+              color: isDark ? Colors.grey[400] : const Color(0xFF61758A),
+            ),
           ),
           const SizedBox(height: 14),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: rows,
-          ),
+          Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: rows),
         ],
       ),
     );
@@ -394,7 +436,11 @@ class _StatRow extends StatelessWidget {
   final String label;
   final int count;
 
-  const _StatRow({required this.icon, required this.label, required this.count});
+  const _StatRow({
+    required this.icon,
+    required this.label,
+    required this.count,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -446,9 +492,13 @@ class _ActionPill extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final fg = destructive
         ? const Color(0xFFFF3B30)
-        : (filled || !isDark) ? DesignTokens.primary : Colors.blue.shade300;
+        : (filled || !isDark)
+        ? DesignTokens.primary
+        : Colors.blue.shade300;
     return Material(
-      color: filled ? DesignTokens.primary.withValues(alpha: 0.12) : Colors.transparent,
+      color: filled
+          ? DesignTokens.primary.withValues(alpha: 0.12)
+          : Colors.transparent,
       borderRadius: BorderRadius.circular(20),
       child: InkWell(
         onTap: onTap,
@@ -502,15 +552,23 @@ class _MySpaceViewState extends ConsumerState<_MySpaceView> {
     final groupsState = ref.watch(myGroupsProvider);
     final user = ref.watch(authProvider).user;
     final role = user?.role ?? UserRole.member;
-    final canCreate = role == UserRole.creator || role == UserRole.vendor || role == UserRole.admin;
+    final canCreate =
+        role == UserRole.creator ||
+        role == UserRole.vendor ||
+        role == UserRole.admin;
     final myId = user?.id;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final createdCommunities = myState.communities
-        .where((c) => myId != null && (c.userId == myId || c.creator?.id == myId))
+        .where(
+          (c) => myId != null && (c.userId == myId || c.creator?.id == myId),
+        )
         .toList();
     final createdGroups = groupsState.groups
-        .where((g) => myId != null && (g.userRole == 'owner' || g.creator?.id == myId))
+        .where(
+          (g) =>
+              myId != null && (g.userRole == 'owner' || g.creator?.id == myId),
+        )
         .toList();
 
     final q = widget.searchQuery.trim().toLowerCase();
@@ -528,7 +586,8 @@ class _MySpaceViewState extends ConsumerState<_MySpaceView> {
                 (g.description?.toLowerCase().contains(q) ?? false);
           }).toList();
 
-    final anyCreated = createdCommunities.isNotEmpty || createdGroups.isNotEmpty;
+    final anyCreated =
+        createdCommunities.isNotEmpty || createdGroups.isNotEmpty;
 
     return RefreshIndicator(
       onRefresh: () async {
@@ -546,9 +605,15 @@ class _MySpaceViewState extends ConsumerState<_MySpaceView> {
           if (canCreate)
             _CreatorActionRow(onCreateCommunity: widget.onCreateCommunity)
           else
-            _MemberGuidance(onDiscoverTap: widget.onDiscoverTap, isDark: isDark),
+            _MemberGuidance(
+              onDiscoverTap: widget.onDiscoverTap,
+              isDark: isDark,
+            ),
 
-          if (anyCreated && widget.searchQuery.trim().isNotEmpty && filteredGroups.isEmpty && filteredCommunities.isEmpty)
+          if (anyCreated &&
+              widget.searchQuery.trim().isNotEmpty &&
+              filteredGroups.isEmpty &&
+              filteredCommunities.isEmpty)
             const Padding(
               padding: EdgeInsets.only(top: 30),
               child: EmptyStateWidget(
@@ -560,23 +625,26 @@ class _MySpaceViewState extends ConsumerState<_MySpaceView> {
 
           if (createdGroups.isNotEmpty) ...[
             _SectionLabel('My Groups'),
-            ...filteredGroups.map((g) => _GroupRow(
-                  group: g,
-                  isOwner: g.userRole == 'owner',
-                  trailing: _ActionPill(
-                    label: 'Manage',
-                    icon: Icons.tune_rounded,
-                    filled: false,
-                    onTap: () => GroupInfoSheet.show(context, g),
-                  ),
+            ...filteredGroups.map(
+              (g) => _GroupRow(
+                group: g,
+                isOwner: g.userRole == 'owner',
+                trailing: _ActionPill(
+                  label: 'Manage',
+                  icon: Icons.tune_rounded,
+                  filled: false,
                   onTap: () => GroupInfoSheet.show(context, g),
-                )),
+                ),
+                onTap: () => GroupInfoSheet.show(context, g),
+              ),
+            ),
           ],
 
           if (createdCommunities.isNotEmpty) ...[
             _SectionLabel('My Communities'),
             ...filteredCommunities.map((c) {
-              final isOwner = myId != null && (c.userId == myId || c.creator?.id == myId);
+              final isOwner =
+                  myId != null && (c.userId == myId || c.creator?.id == myId);
               return _CommunityRow(
                 community: c,
                 isOwner: isOwner,
@@ -600,8 +668,12 @@ class _MySpaceViewState extends ConsumerState<_MySpaceView> {
                 description: canCreate
                     ? 'Create communities and groups to build your audience and monetize courses.'
                     : 'Communities and groups you create will appear here.',
-                actionLabel: canCreate ? 'Create Your First Space' : 'Discover Spaces',
-                onAction: canCreate ? widget.onCreateCommunity : widget.onDiscoverTap,
+                actionLabel: canCreate
+                    ? 'Create Your First Space'
+                    : 'Discover Spaces',
+                onAction: canCreate
+                    ? widget.onCreateCommunity
+                    : widget.onDiscoverTap,
               ),
             ),
         ],
@@ -628,11 +700,15 @@ class _CreatorActionRow extends StatelessWidget {
                 backgroundColor: DesignTokens.primary,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
               ),
               icon: const Icon(Icons.add_rounded, size: 18),
-              label: const Text('Create Community / Group',
-                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+              label: const Text(
+                'Create Community / Group',
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+              ),
             ),
           ),
         ],
@@ -655,7 +731,9 @@ class _MemberGuidance extends StatelessWidget {
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF141720) : const Color(0xFFF1F5F9),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: isDark ? const Color(0xFF232936) : const Color(0xFFE2E8F0)),
+        border: Border.all(
+          color: isDark ? const Color(0xFF232936) : const Color(0xFFE2E8F0),
+        ),
       ),
       child: Row(
         children: [
@@ -665,7 +743,11 @@ class _MemberGuidance extends StatelessWidget {
               color: DesignTokens.primary.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: const Icon(Icons.info_outline_rounded, color: DesignTokens.primary, size: 20),
+            child: const Icon(
+              Icons.info_outline_rounded,
+              color: DesignTokens.primary,
+              size: 20,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -688,7 +770,9 @@ class _MemberGuidance extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 12,
                       height: 1.35,
-                      color: isDark ? Colors.grey[300] : const Color(0xFF475569),
+                      color: isDark
+                          ? Colors.grey[300]
+                          : const Color(0xFF475569),
                     ),
                   ),
                   const SizedBox(height: 6),
@@ -704,7 +788,11 @@ class _MemberGuidance extends StatelessWidget {
                         ),
                       ),
                       SizedBox(width: 4),
-                      Icon(Icons.arrow_forward_rounded, size: 14, color: DesignTokens.primary),
+                      Icon(
+                        Icons.arrow_forward_rounded,
+                        size: 14,
+                        color: DesignTokens.primary,
+                      ),
                     ],
                   ),
                 ],
@@ -739,7 +827,9 @@ class _RowCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final borderCol = isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF0F0F0);
+    final borderCol = isDark
+        ? const Color(0xFF2C2C2E)
+        : const Color(0xFFF0F0F0);
     return InkWell(
       onTap: onTap,
       child: Container(
@@ -775,7 +865,9 @@ class _RowCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: 12,
-                      color: isDark ? Colors.grey[400] : const Color(0xFF61758A),
+                      color: isDark
+                          ? Colors.grey[400]
+                          : const Color(0xFF61758A),
                     ),
                   ),
                 ],
@@ -865,26 +957,36 @@ class _CommunitiesTab extends ConsumerStatefulWidget {
 }
 
 class _CommunitiesTabState extends ConsumerState<_CommunitiesTab> {
-  Future<void> _join(BuildContext context, Community community, bool joined) async {
+  Future<void> _join(
+    BuildContext context,
+    Community community,
+    bool joined,
+  ) async {
     if (joined) {
       context.push('/app/community/${community.slug}');
       return;
     }
     final messenger = ScaffoldMessenger.of(context);
     try {
-      final data = await ApiClient.instance.dio.post('/communities/${community.id}/join');
+      final data = await ApiClient.instance.dio.post(
+        '/communities/${community.id}/join',
+      );
       final parsed = MembershipStatus.fromJson(data.data);
       messenger.showSnackBar(
         SnackBar(
-          content: Text(parsed.isPending
-              ? 'Join request sent to the community creator.'
-              : 'Joined ${community.name}!'),
+          content: Text(
+            parsed.isPending
+                ? 'Join request sent to the community creator.'
+                : 'Joined ${community.name}!',
+          ),
         ),
       );
       ref.read(myCommunitiesProvider.notifier).refresh();
       ref.read(discoverCommunitiesProvider.notifier).refresh();
     } catch (_) {
-      messenger.showSnackBar(const SnackBar(content: Text('Could not join this community.')));
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Could not join this community.')),
+      );
     }
   }
 
@@ -896,13 +998,19 @@ class _CommunitiesTabState extends ConsumerState<_CommunitiesTab> {
     final myId = ref.watch(authProvider).user?.id;
 
     final joinedList = my.communities
-        .where((c) => myId == null || (c.userId != myId && c.creator?.id != myId))
+        .where(
+          (c) => myId == null || (c.userId != myId && c.creator?.id != myId),
+        )
         .toList();
 
-    if (discover.loading && discover.communities.isEmpty && joinedList.isEmpty) {
+    if (discover.loading &&
+        discover.communities.isEmpty &&
+        joinedList.isEmpty) {
       return const LoadingStateWidget(message: 'Discovering communities…');
     }
-    if (discover.error != null && discover.communities.isEmpty && joinedList.isEmpty) {
+    if (discover.error != null &&
+        discover.communities.isEmpty &&
+        joinedList.isEmpty) {
       return ErrorStateWidget(
         title: 'Could not load communities',
         description: discover.error!,
@@ -914,20 +1022,23 @@ class _CommunitiesTabState extends ConsumerState<_CommunitiesTab> {
 
     if (joinedList.isNotEmpty) {
       children.add(_SectionLabel('Your Communities'));
-      children.addAll(joinedList.map((c) {
-        final isOwner = myId != null && (c.userId == myId || c.creator?.id == myId);
-        return _CommunityRow(
-          community: c,
-          isOwner: isOwner,
-          trailing: _ActionPill(
-            label: 'View',
-            icon: Icons.arrow_forward_rounded,
-            filled: false,
+      children.addAll(
+        joinedList.map((c) {
+          final isOwner =
+              myId != null && (c.userId == myId || c.creator?.id == myId);
+          return _CommunityRow(
+            community: c,
+            isOwner: isOwner,
+            trailing: _ActionPill(
+              label: 'View',
+              icon: Icons.arrow_forward_rounded,
+              filled: false,
+              onTap: () => context.push('/app/community/${c.slug}'),
+            ),
             onTap: () => context.push('/app/community/${c.slug}'),
-          ),
-          onTap: () => context.push('/app/community/${c.slug}'),
-        );
-      }));
+          );
+        }),
+      );
       children.add(const SizedBox(height: 6));
     }
 
@@ -936,43 +1047,54 @@ class _CommunitiesTabState extends ConsumerState<_CommunitiesTab> {
         .toList();
 
     if (discoverList.isNotEmpty) {
-      children.add(_SectionLabel(widget.searchQuery.trim().isEmpty
-          ? 'Suggested Communities'
-          : 'Search Results'));
-      children.addAll(discoverList.map((c) {
-        final isOwner = myId != null && (c.userId == myId || c.creator?.id == myId);
-        final joined = myIds.contains(c.id) || isOwner;
-        return _CommunityRow(
-          community: c,
-          isOwner: isOwner,
-          trailing: joined
-              ? _ActionPill(
-                  label: 'Joined',
-                  icon: Icons.check_rounded,
-                  filled: false,
-                  onTap: () => context.push('/app/community/${c.slug}'),
-                )
-              : _ActionPill(
-                  label: 'Join',
-                  icon: Icons.add_rounded,
-                  filled: true,
-                  onTap: () => _join(context, c, false),
-                ),
-          onTap: () => context.push('/app/community/${c.slug}'),
-        );
-      }));
-      if (discover.hasMore) {
-        children.add(Padding(
-          padding: const EdgeInsets.all(12),
-          child: Center(
-            child: discover.loadingMore
-                ? const CircularProgressIndicator(strokeWidth: 2)
-                : TextButton(
-                    onPressed: () => ref.read(discoverCommunitiesProvider.notifier).loadMore(),
-                    child: const Text('Load more'),
+      children.add(
+        _SectionLabel(
+          widget.searchQuery.trim().isEmpty
+              ? 'Suggested Communities'
+              : 'Search Results',
+        ),
+      );
+      children.addAll(
+        discoverList.map((c) {
+          final isOwner =
+              myId != null && (c.userId == myId || c.creator?.id == myId);
+          final joined = myIds.contains(c.id) || isOwner;
+          return _CommunityRow(
+            community: c,
+            isOwner: isOwner,
+            trailing: joined
+                ? _ActionPill(
+                    label: 'Joined',
+                    icon: Icons.check_rounded,
+                    filled: false,
+                    onTap: () => context.push('/app/community/${c.slug}'),
+                  )
+                : _ActionPill(
+                    label: 'Join',
+                    icon: Icons.add_rounded,
+                    filled: true,
+                    onTap: () => _join(context, c, false),
                   ),
+            onTap: () => context.push('/app/community/${c.slug}'),
+          );
+        }),
+      );
+      if (discover.hasMore) {
+        children.add(
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Center(
+              child: discover.loadingMore
+                  ? const CircularProgressIndicator(strokeWidth: 2)
+                  : TextButton(
+                      onPressed: () => ref
+                          .read(discoverCommunitiesProvider.notifier)
+                          .loadMore(),
+                      child: const Text('Load more'),
+                    ),
+            ),
           ),
-        ));
+        );
       }
     }
 
@@ -1018,19 +1140,25 @@ class _GroupsTabState extends ConsumerState<_GroupsTab> {
       return;
     }
     final messenger = ScaffoldMessenger.of(context);
-    final result = await ref.read(discoverGroupsProvider.notifier).joinGroup(group.id);
+    final result = await ref
+        .read(discoverGroupsProvider.notifier)
+        .joinGroup(group.id);
     if (result is Map) {
       final status = result['status']?.toString() ?? 'joined';
       messenger.showSnackBar(
         SnackBar(
-          content: Text(status == 'pending_approval'
-              ? 'Join request submitted to the group admin.'
-              : 'Joined ${group.name}!'),
+          content: Text(
+            status == 'pending_approval'
+                ? 'Join request submitted to the group admin.'
+                : 'Joined ${group.name}!',
+          ),
         ),
       );
       ref.read(myGroupsProvider.notifier).refresh();
     } else {
-      messenger.showSnackBar(const SnackBar(content: Text('Could not join this group.')));
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Could not join this group.')),
+      );
     }
   }
 
@@ -1044,7 +1172,9 @@ class _GroupsTabState extends ConsumerState<_GroupsTab> {
     if (discover.loading && discover.groups.isEmpty && joinedGroups.isEmpty) {
       return const LoadingStateWidget(message: 'Discovering groups…');
     }
-    if (discover.error != null && discover.groups.isEmpty && joinedGroups.isEmpty) {
+    if (discover.error != null &&
+        discover.groups.isEmpty &&
+        joinedGroups.isEmpty) {
       return ErrorStateWidget(
         title: 'Could not load groups',
         description: discover.error!,
@@ -1056,7 +1186,9 @@ class _GroupsTabState extends ConsumerState<_GroupsTab> {
 
     if (joinedGroups.isNotEmpty) {
       children.add(_SectionLabel('Your Groups'));
-      children.addAll(joinedGroups.map((g) => _GroupRow(
+      children.addAll(
+        joinedGroups.map(
+          (g) => _GroupRow(
             group: g,
             trailing: _ActionPill(
               label: 'Leave',
@@ -1065,64 +1197,82 @@ class _GroupsTabState extends ConsumerState<_GroupsTab> {
               destructive: true,
               onTap: () async {
                 final messenger = ScaffoldMessenger.of(context);
-                final left =
-                    await ref.read(discoverGroupsProvider.notifier).leaveGroup(g.id);
+                final left = await ref
+                    .read(discoverGroupsProvider.notifier)
+                    .leaveGroup(g.id);
                 if (left) ref.read(myGroupsProvider.notifier).refresh();
                 if (mounted) {
                   messenger.showSnackBar(
                     SnackBar(
-                      content: Text(left
-                          ? 'You left the group.'
-                          : 'Could not leave this group. Please try again.'),
+                      content: Text(
+                        left
+                            ? 'You left the group.'
+                            : 'Could not leave this group. Please try again.',
+                      ),
                     ),
                   );
                 }
               },
             ),
             onTap: () => GroupInfoSheet.show(context, g),
-          )));
+          ),
+        ),
+      );
       children.add(const SizedBox(height: 6));
     }
 
-    final discoverList = discover.groups.where((g) => !myIds.contains(g.id)).toList();
+    final discoverList = discover.groups
+        .where((g) => !myIds.contains(g.id))
+        .toList();
 
     if (discoverList.isNotEmpty) {
-      children.add(_SectionLabel(widget.searchQuery.trim().isEmpty
-          ? 'Suggested Groups'
-          : 'Search Results'));
-      children.addAll(discoverList.map((g) {
-        final joined = myIds.contains(g.id);
-        return _GroupRow(
-          group: g,
-          isOwner: g.userRole == 'owner',
-          trailing: joined
-              ? _ActionPill(
-                  label: 'Member',
-                  icon: Icons.check_rounded,
-                  filled: false,
-                  onTap: () => GroupInfoSheet.show(context, g),
-                )
-              : _ActionPill(
-                  label: g.hasPendingRequest ? 'Requested' : 'Join',
-                  icon: g.hasPendingRequest ? Icons.schedule_rounded : Icons.add_rounded,
-                  filled: !g.hasPendingRequest,
-                  onTap: () => _join(context, g, false),
-                ),
-          onTap: () => GroupInfoSheet.show(context, g),
-        );
-      }));
-      if (discover.hasMore) {
-        children.add(Padding(
-          padding: const EdgeInsets.all(12),
-          child: Center(
-            child: discover.loadingMore
-                ? const CircularProgressIndicator(strokeWidth: 2)
-                : TextButton(
-                    onPressed: () => ref.read(discoverGroupsProvider.notifier).loadMore(),
-                    child: const Text('Load more'),
+      children.add(
+        _SectionLabel(
+          widget.searchQuery.trim().isEmpty
+              ? 'Suggested Groups'
+              : 'Search Results',
+        ),
+      );
+      children.addAll(
+        discoverList.map((g) {
+          final joined = myIds.contains(g.id);
+          return _GroupRow(
+            group: g,
+            isOwner: g.userRole == 'owner',
+            trailing: joined
+                ? _ActionPill(
+                    label: 'Member',
+                    icon: Icons.check_rounded,
+                    filled: false,
+                    onTap: () => GroupInfoSheet.show(context, g),
+                  )
+                : _ActionPill(
+                    label: g.hasPendingRequest ? 'Requested' : 'Join',
+                    icon: g.hasPendingRequest
+                        ? Icons.schedule_rounded
+                        : Icons.add_rounded,
+                    filled: !g.hasPendingRequest,
+                    onTap: () => _join(context, g, false),
                   ),
+            onTap: () => GroupInfoSheet.show(context, g),
+          );
+        }),
+      );
+      if (discover.hasMore) {
+        children.add(
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Center(
+              child: discover.loadingMore
+                  ? const CircularProgressIndicator(strokeWidth: 2)
+                  : TextButton(
+                      onPressed: () =>
+                          ref.read(discoverGroupsProvider.notifier).loadMore(),
+                      child: const Text('Load more'),
+                    ),
+            ),
           ),
-        ));
+        );
       }
     }
 
@@ -1183,7 +1333,11 @@ void showRoleRestrictedCommunitySheet(BuildContext context) {
                     color: DesignTokens.primary.withValues(alpha: 0.12),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.groups_rounded, color: DesignTokens.primary, size: 26),
+                  child: const Icon(
+                    Icons.groups_rounded,
+                    color: DesignTokens.primary,
+                    size: 26,
+                  ),
                 ),
                 const SizedBox(width: 14),
                 const Expanded(
@@ -1192,12 +1346,19 @@ void showRoleRestrictedCommunitySheet(BuildContext context) {
                     children: [
                       Text(
                         'Group & Community Creation',
-                        style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 18,
+                        ),
                       ),
                       SizedBox(height: 2),
                       Text(
                         'Reserved for Creators & Vendors',
-                        style: TextStyle(color: DesignTokens.primary, fontWeight: FontWeight.w600, fontSize: 13),
+                        style: TextStyle(
+                          color: DesignTokens.primary,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                        ),
                       ),
                     ],
                   ),
@@ -1214,11 +1375,23 @@ void showRoleRestrictedCommunitySheet(BuildContext context) {
               ),
             ),
             const SizedBox(height: 16),
-            _roleFeatureRow(Icons.check_circle_rounded, 'Members can freely discover and join any public community.', isDark),
+            _roleFeatureRow(
+              Icons.check_circle_rounded,
+              'Members can freely discover and join any public community.',
+              isDark,
+            ),
             const SizedBox(height: 8),
-            _roleFeatureRow(Icons.monetization_on_rounded, 'Creators and Vendors can launch communities and monetize courses.', isDark),
+            _roleFeatureRow(
+              Icons.monetization_on_rounded,
+              'Creators and Vendors can launch communities and monetize courses.',
+              isDark,
+            ),
             const SizedBox(height: 8),
-            _roleFeatureRow(Icons.videocam_rounded, 'Host live streams and interactive audio conference rooms.', isDark),
+            _roleFeatureRow(
+              Icons.videocam_rounded,
+              'Host live streams and interactive audio conference rooms.',
+              isDark,
+            ),
             const SizedBox(height: 24),
             SizedBox(
               width: double.infinity,
@@ -1227,7 +1400,9 @@ void showRoleRestrictedCommunitySheet(BuildContext context) {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: DesignTokens.primary,
                   foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
                 ),
                 onPressed: () {
                   Navigator.pop(ctx);
@@ -1246,7 +1421,9 @@ void showRoleRestrictedCommunitySheet(BuildContext context) {
                 onPressed: () => Navigator.pop(ctx),
                 child: Text(
                   'Explore Public Communities',
-                  style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600]),
+                  style: TextStyle(
+                    color: isDark ? Colors.grey[400] : Colors.grey[600],
+                  ),
                 ),
               ),
             ),

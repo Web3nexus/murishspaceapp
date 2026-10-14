@@ -17,9 +17,11 @@ class ReelsViewerSheet extends StatefulWidget {
     super.key,
     this.authorName = 'Amina Bello',
     this.authorAvatar,
-    this.caption = 'Unforgettable night at the Sunset Party! 🌅 Music, friends and good vibes only! 💙',
+    this.caption =
+        'Unforgettable night at the Sunset Party! 🌅 Music, friends and good vibes only! 💙',
     this.location = 'Calpe, Spain',
-    this.videoThumbnail = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=900&auto=format&fit=crop&q=80',
+    this.videoThumbnail =
+        'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=900&auto=format&fit=crop&q=80',
     this.likesCount = '12.4K',
     this.commentsCount = '320',
     this.sharesCount = '148',
@@ -29,9 +31,11 @@ class ReelsViewerSheet extends StatefulWidget {
     BuildContext context, {
     String authorName = 'Amina Bello',
     String? authorAvatar,
-    String caption = 'Unforgettable night at the Sunset Party! 🌅 Music, friends and good vibes only! 💙',
+    String caption =
+        'Unforgettable night at the Sunset Party! 🌅 Music, friends and good vibes only! 💙',
     String location = 'Calpe, Spain',
-    String videoThumbnail = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=900&auto=format&fit=crop&q=80',
+    String videoThumbnail =
+        'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=900&auto=format&fit=crop&q=80',
     String likesCount = '12.4K',
     String commentsCount = '320',
     String sharesCount = '148',
@@ -77,10 +81,17 @@ class _ReelsViewerSheetState extends State<ReelsViewerSheet> {
           CachedNetworkImage(
             imageUrl: widget.videoThumbnail,
             fit: BoxFit.cover,
-            placeholder: (ctx, url) => Container(color: const Color(0xFF161B26)),
+            placeholder: (ctx, url) =>
+                Container(color: const Color(0xFF161B26)),
             errorWidget: (ctx, url, err) => Container(
               color: const Color(0xFF161B26),
-              child: const Center(child: Icon(Icons.videocam_rounded, color: Colors.white54, size: 48)),
+              child: const Center(
+                child: Icon(
+                  Icons.videocam_rounded,
+                  color: Colors.white54,
+                  size: 48,
+                ),
+              ),
             ),
           ),
 
@@ -105,16 +116,26 @@ class _ReelsViewerSheetState extends State<ReelsViewerSheet> {
             child: Align(
               alignment: Alignment.topCenter,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     IconButton(
-                      icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
+                      icon: const Icon(
+                        Icons.arrow_back_ios_new_rounded,
+                        color: Colors.white,
+                        size: 20,
+                      ),
                       onPressed: () => Navigator.pop(context),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.black.withValues(alpha: 0.4),
                         borderRadius: BorderRadius.circular(20),
@@ -142,7 +163,11 @@ class _ReelsViewerSheetState extends State<ReelsViewerSheet> {
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.search_rounded, color: Colors.white, size: 24),
+                      icon: const Icon(
+                        Icons.search_rounded,
+                        color: Colors.white,
+                        size: 24,
+                      ),
                       onPressed: () {},
                     ),
                   ],
@@ -171,7 +196,8 @@ class _ReelsViewerSheetState extends State<ReelsViewerSheet> {
                       ),
                       child: ClipOval(
                         child: CachedNetworkImage(
-                          imageUrl: widget.authorAvatar ??
+                          imageUrl:
+                              widget.authorAvatar ??
                               'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
                           fit: BoxFit.cover,
                         ),
@@ -188,7 +214,11 @@ class _ReelsViewerSheetState extends State<ReelsViewerSheet> {
                               color: DesignTokens.primary,
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(Icons.add_rounded, size: 14, color: Colors.white),
+                            child: const Icon(
+                              Icons.add_rounded,
+                              size: 14,
+                              color: Colors.white,
+                            ),
                           ),
                         ),
                       ),
@@ -198,7 +228,9 @@ class _ReelsViewerSheetState extends State<ReelsViewerSheet> {
 
                 // Like
                 _reelActionButton(
-                  icon: _isLiked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                  icon: _isLiked
+                      ? Icons.favorite_rounded
+                      : Icons.favorite_border_rounded,
                   color: _isLiked ? const Color(0xFFDC2626) : Colors.white,
                   label: widget.likesCount,
                   onTap: () => setState(() => _isLiked = !_isLiked),
@@ -225,7 +257,9 @@ class _ReelsViewerSheetState extends State<ReelsViewerSheet> {
 
                 // Bookmark / Save
                 _reelActionButton(
-                  icon: _isSaved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
+                  icon: _isSaved
+                      ? Icons.bookmark_rounded
+                      : Icons.bookmark_border_rounded,
                   color: _isSaved ? DesignTokens.primary : Colors.white,
                   label: 'Save',
                   onTap: () => setState(() => _isSaved = !_isSaved),
@@ -255,14 +289,23 @@ class _ReelsViewerSheetState extends State<ReelsViewerSheet> {
                       ),
                     ),
                     const SizedBox(width: 4),
-                    const Icon(Icons.verified_rounded, color: DesignTokens.primary, size: 16),
+                    const Icon(
+                      Icons.verified_rounded,
+                      color: DesignTokens.primary,
+                      size: 16,
+                    ),
                     const SizedBox(width: 10),
                     GestureDetector(
                       onTap: () => setState(() => _isFollowing = !_isFollowing),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 3,
+                        ),
                         decoration: BoxDecoration(
-                          color: _isFollowing ? Colors.white24 : DesignTokens.primary,
+                          color: _isFollowing
+                              ? Colors.white24
+                              : DesignTokens.primary,
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(
@@ -295,7 +338,10 @@ class _ReelsViewerSheetState extends State<ReelsViewerSheet> {
                 // Location badge
                 if (widget.location.isNotEmpty)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.black.withValues(alpha: 0.4),
                       borderRadius: BorderRadius.circular(8),
@@ -303,11 +349,18 @@ class _ReelsViewerSheetState extends State<ReelsViewerSheet> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.location_on_rounded, color: Colors.white70, size: 12),
+                        const Icon(
+                          Icons.location_on_rounded,
+                          color: Colors.white70,
+                          size: 12,
+                        ),
                         const SizedBox(width: 4),
                         Text(
                           widget.location,
-                          style: const TextStyle(color: Colors.white, fontSize: 11),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                          ),
                         ),
                       ],
                     ),
@@ -321,7 +374,9 @@ class _ReelsViewerSheetState extends State<ReelsViewerSheet> {
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(22),
-                    border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.2),
+                    ),
                   ),
                   padding: const EdgeInsets.symmetric(horizontal: 14),
                   child: Row(
@@ -329,20 +384,41 @@ class _ReelsViewerSheetState extends State<ReelsViewerSheet> {
                       Expanded(
                         child: TextField(
                           controller: commentController,
-                          style: const TextStyle(color: Colors.white, fontSize: 13),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                          ),
                           decoration: const InputDecoration(
+                            filled: false,
                             hintText: 'Add a comment...',
-                            hintStyle: TextStyle(color: Colors.white60, fontSize: 13),
+                            hintStyle: TextStyle(
+                              color: Colors.white60,
+                              fontSize: 13,
+                            ),
                             border: InputBorder.none,
                             isDense: true,
                           ),
                         ),
                       ),
-                      const Text('@', style: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold)),
+                      const Text(
+                        '@',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                       const SizedBox(width: 10),
-                      const Icon(Icons.sentiment_satisfied_alt_rounded, color: Colors.white70, size: 20),
+                      const Icon(
+                        Icons.sentiment_satisfied_alt_rounded,
+                        color: Colors.white70,
+                        size: 20,
+                      ),
                       const SizedBox(width: 10),
-                      const Icon(Icons.card_giftcard_rounded, color: Colors.white70, size: 20),
+                      const Icon(
+                        Icons.card_giftcard_rounded,
+                        color: Colors.white70,
+                        size: 20,
+                      ),
                     ],
                   ),
                 ),

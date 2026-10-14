@@ -123,8 +123,12 @@ class _ComposerState extends State<Composer> with TickerProviderStateMixin {
   void _insertEmoji(String emoji) {
     final text = widget.controller.text;
     final selection = widget.controller.selection;
-    final start = selection.baseOffset >= 0 ? selection.baseOffset : text.length;
-    final end = selection.extentOffset >= 0 ? selection.extentOffset : text.length;
+    final start = selection.baseOffset >= 0
+        ? selection.baseOffset
+        : text.length;
+    final end = selection.extentOffset >= 0
+        ? selection.extentOffset
+        : text.length;
     final newText = text.replaceRange(
       start < end ? start : end,
       start < end ? end : start,
@@ -132,7 +136,9 @@ class _ComposerState extends State<Composer> with TickerProviderStateMixin {
     );
     widget.controller.value = TextEditingValue(
       text: newText,
-      selection: TextSelection.collapsed(offset: (start < end ? start : end) + emoji.length),
+      selection: TextSelection.collapsed(
+        offset: (start < end ? start : end) + emoji.length,
+      ),
     );
   }
 
@@ -140,8 +146,12 @@ class _ComposerState extends State<Composer> with TickerProviderStateMixin {
     final text = widget.controller.text;
     if (text.isEmpty) return;
     final selection = widget.controller.selection;
-    final searchStart = selection.baseOffset >= 0 ? selection.baseOffset : text.length;
-    final searchEnd = selection.extentOffset >= 0 ? selection.extentOffset : text.length;
+    final searchStart = selection.baseOffset >= 0
+        ? selection.baseOffset
+        : text.length;
+    final searchEnd = selection.extentOffset >= 0
+        ? selection.extentOffset
+        : text.length;
     // Normalize so a selection dragged backwards still deletes cleanly.
     final start = searchStart < searchEnd ? searchStart : searchEnd;
     final end = searchStart < searchEnd ? searchEnd : searchStart;
@@ -178,7 +188,11 @@ class _ComposerState extends State<Composer> with TickerProviderStateMixin {
     if (status.isDenied || status.isPermanentlyDenied) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Microphone permission is required to record voice messages.')),
+          const SnackBar(
+            content: Text(
+              'Microphone permission is required to record voice messages.',
+            ),
+          ),
         );
       }
       return;
@@ -186,7 +200,8 @@ class _ComposerState extends State<Composer> with TickerProviderStateMixin {
 
     try {
       final tempDir = await getTemporaryDirectory();
-      final path = '${tempDir.path}/voice_${DateTime.now().millisecondsSinceEpoch}.m4a';
+      final path =
+          '${tempDir.path}/voice_${DateTime.now().millisecondsSinceEpoch}.m4a';
 
       await _audioRecorder.start(
         const RecordConfig(encoder: AudioEncoder.aacLc, bitRate: 128000),
@@ -333,8 +348,16 @@ class _ComposerState extends State<Composer> with TickerProviderStateMixin {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (widget.replyTo != null) _ReplyBar(message: widget.replyTo!, onDismiss: widget.onDismissReply),
-            if (widget.pendingImage != null) _ImagePreview(file: widget.pendingImage!, onDismiss: widget.onDismissImage),
+            if (widget.replyTo != null)
+              _ReplyBar(
+                message: widget.replyTo!,
+                onDismiss: widget.onDismissReply,
+              ),
+            if (widget.pendingImage != null)
+              _ImagePreview(
+                file: widget.pendingImage!,
+                onDismiss: widget.onDismissImage,
+              ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               child: _isRecording
@@ -345,7 +368,9 @@ class _ComposerState extends State<Composer> with TickerProviderStateMixin {
                         // Telegram attachment paperclip button
                         _leadingIcon(
                           icon: Icons.attach_file_rounded,
-                          onTap: widget.uploading ? null : () => _showAttachmentSheet(context),
+                          onTap: widget.uploading
+                              ? null
+                              : () => _showAttachmentSheet(context),
                           tooltip: 'Attachments',
                           isDark: isDark,
                         ),
@@ -353,7 +378,9 @@ class _ComposerState extends State<Composer> with TickerProviderStateMixin {
                         if (widget.onPickCamera != null)
                           _leadingIcon(
                             icon: Icons.camera_alt_rounded,
-                            onTap: widget.uploading ? null : widget.onPickCamera,
+                            onTap: widget.uploading
+                                ? null
+                                : widget.onPickCamera,
                             tooltip: 'Take Photo',
                             isDark: isDark,
                           ),
@@ -377,16 +404,22 @@ class _ComposerState extends State<Composer> with TickerProviderStateMixin {
                                   if (widget.canSend) widget.onSend();
                                 },
                                 decoration: InputDecoration(
+                                  filled: false,
                                   hintText: 'Message…',
                                   hintStyle: TextStyle(
-                                    color: isDark ? const Color(0xFF8E8E93) : const Color(0xFF61758A),
+                                    color: isDark
+                                        ? const Color(0xFF8E8E93)
+                                        : const Color(0xFF61758A),
                                     fontSize: 15,
                                   ),
                                   border: InputBorder.none,
                                   enabledBorder: InputBorder.none,
                                   focusedBorder: InputBorder.none,
                                   isDense: true,
-                                  contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4).copyWith(right: 32),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    vertical: 8,
+                                    horizontal: 4,
+                                  ).copyWith(right: 32),
                                 ),
                               ),
                               Positioned(
@@ -399,7 +432,10 @@ class _ComposerState extends State<Composer> with TickerProviderStateMixin {
                                     builder: (context, child) {
                                       return Transform(
                                         transform: Matrix4.identity()
-                                          ..rotateY(_emojiFlipController.value * 3.14159),
+                                          ..rotateY(
+                                            _emojiFlipController.value *
+                                                3.14159,
+                                          ),
                                         alignment: Alignment.center,
                                         child: child,
                                       );
@@ -409,11 +445,15 @@ class _ComposerState extends State<Composer> with TickerProviderStateMixin {
                                       height: 36,
                                       child: Icon(
                                         _emojiPanelOpen
-                                            ? Icons.sentiment_very_satisfied_rounded
-                                            : Icons.sentiment_satisfied_alt_rounded,
+                                            ? Icons
+                                                  .sentiment_very_satisfied_rounded
+                                            : Icons
+                                                  .sentiment_satisfied_alt_rounded,
                                         color: _emojiPanelOpen
                                             ? DesignTokens.primary
-                                            : isDark ? const Color(0xFF8E8E93) : const Color(0xFF61758A),
+                                            : isDark
+                                            ? const Color(0xFF8E8E93)
+                                            : const Color(0xFF61758A),
                                         size: 20,
                                       ),
                                     ),
@@ -431,7 +471,9 @@ class _ComposerState extends State<Composer> with TickerProviderStateMixin {
                                 child: SizedBox(
                                   width: 22,
                                   height: 22,
-                                  child: CircularProgressIndicator(strokeWidth: 2.5),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.5,
+                                  ),
                                 ),
                               )
                             : Container(
@@ -442,17 +484,23 @@ class _ComposerState extends State<Composer> with TickerProviderStateMixin {
                                   color: DesignTokens.primary,
                                 ),
                                 child: IconButton(
-                                  onPressed: widget.canSend ? widget.onSend : _startRecording,
+                                  onPressed: widget.canSend
+                                      ? widget.onSend
+                                      : _startRecording,
                                   icon: Icon(
-                                    widget.canSend ? Icons.send_rounded : Icons.mic_rounded,
+                                    widget.canSend
+                                        ? Icons.send_rounded
+                                        : Icons.mic_rounded,
                                     color: Colors.white,
                                     size: 18,
                                   ),
-                                  tooltip: widget.canSend ? 'Send' : 'Hold or Tap to Record',
+                                  tooltip: widget.canSend
+                                      ? 'Send'
+                                      : 'Hold or Tap to Record',
                                 ),
-),
-                       ],
-                     ),
+                              ),
+                      ],
+                    ),
             ),
             // Inline emoji panel: sits directly below the input row so the
             // composer and any reply/preview stay visible while it is open.
@@ -503,7 +551,9 @@ class _ComposerState extends State<Composer> with TickerProviderStateMixin {
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF222630) : const Color(0xFFF1F5F9),
         borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: const Color(0xFFFF3B30).withValues(alpha: 0.5)),
+        border: Border.all(
+          color: const Color(0xFFFF3B30).withValues(alpha: 0.5),
+        ),
       ),
       child: Row(
         children: [
@@ -553,7 +603,11 @@ class _ComposerState extends State<Composer> with TickerProviderStateMixin {
               child: const Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.delete_outline_rounded, color: Color(0xFFFF3B30), size: 16),
+                  Icon(
+                    Icons.delete_outline_rounded,
+                    color: Color(0xFFFF3B30),
+                    size: 16,
+                  ),
                   SizedBox(width: 3),
                   Text(
                     'Cancel',
@@ -578,7 +632,11 @@ class _ComposerState extends State<Composer> with TickerProviderStateMixin {
             ),
             child: IconButton(
               onPressed: _stopAndSendRecording,
-              icon: const Icon(Icons.send_rounded, color: Colors.white, size: 17),
+              icon: const Icon(
+                Icons.send_rounded,
+                color: Colors.white,
+                size: 17,
+              ),
               tooltip: 'Send voice message',
               padding: EdgeInsets.zero,
             ),
@@ -613,46 +671,81 @@ class _TelegramAttachmentSheet extends StatelessWidget {
     final navigator = Navigator.of(context);
 
     final actions = [
-      _AttachmentAction('Camera', Icons.camera_alt_rounded, const Color(0xFF34C759), () {
-        if (onPickCamera != null) {
-          onPickCamera!();
-        } else {
-          onPickImage();
-        }
-      }),
-      _AttachmentAction('Gallery', Icons.photo_library_rounded, DesignTokens.primary, onPickImage),
-      _AttachmentAction('Poll', Icons.poll_rounded, const Color(0xFFFF9500), () {
-        navigator.pop();
-        if (onSendPoll != null) {
-          CreatePollSheet.show(context, onSubmit: onSendPoll!);
-        } else {
-          messenger.showSnackBar(
-            const SnackBar(content: Text('Poll feature is available here.')),
-          );
-        }
-      }),
-      _AttachmentAction('Community', Icons.groups_rounded, const Color(0xFF34C759), () {
-        navigator.pop();
-        if (onShareCommunity != null) {
-          ShareCommunitySheet.show(context, onSelect: onShareCommunity!);
-        }
-      }),
-      _AttachmentAction('Gift', Icons.card_giftcard_rounded, const Color(0xFFFF2D55), () {
-        navigator.pop();
-        if (onSendGift != null) {
-          onSendGift!();
-        }
-      }),
-      _AttachmentAction('Wallet', Icons.account_balance_wallet_rounded, const Color(0xFF5856D6), () {
-        navigator.pop();
-        WalletSheet.show(context);
-      }),
-      _AttachmentAction('Location', Icons.location_on_rounded, const Color(0xFFFFCC00), () {
-        navigator.pop();
-        if (onShareLocation != null) {
-          ShareLocationSheet.show(context, onShare: onShareLocation!);
-        }
-      }),
+      _AttachmentAction(
+        'Camera',
+        Icons.camera_alt_rounded,
+        const Color(0xFF34C759),
+        () {
+          if (onPickCamera != null) {
+            onPickCamera!();
+          } else {
+            onPickImage();
+          }
+        },
+      ),
+      _AttachmentAction(
+        'Gallery',
+        Icons.photo_library_rounded,
+        DesignTokens.primary,
+        onPickImage,
+      ),
+      _AttachmentAction(
+        'Poll',
+        Icons.poll_rounded,
+        const Color(0xFFFF9500),
+        () {
+          navigator.pop();
+          if (onSendPoll != null) {
+            CreatePollSheet.show(context, onSubmit: onSendPoll!);
+          } else {
+            messenger.showSnackBar(
+              const SnackBar(content: Text('Poll feature is available here.')),
+            );
+          }
+        },
+      ),
+      _AttachmentAction(
+        'Community',
+        Icons.groups_rounded,
+        const Color(0xFF34C759),
+        () {
+          navigator.pop();
+          if (onShareCommunity != null) {
+            ShareCommunitySheet.show(context, onSelect: onShareCommunity!);
+          }
+        },
+      ),
+      _AttachmentAction(
+        'Gift',
+        Icons.card_giftcard_rounded,
+        const Color(0xFFFF2D55),
+        () {
+          navigator.pop();
+          if (onSendGift != null) {
+            onSendGift!();
+          }
+        },
+      ),
+      _AttachmentAction(
+        'Wallet',
+        Icons.account_balance_wallet_rounded,
+        const Color(0xFF5856D6),
+        () {
+          navigator.pop();
+          WalletSheet.show(context);
+        },
+      ),
+      _AttachmentAction(
+        'Location',
+        Icons.location_on_rounded,
+        const Color(0xFFFFCC00),
+        () {
+          navigator.pop();
+          if (onShareLocation != null) {
+            ShareLocationSheet.show(context, onShare: onShareLocation!);
+          }
+        },
+      ),
     ];
 
     return SafeArea(
@@ -665,7 +758,9 @@ class _TelegramAttachmentSheet extends StatelessWidget {
               width: 36,
               height: 4,
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF3A3A3C) : const Color(0xFFD1D1D6),
+                color: isDark
+                    ? const Color(0xFF3A3A3C)
+                    : const Color(0xFFD1D1D6),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -865,13 +960,19 @@ class _AudioRecordingWaveform extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: List.generate(12, (index) {
             final offset = index * 0.35;
-            final dynamicHeight = (6.0 + 16.0 * (sin(val * 2 * pi + offset).abs())).clamp(4.0, 22.0);
+            final dynamicHeight =
+                (6.0 + 16.0 * (sin(val * 2 * pi + offset).abs())).clamp(
+                  4.0,
+                  22.0,
+                );
             return Container(
               margin: const EdgeInsets.symmetric(horizontal: 1.5),
               width: 2.8,
               height: dynamicHeight,
               decoration: BoxDecoration(
-                color: DesignTokens.primary.withValues(alpha: 0.7 + 0.3 * (dynamicHeight / 22.0)),
+                color: DesignTokens.primary.withValues(
+                  alpha: 0.7 + 0.3 * (dynamicHeight / 22.0),
+                ),
                 borderRadius: BorderRadius.circular(2),
               ),
             );
@@ -881,4 +982,3 @@ class _AudioRecordingWaveform extends StatelessWidget {
     );
   }
 }
-

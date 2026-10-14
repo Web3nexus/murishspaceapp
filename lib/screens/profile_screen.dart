@@ -102,7 +102,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     _usernameController = TextEditingController(text: user?.username ?? '');
     _bioController = TextEditingController(text: user?.bio ?? '');
     _locationController = TextEditingController(
-      text: [user?.state, user?.country].where((s) => s != null && s.isNotEmpty).join(', '),
+      text: [
+        user?.state,
+        user?.country,
+      ].where((s) => s != null && s.isNotEmpty).join(', '),
     );
     _websiteController = TextEditingController(text: user?.website ?? '');
     _phoneController = TextEditingController(text: user?.phone ?? '');
@@ -110,7 +113,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     _selectedBirthday = user?.birthday;
     _selectedGender = user?.gender ?? '';
     _selectedCategory = user?.category ?? '';
-    _accountPrivacy = (user?.accountPrivacy ?? 'public').toLowerCase() == 'private' ? 'Private' : 'Public';
+    _accountPrivacy =
+        (user?.accountPrivacy ?? 'public').toLowerCase() == 'private'
+        ? 'Private'
+        : 'Public';
     _showContactInfo = user?.showContactInfo ?? true;
     _isCreatorAccount = user?.isCreatorAccount ?? true;
     _showInterests = user?.showInterests ?? true;
@@ -171,7 +177,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final cardBg = isDark ? const Color(0xFF1E293B) : Colors.white;
     final textPrimary = isDark ? Colors.white : const Color(0xFF0F172A);
-    final borderColor = isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0);
+    final borderColor = isDark
+        ? const Color(0xFF334155)
+        : const Color(0xFFE2E8F0);
 
     final resolvedAvatar = _avatarUrl != null && _avatarUrl!.isNotEmpty
         ? (ApiClient.resolveUrl(_avatarUrl!) ?? _avatarUrl!)
@@ -258,7 +266,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                           child: resolvedAvatar == null
                               ? Text(
                                   _displayNameController.text.isNotEmpty
-                                      ? _displayNameController.text[0].toUpperCase()
+                                      ? _displayNameController.text[0]
+                                            .toUpperCase()
                                       : 'U',
                                   style: const TextStyle(
                                     fontSize: 32,
@@ -310,7 +319,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                   onTap: () {
                     Navigator.pop(ctx);
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Avatar frames available for verified profiles!')),
+                      const SnackBar(
+                        content: Text(
+                          'Avatar frames available for verified profiles!',
+                        ),
+                      ),
                     );
                   },
                 ),
@@ -450,10 +463,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         'file': MultipartFile.fromBytes(bytes, filename: file.name),
       });
 
-      final res = await ApiClient.instance.dio.post('/profile/avatar', data: form);
+      final res = await ApiClient.instance.dio.post(
+        '/profile/avatar',
+        data: form,
+      );
       final payload = ApiClient.instance.unwrap(res);
       final uploadedUrl = payload is Map<String, dynamic>
-          ? (payload['avatar_url'] ?? payload['url'] ?? payload['avatar'])?.toString()
+          ? (payload['avatar_url'] ?? payload['url'] ?? payload['avatar'])
+                ?.toString()
           : payload?.toString();
 
       if (uploadedUrl != null && uploadedUrl.isNotEmpty && mounted) {
@@ -470,9 +487,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to upload photo: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to upload photo: $e')));
       }
     } finally {
       if (mounted) setState(() => _isUploadingPhoto = false);
@@ -492,7 +509,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         'file': MultipartFile.fromBytes(bytes, filename: file.name),
       });
 
-      final res = await ApiClient.instance.dio.post('/profile/banner', data: form);
+      final res = await ApiClient.instance.dio.post(
+        '/profile/banner',
+        data: form,
+      );
       final payload = ApiClient.instance.unwrap(res);
       final uploadedUrl = payload is Map<String, dynamic>
           ? (payload['banner_url'] ?? payload['url'])?.toString()
@@ -512,9 +532,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to upload banner: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to upload banner: $e')));
       }
     } finally {
       if (mounted) setState(() => _isUploadingBanner = false);
@@ -531,15 +551,22 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
     try {
       final locationText = _locationController.text.trim();
-      final countryParts = locationText.split(',').map((s) => s.trim()).toList();
+      final countryParts = locationText
+          .split(',')
+          .map((s) => s.trim())
+          .toList();
       final stateVal = countryParts.isNotEmpty ? countryParts.first : '';
-      final countryVal = countryParts.length > 1 ? countryParts.sublist(1).join(', ') : stateVal;
+      final countryVal = countryParts.length > 1
+          ? countryParts.sublist(1).join(', ')
+          : stateVal;
 
       final body = {
         'name': _displayNameController.text.trim(),
         'username': _usernameController.text.trim(),
         'bio': _bioController.text.trim(),
-        'website': _websiteController.text.trim().isEmpty ? null : _websiteController.text.trim(),
+        'website': _websiteController.text.trim().isEmpty
+            ? null
+            : _websiteController.text.trim(),
         'category': _selectedCategory.isEmpty ? null : _selectedCategory,
         'gender': _selectedGender.isEmpty ? null : _selectedGender,
         'interests': _selectedTopics.toList(),
@@ -551,7 +578,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         'account_privacy': _accountPrivacy.toLowerCase(),
         'state': stateVal,
         'country': countryVal,
-        'phone': _phoneController.text.trim().isEmpty ? null : _phoneController.text.trim(),
+        'phone': _phoneController.text.trim().isEmpty
+            ? null
+            : _phoneController.text.trim(),
         'birthday': _selectedBirthday != null
             ? DateFormat('yyyy-MM-dd').format(_selectedBirthday!)
             : null,
@@ -586,9 +615,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     } catch (e) {
       if (mounted) {
         setState(() => _isSaving = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to save profile: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to save profile: $e')));
       }
     }
   }
@@ -600,21 +629,32 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Discard changes?', style: TextStyle(fontWeight: FontWeight.w800)),
+        title: const Text(
+          'Discard changes?',
+          style: TextStyle(fontWeight: FontWeight.w800),
+        ),
         content: const Text('You have unsaved changes that will be lost.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Keep Editing', style: TextStyle(fontWeight: FontWeight.w700)),
+            child: const Text(
+              'Keep Editing',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFDC2626),
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Discard', style: TextStyle(fontWeight: FontWeight.w700)),
+            child: const Text(
+              'Discard',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
           ),
         ],
       ),
@@ -629,8 +669,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     final bg = isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC);
     final cardBg = isDark ? const Color(0xFF1E293B) : Colors.white;
     final textPrimary = isDark ? Colors.white : const Color(0xFF0F172A);
-    final textSecondary = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
-    final borderColor = isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0);
+    final textSecondary = isDark
+        ? const Color(0xFF94A3B8)
+        : const Color(0xFF64748B);
+    final borderColor = isDark
+        ? const Color(0xFF334155)
+        : const Color(0xFFE2E8F0);
 
     final resolvedAvatar = _avatarUrl != null && _avatarUrl!.isNotEmpty
         ? (ApiClient.resolveUrl(_avatarUrl!) ?? _avatarUrl!)
@@ -692,11 +736,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                       ? const SizedBox(
                           width: 14,
                           height: 14,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
                         )
                       : const Text(
                           'Save',
-                          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5),
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 13.5,
+                          ),
                         ),
                 ),
               ),
@@ -717,8 +767,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                 indicatorColor: primaryBlue,
                 indicatorWeight: 2.5,
                 indicatorSize: TabBarIndicatorSize.tab,
-                labelStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5),
-                unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5),
+                labelStyle: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 13.5,
+                ),
+                unselectedLabelStyle: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13.5,
+                ),
                 tabs: const [
                   Tab(text: 'Personal'),
                   Tab(text: 'Interests'),
@@ -737,10 +793,36 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                 child: TabBarView(
                   controller: _tab,
                   children: [
-                    _buildPersonalTab(isDark, cardBg, textPrimary, textSecondary, borderColor, resolvedAvatar, resolvedBanner),
-                    _buildInterestsTab(isDark, cardBg, textPrimary, textSecondary, borderColor),
-                    _buildLinksTab(isDark, cardBg, textPrimary, textSecondary, borderColor),
-                    _buildSocialsTab(isDark, cardBg, textPrimary, textSecondary, borderColor),
+                    _buildPersonalTab(
+                      isDark,
+                      cardBg,
+                      textPrimary,
+                      textSecondary,
+                      borderColor,
+                      resolvedAvatar,
+                      resolvedBanner,
+                    ),
+                    _buildInterestsTab(
+                      isDark,
+                      cardBg,
+                      textPrimary,
+                      textSecondary,
+                      borderColor,
+                    ),
+                    _buildLinksTab(
+                      isDark,
+                      cardBg,
+                      textPrimary,
+                      textSecondary,
+                      borderColor,
+                    ),
+                    _buildSocialsTab(
+                      isDark,
+                      cardBg,
+                      textPrimary,
+                      textSecondary,
+                      borderColor,
+                    ),
                   ],
                 ),
               ),
@@ -758,7 +840,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                     style: OutlinedButton.styleFrom(
                       foregroundColor: primaryBlue,
                       side: const BorderSide(color: primaryBlue, width: 1.5),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
                     ),
                     onPressed: () {
                       final user = ref.read(authProvider).user;
@@ -767,7 +851,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                         MaterialPageRoute(
                           builder: (_) => PreviewProfileScreen(
                             userId: user?.id ?? 0,
-                            displayName: _displayNameController.text.trim().isNotEmpty
+                            displayName:
+                                _displayNameController.text.trim().isNotEmpty
                                 ? _displayNameController.text.trim()
                                 : (user?.name ?? 'User'),
                             username: _usernameController.text.trim().isNotEmpty
@@ -786,7 +871,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                     icon: const Icon(Icons.visibility_outlined, size: 18),
                     label: const Text(
                       'Preview Profile',
-                      style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 14,
+                      ),
                     ),
                   ),
                 ),
@@ -841,7 +929,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
               child: _isUploadingBanner
                   ? Container(
                       color: Colors.black45,
-                      child: const Center(child: CircularProgressIndicator(color: Colors.white)),
+                      child: const Center(
+                        child: CircularProgressIndicator(color: Colors.white),
+                      ),
                     )
                   : null,
             ),
@@ -852,7 +942,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
               child: GestureDetector(
                 onTap: () => _showPhotoManagerSheet(focusCover: true),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6.5),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6.5,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.black.withValues(alpha: 0.65),
                     borderRadius: BorderRadius.circular(20),
@@ -861,7 +954,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                   child: const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.camera_alt_outlined, color: Colors.white, size: 14),
+                      Icon(
+                        Icons.camera_alt_outlined,
+                        color: Colors.white,
+                        size: 14,
+                      ),
                       SizedBox(width: 5),
                       Text(
                         'Change Cover',
@@ -907,7 +1004,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                         child: resolvedAvatar == null
                             ? Text(
                                 _displayNameController.text.isNotEmpty
-                                    ? _displayNameController.text[0].toUpperCase()
+                                    ? _displayNameController.text[0]
+                                          .toUpperCase()
                                     : 'U',
                                 style: const TextStyle(
                                   fontSize: 30,
@@ -926,7 +1024,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                             shape: BoxShape.circle,
                           ),
                           child: const Center(
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
                           ),
                         ),
                       ),
@@ -979,7 +1080,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                 textPrimary: textPrimary,
                 textSecondary: textSecondary,
                 onClear: () => _displayNameController.clear(),
-                validator: (v) => v == null || v.trim().isEmpty ? 'Display name is required' : null,
+                validator: (v) => v == null || v.trim().isEmpty
+                    ? 'Display name is required'
+                    : null,
               ),
               const SizedBox(height: 14),
 
@@ -995,7 +1098,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                 textPrimary: textPrimary,
                 textSecondary: textSecondary,
                 onClear: () => _usernameController.clear(),
-                validator: (v) => v == null || v.trim().isEmpty ? 'Username is required' : null,
+                validator: (v) => v == null || v.trim().isEmpty
+                    ? 'Username is required'
+                    : null,
               ),
               const SizedBox(height: 14),
 
@@ -1014,7 +1119,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                   const SizedBox(height: 6),
                   Container(
                     decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
+                      color: isDark
+                          ? const Color(0xFF1E293B)
+                          : const Color(0xFFF8FAFC),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(color: borderColor),
                     ),
@@ -1025,10 +1132,19 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                           controller: _bioController,
                           maxLines: 3,
                           maxLength: 200,
-                          style: TextStyle(fontSize: 14, color: textPrimary, height: 1.35),
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: textPrimary,
+                            height: 1.35,
+                          ),
                           decoration: InputDecoration(
-                            hintText: 'Creator • Entrepreneur • Tech • Travel • Good Life\nBuilding @MurihSpace | Food | Culture | Africa 🌍',
-                            hintStyle: TextStyle(fontSize: 13, color: textSecondary.withValues(alpha: 0.7)),
+                            filled: false,
+                            hintText:
+                                'Creator • Entrepreneur • Tech • Travel • Good Life\nBuilding @MurihSpace | Food | Culture | Africa 🌍',
+                            hintStyle: TextStyle(
+                              fontSize: 13,
+                              color: textSecondary.withValues(alpha: 0.7),
+                            ),
                             border: InputBorder.none,
                             counterText: '',
                             isDense: true,
@@ -1188,9 +1304,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
               // Show Contact Information toggle
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
                 decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
+                  color: isDark
+                      ? const Color(0xFF1E293B)
+                      : const Color(0xFFF8FAFC),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: borderColor),
                 ),
@@ -1211,7 +1332,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                           const SizedBox(height: 2),
                           Text(
                             'Let people see your contact info on your profile',
-                            style: TextStyle(fontSize: 11.5, color: textSecondary),
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              color: textSecondary,
+                            ),
                           ),
                         ],
                       ),
@@ -1245,14 +1369,21 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
               GestureDetector(
                 onTap: () {
                   setState(() {
-                    _accountPrivacy = _accountPrivacy == 'Public' ? 'Private' : 'Public';
+                    _accountPrivacy = _accountPrivacy == 'Public'
+                        ? 'Private'
+                        : 'Public';
                     _hasUnsavedChanges = true;
                   });
                 },
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
                   decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
+                    color: isDark
+                        ? const Color(0xFF1E293B)
+                        : const Color(0xFFF8FAFC),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: borderColor),
                   ),
@@ -1264,7 +1395,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                           color: textSecondary.withValues(alpha: 0.1),
                           shape: BoxShape.circle,
                         ),
-                        child: Icon(Icons.lock_outline_rounded, size: 16, color: textPrimary),
+                        child: Icon(
+                          Icons.lock_outline_rounded,
+                          size: 16,
+                          color: textPrimary,
+                        ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -1286,7 +1421,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                         ),
                       ),
                       const SizedBox(width: 4),
-                      Icon(Icons.chevron_right_rounded, size: 18, color: textSecondary),
+                      Icon(
+                        Icons.chevron_right_rounded,
+                        size: 18,
+                        color: textSecondary,
+                      ),
                     ],
                   ),
                 ),
@@ -1358,9 +1497,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
               },
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 150),
-                padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7.5),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 13,
+                  vertical: 7.5,
+                ),
                 decoration: BoxDecoration(
-                  color: isSelected ? primaryBlue : (isDark ? const Color(0xFF1E293B) : Colors.white),
+                  color: isSelected
+                      ? primaryBlue
+                      : (isDark ? const Color(0xFF1E293B) : Colors.white),
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
                     color: isSelected ? primaryBlue : borderColor,
@@ -1378,7 +1522,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     if (isSelected)
-                      const Icon(Icons.check_rounded, color: Colors.white, size: 14)
+                      const Icon(
+                        Icons.check_rounded,
+                        color: Colors.white,
+                        size: 14,
+                      )
                     else
                       Icon(
                         Icons.radio_button_unchecked_rounded,
@@ -1390,7 +1538,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                       topic,
                       style: TextStyle(
                         fontSize: 12.5,
-                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                        fontWeight: isSelected
+                            ? FontWeight.w700
+                            : FontWeight.w600,
                         color: isSelected ? Colors.white : textPrimary,
                       ),
                     ),
@@ -1430,21 +1580,30 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                   });
                 },
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7.5),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 13,
+                    vertical: 7.5,
+                  ),
                   decoration: BoxDecoration(
                     color: _selectedLanguages.contains(lang)
                         ? primaryBlue
                         : (isDark ? const Color(0xFF1E293B) : Colors.white),
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
-                      color: _selectedLanguages.contains(lang) ? primaryBlue : borderColor,
+                      color: _selectedLanguages.contains(lang)
+                          ? primaryBlue
+                          : borderColor,
                     ),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       if (_selectedLanguages.contains(lang))
-                        const Icon(Icons.check_rounded, color: Colors.white, size: 14)
+                        const Icon(
+                          Icons.check_rounded,
+                          color: Colors.white,
+                          size: 14,
+                        )
                       else
                         Icon(
                           Icons.radio_button_unchecked_rounded,
@@ -1456,8 +1615,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                         lang,
                         style: TextStyle(
                           fontSize: 12.5,
-                          fontWeight: _selectedLanguages.contains(lang) ? FontWeight.w700 : FontWeight.w600,
-                          color: _selectedLanguages.contains(lang) ? Colors.white : textPrimary,
+                          fontWeight: _selectedLanguages.contains(lang)
+                              ? FontWeight.w700
+                              : FontWeight.w600,
+                          color: _selectedLanguages.contains(lang)
+                              ? Colors.white
+                              : textPrimary,
                         ),
                       ),
                     ],
@@ -1468,11 +1631,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
             GestureDetector(
               onTap: () {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Additional languages can be selected in Account Settings!')),
+                  const SnackBar(
+                    content: Text(
+                      'Additional languages can be selected in Account Settings!',
+                    ),
+                  ),
                 );
               },
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7.5),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 7.5,
+                ),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(color: primaryBlue.withValues(alpha: 0.6)),
@@ -1620,7 +1790,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                       color: primaryBlue.withValues(alpha: 0.12),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.link_rounded, color: primaryBlue, size: 22),
+                    child: const Icon(
+                      Icons.link_rounded,
+                      color: primaryBlue,
+                      size: 22,
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -1629,12 +1803,20 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                       children: [
                         Text(
                           '${Env.profileDomain}/@$username',
-                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: textPrimary),
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                            color: textPrimary,
+                          ),
                         ),
                         const SizedBox(height: 2),
                         const Text(
                           'Active · Public link enabled',
-                          style: TextStyle(fontSize: 12, color: Color(0xFF16A34A), fontWeight: FontWeight.w600),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF16A34A),
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ],
                     ),
@@ -1648,11 +1830,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                   style: ElevatedButton.styleFrom(
                     backgroundColor: primaryBlue,
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                   ),
                   onPressed: () => context.push('/link-in-bio'),
                   icon: const Icon(Icons.tune_rounded, size: 16),
-                  label: const Text('Configure Link-in-Bio', style: TextStyle(fontWeight: FontWeight.w700)),
+                  label: const Text(
+                    'Configure Link-in-Bio',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
                 ),
               ),
             ],
@@ -1691,15 +1878,60 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         ),
         const SizedBox(height: 16),
 
-        _socialInput(label: 'Twitter / X', prefix: 'x.com/', controller: _twitterController, isDark: isDark, cardBg: cardBg, borderColor: borderColor, textPrimary: textPrimary, textSecondary: textSecondary),
+        _socialInput(
+          label: 'Twitter / X',
+          prefix: 'x.com/',
+          controller: _twitterController,
+          isDark: isDark,
+          cardBg: cardBg,
+          borderColor: borderColor,
+          textPrimary: textPrimary,
+          textSecondary: textSecondary,
+        ),
         const SizedBox(height: 12),
-        _socialInput(label: 'Instagram', prefix: 'instagram.com/', controller: _instagramController, isDark: isDark, cardBg: cardBg, borderColor: borderColor, textPrimary: textPrimary, textSecondary: textSecondary),
+        _socialInput(
+          label: 'Instagram',
+          prefix: 'instagram.com/',
+          controller: _instagramController,
+          isDark: isDark,
+          cardBg: cardBg,
+          borderColor: borderColor,
+          textPrimary: textPrimary,
+          textSecondary: textSecondary,
+        ),
         const SizedBox(height: 12),
-        _socialInput(label: 'YouTube', prefix: 'youtube.com/@', controller: _youtubeController, isDark: isDark, cardBg: cardBg, borderColor: borderColor, textPrimary: textPrimary, textSecondary: textSecondary),
+        _socialInput(
+          label: 'YouTube',
+          prefix: 'youtube.com/@',
+          controller: _youtubeController,
+          isDark: isDark,
+          cardBg: cardBg,
+          borderColor: borderColor,
+          textPrimary: textPrimary,
+          textSecondary: textSecondary,
+        ),
         const SizedBox(height: 12),
-        _socialInput(label: 'TikTok', prefix: 'tiktok.com/@', controller: _tiktokController, isDark: isDark, cardBg: cardBg, borderColor: borderColor, textPrimary: textPrimary, textSecondary: textSecondary),
+        _socialInput(
+          label: 'TikTok',
+          prefix: 'tiktok.com/@',
+          controller: _tiktokController,
+          isDark: isDark,
+          cardBg: cardBg,
+          borderColor: borderColor,
+          textPrimary: textPrimary,
+          textSecondary: textSecondary,
+        ),
         const SizedBox(height: 12),
-        _socialInput(label: 'GitHub', prefix: 'github.com/', controller: _githubController, isDark: isDark, cardBg: cardBg, borderColor: borderColor, textPrimary: textPrimary, textSecondary: textSecondary),
+        _socialInput(
+          label: 'GitHub',
+          prefix: 'github.com/',
+          controller: _githubController,
+          isDark: isDark,
+          cardBg: cardBg,
+          borderColor: borderColor,
+          textPrimary: textPrimary,
+          textSecondary: textSecondary,
+        ),
         const SizedBox(height: 32),
       ],
     );
@@ -1773,8 +2005,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                     fontWeight: isLinkField ? FontWeight.w600 : FontWeight.w500,
                   ),
                   decoration: InputDecoration(
+                    filled: false,
                     hintText: hint,
-                    hintStyle: TextStyle(fontSize: 13, color: textSecondary.withValues(alpha: 0.7)),
+                    hintStyle: TextStyle(
+                      fontSize: 13,
+                      color: textSecondary.withValues(alpha: 0.7),
+                    ),
                     border: InputBorder.none,
                     isDense: true,
                   ),
@@ -1782,7 +2018,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
               ),
               if (suffixIcon != null)
                 Icon(suffixIcon, size: 16, color: textSecondary)
-              else if (onClear != null && controller.text.isNotEmpty && !readOnly)
+              else if (onClear != null &&
+                  controller.text.isNotEmpty &&
+                  !readOnly)
                 GestureDetector(
                   onTap: onClear,
                   child: Container(
@@ -1791,7 +2029,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                       color: textSecondary.withValues(alpha: 0.2),
                       shape: BoxShape.circle,
                     ),
-                    child: Icon(Icons.close_rounded, size: 14, color: textSecondary),
+                    child: Icon(
+                      Icons.close_rounded,
+                      size: 14,
+                      color: textSecondary,
+                    ),
                   ),
                 ),
             ],
@@ -1847,7 +2089,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                     ),
                   ),
                 ),
-                Icon(Icons.chevron_right_rounded, size: 18, color: textSecondary),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  size: 18,
+                  color: textSecondary,
+                ),
               ],
             ),
           ),
@@ -1869,7 +2115,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     required VoidCallback onTap,
   }) {
     final displayValue = value.isNotEmpty ? value : (placeholder ?? '');
-    final isPlaceholder = value.isEmpty || (placeholder != null && displayValue == placeholder);
+    final isPlaceholder =
+        value.isEmpty || (placeholder != null && displayValue == placeholder);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1907,7 +2154,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                     ),
                   ),
                 ),
-                Icon(Icons.chevron_right_rounded, size: 18, color: textSecondary),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  size: 18,
+                  color: textSecondary,
+                ),
               ],
             ),
           ),
@@ -1940,10 +2191,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         children: [
           Container(
             padding: const EdgeInsets.all(7),
-            decoration: BoxDecoration(
-              color: iconBg,
-              shape: BoxShape.circle,
-            ),
+            decoration: BoxDecoration(color: iconBg, shape: BoxShape.circle),
             child: Icon(icon, color: iconColor, size: 18),
           ),
           const SizedBox(width: 12),
@@ -1960,7 +2208,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                   ),
                 ),
                 const SizedBox(height: 2),
-                Text(subtitle, style: TextStyle(fontSize: 11.5, color: textSecondary)),
+                Text(
+                  subtitle,
+                  style: TextStyle(fontSize: 11.5, color: textSecondary),
+                ),
               ],
             ),
           ),
@@ -2019,7 +2270,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                 child: TextField(
                   controller: controller,
                   style: TextStyle(fontSize: 14, color: textPrimary),
-                  decoration: const InputDecoration(border: InputBorder.none, isDense: true),
+                  decoration: const InputDecoration(
+                    filled: false,
+                    border: InputBorder.none,
+                    isDense: true,
+                  ),
                 ),
               ),
             ],
@@ -2046,24 +2301,28 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                 style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
               ),
             ),
-            ..._allCategories.map((c) => ListTile(
-                  title: Text(
-                    c,
-                    style: TextStyle(
-                      fontWeight: c == _selectedCategory ? FontWeight.bold : FontWeight.normal,
-                    ),
+            ..._allCategories.map(
+              (c) => ListTile(
+                title: Text(
+                  c,
+                  style: TextStyle(
+                    fontWeight: c == _selectedCategory
+                        ? FontWeight.bold
+                        : FontWeight.normal,
                   ),
-                  trailing: c == _selectedCategory
-                      ? const Icon(Icons.check_rounded, color: primaryBlue)
-                      : null,
-                  onTap: () {
-                    setState(() {
-                      _selectedCategory = c;
-                      _hasUnsavedChanges = true;
-                    });
-                    Navigator.pop(ctx);
-                  },
-                )),
+                ),
+                trailing: c == _selectedCategory
+                    ? const Icon(Icons.check_rounded, color: primaryBlue)
+                    : null,
+                onTap: () {
+                  setState(() {
+                    _selectedCategory = c;
+                    _hasUnsavedChanges = true;
+                  });
+                  Navigator.pop(ctx);
+                },
+              ),
+            ),
           ],
         ),
       ),
@@ -2087,24 +2346,28 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                 style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
               ),
             ),
-            ...['Male', 'Female', 'Non-binary', 'Prefer not to say'].map((g) => ListTile(
-                  title: Text(
-                    g,
-                    style: TextStyle(
-                      fontWeight: g == _selectedGender ? FontWeight.bold : FontWeight.normal,
-                    ),
+            ...['Male', 'Female', 'Non-binary', 'Prefer not to say'].map(
+              (g) => ListTile(
+                title: Text(
+                  g,
+                  style: TextStyle(
+                    fontWeight: g == _selectedGender
+                        ? FontWeight.bold
+                        : FontWeight.normal,
                   ),
-                  trailing: g == _selectedGender
-                      ? const Icon(Icons.check_rounded, color: primaryBlue)
-                      : null,
-                  onTap: () {
-                    setState(() {
-                      _selectedGender = g;
-                      _hasUnsavedChanges = true;
-                    });
-                    Navigator.pop(ctx);
-                  },
-                )),
+                ),
+                trailing: g == _selectedGender
+                    ? const Icon(Icons.check_rounded, color: primaryBlue)
+                    : null,
+                onTap: () {
+                  setState(() {
+                    _selectedGender = g;
+                    _hasUnsavedChanges = true;
+                  });
+                  Navigator.pop(ctx);
+                },
+              ),
+            ),
           ],
         ),
       ),
@@ -2117,7 +2380,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Phone Number', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+        title: const Text(
+          'Phone Number',
+          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+        ),
         content: TextField(
           controller: tempController,
           keyboardType: TextInputType.phone,
@@ -2179,7 +2445,8 @@ class PreviewProfileScreen extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<PreviewProfileScreen> createState() => _PreviewProfileScreenState();
+  ConsumerState<PreviewProfileScreen> createState() =>
+      _PreviewProfileScreenState();
 }
 
 class _PreviewProfileScreenState extends ConsumerState<PreviewProfileScreen> {
@@ -2344,16 +2611,16 @@ class _PreviewProfileScreenState extends ConsumerState<PreviewProfileScreen> {
         stories: _userStories.map((s) {
           final copy = Map<String, dynamic>.from(s);
           if (copy['media_url'] != null) {
-            copy['media_url'] = ApiClient.resolveUrl(copy['media_url'].toString()) ?? copy['media_url'];
+            copy['media_url'] =
+                ApiClient.resolveUrl(copy['media_url'].toString()) ??
+                copy['media_url'];
           }
           return StoryItem.fromJson(copy);
         }).toList(),
       );
       Navigator.push(
         context,
-        MaterialPageRoute(
-          builder: (_) => StoryViewerScreen(group: group),
-        ),
+        MaterialPageRoute(builder: (_) => StoryViewerScreen(group: group)),
       );
     }
   }
@@ -2378,21 +2645,40 @@ class _PreviewProfileScreenState extends ConsumerState<PreviewProfileScreen> {
     final bg = isDark ? const Color(0xFF0F172A) : Colors.white;
     final cardBg = isDark ? const Color(0xFF1E293B) : Colors.white;
     final textPrimary = isDark ? Colors.white : const Color(0xFF0F172A);
-    final textSecondary = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
-    final borderColor = isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0);
+    final textSecondary = isDark
+        ? const Color(0xFF94A3B8)
+        : const Color(0xFF64748B);
+    final borderColor = isDark
+        ? const Color(0xFF334155)
+        : const Color(0xFFE2E8F0);
 
     final currentUser = ref.watch(authProvider).user;
-    final followersCount = (_profileData?['followers_count'] as num?)?.toInt() ?? currentUser?.followersCount ?? 0;
-    final followingCount = (_profileData?['following_count'] as num?)?.toInt() ?? currentUser?.followingCount ?? 0;
-    final postsCount = (_profileData?['posts_count'] as num?)?.toInt() ?? currentUser?.postsCount ?? _userPosts.length;
-    final createdAt = currentUser?.createdAt ?? (_profileData?['created_at'] != null ? DateTime.tryParse(_profileData!['created_at'].toString()) : null);
+    final followersCount =
+        (_profileData?['followers_count'] as num?)?.toInt() ??
+        currentUser?.followersCount ??
+        0;
+    final followingCount =
+        (_profileData?['following_count'] as num?)?.toInt() ??
+        currentUser?.followingCount ??
+        0;
+    final postsCount =
+        (_profileData?['posts_count'] as num?)?.toInt() ??
+        currentUser?.postsCount ??
+        _userPosts.length;
+    final createdAt =
+        currentUser?.createdAt ??
+        (_profileData?['created_at'] != null
+            ? DateTime.tryParse(_profileData!['created_at'].toString())
+            : null);
     final joinedText = createdAt != null
         ? 'Joined ${DateFormat('MMMM yyyy').format(createdAt)}'
         : 'Joined ${DateTime.now().year}';
 
     final effectiveBio = widget.bio.trim().isNotEmpty
         ? widget.bio.trim()
-        : (currentUser?.bio?.trim().isNotEmpty == true ? currentUser!.bio!.trim() : 'Digital Creator & Entrepreneur • Building on MurihSpace');
+        : (currentUser?.bio?.trim().isNotEmpty == true
+              ? currentUser!.bio!.trim()
+              : 'Digital Creator & Entrepreneur • Building on MurihSpace');
 
     final effectiveLocation = widget.location.trim().isNotEmpty
         ? widget.location.trim()
@@ -2437,7 +2723,9 @@ class _PreviewProfileScreenState extends ConsumerState<PreviewProfileScreen> {
             child: Container(
               height: 38,
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
+                color: isDark
+                    ? const Color(0xFF0F172A)
+                    : const Color(0xFFF1F5F9),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Row(
@@ -2447,7 +2735,9 @@ class _PreviewProfileScreenState extends ConsumerState<PreviewProfileScreen> {
                       onTap: () => setState(() => _viewMode = 'public'),
                       child: Container(
                         decoration: BoxDecoration(
-                          color: _viewMode == 'public' ? primaryBlue : Colors.transparent,
+                          color: _viewMode == 'public'
+                              ? primaryBlue
+                              : Colors.transparent,
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Center(
@@ -2456,7 +2746,9 @@ class _PreviewProfileScreenState extends ConsumerState<PreviewProfileScreen> {
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w700,
-                              color: _viewMode == 'public' ? Colors.white : textSecondary,
+                              color: _viewMode == 'public'
+                                  ? Colors.white
+                                  : textSecondary,
                             ),
                           ),
                         ),
@@ -2468,7 +2760,9 @@ class _PreviewProfileScreenState extends ConsumerState<PreviewProfileScreen> {
                       onTap: () => setState(() => _viewMode = 'my'),
                       child: Container(
                         decoration: BoxDecoration(
-                          color: _viewMode == 'my' ? primaryBlue : Colors.transparent,
+                          color: _viewMode == 'my'
+                              ? primaryBlue
+                              : Colors.transparent,
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Center(
@@ -2477,7 +2771,9 @@ class _PreviewProfileScreenState extends ConsumerState<PreviewProfileScreen> {
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w700,
-                              color: _viewMode == 'my' ? Colors.white : textSecondary,
+                              color: _viewMode == 'my'
+                                  ? Colors.white
+                                  : textSecondary,
                             ),
                           ),
                         ),
@@ -2503,13 +2799,19 @@ class _PreviewProfileScreenState extends ConsumerState<PreviewProfileScreen> {
                       width: double.infinity,
                       decoration: BoxDecoration(
                         color: const Color(0xFF0F172A),
-                        image: widget.bannerUrl != null && widget.bannerUrl!.isNotEmpty
+                        image:
+                            widget.bannerUrl != null &&
+                                widget.bannerUrl!.isNotEmpty
                             ? DecorationImage(
-                                image: CachedNetworkImageProvider(widget.bannerUrl!),
+                                image: CachedNetworkImageProvider(
+                                  widget.bannerUrl!,
+                                ),
                                 fit: BoxFit.cover,
                               )
                             : null,
-                        gradient: widget.bannerUrl == null || widget.bannerUrl!.isEmpty
+                        gradient:
+                            widget.bannerUrl == null ||
+                                widget.bannerUrl!.isEmpty
                             ? const LinearGradient(
                                 colors: [Color(0xFF0F2B48), Color(0xFF1B64F2)],
                               )
@@ -2530,11 +2832,19 @@ class _PreviewProfileScreenState extends ConsumerState<PreviewProfileScreen> {
                             ),
                             child: CircleAvatar(
                               radius: 38,
-                              backgroundColor: primaryBlue.withValues(alpha: 0.12),
-                              backgroundImage: widget.avatarUrl != null && widget.avatarUrl!.isNotEmpty
-                                  ? CachedNetworkImageProvider(widget.avatarUrl!)
+                              backgroundColor: primaryBlue.withValues(
+                                alpha: 0.12,
+                              ),
+                              backgroundImage:
+                                  widget.avatarUrl != null &&
+                                      widget.avatarUrl!.isNotEmpty
+                                  ? CachedNetworkImageProvider(
+                                      widget.avatarUrl!,
+                                    )
                                   : null,
-                              child: widget.avatarUrl == null || widget.avatarUrl!.isEmpty
+                              child:
+                                  widget.avatarUrl == null ||
+                                      widget.avatarUrl!.isEmpty
                                   ? Text(
                                       widget.displayName.isNotEmpty
                                           ? widget.displayName[0].toUpperCase()
@@ -2586,7 +2896,11 @@ class _PreviewProfileScreenState extends ConsumerState<PreviewProfileScreen> {
                             ),
                           ),
                           const SizedBox(width: 5),
-                          const Icon(Icons.verified_rounded, color: primaryBlue, size: 18),
+                          const Icon(
+                            Icons.verified_rounded,
+                            color: primaryBlue,
+                            size: 18,
+                          ),
                         ],
                       ),
                       const SizedBox(height: 2),
@@ -2613,16 +2927,28 @@ class _PreviewProfileScreenState extends ConsumerState<PreviewProfileScreen> {
                       Row(
                         children: [
                           if (effectiveLocation.isNotEmpty) ...[
-                            Icon(Icons.location_on_outlined, size: 14, color: textSecondary),
+                            Icon(
+                              Icons.location_on_outlined,
+                              size: 14,
+                              color: textSecondary,
+                            ),
                             const SizedBox(width: 4),
                             Text(
                               effectiveLocation,
-                              style: TextStyle(fontSize: 12, color: textSecondary, fontWeight: FontWeight.w500),
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: textSecondary,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
                             const SizedBox(width: 14),
                           ],
                           if (effectiveWebsite.isNotEmpty) ...[
-                            const Icon(Icons.link_rounded, size: 14, color: primaryBlue),
+                            const Icon(
+                              Icons.link_rounded,
+                              size: 14,
+                              color: primaryBlue,
+                            ),
                             const SizedBox(width: 4),
                             Expanded(
                               child: Text(
@@ -2641,11 +2967,18 @@ class _PreviewProfileScreenState extends ConsumerState<PreviewProfileScreen> {
                       const SizedBox(height: 6),
                       Row(
                         children: [
-                          Icon(Icons.calendar_today_outlined, size: 13, color: textSecondary),
+                          Icon(
+                            Icons.calendar_today_outlined,
+                            size: 13,
+                            color: textSecondary,
+                          ),
                           const SizedBox(width: 4),
                           Text(
                             joinedText,
-                            style: TextStyle(fontSize: 12, color: textSecondary),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: textSecondary,
+                            ),
                           ),
                         ],
                       ),
@@ -2667,7 +3000,12 @@ class _PreviewProfileScreenState extends ConsumerState<PreviewProfileScreen> {
                                 );
                               }
                             },
-                            child: _statItem(_formatCount(followersCount), 'Followers', textPrimary, textSecondary),
+                            child: _statItem(
+                              _formatCount(followersCount),
+                              'Followers',
+                              textPrimary,
+                              textSecondary,
+                            ),
                           ),
                           const SizedBox(width: 24),
                           GestureDetector(
@@ -2682,7 +3020,12 @@ class _PreviewProfileScreenState extends ConsumerState<PreviewProfileScreen> {
                                 );
                               }
                             },
-                            child: _statItem(_formatCount(followingCount), 'Following', textPrimary, textSecondary),
+                            child: _statItem(
+                              _formatCount(followingCount),
+                              'Following',
+                              textPrimary,
+                              textSecondary,
+                            ),
                           ),
                           const SizedBox(width: 24),
                           GestureDetector(
@@ -2690,7 +3033,12 @@ class _PreviewProfileScreenState extends ConsumerState<PreviewProfileScreen> {
                               setState(() => _activeContentTab = 0);
                               _fetchTabPosts(0);
                             },
-                            child: _statItem(_formatCount(postsCount), 'Posts', textPrimary, textSecondary),
+                            child: _statItem(
+                              _formatCount(postsCount),
+                              'Posts',
+                              textPrimary,
+                              textSecondary,
+                            ),
                           ),
                         ],
                       ),
@@ -2709,9 +3057,13 @@ class _PreviewProfileScreenState extends ConsumerState<PreviewProfileScreen> {
                                   onTap: () => showStoryComposerSheet(context),
                                 ),
                               ..._userStories.map((story) {
-                                final caption = (story['caption'] as String? ?? '').trim();
-                                final label = caption.isNotEmpty ? caption : 'Story';
-                                final mediaUrl = story['media_url'] as String? ?? '';
+                                final caption =
+                                    (story['caption'] as String? ?? '').trim();
+                                final label = caption.isNotEmpty
+                                    ? caption
+                                    : 'Story';
+                                final mediaUrl =
+                                    story['media_url'] as String? ?? '';
                                 return _highlightCircle(
                                   label,
                                   imageUrl: mediaUrl,
@@ -2754,30 +3106,37 @@ class _PreviewProfileScreenState extends ConsumerState<PreviewProfileScreen> {
                       child: SizedBox(
                         width: 28,
                         height: 28,
-                        child: CircularProgressIndicator(strokeWidth: 2.5, color: primaryBlue),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.5,
+                          color: primaryBlue,
+                        ),
                       ),
                     ),
                   )
                 else if (_currentTabPosts.isEmpty)
                   Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 40,
+                      horizontal: 24,
+                    ),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Container(
                           padding: const EdgeInsets.all(14),
                           decoration: BoxDecoration(
-                            color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05),
+                            color: (isDark ? Colors.white : Colors.black)
+                                .withValues(alpha: 0.05),
                             shape: BoxShape.circle,
                           ),
                           child: Icon(
                             _activeContentTab == 0
                                 ? Icons.grid_on_outlined
                                 : _activeContentTab == 1
-                                    ? Icons.movie_creation_outlined
-                                    : _activeContentTab == 2
-                                        ? Icons.videocam_outlined
-                                        : Icons.assignment_ind_outlined,
+                                ? Icons.movie_creation_outlined
+                                : _activeContentTab == 2
+                                ? Icons.videocam_outlined
+                                : Icons.assignment_ind_outlined,
                             size: 32,
                             color: textSecondary,
                           ),
@@ -2787,10 +3146,10 @@ class _PreviewProfileScreenState extends ConsumerState<PreviewProfileScreen> {
                           _activeContentTab == 0
                               ? 'No Posts Yet'
                               : _activeContentTab == 1
-                                  ? 'No Reels Yet'
-                                  : _activeContentTab == 2
-                                      ? 'No Live Streams'
-                                      : 'No Tagged Posts',
+                              ? 'No Reels Yet'
+                              : _activeContentTab == 2
+                              ? 'No Live Streams'
+                              : 'No Tagged Posts',
                           style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w700,
@@ -2802,10 +3161,10 @@ class _PreviewProfileScreenState extends ConsumerState<PreviewProfileScreen> {
                           _activeContentTab == 0
                               ? 'When posts are published, they will appear here.'
                               : _activeContentTab == 1
-                                  ? 'Video reels will appear here.'
-                                  : _activeContentTab == 2
-                                      ? 'Recorded live streams will appear here.'
-                                      : 'Posts you are tagged in will appear here.',
+                              ? 'Video reels will appear here.'
+                              : _activeContentTab == 2
+                              ? 'Recorded live streams will appear here.'
+                              : 'Posts you are tagged in will appear here.',
                           textAlign: TextAlign.center,
                           style: TextStyle(fontSize: 12, color: textSecondary),
                         ),
@@ -2817,60 +3176,94 @@ class _PreviewProfileScreenState extends ConsumerState<PreviewProfileScreen> {
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
                     padding: const EdgeInsets.all(2),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 3,
-                      crossAxisSpacing: 2,
-                      mainAxisSpacing: 2,
-                      childAspectRatio: 1.0,
-                    ),
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 3,
+                          crossAxisSpacing: 2,
+                          mainAxisSpacing: 2,
+                          childAspectRatio: 1.0,
+                        ),
                     itemCount: _currentTabPosts.length,
                     itemBuilder: (ctx, i) {
                       final item = _currentTabPosts[i];
-                      final mediaUrls = item['media_urls'] is List ? item['media_urls'] as List : [];
-                      final imageUrl = mediaUrls.isNotEmpty ? mediaUrls.first.toString() : null;
+                      final mediaUrls = item['media_urls'] is List
+                          ? item['media_urls'] as List
+                          : [];
+                      final imageUrl = mediaUrls.isNotEmpty
+                          ? mediaUrls.first.toString()
+                          : null;
                       final content = item['content'] as String? ?? '';
                       final likes = (item['likes_count'] as num?)?.toInt() ?? 0;
                       final isPinned = item['is_pinned'] == true;
-                      final isReel = _activeContentTab == 1 || item['type'] == 'reel' || item['video_url'] != null;
+                      final isReel =
+                          _activeContentTab == 1 ||
+                          item['type'] == 'reel' ||
+                          item['video_url'] != null;
                       final isCarousel = mediaUrls.length > 1;
 
                       return GestureDetector(
                         onTap: () => _showPostDetailModal(item),
                         child: Container(
-                          color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                          color: isDark
+                              ? const Color(0xFF1E293B)
+                              : const Color(0xFFF1F5F9),
                           child: imageUrl != null && imageUrl.isNotEmpty
                               ? Stack(
                                   fit: StackFit.expand,
                                   children: [
                                     CachedNetworkImage(
-                                      imageUrl: ApiClient.resolveUrl(imageUrl) ?? imageUrl,
+                                      imageUrl:
+                                          ApiClient.resolveUrl(imageUrl) ??
+                                          imageUrl,
                                       fit: BoxFit.cover,
                                       placeholder: (context, url) => Container(
-                                        color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+                                        color: isDark
+                                            ? const Color(0xFF1E293B)
+                                            : const Color(0xFFE2E8F0),
                                       ),
-                                      errorWidget: (context, url, error) => Container(
-                                        color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
-                                        child: const Icon(Icons.broken_image_outlined, color: Colors.grey, size: 20),
-                                      ),
+                                      errorWidget: (context, url, error) =>
+                                          Container(
+                                            color: isDark
+                                                ? const Color(0xFF1E293B)
+                                                : const Color(0xFFE2E8F0),
+                                            child: const Icon(
+                                              Icons.broken_image_outlined,
+                                              color: Colors.grey,
+                                              size: 20,
+                                            ),
+                                          ),
                                     ),
                                     if (isPinned)
                                       Positioned(
                                         top: 4,
                                         left: 4,
                                         child: Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 5,
+                                            vertical: 2,
+                                          ),
                                           decoration: BoxDecoration(
                                             color: primaryBlue,
-                                            borderRadius: BorderRadius.circular(4),
+                                            borderRadius: BorderRadius.circular(
+                                              4,
+                                            ),
                                           ),
                                           child: const Row(
                                             mainAxisSize: MainAxisSize.min,
                                             children: [
-                                              Icon(Icons.push_pin_rounded, color: Colors.white, size: 9),
+                                              Icon(
+                                                Icons.push_pin_rounded,
+                                                color: Colors.white,
+                                                size: 9,
+                                              ),
                                               SizedBox(width: 2),
                                               Text(
                                                 'Pinned',
-                                                style: TextStyle(color: Colors.white, fontSize: 8.5, fontWeight: FontWeight.bold),
+                                                style: TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: 8.5,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
                                               ),
                                             ],
                                           ),
@@ -2882,7 +3275,11 @@ class _PreviewProfileScreenState extends ConsumerState<PreviewProfileScreen> {
                                         right: 4,
                                         child: Padding(
                                           padding: EdgeInsets.all(2),
-                                          child: Icon(Icons.play_arrow_rounded, color: Colors.white, size: 18),
+                                          child: Icon(
+                                            Icons.play_arrow_rounded,
+                                            color: Colors.white,
+                                            size: 18,
+                                          ),
                                         ),
                                       )
                                     else if (isCarousel)
@@ -2891,7 +3288,11 @@ class _PreviewProfileScreenState extends ConsumerState<PreviewProfileScreen> {
                                         right: 4,
                                         child: Padding(
                                           padding: EdgeInsets.all(2),
-                                          child: Icon(Icons.filter_none_rounded, color: Colors.white, size: 14),
+                                          child: Icon(
+                                            Icons.filter_none_rounded,
+                                            color: Colors.white,
+                                            size: 14,
+                                          ),
                                         ),
                                       ),
                                     Positioned(
@@ -2900,7 +3301,11 @@ class _PreviewProfileScreenState extends ConsumerState<PreviewProfileScreen> {
                                       child: Row(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
-                                          const Icon(Icons.favorite_rounded, color: Colors.white, size: 12),
+                                          const Icon(
+                                            Icons.favorite_rounded,
+                                            color: Colors.white,
+                                            size: 12,
+                                          ),
                                           const SizedBox(width: 3),
                                           Text(
                                             '$likes',
@@ -2909,7 +3314,10 @@ class _PreviewProfileScreenState extends ConsumerState<PreviewProfileScreen> {
                                               fontSize: 10,
                                               fontWeight: FontWeight.w700,
                                               shadows: [
-                                                Shadow(color: Colors.black54, blurRadius: 4),
+                                                Shadow(
+                                                  color: Colors.black54,
+                                                  blurRadius: 4,
+                                                ),
                                               ],
                                             ),
                                           ),
@@ -2957,7 +3365,9 @@ class _PreviewProfileScreenState extends ConsumerState<PreviewProfileScreen> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: primaryBlue,
                   foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(24),
+                  ),
                   elevation: 0,
                 ),
                 onPressed: () {
@@ -2976,7 +3386,12 @@ class _PreviewProfileScreenState extends ConsumerState<PreviewProfileScreen> {
     );
   }
 
-  Widget _statItem(String count, String label, Color textPrimary, Color textSecondary) {
+  Widget _statItem(
+    String count,
+    String label,
+    Color textPrimary,
+    Color textSecondary,
+  ) {
     return Row(
       children: [
         Text(
@@ -3000,7 +3415,12 @@ class _PreviewProfileScreenState extends ConsumerState<PreviewProfileScreen> {
     );
   }
 
-  Widget _highlightCircle(String label, {String? imageUrl, bool isPlus = false, VoidCallback? onTap}) {
+  Widget _highlightCircle(
+    String label, {
+    String? imageUrl,
+    bool isPlus = false,
+    VoidCallback? onTap,
+  }) {
     return GestureDetector(
       onTap: onTap,
       child: Padding(
@@ -3013,28 +3433,45 @@ class _PreviewProfileScreenState extends ConsumerState<PreviewProfileScreen> {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: isPlus ? primaryBlue.withValues(alpha: 0.3) : primaryBlue,
+                  color: isPlus
+                      ? primaryBlue.withValues(alpha: 0.3)
+                      : primaryBlue,
                   width: 2,
                 ),
-                color: isPlus ? primaryBlue.withValues(alpha: 0.08) : const Color(0xFF1E293B),
+                color: isPlus
+                    ? primaryBlue.withValues(alpha: 0.08)
+                    : const Color(0xFF1E293B),
               ),
               child: isPlus
                   ? const Icon(Icons.add_rounded, color: primaryBlue, size: 26)
                   : ClipOval(
                       child: (imageUrl != null && imageUrl.isNotEmpty)
                           ? CachedNetworkImage(
-                              imageUrl: ApiClient.resolveUrl(imageUrl) ?? imageUrl,
+                              imageUrl:
+                                  ApiClient.resolveUrl(imageUrl) ?? imageUrl,
                               fit: BoxFit.cover,
                               placeholder: (context, url) => Container(
                                 color: const Color(0xFF1E293B),
-                                child: const Icon(Icons.image_outlined, color: Colors.white54, size: 18),
+                                child: const Icon(
+                                  Icons.image_outlined,
+                                  color: Colors.white54,
+                                  size: 18,
+                                ),
                               ),
                               errorWidget: (context, url, error) => Container(
                                 color: const Color(0xFF1E293B),
-                                child: const Icon(Icons.image_outlined, color: Colors.white54, size: 18),
+                                child: const Icon(
+                                  Icons.image_outlined,
+                                  color: Colors.white54,
+                                  size: 18,
+                                ),
                               ),
                             )
-                          : const Icon(Icons.photo_library_outlined, color: Colors.white70, size: 20),
+                          : const Icon(
+                              Icons.photo_library_outlined,
+                              color: Colors.white70,
+                              size: 20,
+                            ),
                     ),
             ),
             const SizedBox(height: 5),
@@ -3042,7 +3479,10 @@ class _PreviewProfileScreenState extends ConsumerState<PreviewProfileScreen> {
               width: 62,
               child: Text(
                 label,
-                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
                 textAlign: TextAlign.center,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -3054,7 +3494,12 @@ class _PreviewProfileScreenState extends ConsumerState<PreviewProfileScreen> {
     );
   }
 
-  Widget _tabHeaderItem(int index, String title, Color textPrimary, Color textSecondary) {
+  Widget _tabHeaderItem(
+    int index,
+    String title,
+    Color textPrimary,
+    Color textSecondary,
+  ) {
     final isActive = _activeContentTab == index;
     return Expanded(
       child: GestureDetector(
@@ -3108,16 +3553,24 @@ class _PreviewPostDetailSheet extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bg = isDark ? const Color(0xFF1E293B) : Colors.white;
     final textPrimary = isDark ? Colors.white : const Color(0xFF0F172A);
-    final textSecondary = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
+    final textSecondary = isDark
+        ? const Color(0xFF94A3B8)
+        : const Color(0xFF64748B);
 
-    final mediaUrls = postData['media_urls'] is List ? postData['media_urls'] as List : [];
+    final mediaUrls = postData['media_urls'] is List
+        ? postData['media_urls'] as List
+        : [];
     final imageUrl = mediaUrls.isNotEmpty ? mediaUrls.first.toString() : null;
     final content = postData['content'] as String? ?? '';
     final likes = (postData['likes_count'] as num?)?.toInt() ?? 0;
     final commentsCount = (postData['comments_count'] as num?)?.toInt() ?? 0;
     final createdAtStr = postData['created_at']?.toString();
-    final createdAt = createdAtStr != null ? DateTime.tryParse(createdAtStr) : null;
-    final dateFormatted = createdAt != null ? DateFormat('MMM d, yyyy • h:mm a').format(createdAt) : '';
+    final createdAt = createdAtStr != null
+        ? DateTime.tryParse(createdAtStr)
+        : null;
+    final dateFormatted = createdAt != null
+        ? DateFormat('MMM d, yyyy • h:mm a').format(createdAt)
+        : '';
 
     return Container(
       constraints: BoxConstraints(
@@ -3148,14 +3601,23 @@ class _PreviewPostDetailSheet extends StatelessWidget {
               children: [
                 CircleAvatar(
                   radius: 20,
-                  backgroundColor: const Color(0xFF1B64F2).withValues(alpha: 0.12),
+                  backgroundColor: const Color(
+                    0xFF1B64F2,
+                  ).withValues(alpha: 0.12),
                   backgroundImage: authorAvatar.isNotEmpty
-                      ? CachedNetworkImageProvider(ApiClient.resolveUrl(authorAvatar) ?? authorAvatar)
+                      ? CachedNetworkImageProvider(
+                          ApiClient.resolveUrl(authorAvatar) ?? authorAvatar,
+                        )
                       : null,
                   child: authorAvatar.isEmpty
                       ? Text(
-                          authorName.isNotEmpty ? authorName[0].toUpperCase() : 'U',
-                          style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF1B64F2)),
+                          authorName.isNotEmpty
+                              ? authorName[0].toUpperCase()
+                              : 'U',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF1B64F2),
+                          ),
                         )
                       : null,
                 ),
@@ -3169,17 +3631,29 @@ class _PreviewPostDetailSheet extends StatelessWidget {
                           Flexible(
                             child: Text(
                               authorName,
-                              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: textPrimary),
+                              style: TextStyle(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 14,
+                                color: textPrimary,
+                              ),
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
                           const SizedBox(width: 4),
-                          const Icon(Icons.verified_rounded, size: 14, color: Color(0xFF1B64F2)),
+                          const Icon(
+                            Icons.verified_rounded,
+                            size: 14,
+                            color: Color(0xFF1B64F2),
+                          ),
                         ],
                       ),
                       Text(
                         '@$authorUsername',
-                        style: TextStyle(fontSize: 12, color: textSecondary, fontWeight: FontWeight.w500),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: textSecondary,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ],
                   ),
@@ -3209,15 +3683,23 @@ class _PreviewPostDetailSheet extends StatelessWidget {
                         fit: BoxFit.cover,
                         placeholder: (context, url) => Container(
                           height: 220,
-                          color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
+                          color: isDark
+                              ? const Color(0xFF0F172A)
+                              : const Color(0xFFF1F5F9),
                           child: const Center(
                             child: CircularProgressIndicator(strokeWidth: 2),
                           ),
                         ),
                         errorWidget: (context, url, error) => Container(
                           height: 160,
-                          color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
-                          child: const Icon(Icons.broken_image_rounded, size: 36, color: Colors.grey),
+                          color: isDark
+                              ? const Color(0xFF0F172A)
+                              : const Color(0xFFF1F5F9),
+                          child: const Icon(
+                            Icons.broken_image_rounded,
+                            size: 36,
+                            color: Colors.grey,
+                          ),
                         ),
                       ),
                     ),
@@ -3227,7 +3709,11 @@ class _PreviewPostDetailSheet extends StatelessWidget {
                   if (content.isNotEmpty)
                     Text(
                       content,
-                      style: TextStyle(fontSize: 14, height: 1.45, color: textPrimary),
+                      style: TextStyle(
+                        fontSize: 14,
+                        height: 1.45,
+                        color: textPrimary,
+                      ),
                     ),
 
                   const SizedBox(height: 14),
@@ -3247,22 +3733,38 @@ class _PreviewPostDetailSheet extends StatelessWidget {
                     children: [
                       Row(
                         children: [
-                          const Icon(Icons.favorite_rounded, color: Colors.redAccent, size: 18),
+                          const Icon(
+                            Icons.favorite_rounded,
+                            color: Colors.redAccent,
+                            size: 18,
+                          ),
                           const SizedBox(width: 5),
                           Text(
                             '$likes likes',
-                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: textPrimary),
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: textPrimary,
+                            ),
                           ),
                         ],
                       ),
                       const SizedBox(width: 20),
                       Row(
                         children: [
-                          Icon(Icons.chat_bubble_outline_rounded, color: textSecondary, size: 18),
+                          Icon(
+                            Icons.chat_bubble_outline_rounded,
+                            color: textSecondary,
+                            size: 18,
+                          ),
                           const SizedBox(width: 5),
                           Text(
                             '$commentsCount comments',
-                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: textSecondary),
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: textSecondary,
+                            ),
                           ),
                         ],
                       ),
@@ -3277,4 +3779,3 @@ class _PreviewPostDetailSheet extends StatelessWidget {
     );
   }
 }
-
