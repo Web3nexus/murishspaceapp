@@ -29,6 +29,7 @@ import '../screens/discover_screen.dart';
 import '../screens/forgot_password_screen.dart';
 import '../screens/gifts_screen.dart';
 import '../screens/kyc_screen.dart';
+import '../screens/link_device_screen.dart';
 import '../screens/login_screen.dart';
 import '../screens/notifications_screen.dart';
 import '../screens/onboarding_screen.dart';
@@ -84,6 +85,7 @@ final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
 const Set<String> _authRequiredExactPaths = <String>{
   '/wallet',
   '/gifts',
+  '/qr-login',
   '/profile',
   '/kyc',
   '/social-accounts',
@@ -377,6 +379,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/profile/devices',
         builder: (_, _) => const DevicesScreen(),
+      ),
+      GoRoute(
+        path: '/profile/link-device',
+        builder: (_, state) => LinkDeviceScreen(
+          initialToken: state.uri.queryParameters['token'],
+        ),
+      ),
+      GoRoute(
+        path: '/qr-login',
+        builder: (_, state) => LinkDeviceScreen(
+          initialToken: state.uri.queryParameters['token'],
+        ),
       ),
       GoRoute(
         path: '/profile/appearance',

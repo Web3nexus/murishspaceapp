@@ -214,6 +214,15 @@ class SecuritySettingsScreen extends ConsumerWidget {
               context.push('/profile/devices');
             },
           ),
+          ListTile(
+            leading: const Icon(Icons.qr_code_scanner_rounded, color: Color(0xFFF09A3E)),
+            title: const Text('Link a device'),
+            subtitle: const Text('Scan the QR code on the web login screen to sign in a browser'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () {
+              context.push('/profile/link-device');
+            },
+          ),
 
           const Divider(height: 32),
 
