@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../config/router.dart';
+import '../core/design_tokens.dart';
 import '../providers/auth_provider.dart';
 import '../providers/calls_provider.dart';
 import '../screens/call_screen.dart';
@@ -13,6 +14,12 @@ import '../core/api_client.dart';
 import '../services/call_session_manager.dart';
 import '../services/sound_service.dart';
 
+/// Heads-up incoming-call banner shown while the user is inside the app.
+///
+/// When the app is backgrounded or terminated the OS-level CallKit UI takes
+/// over instead (see [PushService]); this banner is the in-app counterpart for
+/// the foreground case. It is theme-aware: light surfaces and dark ink text in
+/// light mode, deep slate surfaces and light text in dark mode.
 class IncomingCallOverlay extends ConsumerStatefulWidget {
   final Widget child;
 
@@ -38,6 +45,7 @@ class _IncomingCallOverlayState extends ConsumerState<IncomingCallOverlay>
   late AnimationController _rippleController;
 
   bool _isBannerVisible = false;
+  bool _isAccepting = false;
 
   @override
   void initState() {
@@ -73,7 +81,7 @@ class _IncomingCallOverlayState extends ConsumerState<IncomingCallOverlay>
       duration: const Duration(milliseconds: 1100),
     )..repeat(reverse: true);
 
-    _pulseScale = Tween<double>(begin: 1.0, end: 1.10).animate(
+    _pulseScale = Tween<double>(begin: 1.0, end: 1.08).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
 
@@ -217,7 +225,7 @@ class _IncomingCallOverlayState extends ConsumerState<IncomingCallOverlay>
               child: FadeTransition(
                 opacity: _fadeAnimation,
                 child: activeCall != null
-                    ? _buildFancyCallBanner(context, activeCall)
+                    ? _buildIncomingCallBanner(context, activeCall)
                     : const SizedBox.shrink(),
               ),
             ),
@@ -226,8 +234,18 @@ class _IncomingCallOverlayState extends ConsumerState<IncomingCallOverlay>
     );
   }
 
-  Widget _buildFancyCallBanner(BuildContext context, ActiveCallSession activeCall) {
+  Widget _buildIncomingCallBanner(BuildContext context, ActiveCallSession activeCall) {
     final isVideo = activeCall.callType == 'video';
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    // Theme-resolved tokens: the banner is a surface of the app, so it follows
+    // the active theme instead of forcing a single dark treatment.
+    final accent = DesignTokens.primary;
+    final surfaceTop = isDark ? const Color(0xFF23314A) : const Color(0xFFFFFFFF);
+    final surfaceBottom = isDark ? const Color(0xFF141C2B) : const Color(0xFFF5F8FC);
+    final borderColor = isDark ? const Color(0xFF3B4B66) : const Color(0xFFE2E8F0);
+    final titleColor = isDark ? const Color(0xFFF8FAFC) : const Color(0xFF0F172A);
+    final subtleColor = isDark ? const Color(0xFF9AA8BF) : const Color(0xFF64748B);
 
     return Dismissible(
       key: ValueKey('incoming_call_${activeCall.callId}'),
@@ -258,52 +276,35 @@ class _IncomingCallOverlayState extends ConsumerState<IncomingCallOverlay>
           },
           child: Container(
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(26),
+              borderRadius: BorderRadius.circular(22),
               boxShadow: [
-                // Glowing emerald rim accent shadow
                 BoxShadow(
-                  color: const Color(0xFF10B981).withValues(alpha: 0.22),
-                  blurRadius: 28,
-                  spreadRadius: 1,
-                  offset: const Offset(0, 6),
-                ),
-                // Deep dark elevation shadow
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.55),
-                  blurRadius: 24,
-                  offset: const Offset(0, 10),
+                  color: (isDark ? Colors.black : const Color(0xFF1E293B))
+                      .withValues(alpha: isDark ? 0.55 : 0.16),
+                  blurRadius: 26,
+                  offset: const Offset(0, 12),
                 ),
               ],
             ),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(26),
+              borderRadius: BorderRadius.circular(22),
               child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  padding: const EdgeInsets.fromLTRB(12, 11, 12, 11),
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
-                      colors: [
-                        const Color(0xFF0F172A).withValues(alpha: 0.94),
-                        const Color(0xFF1E293B).withValues(alpha: 0.96),
-                      ],
+                      colors: [surfaceTop, surfaceBottom],
                     ),
-                    borderRadius: BorderRadius.circular(26),
-                    border: Border.all(
-                      color: const Color(0xFF10B981).withValues(alpha: 0.4),
-                      width: 1.2,
-                    ),
+                    borderRadius: BorderRadius.circular(22),
+                    border: Border.all(color: borderColor, width: 1),
                   ),
                   child: Row(
                     children: [
-                      // Animated Radar Ripple Caller Avatar
-                      _buildRadarAvatar(activeCall),
-
+                      _buildCallerAvatar(activeCall, isDark: isDark, accent: accent),
                       const SizedBox(width: 12),
-
-                      // Caller Info & Animated Ringing Status
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -313,63 +314,54 @@ class _IncomingCallOverlayState extends ConsumerState<IncomingCallOverlay>
                               activeCall.callerName,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 16,
+                              style: TextStyle(
+                                fontSize: 15.5,
                                 fontWeight: FontWeight.w700,
-                                color: Colors.white,
+                                color: titleColor,
                                 letterSpacing: -0.2,
                               ),
                             ),
-                            const SizedBox(height: 3),
+                            const SizedBox(height: 5),
                             Row(
                               children: [
-                                // Call Type Pill
                                 Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 6,
-                                    vertical: 2,
-                                  ),
+                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFF10B981).withValues(alpha: 0.16),
+                                    color: accent.withValues(alpha: isDark ? 0.20 : 0.10),
                                     borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(
-                                      color: const Color(0xFF10B981).withValues(alpha: 0.35),
-                                      width: 0.8,
-                                    ),
                                   ),
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Icon(
-                                        isVideo
-                                            ? Icons.videocam_rounded
-                                            : Icons.call_rounded,
-                                        size: 11,
-                                        color: const Color(0xFF34D399),
+                                        isVideo ? Icons.videocam_rounded : Icons.call_rounded,
+                                        size: 12,
+                                        color: accent,
                                       ),
                                       const SizedBox(width: 4),
                                       Text(
                                         isVideo ? 'VIDEO' : 'VOICE',
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                           fontSize: 9.5,
                                           fontWeight: FontWeight.w800,
-                                          color: Color(0xFF34D399),
+                                          color: accent,
                                           letterSpacing: 0.5,
                                         ),
                                       ),
                                     ],
                                   ),
                                 ),
-                                const SizedBox(width: 6),
-                                // Pulsing Ringing Equalizer
-                                _buildMiniEqualizer(),
-                                const SizedBox(width: 4),
-                                const Text(
-                                  'Ringing…',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Color(0xFF94A3B8),
-                                    fontWeight: FontWeight.w500,
+                                const SizedBox(width: 7),
+                                Flexible(
+                                  child: Text(
+                                    isVideo ? 'Incoming video call' : 'Incoming voice call',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: subtleColor,
+                                      fontWeight: FontWeight.w500,
+                                    ),
                                   ),
                                 ),
                               ],
@@ -377,103 +369,10 @@ class _IncomingCallOverlayState extends ConsumerState<IncomingCallOverlay>
                           ],
                         ),
                       ),
-
-                      const SizedBox(width: 10),
-
-                      // Decline Action Button
-                      Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          onTap: () {
-                            HapticFeedback.mediumImpact();
-                            _stopRingingFeedback();
-                            ref.read(callsProvider.notifier).declineCall(activeCall.callId);
-                          },
-                          borderRadius: BorderRadius.circular(24),
-                          child: Container(
-                            width: 44,
-                            height: 44,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              gradient: const LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: [Color(0xFFFF453A), Color(0xFFD70015)],
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: const Color(0xFFFF3B30).withValues(alpha: 0.4),
-                                  blurRadius: 10,
-                                  offset: const Offset(0, 3),
-                                ),
-                              ],
-                            ),
-                            child: const Icon(
-                              Icons.call_end_rounded,
-                              color: Colors.white,
-                              size: 20,
-                            ),
-                          ),
-                        ),
-                      ),
-
-                      const SizedBox(width: 10),
-
-                      // Accept Action Button with Glowing Pulse
-                      ScaleTransition(
-                        scale: _pulseScale,
-                        child: Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            onTap: () async {
-                              HapticFeedback.heavyImpact();
-                              _stopRingingFeedback();
-                              await ref.read(callsProvider.notifier).acceptCall(activeCall.callId);
-                              if (!context.mounted) return;
-                              rootNavigatorKey.currentState?.push(
-                                MaterialPageRoute(
-                                  builder: (_) => CallScreen(
-                                    contactName: activeCall.callerName,
-                                    avatarUrl: activeCall.callerAvatar,
-                                    isVideo: isVideo,
-                                    callId: activeCall.callId,
-                                    isIncoming: true,
-                                    isAccepted: true,
-                                  ),
-                                ),
-                              );
-                            },
-                            borderRadius: BorderRadius.circular(26),
-                            child: Container(
-                              width: 48,
-                              height: 48,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                gradient: const LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                  colors: [Color(0xFF34D399), Color(0xFF059669)],
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: const Color(0xFF10B981).withValues(alpha: 0.55),
-                                    blurRadius: 14,
-                                    spreadRadius: 1,
-                                    offset: const Offset(0, 3),
-                                  ),
-                                ],
-                              ),
-                              child: Icon(
-                                isVideo
-                                    ? Icons.videocam_rounded
-                                    : Icons.call_rounded,
-                                color: Colors.white,
-                                size: 24,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
+                      const SizedBox(width: 8),
+                      _buildDeclineButton(activeCall),
+                      const SizedBox(width: 8),
+                      _buildAcceptButton(activeCall, isVideo: isVideo),
                     ],
                   ),
                 ),
@@ -485,91 +384,74 @@ class _IncomingCallOverlayState extends ConsumerState<IncomingCallOverlay>
     );
   }
 
-  /// Animated Avatar with radar ripple waves
-  Widget _buildRadarAvatar(ActiveCallSession activeCall) {
+  /// Caller profile picture with a subtle themed radar ripple while ringing.
+  Widget _buildCallerAvatar(
+    ActiveCallSession activeCall, {
+    required bool isDark,
+    required Color accent,
+  }) {
+    final hasAvatar = activeCall.callerAvatar.isNotEmpty;
     return SizedBox(
-      width: 54,
-      height: 54,
+      width: 52,
+      height: 52,
       child: AnimatedBuilder(
         animation: _rippleController,
         builder: (context, _) {
-          final progress = _rippleController.value;
-          final scale1 = 1.0 + (progress * 0.45);
-          final opacity1 = (1.0 - progress).clamp(0.0, 1.0) * 0.45;
-
-          final progress2 = (progress + 0.5) % 1.0;
-          final scale2 = 1.0 + (progress2 * 0.45);
-          final opacity2 = (1.0 - progress2).clamp(0.0, 1.0) * 0.45;
+          final p = _rippleController.value;
+          final s1 = 1.0 + (p * 0.36);
+          final o1 = (1 - p).clamp(0.0, 1.0) * 0.38;
+          final p2 = (p + 0.5) % 1.0;
+          final s2 = 1.0 + (p2 * 0.36);
+          final o2 = (1 - p2).clamp(0.0, 1.0) * 0.38;
 
           return Stack(
             alignment: Alignment.center,
             children: [
-              // Outer radar ripple 1
               Transform.scale(
-                scale: scale1,
+                scale: s1,
                 child: Container(
-                  width: 48,
-                  height: 48,
+                  width: 46,
+                  height: 46,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    border: Border.all(
-                      color: const Color(0xFF10B981).withValues(alpha: opacity1),
-                      width: 1.8,
-                    ),
+                    border: Border.all(color: accent.withValues(alpha: o1), width: 1.6),
                   ),
                 ),
               ),
-              // Outer radar ripple 2
               Transform.scale(
-                scale: scale2,
+                scale: s2,
                 child: Container(
-                  width: 48,
-                  height: 48,
+                  width: 46,
+                  height: 46,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    border: Border.all(
-                      color: const Color(0xFF34D399).withValues(alpha: opacity2),
-                      width: 1.5,
-                    ),
+                    border: Border.all(color: accent.withValues(alpha: o2), width: 1.6),
                   ),
                 ),
               ),
-              // Center Avatar
               Container(
-                width: 46,
-                height: 46,
+                width: 44,
+                height: 44,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  border: Border.all(
-                    color: const Color(0xFF10B981),
-                    width: 2.0,
-                  ),
+                  border: Border.all(color: accent, width: 1.6),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF10B981).withValues(alpha: 0.3),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
+                      color: accent.withValues(alpha: isDark ? 0.34 : 0.22),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
                     ),
                   ],
                 ),
                 child: ClipOval(
-                  child: activeCall.callerAvatar.isNotEmpty
+                  child: hasAvatar
                       ? CachedNetworkImage(
                           imageUrl: activeCall.callerAvatar,
                           fit: BoxFit.cover,
-                          placeholder: (context, url) => Container(
-                            color: const Color(0xFF0284C7),
-                            child: const Icon(Icons.person, color: Colors.white, size: 24),
-                          ),
-                          errorWidget: (context, url, error) => Container(
-                            color: const Color(0xFF0284C7),
-                            child: const Icon(Icons.person, color: Colors.white, size: 24),
-                          ),
+                          placeholder: (_, _) => _avatarFallback(accent),
+                          errorWidget: (_, _, _) => _avatarFallback(accent),
                         )
-                      : Container(
-                          color: const Color(0xFF0284C7),
-                          child: const Icon(Icons.person, color: Colors.white, size: 24),
-                        ),
+                      : _avatarFallback(accent),
                 ),
               ),
             ],
@@ -579,38 +461,111 @@ class _IncomingCallOverlayState extends ConsumerState<IncomingCallOverlay>
     );
   }
 
-  /// Mini animated equalizer bars
-  Widget _buildMiniEqualizer() {
-    return AnimatedBuilder(
-      animation: _pulseController,
-      builder: (context, _) {
-        final t = _pulseController.value;
-        final h1 = 4.0 + (t * 6.0);
-        final h2 = 10.0 - (t * 5.0);
-        final h3 = 5.0 + (t * 5.0);
-
-        return Row(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            _buildBar(h1),
-            const SizedBox(width: 2),
-            _buildBar(h2),
-            const SizedBox(width: 2),
-            _buildBar(h3),
-          ],
-        );
-      },
+  Widget _avatarFallback(Color accent) {
+    return Container(
+      color: accent.withValues(alpha: 0.14),
+      child: Icon(Icons.person_rounded, color: accent, size: 24),
     );
   }
 
-  Widget _buildBar(double height) {
-    return Container(
-      width: 2.2,
-      height: height,
-      decoration: BoxDecoration(
-        color: const Color(0xFF34D399),
-        borderRadius: BorderRadius.circular(1),
+  Widget _buildDeclineButton(ActiveCallSession activeCall) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          HapticFeedback.mediumImpact();
+          _stopRingingFeedback();
+          ref.read(callsProvider.notifier).declineCall(activeCall.callId);
+        },
+        customBorder: const CircleBorder(),
+        child: Container(
+          width: 46,
+          height: 46,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: const Color(0xFFFF3B30),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFFFF3B30).withValues(alpha: 0.38),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: const Icon(Icons.call_end_rounded, color: Colors.white, size: 21),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAcceptButton(ActiveCallSession activeCall, {required bool isVideo}) {
+    return ScaleTransition(
+      scale: _pulseScale,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: _isAccepting
+              ? null
+              : () async {
+                  setState(() => _isAccepting = true);
+                  HapticFeedback.heavyImpact();
+                  try {
+                    final accepted = await ref
+                        .read(callsProvider.notifier)
+                        .acceptCall(activeCall.callId);
+                    if (!mounted || accepted == null) {
+                      // Accept failed on the backend — don't push a screen that
+                      // claims to be connected. Ringing feedback is still running
+                      // (it is only stopped after a successful accept).
+                      if (mounted && context.mounted) {
+                        ScaffoldMessenger.of(context)
+                          ..hideCurrentSnackBar()
+                          ..showSnackBar(
+                            const SnackBar(content: Text('Could not accept the call. Try again.')),
+                          );
+                      }
+                      return;
+                    }
+                    _stopRingingFeedback();
+                    rootNavigatorKey.currentState?.push(
+                      MaterialPageRoute(
+                        builder: (_) => CallScreen(
+                          contactName: activeCall.callerName,
+                          avatarUrl: activeCall.callerAvatar,
+                          isVideo: isVideo,
+                          callId: activeCall.callId,
+                          isIncoming: true,
+                          isAccepted: true,
+                        ),
+                      ),
+                    );
+                  } finally {
+                    if (mounted) setState(() => _isAccepting = false);
+                  }
+                },
+          customBorder: const CircleBorder(),
+          child: Container(
+            width: 50,
+            height: 50,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: const Color(0xFF34C759),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF34C759).withValues(alpha: 0.5),
+                  blurRadius: 14,
+                  spreadRadius: 1,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Icon(
+              isVideo ? Icons.videocam_rounded : Icons.call_rounded,
+              color: Colors.white,
+              size: 24,
+            ),
+          ),
+        ),
       ),
     );
   }

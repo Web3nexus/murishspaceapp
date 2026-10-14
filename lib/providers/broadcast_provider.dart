@@ -184,7 +184,7 @@ class BroadcastNotifier extends Notifier<BroadcastState> {
             }
 
             BroadcastType bType = BroadcastType.announcement;
-            if (code != null || typeStr.contains('otp') || typeStr.contains('code') || dataMap.containsKey('code')) {
+            if (code != null || typeStr.contains('otp') || typeStr.contains('code') || typeStr.contains('device_login') || dataMap.containsKey('code')) {
               bType = BroadcastType.transactionOtp;
             } else if (typeStr.contains('security') || typeStr.contains('kyc') || typeStr.contains('device')) {
               bType = BroadcastType.securityAlert;

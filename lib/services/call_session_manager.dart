@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' hide ConnectionState;
 import 'package:flutter/services.dart';
 import 'package:livekit_client/livekit_client.dart';
@@ -773,6 +774,14 @@ class CallSessionManager extends ChangeNotifier {
       try {
         ApiClient.instance.dio.post('/calls/$callIdToEnd/end', data: {'duration': _callSeconds});
       } catch (_) {}
+    }
+
+    // Best-effort: end any phone-level CallKit call that the iOS fallback
+    // provider reported (flutter_callkit_incoming can only end its own calls).
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
+      const MethodChannel('murihspace/voip_fallback')
+          .invokeMethod('endActive')
+          .catchError((Object _) {});
     }
 
     _room?.disconnect();

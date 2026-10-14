@@ -40,7 +40,9 @@ class AppNotification {
       notificationType == 'kyc_rejected' ||
       notificationType == 'kyc_requested' ||
       notificationType == 'gift_received' ||
-      notificationType == 'money_received';
+      notificationType == 'money_received' ||
+      notificationType == 'device_login_code' ||
+      type.contains('device_login');
 
   bool get isVerified => data['is_verified'] == true || isOfficial;
 

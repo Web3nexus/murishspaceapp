@@ -16,6 +16,7 @@ import 'core/api_client.dart';
 import 'providers/appearance_provider.dart';
 import 'providers/auth_provider.dart';
 import 'providers/chat_provider.dart';
+import 'providers/calls_provider.dart';
 import 'providers/messages_provider.dart';
 import 'providers/realtime_provider.dart';
 
@@ -69,6 +70,51 @@ class _MurihSpaceAppState extends ConsumerState<MurihSpaceApp> with WidgetsBindi
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+
+    // Surface an in-app ringing banner when a call push arrives while the app
+    // is foregrounded (realtime socket is usually the primary path, but this
+    // covers the case where it missed the broadcast).
+    PushService.instance.onIncomingCallForeground = _handleForegroundCallData;
+    // Clear any in-app call state when the call is declined/ended from the OS
+    // call UI.
+    PushService.instance.onExternalCallEnded = _handleExternalCallEnded;
+
+    // If the app was cold-started by answering a CallKit call, the navigator
+    // is not mounted when the accept event arrives; replay it after first frame.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      PushService.instance.processPendingAcceptedCall();
+    });
+  }
+
+  void _handleForegroundCallData(Map<String, dynamic> data) {
+    final callId = int.tryParse((data['call_id'] ?? '').toString());
+    if (callId == null || callId <= 0) return;
+    ref.read(callsProvider.notifier).handleIncomingCall({
+      'call': {
+        'id': callId,
+        'room_name': data['room_name'],
+        'caller_id': int.tryParse((data['caller_id'] ?? '').toString()),
+        'type': (data['is_video'] == 'true' || data['is_video'] == true) ? 'video' : 'audio',
+        'conversation_id': int.tryParse((data['conversation_id'] ?? '').toString()),
+      },
+      'caller': {
+        'name': data['caller_name'],
+        'avatar_url': data['caller_avatar'],
+      },
+      'livekit_token': data['livekit_token'],
+      'livekit_host': data['livekit_host'],
+    });
+  }
+
+  void _handleExternalCallEnded(Map<String, dynamic> extra) {
+    final callId = int.tryParse((extra['call_id'] ?? '').toString());
+    final active = ref.read(callsProvider).activeCall;
+    if (active == null) return;
+    if (callId != null && active.callId != callId) return;
+    // When only a CallKit UUID is available (unparseable), end the call only if
+    // it is still incoming — never mid-conversation over an ambiguous signal.
+    if (callId == null && active.status != 'incoming') return;
+    ref.read(callsProvider.notifier).handleCallEnded({'call': {'id': active.callId}});
   }
 
   @override
@@ -89,6 +135,7 @@ class _MurihSpaceAppState extends ConsumerState<MurihSpaceApp> with WidgetsBindi
       if (activeId != null) {
         ref.read(conversationMessagesProvider(activeId).notifier).catchUp();
       }
+      PushService.instance.processPendingAcceptedCall();
     }
   }
 

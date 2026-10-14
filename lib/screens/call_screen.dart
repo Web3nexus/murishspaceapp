@@ -53,7 +53,8 @@ class CallScreen extends ConsumerStatefulWidget {
   ConsumerState<CallScreen> createState() => _CallScreenState();
 }
 
-class _CallScreenState extends ConsumerState<CallScreen> with TickerProviderStateMixin {
+class _CallScreenState extends ConsumerState<CallScreen>
+    with TickerProviderStateMixin {
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
 
@@ -229,7 +230,9 @@ class _CallScreenState extends ConsumerState<CallScreen> with TickerProviderStat
           final call = CallSessionManager.instance;
 
           // Auto-pop if call has ended or idle
-          if (call.status == CallStatus.ended || call.status == CallStatus.idle || call.status == CallStatus.connectionFailed) {
+          if (call.status == CallStatus.ended ||
+              call.status == CallStatus.idle ||
+              call.status == CallStatus.connectionFailed) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               _closeScreen();
             });
@@ -239,7 +242,10 @@ class _CallScreenState extends ConsumerState<CallScreen> with TickerProviderStat
           final isWaiting = !isConnected;
           final isConnecting = call.status == CallStatus.connecting;
           final isReconnecting = call.status == CallStatus.reconnecting;
-          final isIncomingWaiting = call.status == CallStatus.ringing && call.isIncoming && !call.isAccepted;
+          final isIncomingWaiting =
+              call.status == CallStatus.ringing &&
+              call.isIncoming &&
+              !call.isAccepted;
 
           return Scaffold(
             backgroundColor: const Color(0xFF0B101B),
@@ -251,14 +257,19 @@ class _CallScreenState extends ConsumerState<CallScreen> with TickerProviderStat
 
                 // 2. Incoming / Outgoing / Connecting State Presentation
                 if (isWaiting)
-                  _buildWaitingPresentation(call, isIncomingWaiting, isConnecting)
+                  _buildWaitingPresentation(
+                    call,
+                    isIncomingWaiting,
+                    isConnecting,
+                  )
                 else
-                  // 3. Active Multi-Party Grid (if more than 1 remote participant)
-                  if (_isMultiParty(call))
-                    _buildMultiPartyGrid(call)
-                  else
-                    // 4. Picture-in-Picture Secondary Video Window (Active 1-on-1 call)
-                    if (call.isVideo) _buildPipWindow(context, call),
+                // 3. Active Multi-Party Grid (if more than 1 remote participant)
+                if (_isMultiParty(call))
+                  _buildMultiPartyGrid(call)
+                else
+                // 4. Picture-in-Picture Secondary Video Window (Active 1-on-1 call)
+                if (call.isVideo)
+                  _buildPipWindow(context, call),
 
                 // 4b. Connected Caller Identity (name + duration) — audio centered,
                 // video as a compact top pill.
@@ -266,8 +277,7 @@ class _CallScreenState extends ConsumerState<CallScreen> with TickerProviderStat
                   _buildConnectedIdentityOverlay(call),
 
                 // 5. Reconnecting Banner if network temporarily drops
-                if (isReconnecting)
-                  _buildReconnectingBanner(),
+                if (isReconnecting) _buildReconnectingBanner(),
 
                 // 6. Top Safe Area Controls (Minimize, Duration, [+] [↻] [•••])
                 _buildTopControls(context, call, isConnected),
@@ -276,7 +286,13 @@ class _CallScreenState extends ConsumerState<CallScreen> with TickerProviderStat
                 _buildReactionOverlay(call),
 
                 // 8. Bottom Call Controls Bar
-                _buildBottomControls(context, call, isWaiting, isIncomingWaiting, isConnecting),
+                _buildBottomControls(
+                  context,
+                  call,
+                  isWaiting,
+                  isIncomingWaiting,
+                  isConnecting,
+                ),
               ],
             ),
           );
@@ -286,14 +302,16 @@ class _CallScreenState extends ConsumerState<CallScreen> with TickerProviderStat
   }
 
   bool _isMultiParty(CallSessionManager call) {
-    final remoteParticipants = call.room?.remoteParticipants.values.toList() ?? [];
+    final remoteParticipants =
+        call.room?.remoteParticipants.values.toList() ?? [];
     return call.isConnected && remoteParticipants.length > 1;
   }
 
   // --- 1. Background Canvas ---
   Widget _buildBackgroundCanvas(CallSessionManager call) {
     final hasRemoteVideo = call.isVideo && call.remoteVideoTrack != null;
-    final hasLocalVideo = call.isVideo && call.localVideoTrack != null && !call.isCameraOff;
+    final hasLocalVideo =
+        call.isVideo && call.localVideoTrack != null && !call.isCameraOff;
 
     VideoTrack? mainVideoTrack;
     if (call.isVideo && call.isConnected) {
@@ -312,7 +330,10 @@ class _CallScreenState extends ConsumerState<CallScreen> with TickerProviderStat
         onTap: () {
           if (_isPipExpanded) {
             setState(() => _isPipExpanded = false);
-          } else if (call.isConnected && call.isVideo && hasRemoteVideo && hasLocalVideo) {
+          } else if (call.isConnected &&
+              call.isVideo &&
+              hasRemoteVideo &&
+              hasLocalVideo) {
             call.swapVideos();
           }
         },
@@ -327,33 +348,70 @@ class _CallScreenState extends ConsumerState<CallScreen> with TickerProviderStat
       );
     }
 
-    // Default Voice / Waiting Canvas: Dark slate gradient + MurihSpace Chat Pattern
+    // Default Voice / Waiting Canvas.
+    //
+    // Industry-standard treatment: the caller's picture fills the screen,
+    // heavily blurred, under a layered ink scrim so the identity and controls
+    // stay legible. Falls back to the branded slate + pattern when no picture
+    // is available.
+    final hasAvatar = call.avatarUrl != null && call.avatarUrl!.isNotEmpty;
+
     return Stack(
       fit: StackFit.expand,
       children: [
-        Container(
-          decoration: const BoxDecoration(
+        const ColoredBox(color: Color(0xFF0B101B)),
+        if (hasAvatar)
+          Positioned.fill(
+            child: ImageFiltered(
+              imageFilter: ImageFilter.blur(
+                sigmaX: 44,
+                sigmaY: 44,
+                tileMode: TileMode.clamp,
+              ),
+              child: CachedNetworkImage(
+                imageUrl: call.avatarUrl!,
+                fit: BoxFit.cover,
+                placeholder: (_, _) => const SizedBox.shrink(),
+                errorWidget: (_, _, _) => const SizedBox.shrink(),
+              ),
+            ),
+          ),
+        // Scrim: darker at the edges so the blurred picture reads as ambience
+        // rather than competing with the caller identity.
+        DecoratedBox(
+          decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: [Color(0xFF0F172A), Color(0xFF0B101B)],
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
+              colors: [
+                const Color(0xFF0B101B).withValues(alpha: 0.66),
+                const Color(0xFF0B101B).withValues(alpha: 0.82),
+                Colors.black.withValues(alpha: 0.94),
+              ],
+              stops: const [0.0, 0.5, 1.0],
             ),
           ),
         ),
-        ChatPatternBackground(child: const SizedBox.expand()),
+        if (!hasAvatar) ChatPatternBackground(child: const SizedBox.expand()),
       ],
     );
   }
 
   // --- 2. Waiting & Connecting Presentation ---
-  Widget _buildWaitingPresentation(CallSessionManager call, bool isIncoming, bool isConnecting) {
+  Widget _buildWaitingPresentation(
+    CallSessionManager call,
+    bool isIncoming,
+    bool isConnecting,
+  ) {
     final hasAvatar = call.avatarUrl != null && call.avatarUrl!.isNotEmpty;
 
     String statusText;
     if (isConnecting) {
       statusText = 'Connecting…';
     } else if (isIncoming) {
-      statusText = call.isVideo ? 'Incoming Video Call…' : 'Incoming Voice Call…';
+      statusText = call.isVideo
+          ? 'Incoming Video Call…'
+          : 'Incoming Voice Call…';
     } else if (call.status == CallStatus.ringing) {
       statusText = 'Ringing…';
     } else if (call.status == CallStatus.connectionFailed) {
@@ -368,7 +426,9 @@ class _CallScreenState extends ConsumerState<CallScreen> with TickerProviderStat
         children: [
           // Radar pulse avatar
           ScaleTransition(
-            scale: isConnecting ? const AlwaysStoppedAnimation(1.0) : _pulseAnimation,
+            scale: isConnecting
+                ? const AlwaysStoppedAnimation(1.0)
+                : _pulseAnimation,
             child: Container(
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
@@ -381,8 +441,11 @@ class _CallScreenState extends ConsumerState<CallScreen> with TickerProviderStat
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: (isIncoming ? const Color(0xFF34C759) : DesignTokens.primary)
-                        .withValues(alpha: 0.35),
+                    color:
+                        (isIncoming
+                                ? const Color(0xFF34C759)
+                                : DesignTokens.primary)
+                            .withValues(alpha: 0.35),
                     blurRadius: 36,
                     spreadRadius: 8,
                   ),
@@ -394,9 +457,15 @@ class _CallScreenState extends ConsumerState<CallScreen> with TickerProviderStat
                   CircleAvatar(
                     radius: 64,
                     backgroundColor: DesignTokens.primary,
-                    backgroundImage: hasAvatar ? CachedNetworkImageProvider(call.avatarUrl!) : null,
+                    backgroundImage: hasAvatar
+                        ? CachedNetworkImageProvider(call.avatarUrl!)
+                        : null,
                     child: !hasAvatar
-                        ? const Icon(Icons.person, color: Colors.white, size: 54)
+                        ? const Icon(
+                            Icons.person,
+                            color: Colors.white,
+                            size: 54,
+                          )
                         : null,
                   ),
                   if (isConnecting)
@@ -436,9 +505,7 @@ class _CallScreenState extends ConsumerState<CallScreen> with TickerProviderStat
             decoration: BoxDecoration(
               color: Colors.black.withValues(alpha: 0.5),
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.12),
-              ),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -449,7 +516,10 @@ class _CallScreenState extends ConsumerState<CallScreen> with TickerProviderStat
                     child: SizedBox(
                       width: 12,
                       height: 12,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF34C759)),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Color(0xFF34C759),
+                      ),
                     ),
                   )
                 else if (!isIncoming)
@@ -469,7 +539,9 @@ class _CallScreenState extends ConsumerState<CallScreen> with TickerProviderStat
                     fontWeight: FontWeight.w600,
                     color: isIncoming
                         ? const Color(0xFF34D399)
-                        : (isConnecting ? const Color(0xFF34C759) : Colors.white70),
+                        : (isConnecting
+                              ? const Color(0xFF34C759)
+                              : Colors.white70),
                   ),
                 ),
               ],
@@ -501,18 +573,28 @@ class _CallScreenState extends ConsumerState<CallScreen> with TickerProviderStat
                 const _ConnectedLiveDot(),
                 const SizedBox(width: 8),
                 ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.55),
+                  constraints: BoxConstraints(
+                    maxWidth: MediaQuery.of(context).size.width * 0.55,
+                  ),
                   child: Text(
                     call.contactName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Text(
                   _formatDuration(call.callSeconds),
-                  style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600),
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ],
             ),
@@ -532,8 +614,12 @@ class _CallScreenState extends ConsumerState<CallScreen> with TickerProviderStat
               CircleAvatar(
                 radius: 56,
                 backgroundColor: DesignTokens.primary,
-                backgroundImage: hasAvatar ? CachedNetworkImageProvider(call.avatarUrl!) : null,
-                child: !hasAvatar ? const Icon(Icons.person, color: Colors.white, size: 48) : null,
+                backgroundImage: hasAvatar
+                    ? CachedNetworkImageProvider(call.avatarUrl!)
+                    : null,
+                child: !hasAvatar
+                    ? const Icon(Icons.person, color: Colors.white, size: 48)
+                    : null,
               ),
               const SizedBox(height: 20),
               Padding(
@@ -553,11 +639,16 @@ class _CallScreenState extends ConsumerState<CallScreen> with TickerProviderStat
               ),
               const SizedBox(height: 10),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.black.withValues(alpha: 0.45),
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.12),
+                  ),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -566,7 +657,11 @@ class _CallScreenState extends ConsumerState<CallScreen> with TickerProviderStat
                     const SizedBox(width: 7),
                     Text(
                       _formatDuration(call.callSeconds),
-                      style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ],
                 ),
@@ -603,12 +698,19 @@ class _CallScreenState extends ConsumerState<CallScreen> with TickerProviderStat
               SizedBox(
                 width: 14,
                 height: 14,
-                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
               ),
               SizedBox(width: 8),
               Text(
                 'Reconnecting call…',
-                style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ],
           ),
@@ -624,7 +726,9 @@ class _CallScreenState extends ConsumerState<CallScreen> with TickerProviderStat
 
     if (!hasRemoteVideo && !hasLocalVideo) return const SizedBox.shrink();
 
-    final pipTrack = call.isSwapped ? call.remoteVideoTrack : call.localVideoTrack;
+    final pipTrack = call.isSwapped
+        ? call.remoteVideoTrack
+        : call.localVideoTrack;
 
     final mediaQuery = MediaQuery.of(context);
     final screenSize = mediaQuery.size;
@@ -652,7 +756,10 @@ class _CallScreenState extends ConsumerState<CallScreen> with TickerProviderStat
       child: GestureDetector(
         onPanUpdate: (details) {
           setState(() {
-            _pipOffset = Offset(clampedX + details.delta.dx, clampedY + details.delta.dy);
+            _pipOffset = Offset(
+              clampedX + details.delta.dx,
+              clampedY + details.delta.dy,
+            );
           });
         },
         onTap: () {
@@ -693,10 +800,7 @@ class _CallScreenState extends ConsumerState<CallScreen> with TickerProviderStat
             fit: StackFit.expand,
             children: [
               if (pipTrack != null)
-                VideoTrackRenderer(
-                  pipTrack,
-                  fit: VideoViewFit.cover,
-                )
+                VideoTrackRenderer(pipTrack, fit: VideoViewFit.cover)
               else
                 Center(
                   child: CircleAvatar(
@@ -706,7 +810,10 @@ class _CallScreenState extends ConsumerState<CallScreen> with TickerProviderStat
                       call.contactName.isNotEmpty
                           ? call.contactName.substring(0, 1).toUpperCase()
                           : 'U',
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ),
@@ -716,7 +823,10 @@ class _CallScreenState extends ConsumerState<CallScreen> with TickerProviderStat
                 bottom: 6,
                 right: 6,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.black.withValues(alpha: 0.65),
                     borderRadius: BorderRadius.circular(10),
@@ -725,7 +835,9 @@ class _CallScreenState extends ConsumerState<CallScreen> with TickerProviderStat
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
-                        _isPipExpanded ? Icons.swap_vert_rounded : Icons.swap_horiz_rounded,
+                        _isPipExpanded
+                            ? Icons.swap_vert_rounded
+                            : Icons.swap_horiz_rounded,
                         color: Colors.white,
                         size: 13,
                       ),
@@ -733,7 +845,11 @@ class _CallScreenState extends ConsumerState<CallScreen> with TickerProviderStat
                         const SizedBox(width: 3),
                         const Text(
                           'Swap',
-                          style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ],
                     ],
@@ -749,7 +865,8 @@ class _CallScreenState extends ConsumerState<CallScreen> with TickerProviderStat
 
   // --- 5. Multi-Party Grid ---
   Widget _buildMultiPartyGrid(CallSessionManager call) {
-    final remoteParticipants = call.room?.remoteParticipants.values.toList() ?? [];
+    final remoteParticipants =
+        call.room?.remoteParticipants.values.toList() ?? [];
 
     return Positioned.fill(
       top: MediaQuery.of(context).padding.top + 70,
@@ -773,7 +890,9 @@ class _CallScreenState extends ConsumerState<CallScreen> with TickerProviderStat
                 break;
               }
             }
-            final name = p.name.isNotEmpty ? p.name : (p.identity.isNotEmpty ? p.identity : 'User');
+            final name = p.name.isNotEmpty
+                ? p.name
+                : (p.identity.isNotEmpty ? p.identity : 'User');
 
             return Container(
               decoration: BoxDecoration(
@@ -796,8 +915,14 @@ class _CallScreenState extends ConsumerState<CallScreen> with TickerProviderStat
                         radius: 28,
                         backgroundColor: DesignTokens.primary,
                         child: Text(
-                          name.substring(0, name.length >= 2 ? 2 : 1).toUpperCase(),
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+                          name
+                              .substring(0, name.length >= 2 ? 2 : 1)
+                              .toUpperCase(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                          ),
                         ),
                       ),
                     ),
@@ -806,7 +931,10 @@ class _CallScreenState extends ConsumerState<CallScreen> with TickerProviderStat
                     left: 8,
                     right: 8,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.black.withValues(alpha: 0.6),
                         borderRadius: BorderRadius.circular(10),
@@ -815,7 +943,11 @@ class _CallScreenState extends ConsumerState<CallScreen> with TickerProviderStat
                         name,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ),
@@ -829,7 +961,11 @@ class _CallScreenState extends ConsumerState<CallScreen> with TickerProviderStat
   }
 
   // --- 6. Top Safe Area Controls: [+] [↻] [•••] ---
-  Widget _buildTopControls(BuildContext context, CallSessionManager call, bool isConnected) {
+  Widget _buildTopControls(
+    BuildContext context,
+    CallSessionManager call,
+    bool isConnected,
+  ) {
     return Positioned(
       top: MediaQuery.of(context).padding.top + 8,
       left: 16,
@@ -850,7 +986,10 @@ class _CallScreenState extends ConsumerState<CallScreen> with TickerProviderStat
               if (isConnected) ...[
                 const SizedBox(width: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.black.withValues(alpha: 0.5),
                     borderRadius: BorderRadius.circular(16),
@@ -994,7 +1133,11 @@ class _CallScreenState extends ConsumerState<CallScreen> with TickerProviderStat
   }
 
   // Waiting Bottom Bar: Decline/Accept (incoming) or Capsule (outgoing/connecting)
-  Widget _buildWaitingBottomBar(CallSessionManager call, bool isIncoming, bool isConnecting) {
+  Widget _buildWaitingBottomBar(
+    CallSessionManager call,
+    bool isIncoming,
+    bool isConnecting,
+  ) {
     if (isIncoming && !isConnecting) {
       return Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -1061,7 +1204,9 @@ class _CallScreenState extends ConsumerState<CallScreen> with TickerProviderStat
               children: [
                 // 1. Speaker Toggle
                 _buildCompactBarButton(
-                  icon: call.isSpeakerOn ? Icons.volume_up_rounded : Icons.volume_down_rounded,
+                  icon: call.isSpeakerOn
+                      ? Icons.volume_up_rounded
+                      : Icons.volume_down_rounded,
                   isActive: call.isSpeakerOn,
                   activeBgColor: Colors.white,
                   activeIconColor: const Color(0xFF0F172A),
@@ -1074,7 +1219,9 @@ class _CallScreenState extends ConsumerState<CallScreen> with TickerProviderStat
                 // 2. Camera Toggle (if Video Call) / Switch to Video (if Audio Call)
                 if (call.isVideo) ...[
                   _buildCompactBarButton(
-                    icon: call.isCameraOff ? Icons.videocam_off_rounded : Icons.videocam_rounded,
+                    icon: call.isCameraOff
+                        ? Icons.videocam_off_rounded
+                        : Icons.videocam_rounded,
                     isActive: call.isCameraOff,
                     activeBgColor: const Color(0xFFFF3B30),
                     activeIconColor: Colors.white,
@@ -1096,7 +1243,9 @@ class _CallScreenState extends ConsumerState<CallScreen> with TickerProviderStat
 
                 // 3. Mute Toggle
                 _buildCompactBarButton(
-                  icon: call.isMuted ? Icons.mic_off_rounded : Icons.mic_rounded,
+                  icon: call.isMuted
+                      ? Icons.mic_off_rounded
+                      : Icons.mic_rounded,
                   isActive: call.isMuted,
                   activeBgColor: const Color(0xFFFF3B30),
                   activeIconColor: Colors.white,
@@ -1266,7 +1415,8 @@ class _FloatingReactionBubble extends StatefulWidget {
   const _FloatingReactionBubble({super.key, required this.emoji});
 
   @override
-  State<_FloatingReactionBubble> createState() => _FloatingReactionBubbleState();
+  State<_FloatingReactionBubble> createState() =>
+      _FloatingReactionBubbleState();
 }
 
 class _FloatingReactionBubbleState extends State<_FloatingReactionBubble>
@@ -1277,7 +1427,8 @@ class _FloatingReactionBubbleState extends State<_FloatingReactionBubble>
   @override
   void initState() {
     super.initState();
-    _startX = 0.65 + (math.Random().nextDouble() * 0.22); // Spawn near bottom right
+    _startX =
+        0.65 + (math.Random().nextDouble() * 0.22); // Spawn near bottom right
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 2200),
@@ -1301,7 +1452,8 @@ class _FloatingReactionBubbleState extends State<_FloatingReactionBubble>
         // Upward translation from 75% height to 20% height
         final y = size.height * (0.75 - (progress * 0.55));
         // Slight horizontal sinusoidal wave drift
-        final x = (size.width * _startX) + (math.sin(progress * 4 * math.pi) * 16);
+        final x =
+            (size.width * _startX) + (math.sin(progress * 4 * math.pi) * 16);
 
         // Scale pop-in then gentle drift
         final scale = progress < 0.2
@@ -1412,7 +1564,10 @@ class _MoreActionsSheet extends StatelessWidget {
                     onEmojiSelected(emoji);
                   },
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 4,
+                      vertical: 2,
+                    ),
                     child: AnimatedEmoji(
                       emoji: emoji,
                       size: 26,
@@ -1432,7 +1587,9 @@ class _MoreActionsSheet extends StatelessWidget {
               // 1. Camera Toggle (for video call)
               if (call.isVideo)
                 _buildActionTile(
-                  icon: call.isCameraOff ? Icons.videocam_off_rounded : Icons.videocam_rounded,
+                  icon: call.isCameraOff
+                      ? Icons.videocam_off_rounded
+                      : Icons.videocam_rounded,
                   label: call.isCameraOff ? 'Camera Off' : 'Camera On',
                   isActive: !call.isCameraOff,
                   onTap: () {
@@ -1443,7 +1600,9 @@ class _MoreActionsSheet extends StatelessWidget {
 
               // 2. Speaker Output Toggle
               _buildActionTile(
-                icon: call.isSpeakerOn ? Icons.volume_up_rounded : Icons.volume_down_rounded,
+                icon: call.isSpeakerOn
+                    ? Icons.volume_up_rounded
+                    : Icons.volume_down_rounded,
                 label: call.isSpeakerOn ? 'Speaker' : 'Earpiece',
                 isActive: call.isSpeakerOn,
                 onTap: () {
@@ -1454,7 +1613,9 @@ class _MoreActionsSheet extends StatelessWidget {
 
               // 3. Share Screen Toggle
               _buildActionTile(
-                icon: call.isScreenSharing ? Icons.stop_screen_share_rounded : Icons.screen_share_rounded,
+                icon: call.isScreenSharing
+                    ? Icons.stop_screen_share_rounded
+                    : Icons.screen_share_rounded,
                 label: call.isScreenSharing ? 'Stop Share' : 'Share Screen',
                 isActive: call.isScreenSharing,
                 onTap: () {
@@ -1496,9 +1657,7 @@ class _MoreActionsSheet extends StatelessWidget {
             height: 52,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: isActive
-                  ? DesignTokens.primary
-                  : const Color(0xFF1E293B),
+              color: isActive ? DesignTokens.primary : const Color(0xFF1E293B),
               border: Border.all(
                 color: Colors.white.withValues(alpha: 0.15),
                 width: 1,
@@ -1526,13 +1685,11 @@ class _InCallMessageSheet extends ConsumerStatefulWidget {
   final CallSessionManager call;
   final VoidCallback onOpenFullChat;
 
-  const _InCallMessageSheet({
-    required this.call,
-    required this.onOpenFullChat,
-  });
+  const _InCallMessageSheet({required this.call, required this.onOpenFullChat});
 
   @override
-  ConsumerState<_InCallMessageSheet> createState() => _InCallMessageSheetState();
+  ConsumerState<_InCallMessageSheet> createState() =>
+      _InCallMessageSheetState();
 }
 
 class _InCallMessageSheetState extends ConsumerState<_InCallMessageSheet> {
@@ -1564,7 +1721,9 @@ class _InCallMessageSheetState extends ConsumerState<_InCallMessageSheet> {
     HapticFeedback.lightImpact();
 
     try {
-      await ref.read(conversationMessagesProvider(convId).notifier).sendMessage(content: text);
+      await ref
+          .read(conversationMessagesProvider(convId).notifier)
+          .sendMessage(content: text);
       if (mounted) {
         _messageController.clear();
         Navigator.of(context).pop();
@@ -1628,10 +1787,17 @@ class _InCallMessageSheetState extends ConsumerState<_InCallMessageSheet> {
               ),
               TextButton.icon(
                 onPressed: widget.onOpenFullChat,
-                icon: const Icon(Icons.open_in_new_rounded, size: 16, color: DesignTokens.primary),
+                icon: const Icon(
+                  Icons.open_in_new_rounded,
+                  size: 16,
+                  color: DesignTokens.primary,
+                ),
                 label: const Text(
                   'Open Chat',
-                  style: TextStyle(color: DesignTokens.primary, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    color: DesignTokens.primary,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ],
@@ -1647,12 +1813,15 @@ class _InCallMessageSheetState extends ConsumerState<_InCallMessageSheet> {
                   decoration: BoxDecoration(
                     color: const Color(0xFF1E293B),
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.15),
+                    ),
                   ),
                   child: TextField(
                     controller: _messageController,
                     style: const TextStyle(color: Colors.white, fontSize: 14),
                     decoration: const InputDecoration(
+                      filled: false,
                       hintText: 'Type a message…',
                       hintStyle: TextStyle(color: Colors.white38, fontSize: 14),
                       border: InputBorder.none,
@@ -1676,10 +1845,17 @@ class _InCallMessageSheetState extends ConsumerState<_InCallMessageSheet> {
                           child: SizedBox(
                             width: 18,
                             height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
                           ),
                         )
-                      : const Icon(Icons.send_rounded, color: Colors.white, size: 20),
+                      : const Icon(
+                          Icons.send_rounded,
+                          color: Colors.white,
+                          size: 20,
+                        ),
                 ),
               ),
             ],
@@ -1698,7 +1874,8 @@ class _AddParticipantSheet extends ConsumerStatefulWidget {
   const _AddParticipantSheet({required this.callId, this.onInvited});
 
   @override
-  ConsumerState<_AddParticipantSheet> createState() => _AddParticipantSheetState();
+  ConsumerState<_AddParticipantSheet> createState() =>
+      _AddParticipantSheetState();
 }
 
 class _AddParticipantSheetState extends ConsumerState<_AddParticipantSheet> {
@@ -1728,12 +1905,16 @@ class _AddParticipantSheetState extends ConsumerState<_AddParticipantSheet> {
     final seq = ++_searchSeq;
     setState(() => _isLoading = true);
     try {
-      final res = await ApiClient.instance.dio.get('/users/search', queryParameters: {
-        'q': query,
-        'limit': 20,
-      });
+      final res = await ApiClient.instance.dio.get(
+        '/users/search',
+        queryParameters: {'q': query, 'limit': 20},
+      );
       final unwrapped = ApiClient.instance.unwrap(res);
-      final list = unwrapped is List ? unwrapped : (unwrapped is Map && unwrapped['users'] is List ? unwrapped['users'] as List : []);
+      final list = unwrapped is List
+          ? unwrapped
+          : (unwrapped is Map && unwrapped['users'] is List
+                ? unwrapped['users'] as List
+                : []);
       if (!mounted || seq != _searchSeq) return;
       setState(() {
         _users = list.whereType<Map<String, dynamic>>().toList();
@@ -1751,7 +1932,9 @@ class _AddParticipantSheetState extends ConsumerState<_AddParticipantSheet> {
     setState(() => _invitingIds.add(userId));
     HapticFeedback.lightImpact();
 
-    final success = await ref.read(callsProvider.notifier).inviteToCall(widget.callId, userId);
+    final success = await ref
+        .read(callsProvider.notifier)
+        .inviteToCall(widget.callId, userId);
 
     if (mounted) {
       setState(() => _invitingIds.remove(userId));
@@ -1802,17 +1985,29 @@ class _AddParticipantSheetState extends ConsumerState<_AddParticipantSheet> {
               children: [
                 const Row(
                   children: [
-                    Icon(Icons.person_add_rounded, color: DesignTokens.primary, size: 22),
+                    Icon(
+                      Icons.person_add_rounded,
+                      color: DesignTokens.primary,
+                      size: 22,
+                    ),
                     SizedBox(width: 8),
                     Text(
                       'Add Person to Call',
-                      style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ],
                 ),
                 IconButton(
                   onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.close_rounded, color: Colors.white70, size: 22),
+                  icon: const Icon(
+                    Icons.close_rounded,
+                    color: Colors.white70,
+                    size: 22,
+                  ),
                 ),
               ],
             ),
@@ -1830,15 +2025,23 @@ class _AddParticipantSheetState extends ConsumerState<_AddParticipantSheet> {
                 controller: _searchController,
                 onChanged: (query) {
                   _searchDebounce?.cancel();
-                  _searchDebounce = Timer(const Duration(milliseconds: 300), () {
-                    if (mounted) _fetchUsers(query);
-                  });
+                  _searchDebounce = Timer(
+                    const Duration(milliseconds: 300),
+                    () {
+                      if (mounted) _fetchUsers(query);
+                    },
+                  );
                 },
                 style: const TextStyle(color: Colors.white, fontSize: 14),
                 decoration: const InputDecoration(
+                  filled: false,
                   hintText: 'Search friends by name or username…',
                   hintStyle: TextStyle(color: Colors.white38, fontSize: 13),
-                  prefixIcon: Icon(Icons.search_rounded, color: Colors.white38, size: 20),
+                  prefixIcon: Icon(
+                    Icons.search_rounded,
+                    color: Colors.white38,
+                    size: 20,
+                  ),
                   border: InputBorder.none,
                   contentPadding: EdgeInsets.symmetric(vertical: 12),
                 ),
@@ -1848,62 +2051,103 @@ class _AddParticipantSheetState extends ConsumerState<_AddParticipantSheet> {
 
           Expanded(
             child: _isLoading
-                ? const Center(child: CircularProgressIndicator(color: DesignTokens.primary))
+                ? const Center(
+                    child: CircularProgressIndicator(
+                      color: DesignTokens.primary,
+                    ),
+                  )
                 : _users.isEmpty
-                    ? const Center(
-                        child: Text(
-                          'No users found',
-                          style: TextStyle(color: Colors.white54, fontSize: 13),
-                        ),
-                      )
-                    : ListView.separated(
-                        itemCount: _users.length,
-                        separatorBuilder: (_, _) => Divider(color: Colors.white.withValues(alpha: 0.08), height: 1),
-                        itemBuilder: (context, index) {
-                          final user = _users[index];
-                          final id = (user['id'] as num?)?.toInt() ?? 0;
-                          final name = (user['name'] ?? user['username'] ?? 'User').toString();
-                          final username = (user['username'] ?? '').toString();
-                          final avatar = (user['avatar_url'] ?? user['avatar'])?.toString();
-                          final isInviting = _invitingIds.contains(id);
+                ? const Center(
+                    child: Text(
+                      'No users found',
+                      style: TextStyle(color: Colors.white54, fontSize: 13),
+                    ),
+                  )
+                : ListView.separated(
+                    itemCount: _users.length,
+                    separatorBuilder: (_, _) => Divider(
+                      color: Colors.white.withValues(alpha: 0.08),
+                      height: 1,
+                    ),
+                    itemBuilder: (context, index) {
+                      final user = _users[index];
+                      final id = (user['id'] as num?)?.toInt() ?? 0;
+                      final name = (user['name'] ?? user['username'] ?? 'User')
+                          .toString();
+                      final username = (user['username'] ?? '').toString();
+                      final avatar = (user['avatar_url'] ?? user['avatar'])
+                          ?.toString();
+                      final isInviting = _invitingIds.contains(id);
 
-                          return ListTile(
-                            leading: CircleAvatar(
-                              backgroundColor: DesignTokens.primary,
-                              backgroundImage: avatar != null && avatar.isNotEmpty
-                                  ? CachedNetworkImageProvider(avatar)
-                                  : null,
-                              child: avatar == null || avatar.isEmpty
-                                  ? Text(
-                                      name.isNotEmpty ? name[0].toUpperCase() : 'U',
-                                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                                    )
-                                  : null,
+                      return ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: DesignTokens.primary,
+                          backgroundImage: avatar != null && avatar.isNotEmpty
+                              ? CachedNetworkImageProvider(avatar)
+                              : null,
+                          child: avatar == null || avatar.isEmpty
+                              ? Text(
+                                  name.isNotEmpty ? name[0].toUpperCase() : 'U',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                )
+                              : null,
+                        ),
+                        title: Text(
+                          name,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        subtitle: username.isNotEmpty
+                            ? Text(
+                                '@$username',
+                                style: const TextStyle(
+                                  color: Colors.white38,
+                                  fontSize: 12,
+                                ),
+                              )
+                            : null,
+                        trailing: ElevatedButton(
+                          onPressed: isInviting
+                              ? null
+                              : () => _inviteUser(user),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: DesignTokens.primary,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(18),
                             ),
-                            title: Text(name, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
-                            subtitle: username.isNotEmpty
-                                ? Text('@$username', style: const TextStyle(color: Colors.white38, fontSize: 12))
-                                : null,
-                            trailing: ElevatedButton(
-                              onPressed: isInviting ? null : () => _inviteUser(user),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: DesignTokens.primary,
-                                foregroundColor: Colors.white,
-                                elevation: 0,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                              ),
-                              child: isInviting
-                                  ? const SizedBox(
-                                      width: 14,
-                                      height: 14,
-                                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                                    )
-                                  : const Text('Add', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 6,
                             ),
-                          );
-                        },
-                      ),
+                          ),
+                          child: isInviting
+                              ? const SizedBox(
+                                  width: 14,
+                                  height: 14,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Text(
+                                  'Add',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                        ),
+                      );
+                    },
+                  ),
           ),
         ],
       ),
