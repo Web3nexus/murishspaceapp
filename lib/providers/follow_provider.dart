@@ -97,6 +97,31 @@ class FollowNotifier extends Notifier<FollowState> {
     );
   }
 
+  /// Seeds initial known follow statuses (e.g. from discovery or search responses).
+  void seedFollowing(Map<int, bool> statuses) {
+    if (statuses.isEmpty) return;
+    final updated = Set<int>.from(state.followingUserIds);
+    statuses.forEach((id, isFollowing) {
+      if (isFollowing) {
+        updated.add(id);
+      } else {
+        updated.remove(id);
+      }
+    });
+    state = state.copyWith(followingUserIds: updated);
+  }
+
+  /// Sets following status for a specific user.
+  void setFollowing(int userId, bool isFollowing) {
+    final updated = Set<int>.from(state.followingUserIds);
+    if (isFollowing) {
+      updated.add(userId);
+    } else {
+      updated.remove(userId);
+    }
+    state = state.copyWith(followingUserIds: updated);
+  }
+
   /// Fetches follow status and counts for a user from the backend API.
   Future<void> fetchFollowStatus(int userId) async {
     try {

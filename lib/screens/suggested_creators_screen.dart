@@ -17,10 +17,12 @@ class SuggestedCreatorsScreen extends ConsumerStatefulWidget {
   const SuggestedCreatorsScreen({super.key});
 
   @override
-  ConsumerState<SuggestedCreatorsScreen> createState() => _SuggestedCreatorsScreenState();
+  ConsumerState<SuggestedCreatorsScreen> createState() =>
+      _SuggestedCreatorsScreenState();
 }
 
-class _SuggestedCreatorsScreenState extends ConsumerState<SuggestedCreatorsScreen> {
+class _SuggestedCreatorsScreenState
+    extends ConsumerState<SuggestedCreatorsScreen> {
   final _searchController = TextEditingController();
   final _scrollController = ScrollController();
   Timer? _debounceTimer;
@@ -48,7 +50,8 @@ class _SuggestedCreatorsScreenState extends ConsumerState<SuggestedCreatorsScree
   }
 
   void _onScroll() {
-    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200 &&
+    if (_scrollController.position.pixels >=
+            _scrollController.position.maxScrollExtent - 200 &&
         !_loadingMore &&
         _currentPage < _lastPage) {
       _fetchCreators(page: _currentPage + 1);
@@ -126,8 +129,12 @@ class _SuggestedCreatorsScreenState extends ConsumerState<SuggestedCreatorsScree
     final bg = isDark ? const Color(0xFF0F141C) : const Color(0xFFF8FAFC);
     final cardBg = isDark ? const Color(0xFF161B26) : Colors.white;
     final textPrimary = isDark ? Colors.white : const Color(0xFF0F172A);
-    final textSecondary = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
-    final borderColor = isDark ? const Color(0xFF2E384D) : const Color(0xFFE2E8F0);
+    final textSecondary = isDark
+        ? const Color(0xFF94A3B8)
+        : const Color(0xFF64748B);
+    final borderColor = isDark
+        ? const Color(0xFF2E384D)
+        : const Color(0xFFE2E8F0);
 
     return Scaffold(
       backgroundColor: bg,
@@ -151,7 +158,9 @@ class _SuggestedCreatorsScreenState extends ConsumerState<SuggestedCreatorsScree
             child: Container(
               height: 42,
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E2638) : const Color(0xFFF1F5F9),
+                color: isDark
+                    ? const Color(0xFF1E2638)
+                    : const Color(0xFFF1F5F9),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: borderColor),
               ),
@@ -164,10 +173,18 @@ class _SuggestedCreatorsScreenState extends ConsumerState<SuggestedCreatorsScree
                     child: TextField(
                       controller: _searchController,
                       onChanged: _onSearchChanged,
-                      style: TextStyle(fontSize: 14, color: textPrimary, fontWeight: FontWeight.w500),
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: textPrimary,
+                        fontWeight: FontWeight.w500,
+                      ),
                       decoration: InputDecoration(
+                        filled: false,
                         hintText: 'Search creators by name, handle, or bio...',
-                        hintStyle: TextStyle(fontSize: 13, color: textSecondary),
+                        hintStyle: TextStyle(
+                          fontSize: 13,
+                          color: textSecondary,
+                        ),
                         border: InputBorder.none,
                         isDense: true,
                       ),
@@ -179,7 +196,11 @@ class _SuggestedCreatorsScreenState extends ConsumerState<SuggestedCreatorsScree
                         _searchController.clear();
                         _onSearchChanged('');
                       },
-                      child: Icon(Icons.close_rounded, size: 18, color: textSecondary),
+                      child: Icon(
+                        Icons.close_rounded,
+                        size: 18,
+                        color: textSecondary,
+                      ),
                     ),
                 ],
               ),
@@ -190,146 +211,181 @@ class _SuggestedCreatorsScreenState extends ConsumerState<SuggestedCreatorsScree
       body: RefreshIndicator(
         onRefresh: () => _fetchCreators(page: 1, refresh: true),
         child: _loading
-            ? const Center(child: LoadingStateWidget(message: 'Loading creators...'))
+            ? const Center(
+                child: LoadingStateWidget(message: 'Loading creators...'),
+              )
             : _creators.isEmpty
-                ? CenteredEmptyStateWidget(
-                    icon: Icons.person_search_rounded,
-                    title: 'No Creators Found',
-                    description: _searchQuery.isNotEmpty
-                        ? 'No creators matched "$_searchQuery". Try another keyword.'
-                        : 'No suggested creators available right now.',
-                  )
-                : ListView.builder(
-                    controller: _scrollController,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    itemCount: _creators.length + (_loadingMore ? 1 : 0),
-                    itemBuilder: (ctx, i) {
-                      if (i == _creators.length) {
-                        return const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 16),
-                          child: Center(child: CircularProgressIndicator.adaptive()),
-                        );
-                      }
+            ? CenteredEmptyStateWidget(
+                icon: Icons.person_search_rounded,
+                title: 'No Creators Found',
+                description: _searchQuery.isNotEmpty
+                    ? 'No creators matched "$_searchQuery". Try another keyword.'
+                    : 'No suggested creators available right now.',
+              )
+            : ListView.builder(
+                controller: _scrollController,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                itemCount: _creators.length + (_loadingMore ? 1 : 0),
+                itemBuilder: (ctx, i) {
+                  if (i == _creators.length) {
+                    return const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 16),
+                      child: Center(
+                        child: CircularProgressIndicator.adaptive(),
+                      ),
+                    );
+                  }
 
-                      final c = _creators[i];
-                      final creatorId = (c['id'] as num?)?.toInt() ?? 0;
-                      final name = c['name'] as String? ?? 'Creator';
-                      final username = c['username'] as String? ?? '';
-                      final bio = c['bio'] as String? ?? '';
-                      final followers = c['followers'] as String? ?? 'Popular';
-                      final isVerified = c['is_verified'] == true;
-                      final rawAvatar = c['avatar_url'] as String? ?? c['avatar'] as String?;
-                      final avatarUrl = rawAvatar != null && rawAvatar.isNotEmpty
-                          ? ApiClient.resolveUrl(rawAvatar)
-                          : null;
+                  final c = _creators[i];
+                  final creatorId = (c['id'] as num?)?.toInt() ?? 0;
+                  final name = c['name'] as String? ?? 'Creator';
+                  final username = c['username'] as String? ?? '';
+                  final bio = c['bio'] as String? ?? '';
+                  final followers = c['followers'] as String? ?? 'Popular';
+                  final isVerified = c['is_verified'] == true;
+                  final rawAvatar =
+                      c['avatar_url'] as String? ?? c['avatar'] as String?;
+                  final avatarUrl = rawAvatar != null && rawAvatar.isNotEmpty
+                      ? ApiClient.resolveUrl(rawAvatar)
+                      : null;
 
-                      final followState = ref.watch(followProvider);
-                      final isFollowing = followState.isFollowing(creatorId);
+                  final followState = ref.watch(followProvider);
+                  final isFollowing = followState.isFollowing(creatorId);
 
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 10),
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: cardBg,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: borderColor),
-                        ),
-                        child: Row(
-                          children: [
-                            GestureDetector(
-                              onTap: () => context.push('/u/$username'),
-                              child: CircleAvatar(
-                                radius: 24,
-                                backgroundColor: DesignTokens.primary.withValues(alpha: 0.15),
-                                backgroundImage: avatarUrl != null
-                                    ? CachedNetworkImageProvider(avatarUrl)
-                                    : null,
-                                child: avatarUrl == null
-                                    ? Text(
-                                        name.isNotEmpty ? name[0].toUpperCase() : 'C',
-                                        style: const TextStyle(fontWeight: FontWeight.w700, color: DesignTokens.primary),
-                                      )
-                                    : null,
-                              ),
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: cardBg,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: borderColor),
+                    ),
+                    child: Row(
+                      children: [
+                        GestureDetector(
+                          onTap: () => context.push('/u/$username'),
+                          child: CircleAvatar(
+                            radius: 24,
+                            backgroundColor: DesignTokens.primary.withValues(
+                              alpha: 0.15,
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: GestureDetector(
-                                onTap: () => context.push('/u/$username'),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                            backgroundImage: avatarUrl != null
+                                ? CachedNetworkImageProvider(avatarUrl)
+                                : null,
+                            child: avatarUrl == null
+                                ? Text(
+                                    name.isNotEmpty
+                                        ? name[0].toUpperCase()
+                                        : 'C',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      color: DesignTokens.primary,
+                                    ),
+                                  )
+                                : null,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () => context.push('/u/$username'),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
                                   children: [
-                                    Row(
-                                      children: [
-                                        Flexible(
-                                          child: Text(
-                                            name,
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.w700,
-                                              fontSize: 14,
-                                              color: textPrimary,
-                                            ),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
+                                    Flexible(
+                                      child: Text(
+                                        name,
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 14,
+                                          color: textPrimary,
                                         ),
-                                        if (isVerified) ...[
-                                          const SizedBox(width: 4),
-                                          const Icon(Icons.verified_rounded, size: 15, color: DesignTokens.primary),
-                                        ],
-                                      ],
-                                    ),
-                                    const SizedBox(height: 1),
-                                    Text(
-                                      '@$username · $followers',
-                                      style: TextStyle(fontSize: 12, color: textSecondary),
-                                    ),
-                                    if (bio.isNotEmpty) ...[
-                                      const SizedBox(height: 3),
-                                      Text(
-                                        bio,
-                                        style: TextStyle(fontSize: 11, color: textSecondary),
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    if (isVerified) ...[
+                                      const SizedBox(width: 4),
+                                      const Icon(
+                                        Icons.verified_rounded,
+                                        size: 15,
+                                        color: DesignTokens.primary,
                                       ),
                                     ],
                                   ],
                                 ),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            SizedBox(
-                              height: 32,
-                              child: ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: isFollowing
-                                      ? (isDark ? const Color(0xFF2E384D) : const Color(0xFFE2E8F0))
-                                      : DesignTokens.primary,
-                                  foregroundColor: isFollowing ? textPrimary : Colors.white,
-                                  elevation: 0,
-                                  padding: const EdgeInsets.symmetric(horizontal: 14),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10),
+                                const SizedBox(height: 1),
+                                Text(
+                                  '@$username · $followers',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: textSecondary,
                                   ),
                                 ),
-                                onPressed: () {
-                                  if (creatorId > 0) {
-                                    ref.read(followProvider.notifier).toggleFollow(creatorId);
-                                  }
-                                },
-                                child: Text(
-                                  isFollowing ? 'Following' : 'Follow',
-                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
-                                ),
+                                if (bio.isNotEmpty) ...[
+                                  const SizedBox(height: 3),
+                                  Text(
+                                    bio,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: textSecondary,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        SizedBox(
+                          height: 32,
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: isFollowing
+                                  ? (isDark
+                                        ? const Color(0xFF2E384D)
+                                        : const Color(0xFFE2E8F0))
+                                  : DesignTokens.primary,
+                              foregroundColor: isFollowing
+                                  ? textPrimary
+                                  : Colors.white,
+                              elevation: 0,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
                               ),
                             ),
-                          ],
+                            onPressed: () {
+                              if (creatorId > 0) {
+                                ref
+                                    .read(followProvider.notifier)
+                                    .toggleFollow(creatorId);
+                              }
+                            },
+                            child: Text(
+                              isFollowing ? 'Following' : 'Follow',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
                         ),
-                      );
-                    },
-                  ),
+                      ],
+                    ),
+                  );
+                },
+              ),
       ),
     );
   }
 }
-

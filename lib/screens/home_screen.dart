@@ -9,6 +9,7 @@ import '../core/api_client.dart';
 import '../core/design_tokens.dart';
 import '../providers/auth_provider.dart';
 import '../providers/community_provider.dart';
+import '../providers/friends_provider.dart';
 import '../providers/story_provider.dart';
 import 'post_card.dart';
 import 'post_comments_sheet.dart';
@@ -462,10 +463,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
               ),
 
-              // 3. Live Now rail
+              // 3. People you may know
+              const _PeopleYouMayKnow(),
+              const SizedBox(height: 6),
+
+              // 4. Live Now rail
               const LiveNowRail(),
 
-              // 4. Home Feed Posts
+              // 5. Home Feed Posts
               const _HomeFeedPosts(),
             ],
           ),
@@ -688,6 +693,302 @@ class _StoriesRow extends ConsumerWidget {
           );
         },
       ),
+    );
+  }
+}
+
+class _PeopleYouMayKnow extends ConsumerWidget {
+  const _PeopleYouMayKnow();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final state = ref.watch(feedSuggestionsProvider);
+    final notifier = ref.read(feedSuggestionsProvider.notifier);
+    ref.listen(feedSuggestionsProvider.select((s) => s.error), (prev, error) {
+      if (error == null) return;
+      notifier.clearError();
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(error)));
+    });
+    final suggestions = state.suggestions;
+    if (suggestions.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1B1B1F) : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE4E6EB),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.groups_rounded,
+                  size: 16,
+                  color: DesignTokens.primary,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  'People You May Know',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: isDark ? Colors.white : Colors.black,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  '${suggestions.length}',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.grey[500] : Colors.grey[500],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 168,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                physics: const BouncingScrollPhysics(),
+                itemCount: suggestions.length,
+                separatorBuilder: (_, _) => const SizedBox(width: 10),
+                itemBuilder: (context, i) {
+                  final user = suggestions[i];
+                  return _PeopleYouMayKnowCard(
+                    user: user,
+                    isDark: isDark,
+                    onAdd: () => notifier.sendRequest(user),
+                    onCancel: () => notifier.cancelRequest(user),
+                    onDismiss: () => notifier.dismiss(user.id),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PeopleYouMayKnowCard extends StatelessWidget {
+  final FriendUserItem user;
+  final bool isDark;
+  final VoidCallback onAdd;
+  final VoidCallback onCancel;
+  final VoidCallback onDismiss;
+
+  const _PeopleYouMayKnowCard({
+    required this.user,
+    required this.isDark,
+    required this.onAdd,
+    required this.onCancel,
+    required this.onDismiss,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final avatarUrl = user.avatarUrl != null && user.avatarUrl!.isNotEmpty
+        ? user.avatarUrl
+        : null;
+
+    return Container(
+      width: 108,
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF242426) : const Color(0xFFF6F7F9),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Stack(
+        children: [
+          Column(
+            children: [
+              GestureDetector(
+                onTap: () => _openProfile(context),
+                child: CircleAvatar(
+                  radius: 26,
+                  backgroundColor: DesignTokens.primary,
+                  backgroundImage: avatarUrl != null
+                      ? NetworkImage(avatarUrl)
+                      : null,
+                  child: avatarUrl == null
+                      ? const Icon(Icons.person, color: Colors.white, size: 24)
+                      : null,
+                ),
+              ),
+              const SizedBox(height: 8),
+              GestureDetector(
+                onTap: () => _openProfile(context),
+                child: Text(
+                  user.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    color: isDark ? Colors.white : Colors.black,
+                  ),
+                ),
+              ),
+              Text(
+                '@${user.username}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 10,
+                  color: isDark ? Colors.grey[400] : Colors.grey[600],
+                ),
+              ),
+              const Spacer(),
+              if (user.mutualCount > 0)
+                Text(
+                  '${user.mutualCount} mutual',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: DesignTokens.primary,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              const SizedBox(height: 6),
+              SizedBox(
+                width: double.infinity,
+                height: 28,
+                child: user.status == 'accepted'
+                    ? ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE5E5EA),
+                          foregroundColor: isDark ? Colors.white : Colors.black,
+                          elevation: 0,
+                          padding: EdgeInsets.zero,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        onPressed: () => _openProfile(context),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.check_circle_rounded, size: 14, color: DesignTokens.primary),
+                            const SizedBox(width: 3),
+                            const Text(
+                              'Friends',
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
+                      )
+                    : user.status == 'pending_received'
+                        ? OutlinedButton(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: DesignTokens.primary,
+                              side: const BorderSide(color: DesignTokens.primary, width: 1.2),
+                              padding: EdgeInsets.zero,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            onPressed: () => context.push('/friends'),
+                            child: const Text(
+                              'Respond',
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                            ),
+                          )
+                        : user.status == 'pending_sent'
+                        ? OutlinedButton(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: DesignTokens.primary,
+                              side: const BorderSide(color: DesignTokens.primary, width: 1.2),
+                              padding: EdgeInsets.zero,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            onPressed: onCancel,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.hourglass_top_rounded,
+                                  size: 13,
+                                  color: DesignTokens.primary,
+                                ),
+                                const SizedBox(width: 3),
+                                const Text(
+                                  'Requested',
+                                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
+                          )
+                        : ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: DesignTokens.primary,
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              padding: EdgeInsets.zero,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            onPressed: onAdd,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.person_add_rounded, size: 14, color: Colors.white),
+                                const SizedBox(width: 3),
+                                const Text(
+                                  'Add',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+              ),
+            ],
+          ),
+          Positioned(
+            top: 0,
+            right: 0,
+            child: GestureDetector(
+              onTap: onDismiss,
+              child: Container(
+                width: 18,
+                height: 18,
+                decoration: BoxDecoration(
+                  color: Colors.black38,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.close_rounded, size: 12, color: Colors.white),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _openProfile(BuildContext context) {
+    context.push(
+      '/profile/user/${user.id}?name=${Uri.encodeComponent(user.name)}&username=${Uri.encodeComponent(user.username)}',
     );
   }
 }

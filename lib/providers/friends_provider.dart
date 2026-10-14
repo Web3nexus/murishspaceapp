@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -271,3 +273,133 @@ class FriendsNotifier extends Notifier<FriendsState> {
 }
 
 final friendsProvider = NotifierProvider<FriendsNotifier, FriendsState>(FriendsNotifier.new);
+
+/// Lightweight "People you may know" rail for the Home feed.
+class FeedSuggestionsState {
+  final bool loading;
+  final List<FriendUserItem> suggestions;
+  final String? error;
+
+  const FeedSuggestionsState({this.loading = false, this.suggestions = const [], this.error});
+
+  FeedSuggestionsState copyWith({
+    bool? loading,
+    List<FriendUserItem>? suggestions,
+    String? error,
+    bool clearError = false,
+  }) {
+    return FeedSuggestionsState(
+      loading: loading ?? this.loading,
+      suggestions: suggestions ?? this.suggestions,
+      error: clearError ? null : (error ?? this.error),
+    );
+  }
+}
+
+class FeedSuggestionsNotifier extends Notifier<FeedSuggestionsState> {
+  Dio get _dio => ApiClient.instance.dio;
+
+  final Set<int> _inFlightRequestIds = {};
+
+  @override
+  FeedSuggestionsState build() {
+    scheduleMicrotask(load);
+    return const FeedSuggestionsState(loading: true);
+  }
+
+  Future<void> load() async {
+    state = state.copyWith(loading: true);
+    try {
+      final res = await _dio.get('/friends/suggestions');
+      final list = ApiClient.instance.unwrapList(res, (item) {
+        return FriendUserItem.fromJson(item, status: (item['status'] as String?) ?? 'none');
+      });
+      state = FeedSuggestionsState(loading: false, suggestions: list);
+    } catch (_) {
+      state = state.copyWith(loading: false);
+    }
+  }
+
+  void clearError() {
+    state = state.copyWith(clearError: true);
+  }
+
+  Future<void> sendRequest(FriendUserItem item) async {
+    if (_inFlightRequestIds.contains(item.id)) return;
+    _inFlightRequestIds.add(item.id);
+    String? previousStatus = item.status;
+    for (final s in state.suggestions) {
+      if (s.id == item.id) {
+        previousStatus = s.status;
+        break;
+      }
+    }
+    _markStatus(item.id, 'pending_sent');
+    try {
+      await _dio.post('/friends/requests', data: {'user_id': item.id});
+    } catch (_) {
+      _markStatus(item.id, previousStatus ?? item.status);
+      state = state.copyWith(error: 'Could not send request. Please try again.');
+    } finally {
+      _inFlightRequestIds.remove(item.id);
+    }
+  }
+
+  Future<void> cancelRequest(FriendUserItem item) async {
+    if (_inFlightRequestIds.contains(item.id)) return;
+    _inFlightRequestIds.add(item.id);
+    try {
+      final sent = await _dio.get('/friends/requests/sent');
+      final list = ApiClient.instance.unwrapList(sent, (it) => it);
+      int? requestId;
+      for (final it in list) {
+        final receiver = it['receiver'] is Map ? it['receiver'] as Map : it;
+        if ((receiver['id'] as num?)?.toInt() == item.id) {
+          requestId = (it['id'] as num?)?.toInt();
+          break;
+        }
+      }
+      if (requestId == null || requestId <= 0) {
+        await load();
+        state = state.copyWith(error: 'Sent request not found. Refreshing…');
+        return;
+      }
+      await _dio.post('/friends/requests/$requestId/cancel');
+      _markStatus(item.id, 'none');
+    } catch (_) {
+      await load();
+      state = state.copyWith(error: 'Could not cancel the request. Please try again.');
+    } finally {
+      _inFlightRequestIds.remove(item.id);
+    }
+  }
+
+  void dismiss(int userId) {
+    state = state.copyWith(
+      suggestions: state.suggestions.where((s) => s.id != userId).toList(),
+    );
+  }
+
+  void _markStatus(int userId, String status) {
+    state = state.copyWith(
+      suggestions: state.suggestions
+          .map((s) => s.id == userId
+              ? FriendUserItem(
+                  id: s.id,
+                  requestId: s.requestId,
+                  name: s.name,
+                  username: s.username,
+                  title: s.title,
+                  avatarUrl: s.avatarUrl,
+                  mutualCount: s.mutualCount,
+                  isOnline: s.isOnline,
+                  status: status,
+                )
+              : s)
+          .toList(),
+    );
+  }
+}
+
+final feedSuggestionsProvider =
+    NotifierProvider<FeedSuggestionsNotifier, FeedSuggestionsState>(FeedSuggestionsNotifier.new);

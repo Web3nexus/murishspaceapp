@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../components/app_bottom_sheet.dart';
 import '../components/share_sheet.dart';
 import '../config/env.dart';
 import '../core/api_client.dart';
@@ -16,7 +15,6 @@ import '../providers/chat_provider.dart';
 import '../providers/community_provider.dart';
 import '../providers/friends_provider.dart';
 import 'call_screen.dart';
-import 'user_profile_screen.dart';
 
 /// Modern Redesigned Friends, Connections & Phone Contacts Matching Hub.
 class FriendsScreen extends ConsumerStatefulWidget {
@@ -75,7 +73,9 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
   }
 
   void _showContactPermissionDialog() async {
-    final granted = await ref.read(permissionsProvider.notifier).ensureContacts(context);
+    final granted = await ref
+        .read(permissionsProvider.notifier)
+        .ensureContacts(context);
     if (!granted) return;
 
     await ContactsService.instance.requestPermission();
@@ -91,9 +91,11 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
         });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(contacts.isNotEmpty
-                ? 'Found ${contacts.length} registered contacts on MurihSpace!'
-                : 'Contacts synced. No registered friends found yet.'),
+            content: Text(
+              contacts.isNotEmpty
+                  ? 'Found ${contacts.length} registered contacts on MurihSpace!'
+                  : 'Contacts synced. No registered friends found yet.',
+            ),
             backgroundColor: const Color(0xFF34C759),
           ),
         );
@@ -102,7 +104,9 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
   }
 
   Future<void> _openChatWithUser(FriendUserItem user) async {
-    final conversation = await ref.read(conversationsProvider.notifier).openDirectChat(
+    final conversation = await ref
+        .read(conversationsProvider.notifier)
+        .openDirectChat(
           user.id,
           name: user.name,
           username: user.username,
@@ -127,7 +131,8 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
     AppShare.showShareSheet(
       context,
       title: 'Invite Friends to Murih Space',
-      text: 'Join me on Murih Space! Connect, chat, and explore Web3 communities:',
+      text:
+          'Join me on Murih Space! Connect, chat, and explore Web3 communities:',
       url: profileUrl,
     );
   }
@@ -201,7 +206,11 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
               const SizedBox(height: 16),
               Text(
                 'My Profile QR Code',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: textPrimary),
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: textPrimary,
+                ),
               ),
               Text(
                 'Scan to connect with @$username on MurihSpace',
@@ -216,15 +225,37 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(24),
                   boxShadow: [
-                    BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 16, offset: const Offset(0, 4)),
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.08),
+                      blurRadius: 16,
+                      offset: const Offset(0, 4),
+                    ),
                   ],
                 ),
                 child: Column(
                   children: [
-                    const Icon(Icons.qr_code_2_rounded, size: 180, color: DesignTokens.primary),
+                    const Icon(
+                      Icons.qr_code_2_rounded,
+                      size: 180,
+                      color: DesignTokens.primary,
+                    ),
                     const SizedBox(height: 12),
-                    Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.black)),
-                    Text('@$username', style: const TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.w600)),
+                    Text(
+                      name,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: Colors.black,
+                      ),
+                    ),
+                    Text(
+                      '@$username',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -237,7 +268,9 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
                       style: ElevatedButton.styleFrom(
                         backgroundColor: DesignTokens.primary,
                         foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                         padding: const EdgeInsets.symmetric(vertical: 12),
                       ),
                       onPressed: () {
@@ -245,12 +278,16 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
                         AppShare.showShareSheet(
                           context,
                           title: 'Invite Friends to Murih Space',
-                          text: 'Join me on Murih Space! Connect, chat, and explore Web3 communities:',
+                          text:
+                              'Join me on Murih Space! Connect, chat, and explore Web3 communities:',
                           url: profileUrl,
                         );
                       },
                       icon: const Icon(Icons.share_rounded, size: 18),
-                      label: const Text('Share Invite Link', style: TextStyle(fontWeight: FontWeight.bold)),
+                      label: const Text(
+                        'Share Invite Link',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
                     ),
                   ),
                 ],
@@ -266,7 +303,6 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bg = isDark ? Colors.black : const Color(0xFFEFF1F5);
-    final cardBg = isDark ? const Color(0xFF1C1C1E) : Colors.white;
     final textPrimary = isDark ? Colors.white : Colors.black;
     final textSecondary = isDark ? Colors.grey[400] : Colors.grey[600];
 
@@ -279,23 +315,49 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
     final communities = communitiesState.communities;
 
     final filteredRequests = requests
-        .where((u) => u.name.toLowerCase().contains(_searchQuery.toLowerCase()) || u.username.toLowerCase().contains(_searchQuery.toLowerCase()))
+        .where(
+          (u) =>
+              u.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+              u.username.toLowerCase().contains(_searchQuery.toLowerCase()),
+        )
         .toList();
 
     final filteredSuggestions = suggestions
-        .where((u) => u.name.toLowerCase().contains(_searchQuery.toLowerCase()) || u.username.toLowerCase().contains(_searchQuery.toLowerCase()))
+        .where(
+          (u) =>
+              u.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+              u.username.toLowerCase().contains(_searchQuery.toLowerCase()),
+        )
         .toList();
 
     final filteredFriends = friends
-        .where((u) => u.name.toLowerCase().contains(_searchQuery.toLowerCase()) || u.username.toLowerCase().contains(_searchQuery.toLowerCase()))
+        .where(
+          (u) =>
+              u.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+              u.username.toLowerCase().contains(_searchQuery.toLowerCase()),
+        )
         .toList();
 
     final filteredContacts = _matchedContacts
-        .where((c) => c.name.toLowerCase().contains(_searchQuery.toLowerCase()) || c.phone.contains(_searchQuery) || c.username.toLowerCase().contains(_searchQuery.toLowerCase()))
+        .where(
+          (c) =>
+              c.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+              c.phone.contains(_searchQuery) ||
+              c.username.toLowerCase().contains(_searchQuery.toLowerCase()),
+        )
         .toList();
 
     final filteredCommunities = communities
-        .where((c) => c.name.toLowerCase().contains(_searchQuery.toLowerCase()) || (c.category?.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false) || (c.description?.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false))
+        .where(
+          (c) =>
+              c.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+              (c.category?.toLowerCase().contains(_searchQuery.toLowerCase()) ??
+                  false) ||
+              (c.description?.toLowerCase().contains(
+                    _searchQuery.toLowerCase(),
+                  ) ??
+                  false),
+        )
         .toList();
 
     return Scaffold(
@@ -314,17 +376,26 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.person_add_alt_1_rounded, color: DesignTokens.primary),
+            icon: const Icon(
+              Icons.person_add_alt_1_rounded,
+              color: DesignTokens.primary,
+            ),
             tooltip: 'Add Friend',
             onPressed: _showAddFriendModal,
           ),
           IconButton(
-            icon: const Icon(Icons.contacts_rounded, color: DesignTokens.primary),
+            icon: const Icon(
+              Icons.contacts_rounded,
+              color: DesignTokens.primary,
+            ),
             tooltip: 'Sync Phone Contacts',
             onPressed: _showContactPermissionDialog,
           ),
           IconButton(
-            icon: const Icon(Icons.qr_code_scanner_rounded, color: DesignTokens.primary),
+            icon: const Icon(
+              Icons.qr_code_scanner_rounded,
+              color: DesignTokens.primary,
+            ),
             tooltip: 'My QR Code',
             onPressed: _showMyQrCodeModal,
           ),
@@ -340,11 +411,16 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
             children: [
               // Search Input Bar
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 4,
+                ),
                 child: Container(
                   height: 40,
                   decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE5E5EA),
+                    color: isDark
+                        ? const Color(0xFF2C2C2E)
+                        : const Color(0xFFE5E5EA),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: TextField(
@@ -352,12 +428,21 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
                     onChanged: _onSearchChanged,
                     style: TextStyle(fontSize: 14, color: textPrimary),
                     decoration: InputDecoration(
+                      filled: false,
                       hintText: 'Search friends, phone contacts, or handle...',
                       hintStyle: TextStyle(fontSize: 13, color: textSecondary),
-                      prefixIcon: Icon(Icons.search_rounded, color: textSecondary, size: 20),
+                      prefixIcon: Icon(
+                        Icons.search_rounded,
+                        color: textSecondary,
+                        size: 20,
+                      ),
                       suffixIcon: _searchQuery.isNotEmpty
                           ? IconButton(
-                              icon: Icon(Icons.clear_rounded, color: textSecondary, size: 18),
+                              icon: Icon(
+                                Icons.clear_rounded,
+                                color: textSecondary,
+                                size: 18,
+                              ),
                               onPressed: () {
                                 _searchController.clear();
                                 _onSearchChanged('');
@@ -379,8 +464,14 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
                 unselectedLabelColor: textSecondary,
                 indicatorColor: DesignTokens.primary,
                 indicatorWeight: 3,
-                labelStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
-                unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                labelStyle: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 14,
+                ),
+                unselectedLabelStyle: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                ),
                 tabs: [
                   Tab(text: 'Requests (${requests.length})'),
                   Tab(text: 'Suggestions (${suggestions.length})'),
@@ -403,7 +494,9 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
               decoration: BoxDecoration(
                 color: DesignTokens.primary.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: DesignTokens.primary.withValues(alpha: 0.3)),
+                border: Border.all(
+                  color: DesignTokens.primary.withValues(alpha: 0.3),
+                ),
               ),
               child: Row(
                 children: [
@@ -413,7 +506,11 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
                       color: DesignTokens.primary,
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.contacts_rounded, color: Colors.white, size: 20),
+                    child: const Icon(
+                      Icons.contacts_rounded,
+                      color: Colors.white,
+                      size: 20,
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -440,13 +537,31 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
                       backgroundColor: DesignTokens.primary,
                       foregroundColor: Colors.white,
                       elevation: 0,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 8,
+                      ),
                     ),
                     onPressed: _showContactPermissionDialog,
                     child: _isSyncingContacts
-                        ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                        : const Text('Sync', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                        ? const SizedBox(
+                            height: 16,
+                            width: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Text(
+                            'Sync',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                          ),
                   ),
                 ],
               ),
@@ -458,33 +573,54 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
               children: [
                 // ── Tab 1: Requests ───────────────────────────────────────────────
                 filteredRequests.isEmpty
-                    ? _buildEmptyState('No pending requests', Icons.mark_email_read_rounded, textSecondary)
+                    ? _buildEmptyState(
+                        'No pending requests',
+                        Icons.mark_email_read_rounded,
+                        textSecondary,
+                      )
                     : ListView.separated(
                         padding: const EdgeInsets.symmetric(vertical: 8),
                         itemCount: filteredRequests.length,
-                        separatorBuilder: (_, _) => const Divider(height: 1, indent: 68),
+                        separatorBuilder: (_, _) =>
+                            const Divider(height: 1, indent: 68),
                         itemBuilder: (ctx, i) {
                           final user = filteredRequests[i];
                           return Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 10,
+                            ),
                             child: Column(
                               children: [
                                 GestureDetector(
-                                  onTap: () => context.push('/profile/user/${user.id}?name=${user.name}&username=${user.username}'),
+                                  onTap: () => context.push(
+                                    '/profile/user/${user.id}?name=${Uri.encodeComponent(user.name)}&username=${Uri.encodeComponent(user.username)}',
+                                  ),
                                   child: Row(
                                     children: [
                                       CircleAvatar(
                                         radius: 24,
                                         backgroundColor: DesignTokens.primary,
-                                        backgroundImage: user.avatarUrl != null && user.avatarUrl!.isNotEmpty ? NetworkImage(user.avatarUrl!) : null,
-                                        child: user.avatarUrl == null || user.avatarUrl!.isEmpty
-                                            ? Icon(Icons.person, color: Colors.white, size: 26)
+                                        backgroundImage:
+                                            user.avatarUrl != null &&
+                                                user.avatarUrl!.isNotEmpty
+                                            ? NetworkImage(user.avatarUrl!)
+                                            : null,
+                                        child:
+                                            user.avatarUrl == null ||
+                                                user.avatarUrl!.isEmpty
+                                            ? Icon(
+                                                Icons.person,
+                                                color: Colors.white,
+                                                size: 26,
+                                              )
                                             : null,
                                       ),
                                       const SizedBox(width: 12),
                                       Expanded(
                                         child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
                                           children: [
                                             Text(
                                               user.name,
@@ -496,7 +632,10 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
                                             ),
                                             Text(
                                               '@${user.username} · ${user.mutualCount} mutual friends',
-                                              style: TextStyle(fontSize: 12, color: textSecondary),
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: textSecondary,
+                                              ),
                                             ),
                                           ],
                                         ),
@@ -514,36 +653,76 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
                                           backgroundColor: DesignTokens.primary,
                                           foregroundColor: Colors.white,
                                           elevation: 0,
-                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              10,
+                                            ),
+                                          ),
                                         ),
                                         onPressed: () {
-                                          ref.read(friendsProvider.notifier).acceptRequest(user);
-                                          ScaffoldMessenger.of(context).showSnackBar(
+                                          ref
+                                              .read(friendsProvider.notifier)
+                                              .acceptRequest(user);
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
                                             SnackBar(
-                                              content: Text('Accepted ${user.name}\'s friend request!'),
-                                              backgroundColor: const Color(0xFF34C759),
+                                              content: Text(
+                                                'Accepted ${user.name}\'s friend request!',
+                                              ),
+                                              backgroundColor: const Color(
+                                                0xFF34C759,
+                                              ),
                                             ),
                                           );
                                         },
-                                        child: const Text('Confirm', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                        child: const Text(
+                                          'Confirm',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 13,
+                                          ),
+                                        ),
                                       ),
                                     ),
                                     const SizedBox(width: 8),
                                     Expanded(
                                       child: ElevatedButton(
                                         style: ElevatedButton.styleFrom(
-                                          backgroundColor: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE5E5EA),
-                                          foregroundColor: isDark ? Colors.white : Colors.black,
+                                          backgroundColor: isDark
+                                              ? const Color(0xFF2C2C2E)
+                                              : const Color(0xFFE5E5EA),
+                                          foregroundColor: isDark
+                                              ? Colors.white
+                                              : Colors.black,
                                           elevation: 0,
-                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              10,
+                                            ),
+                                          ),
                                         ),
                                         onPressed: () {
-                                          ref.read(friendsProvider.notifier).declineRequest(user);
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            SnackBar(content: Text('Declined request from ${user.name}')),
+                                          ref
+                                              .read(friendsProvider.notifier)
+                                              .declineRequest(user);
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            SnackBar(
+                                              content: Text(
+                                                'Declined request from ${user.name}',
+                                              ),
+                                            ),
                                           );
                                         },
-                                        child: const Text('Delete', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                        child: const Text(
+                                          'Delete',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 13,
+                                          ),
+                                        ),
                                       ),
                                     ),
                                   ],
@@ -561,34 +740,54 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
                             ? 'No users found matching "$_searchQuery"'
                             : 'No suggestions available',
                         Icons.person_search_rounded,
-                        textSecondary)
+                        textSecondary,
+                      )
                     : ListView.separated(
                         padding: const EdgeInsets.symmetric(vertical: 4),
                         itemCount: filteredSuggestions.length,
-                        separatorBuilder: (_, _) => const Divider(height: 1, indent: 68),
+                        separatorBuilder: (_, _) =>
+                            const Divider(height: 1, indent: 68),
                         itemBuilder: (ctx, i) {
                           final user = filteredSuggestions[i];
                           return Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
                             child: Row(
                               children: [
                                 GestureDetector(
-                                  onTap: () => context.push('/profile/user/${user.id}?name=${Uri.encodeComponent(user.name)}&username=${Uri.encodeComponent(user.username)}'),
+                                  onTap: () => context.push(
+                                    '/profile/user/${user.id}?name=${Uri.encodeComponent(user.name)}&username=${Uri.encodeComponent(user.username)}',
+                                  ),
                                   child: CircleAvatar(
                                     radius: 22,
                                     backgroundColor: const Color(0xFF5856D6),
-                                    backgroundImage: user.avatarUrl != null && user.avatarUrl!.isNotEmpty ? NetworkImage(user.avatarUrl!) : null,
-                                    child: user.avatarUrl == null || user.avatarUrl!.isEmpty
-                                        ? Icon(Icons.person, color: Colors.white, size: 24)
+                                    backgroundImage:
+                                        user.avatarUrl != null &&
+                                            user.avatarUrl!.isNotEmpty
+                                        ? NetworkImage(user.avatarUrl!)
+                                        : null,
+                                    child:
+                                        user.avatarUrl == null ||
+                                            user.avatarUrl!.isEmpty
+                                        ? Icon(
+                                            Icons.person,
+                                            color: Colors.white,
+                                            size: 24,
+                                          )
                                         : null,
                                   ),
                                 ),
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: GestureDetector(
-                                    onTap: () => context.push('/profile/user/${user.id}?name=${Uri.encodeComponent(user.name)}&username=${Uri.encodeComponent(user.username)}'),
+                                    onTap: () => context.push(
+                                      '/profile/user/${user.id}?name=${Uri.encodeComponent(user.name)}&username=${Uri.encodeComponent(user.username)}',
+                                    ),
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Text(
                                           user.name,
@@ -600,7 +799,10 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
                                         ),
                                         Text(
                                           '@${user.username}${user.mutualCount > 0 ? " · ${user.mutualCount} mutuals" : ""}',
-                                          style: TextStyle(fontSize: 12, color: textSecondary),
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: textSecondary,
+                                          ),
                                         ),
                                       ],
                                     ),
@@ -615,29 +817,48 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
 
                 // ── Tab 3: My Friends ──────────────────────────────────────────────
                 filteredFriends.isEmpty
-                    ? _buildEmptyState('No friends found', Icons.people_outline_rounded, textSecondary)
+                    ? _buildEmptyState(
+                        'No friends found',
+                        Icons.people_outline_rounded,
+                        textSecondary,
+                      )
                     : ListView.separated(
                         padding: const EdgeInsets.symmetric(vertical: 4),
                         itemCount: filteredFriends.length,
-                        separatorBuilder: (_, _) => const Divider(height: 1, indent: 68),
+                        separatorBuilder: (_, _) =>
+                            const Divider(height: 1, indent: 68),
                         itemBuilder: (ctx, i) {
                           final user = filteredFriends[i];
                           return Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
                             child: Row(
                               children: [
                                 CircleAvatar(
                                   radius: 22,
                                   backgroundColor: DesignTokens.primary,
-                                  backgroundImage: user.avatarUrl != null && user.avatarUrl!.isNotEmpty ? NetworkImage(user.avatarUrl!) : null,
-                                  child: user.avatarUrl == null || user.avatarUrl!.isEmpty
-                                      ? Icon(Icons.person, color: Colors.white, size: 24)
+                                  backgroundImage:
+                                      user.avatarUrl != null &&
+                                          user.avatarUrl!.isNotEmpty
+                                      ? NetworkImage(user.avatarUrl!)
+                                      : null,
+                                  child:
+                                      user.avatarUrl == null ||
+                                          user.avatarUrl!.isEmpty
+                                      ? Icon(
+                                          Icons.person,
+                                          color: Colors.white,
+                                          size: 24,
+                                        )
                                       : null,
                                 ),
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         user.name,
@@ -649,7 +870,10 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
                                       ),
                                       Text(
                                         '@${user.username} · ${user.title ?? 'Friend'}',
-                                        style: TextStyle(fontSize: 12, color: textSecondary),
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: textSecondary,
+                                        ),
                                       ),
                                     ],
                                   ),
@@ -658,10 +882,16 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
                                   icon: Container(
                                     padding: const EdgeInsets.all(8),
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFF34C759).withValues(alpha: 0.12),
+                                      color: const Color(
+                                        0xFF34C759,
+                                      ).withValues(alpha: 0.12),
                                       shape: BoxShape.circle,
                                     ),
-                                    child: const Icon(Icons.call_rounded, color: Color(0xFF34C759), size: 16),
+                                    child: const Icon(
+                                      Icons.call_rounded,
+                                      color: Color(0xFF34C759),
+                                      size: 16,
+                                    ),
                                   ),
                                   onPressed: () {
                                     Navigator.of(context).push(
@@ -681,10 +911,16 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
                                   icon: Container(
                                     padding: const EdgeInsets.all(8),
                                     decoration: BoxDecoration(
-                                      color: DesignTokens.primary.withValues(alpha: 0.12),
+                                      color: DesignTokens.primary.withValues(
+                                        alpha: 0.12,
+                                      ),
                                       shape: BoxShape.circle,
                                     ),
-                                    child: const Icon(Icons.chat_bubble_rounded, color: DesignTokens.primary, size: 16),
+                                    child: const Icon(
+                                      Icons.chat_bubble_rounded,
+                                      color: DesignTokens.primary,
+                                      size: 16,
+                                    ),
                                   ),
                                   onPressed: () => _openChatWithUser(user),
                                   tooltip: 'Message',
@@ -702,55 +938,94 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
                             ? 'No communities matching "$_searchQuery"'
                             : 'No communities joined yet',
                         Icons.groups_rounded,
-                        textSecondary)
+                        textSecondary,
+                      )
                     : ListView.separated(
                         padding: const EdgeInsets.symmetric(vertical: 4),
                         itemCount: filteredCommunities.length,
-                        separatorBuilder: (_, _) => const Divider(height: 1, indent: 68),
+                        separatorBuilder: (_, _) =>
+                            const Divider(height: 1, indent: 68),
                         itemBuilder: (ctx, i) {
                           final comm = filteredCommunities[i];
                           return Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
                             child: Row(
                               children: [
                                 CircleAvatar(
                                   radius: 22,
                                   backgroundColor: const Color(0xFFFF9500),
-                                  backgroundImage: comm.coverUrl != null && comm.coverUrl!.isNotEmpty ? NetworkImage(comm.coverUrl!) : null,
-                                  child: comm.coverUrl == null || comm.coverUrl!.isEmpty
-                                      ? Icon(Icons.person, color: Colors.white, size: 24)
+                                  backgroundImage:
+                                      comm.coverUrl != null &&
+                                          comm.coverUrl!.isNotEmpty
+                                      ? NetworkImage(comm.coverUrl!)
+                                      : null,
+                                  child:
+                                      comm.coverUrl == null ||
+                                          comm.coverUrl!.isEmpty
+                                      ? Icon(
+                                          Icons.person,
+                                          color: Colors.white,
+                                          size: 24,
+                                        )
                                       : null,
                                 ),
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         comm.name,
-                                        style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: textPrimary),
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 15,
+                                          color: textPrimary,
+                                        ),
                                       ),
                                       Text(
                                         '${comm.memberCount} members · ${comm.category}',
-                                        style: TextStyle(fontSize: 12, color: textSecondary),
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: textSecondary,
+                                        ),
                                       ),
                                     ],
                                   ),
                                 ),
                                 ElevatedButton(
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFEFF3F6),
-                                    foregroundColor: isDark ? Colors.white : Colors.black,
+                                    backgroundColor: isDark
+                                        ? const Color(0xFF2C2C2E)
+                                        : const Color(0xFFEFF3F6),
+                                    foregroundColor: isDark
+                                        ? Colors.white
+                                        : Colors.black,
                                     elevation: 0,
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
                                   ),
                                   onPressed: () {
-                                    ref.read(myCommunitiesProvider.notifier).leaveCommunity(comm.id);
+                                    ref
+                                        .read(myCommunitiesProvider.notifier)
+                                        .leaveCommunity(comm.id);
                                     ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(content: Text('Left ${comm.name}')),
+                                      SnackBar(
+                                        content: Text('Left ${comm.name}'),
+                                      ),
                                     );
                                   },
-                                  child: const Text('Leave', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                  child: const Text(
+                                    'Leave',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                    ),
+                                  ),
                                 ),
                               ],
                             ),
@@ -760,11 +1035,16 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
 
                 // ── Tab 5: Contacts Matched on MurihSpace ────────────────────────
                 filteredContacts.isEmpty
-                    ? _buildContactsEmptyState(isDark, textPrimary, textSecondary)
+                    ? _buildContactsEmptyState(
+                        isDark,
+                        textPrimary,
+                        textSecondary,
+                      )
                     : ListView.separated(
                         padding: const EdgeInsets.symmetric(vertical: 4),
                         itemCount: filteredContacts.length,
-                        separatorBuilder: (_, _) => const Divider(height: 1, indent: 68),
+                        separatorBuilder: (_, _) =>
+                            const Divider(height: 1, indent: 68),
                         itemBuilder: (ctx, i) {
                           final contact = filteredContacts[i];
                           Color color;
@@ -774,21 +1054,36 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
                             color = DesignTokens.primary;
                           }
                           return Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
                             child: Row(
                               children: [
                                 GestureDetector(
                                   onTap: () {
                                     if (contact.id > 0) {
-                                      context.push('/profile/user/${contact.id}?name=${Uri.encodeComponent(contact.name)}&username=${Uri.encodeComponent(contact.username)}');
+                                      context.push(
+                                        '/profile/user/${contact.id}?name=${Uri.encodeComponent(contact.name)}&username=${Uri.encodeComponent(contact.username)}',
+                                      );
                                     }
                                   },
                                   child: CircleAvatar(
                                     radius: 22,
                                     backgroundColor: color,
-                                    backgroundImage: contact.avatarUrl != null && contact.avatarUrl!.isNotEmpty ? NetworkImage(contact.avatarUrl!) : null,
-                                    child: contact.avatarUrl == null || contact.avatarUrl!.isEmpty
-                                        ? Icon(Icons.person, color: Colors.white, size: 24)
+                                    backgroundImage:
+                                        contact.avatarUrl != null &&
+                                            contact.avatarUrl!.isNotEmpty
+                                        ? NetworkImage(contact.avatarUrl!)
+                                        : null,
+                                    child:
+                                        contact.avatarUrl == null ||
+                                            contact.avatarUrl!.isEmpty
+                                        ? Icon(
+                                            Icons.person,
+                                            color: Colors.white,
+                                            size: 24,
+                                          )
                                         : null,
                                   ),
                                 ),
@@ -797,11 +1092,14 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
                                   child: GestureDetector(
                                     onTap: () {
                                       if (contact.id > 0) {
-                                        context.push('/profile/user/${contact.id}?name=${Uri.encodeComponent(contact.name)}&username=${Uri.encodeComponent(contact.username)}');
+                                        context.push(
+                                          '/profile/user/${contact.id}?name=${Uri.encodeComponent(contact.name)}&username=${Uri.encodeComponent(contact.username)}',
+                                        );
                                       }
                                     },
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Text(
                                           contact.name,
@@ -813,13 +1111,19 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
                                         ),
                                         Text(
                                           '${contact.phone.isNotEmpty ? "${contact.phone} · " : ""}@${contact.username}',
-                                          style: TextStyle(fontSize: 12, color: textSecondary),
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: textSecondary,
+                                          ),
                                         ),
                                       ],
                                     ),
                                   ),
                                 ),
-                                _buildMatchedContactActionButton(contact, isDark),
+                                _buildMatchedContactActionButton(
+                                  contact,
+                                  isDark,
+                                ),
                               ],
                             ),
                           );
@@ -837,22 +1141,31 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
     if (user.status == 'accepted') {
       return ElevatedButton.icon(
         style: ElevatedButton.styleFrom(
-          backgroundColor: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE5E5EA),
+          backgroundColor: isDark
+              ? const Color(0xFF2C2C2E)
+              : const Color(0xFFE5E5EA),
           foregroundColor: isDark ? Colors.white : Colors.black,
           elevation: 0,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         ),
         onPressed: () => _openChatWithUser(user),
         icon: const Icon(Icons.chat_bubble_outline_rounded, size: 14),
-        label: const Text('Message', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+        label: const Text(
+          'Message',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+        ),
       );
     } else if (user.status == 'pending_sent') {
       return OutlinedButton.icon(
         style: OutlinedButton.styleFrom(
           foregroundColor: DesignTokens.primary,
           side: const BorderSide(color: DesignTokens.primary),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         ),
         onPressed: () {
@@ -862,7 +1175,10 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
           );
         },
         icon: const Icon(Icons.hourglass_top_rounded, size: 14),
-        label: const Text('Requested', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+        label: const Text(
+          'Requested',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+        ),
       );
     } else if (user.status == 'pending_received') {
       return ElevatedButton(
@@ -870,7 +1186,9 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
           backgroundColor: const Color(0xFF34C759),
           foregroundColor: Colors.white,
           elevation: 0,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         ),
         onPressed: () {
@@ -882,7 +1200,10 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
             ),
           );
         },
-        child: const Text('Accept', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+        child: const Text(
+          'Accept',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+        ),
       );
     } else {
       return ElevatedButton.icon(
@@ -890,7 +1211,9 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
           backgroundColor: DesignTokens.primary,
           foregroundColor: Colors.white,
           elevation: 0,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         ),
         onPressed: () {
@@ -903,7 +1226,10 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
           );
         },
         icon: const Icon(Icons.person_add_rounded, size: 16),
-        label: const Text('Add Friend', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+        label: const Text(
+          'Add Friend',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+        ),
       );
     }
   }
@@ -912,32 +1238,46 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
     if (contact.isAlreadyFriend || contact.status == 'accepted') {
       return ElevatedButton.icon(
         style: ElevatedButton.styleFrom(
-          backgroundColor: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE5E5EA),
+          backgroundColor: isDark
+              ? const Color(0xFF2C2C2E)
+              : const Color(0xFFE5E5EA),
           foregroundColor: isDark ? Colors.white : Colors.black,
           elevation: 0,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         ),
-        onPressed: () => _openChatWithUser(FriendUserItem(
-          id: contact.id,
-          name: contact.name,
-          username: contact.username,
-          avatarUrl: contact.avatarUrl,
-        )),
+        onPressed: () => _openChatWithUser(
+          FriendUserItem(
+            id: contact.id,
+            name: contact.name,
+            username: contact.username,
+            avatarUrl: contact.avatarUrl,
+          ),
+        ),
         icon: const Icon(Icons.chat_bubble_outline_rounded, size: 14),
-        label: const Text('Message', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+        label: const Text(
+          'Message',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+        ),
       );
     } else if (contact.status == 'pending_sent') {
       return OutlinedButton.icon(
         style: OutlinedButton.styleFrom(
           foregroundColor: DesignTokens.primary,
           side: const BorderSide(color: DesignTokens.primary),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         ),
         onPressed: null,
         icon: const Icon(Icons.hourglass_top_rounded, size: 14),
-        label: const Text('Sent', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+        label: const Text(
+          'Sent',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+        ),
       );
     } else {
       return ElevatedButton.icon(
@@ -945,11 +1285,15 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
           backgroundColor: DesignTokens.primary,
           foregroundColor: Colors.white,
           elevation: 0,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         ),
         onPressed: () {
-          ref.read(friendsProvider.notifier).sendRequest(
+          ref
+              .read(friendsProvider.notifier)
+              .sendRequest(
                 FriendUserItem(
                   id: contact.id,
                   name: contact.name,
@@ -960,7 +1304,9 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
               );
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Friend request sent to ${contact.name} (@${contact.username})'),
+              content: Text(
+                'Friend request sent to ${contact.name} (@${contact.username})',
+              ),
               backgroundColor: const Color(0xFF34C759),
             ),
           );
@@ -971,7 +1317,11 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
     }
   }
 
-  Widget _buildContactsEmptyState(bool isDark, Color textPrimary, Color? textSecondary) {
+  Widget _buildContactsEmptyState(
+    bool isDark,
+    Color textPrimary,
+    Color? textSecondary,
+  ) {
     if (!_hasContactPermission) {
       return Center(
         child: Padding(
@@ -985,31 +1335,51 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
                   color: DesignTokens.primary.withOpacity(0.12),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.contacts_rounded, size: 48, color: DesignTokens.primary),
+                child: const Icon(
+                  Icons.contacts_rounded,
+                  size: 48,
+                  color: DesignTokens.primary,
+                ),
               ),
               const SizedBox(height: 16),
               Text(
                 'Sync Your Phone Contacts',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: textPrimary),
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.bold,
+                  color: textPrimary,
+                ),
               ),
               const SizedBox(height: 8),
               Text(
                 'Discover friends, colleagues, and contacts from your phone who are already on MurihSpace.',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 13, color: textSecondary, height: 1.4),
+                style: TextStyle(
+                  fontSize: 13,
+                  color: textSecondary,
+                  height: 1.4,
+                ),
               ),
               const SizedBox(height: 20),
               ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: DesignTokens.primary,
                   foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 12,
+                  ),
                 ),
                 onPressed: _showContactPermissionDialog,
                 icon: const Icon(Icons.sync_rounded, size: 18),
-                label: const Text('Sync Contacts Now', style: TextStyle(fontWeight: FontWeight.bold)),
+                label: const Text(
+                  'Sync Contacts Now',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
               ),
             ],
           ),
@@ -1027,7 +1397,11 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
             const SizedBox(height: 14),
             Text(
               'No phone contacts matched yet',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textPrimary),
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: textPrimary,
+              ),
             ),
             const SizedBox(height: 6),
             Text(
@@ -1048,7 +1422,14 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
         children: [
           Icon(icon, size: 48, color: color),
           const SizedBox(height: 12),
-          Text(text, style: TextStyle(fontSize: 15, color: color, fontWeight: FontWeight.w600)),
+          Text(
+            text,
+            style: TextStyle(
+              fontSize: 15,
+              color: color,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
         ],
       ),
     );
@@ -1070,7 +1451,8 @@ class _AddFriendModalSheet extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<_AddFriendModalSheet> createState() => _AddFriendModalSheetState();
+  ConsumerState<_AddFriendModalSheet> createState() =>
+      _AddFriendModalSheetState();
 }
 
 class _AddFriendModalSheetState extends ConsumerState<_AddFriendModalSheet> {
@@ -1112,7 +1494,10 @@ class _AddFriendModalSheetState extends ConsumerState<_AddFriendModalSheet> {
 
     try {
       final dio = ApiClient.instance.dio;
-      final res = await dio.get('/friends/search', queryParameters: {'q': query});
+      final res = await dio.get(
+        '/friends/search',
+        queryParameters: {'q': query},
+      );
       final list = ApiClient.instance.unwrapList(res, (item) {
         final serverStatus = (item['status'] as String?) ?? 'none';
         return FriendUserItem.fromJson(item, status: serverStatus);
@@ -1172,7 +1557,11 @@ class _AddFriendModalSheetState extends ConsumerState<_AddFriendModalSheet> {
                   color: DesignTokens.primary.withOpacity(0.12),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.person_add_alt_1_rounded, color: DesignTokens.primary, size: 22),
+                child: const Icon(
+                  Icons.person_add_alt_1_rounded,
+                  color: DesignTokens.primary,
+                  size: 22,
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -1217,27 +1606,39 @@ class _AddFriendModalSheetState extends ConsumerState<_AddFriendModalSheet> {
               onSubmitted: _executeSearch,
               style: TextStyle(fontSize: 14, color: textPrimary),
               decoration: InputDecoration(
+                filled: false,
                 hintText: 'e.g. @username, name, email, or phone...',
                 hintStyle: TextStyle(fontSize: 13, color: textSecondary),
-                prefixIcon: const Icon(Icons.search_rounded, color: DesignTokens.primary, size: 20),
+                prefixIcon: const Icon(
+                  Icons.search_rounded,
+                  color: DesignTokens.primary,
+                  size: 20,
+                ),
                 suffixIcon: _searching
                     ? const Padding(
                         padding: EdgeInsets.all(12),
                         child: SizedBox(
                           width: 16,
                           height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: DesignTokens.primary),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: DesignTokens.primary,
+                          ),
                         ),
                       )
                     : _controller.text.isNotEmpty
-                        ? IconButton(
-                            icon: Icon(Icons.clear_rounded, color: textSecondary, size: 18),
-                            onPressed: () {
-                              _controller.clear();
-                              _onQueryChanged('');
-                            },
-                          )
-                        : null,
+                    ? IconButton(
+                        icon: Icon(
+                          Icons.clear_rounded,
+                          color: textSecondary,
+                          size: 18,
+                        ),
+                        onPressed: () {
+                          _controller.clear();
+                          _onQueryChanged('');
+                        },
+                      )
+                    : null,
                 border: InputBorder.none,
                 contentPadding: const EdgeInsets.symmetric(vertical: 12),
               ),
@@ -1259,11 +1660,19 @@ class _AddFriendModalSheetState extends ConsumerState<_AddFriendModalSheet> {
                 padding: const EdgeInsets.symmetric(vertical: 24),
                 child: Column(
                   children: [
-                    Icon(Icons.person_off_rounded, size: 40, color: textSecondary),
+                    Icon(
+                      Icons.person_off_rounded,
+                      size: 40,
+                      color: textSecondary,
+                    ),
                     const SizedBox(height: 8),
                     Text(
                       'No user found matching "${_controller.text.trim()}"',
-                      style: TextStyle(color: textSecondary, fontSize: 13, fontWeight: FontWeight.w600),
+                      style: TextStyle(
+                        color: textSecondary,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ],
                 ),
@@ -1275,7 +1684,8 @@ class _AddFriendModalSheetState extends ConsumerState<_AddFriendModalSheet> {
               child: ListView.separated(
                 shrinkWrap: true,
                 itemCount: _results.length,
-                separatorBuilder: (_, _) => const Divider(height: 1, indent: 56),
+                separatorBuilder: (_, _) =>
+                    const Divider(height: 1, indent: 56),
                 itemBuilder: (ctx, i) {
                   final u = _results[i];
                   return Padding(
@@ -1285,14 +1695,23 @@ class _AddFriendModalSheetState extends ConsumerState<_AddFriendModalSheet> {
                         GestureDetector(
                           onTap: () {
                             Navigator.pop(context);
-                            context.push('/profile/user/${u.id}?name=${Uri.encodeComponent(u.name)}&username=${Uri.encodeComponent(u.username)}');
+                            context.push(
+                              '/profile/user/${u.id}?name=${Uri.encodeComponent(u.name)}&username=${Uri.encodeComponent(u.username)}',
+                            );
                           },
                           child: CircleAvatar(
                             radius: 20,
                             backgroundColor: const Color(0xFF5856D6),
-                            backgroundImage: u.avatarUrl != null && u.avatarUrl!.isNotEmpty ? NetworkImage(u.avatarUrl!) : null,
+                            backgroundImage:
+                                u.avatarUrl != null && u.avatarUrl!.isNotEmpty
+                                ? NetworkImage(u.avatarUrl!)
+                                : null,
                             child: u.avatarUrl == null || u.avatarUrl!.isEmpty
-                                ? Icon(Icons.person, color: Colors.white, size: 22)
+                                ? Icon(
+                                    Icons.person,
+                                    color: Colors.white,
+                                    size: 22,
+                                  )
                                 : null,
                           ),
                         ),
@@ -1301,18 +1720,27 @@ class _AddFriendModalSheetState extends ConsumerState<_AddFriendModalSheet> {
                           child: GestureDetector(
                             onTap: () {
                               Navigator.pop(context);
-                              context.push('/profile/user/${u.id}?name=${Uri.encodeComponent(u.name)}&username=${Uri.encodeComponent(u.username)}');
+                              context.push(
+                                '/profile/user/${u.id}?name=${Uri.encodeComponent(u.name)}&username=${Uri.encodeComponent(u.username)}',
+                              );
                             },
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
                                   u.name,
-                                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: textPrimary),
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 14,
+                                    color: textPrimary,
+                                  ),
                                 ),
                                 Text(
                                   '@${u.username}${u.mutualCount > 0 ? " · ${u.mutualCount} mutuals" : ""}',
-                                  style: TextStyle(fontSize: 12, color: textSecondary),
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: textSecondary,
+                                  ),
                                 ),
                               ],
                             ),
@@ -1331,7 +1759,11 @@ class _AddFriendModalSheetState extends ConsumerState<_AddFriendModalSheet> {
               children: [
                 Text(
                   'Quick Ways to Connect',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: textSecondary),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                    color: textSecondary,
+                  ),
                 ),
                 const SizedBox(height: 10),
                 _buildQuickActionTile(
@@ -1374,39 +1806,57 @@ class _AddFriendModalSheetState extends ConsumerState<_AddFriendModalSheet> {
     if (user.status == 'accepted') {
       return ElevatedButton.icon(
         style: ElevatedButton.styleFrom(
-          backgroundColor: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE5E5EA),
+          backgroundColor: isDark
+              ? const Color(0xFF2C2C2E)
+              : const Color(0xFFE5E5EA),
           foregroundColor: isDark ? Colors.white : Colors.black,
           elevation: 0,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         ),
         onPressed: () => widget.onOpenChat(user),
         icon: const Icon(Icons.chat_bubble_outline_rounded, size: 14),
-        label: const Text('Message', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+        label: const Text(
+          'Message',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+        ),
       );
     } else if (user.status == 'pending_sent') {
       return OutlinedButton.icon(
         style: OutlinedButton.styleFrom(
           foregroundColor: DesignTokens.primary,
           side: const BorderSide(color: DesignTokens.primary),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         ),
         onPressed: () async {
           await ref.read(friendsProvider.notifier).cancelSentRequest(user);
           setState(() {
-            _results = _results.map((r) => r.id == user.id ? FriendUserItem(
-              id: user.id,
-              name: user.name,
-              username: user.username,
-              avatarUrl: user.avatarUrl,
-              mutualCount: user.mutualCount,
-              status: 'none',
-            ) : r).toList();
+            _results = _results
+                .map(
+                  (r) => r.id == user.id
+                      ? FriendUserItem(
+                          id: user.id,
+                          name: user.name,
+                          username: user.username,
+                          avatarUrl: user.avatarUrl,
+                          mutualCount: user.mutualCount,
+                          status: 'none',
+                        )
+                      : r,
+                )
+                .toList();
           });
         },
         icon: const Icon(Icons.hourglass_top_rounded, size: 14),
-        label: const Text('Requested', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+        label: const Text(
+          'Requested',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+        ),
       );
     } else if (user.status == 'pending_received') {
       return ElevatedButton(
@@ -1414,23 +1864,34 @@ class _AddFriendModalSheetState extends ConsumerState<_AddFriendModalSheet> {
           backgroundColor: const Color(0xFF34C759),
           foregroundColor: Colors.white,
           elevation: 0,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         ),
         onPressed: () async {
           await ref.read(friendsProvider.notifier).acceptRequest(user);
           setState(() {
-            _results = _results.map((r) => r.id == user.id ? FriendUserItem(
-              id: user.id,
-              name: user.name,
-              username: user.username,
-              avatarUrl: user.avatarUrl,
-              mutualCount: user.mutualCount,
-              status: 'accepted',
-            ) : r).toList();
+            _results = _results
+                .map(
+                  (r) => r.id == user.id
+                      ? FriendUserItem(
+                          id: user.id,
+                          name: user.name,
+                          username: user.username,
+                          avatarUrl: user.avatarUrl,
+                          mutualCount: user.mutualCount,
+                          status: 'accepted',
+                        )
+                      : r,
+                )
+                .toList();
           });
         },
-        child: const Text('Accept', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+        child: const Text(
+          'Accept',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+        ),
       );
     } else {
       return ElevatedButton.icon(
@@ -1438,20 +1899,28 @@ class _AddFriendModalSheetState extends ConsumerState<_AddFriendModalSheet> {
           backgroundColor: DesignTokens.primary,
           foregroundColor: Colors.white,
           elevation: 0,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         ),
         onPressed: () async {
           await ref.read(friendsProvider.notifier).sendRequestToUserId(user.id);
           setState(() {
-            _results = _results.map((r) => r.id == user.id ? FriendUserItem(
-              id: user.id,
-              name: user.name,
-              username: user.username,
-              avatarUrl: user.avatarUrl,
-              mutualCount: user.mutualCount,
-              status: 'pending_sent',
-            ) : r).toList();
+            _results = _results
+                .map(
+                  (r) => r.id == user.id
+                      ? FriendUserItem(
+                          id: user.id,
+                          name: user.name,
+                          username: user.username,
+                          avatarUrl: user.avatarUrl,
+                          mutualCount: user.mutualCount,
+                          status: 'pending_sent',
+                        )
+                      : r,
+                )
+                .toList();
           });
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -1463,7 +1932,10 @@ class _AddFriendModalSheetState extends ConsumerState<_AddFriendModalSheet> {
           }
         },
         icon: const Icon(Icons.person_add_rounded, size: 16),
-        label: const Text('Add Friend', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+        label: const Text(
+          'Add Friend',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+        ),
       );
     }
   }
@@ -1485,7 +1957,9 @@ class _AddFriendModalSheetState extends ConsumerState<_AddFriendModalSheet> {
         decoration: BoxDecoration(
           color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF7FAFC),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: isDark ? Colors.grey[800]! : Colors.grey[200]!),
+          border: Border.all(
+            color: isDark ? Colors.grey[800]! : Colors.grey[200]!,
+          ),
         ),
         child: Row(
           children: [
@@ -1502,17 +1976,29 @@ class _AddFriendModalSheetState extends ConsumerState<_AddFriendModalSheet> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: textPrimary)),
-                  Text(subtitle, style: TextStyle(fontSize: 11, color: textSecondary)),
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                      color: textPrimary,
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    style: TextStyle(fontSize: 11, color: textSecondary),
+                  ),
                 ],
               ),
             ),
-            Icon(Icons.arrow_forward_ios_rounded, size: 14, color: textSecondary),
+            Icon(
+              Icons.arrow_forward_ios_rounded,
+              size: 14,
+              color: textSecondary,
+            ),
           ],
         ),
       ),
     );
   }
 }
-
-
