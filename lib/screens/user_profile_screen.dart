@@ -1147,7 +1147,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                         ),
                       ),
                     ),
-                    if (_profileData?['has_active_verification_badge'] == true || _profileData?['kyc_status'] == 'verified') ...[
+                    if (_profileData?['has_active_verification_badge'] == true) ...[
                       const SizedBox(width: 4),
                       const Icon(Icons.verified_rounded, size: 18, color: DesignTokens.primary),
                     ],

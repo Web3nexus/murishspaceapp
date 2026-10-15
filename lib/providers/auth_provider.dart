@@ -47,6 +47,7 @@ class UserProfile {
   final bool isOnline;
   final String? lastSeen;
   final DateTime? createdAt;
+  final bool hasActiveVerificationBadge;
 
   UserProfile({
     required this.id,
@@ -83,6 +84,7 @@ class UserProfile {
     this.isOnline = true,
     this.lastSeen = 'online',
     this.createdAt,
+    this.hasActiveVerificationBadge = false,
   });
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
@@ -136,6 +138,7 @@ class UserProfile {
       isOnline: json['is_online'] as bool? ?? json['isOnline'] as bool? ?? true,
       lastSeen: json['last_seen'] as String? ?? json['lastSeen'] as String? ?? 'online',
       createdAt: json['created_at'] != null ? DateTime.tryParse(json['created_at'].toString()) : null,
+      hasActiveVerificationBadge: json['has_active_verification_badge'] as bool? ?? false,
     );
   }
 
@@ -176,6 +179,7 @@ class UserProfile {
       'is_online': isOnline,
       'last_seen': lastSeen,
       'created_at': createdAt?.toIso8601String(),
+      'has_active_verification_badge': hasActiveVerificationBadge,
     };
   }
 
@@ -216,6 +220,7 @@ class UserProfile {
     bool? isOnline,
     String? lastSeen,
     DateTime? createdAt,
+    bool? hasActiveVerificationBadge,
   }) {
     return UserProfile(
       id: id ?? this.id,
@@ -252,6 +257,7 @@ class UserProfile {
       isOnline: isOnline ?? this.isOnline,
       lastSeen: lastSeen ?? this.lastSeen,
       createdAt: createdAt ?? this.createdAt,
+      hasActiveVerificationBadge: hasActiveVerificationBadge ?? this.hasActiveVerificationBadge,
     );
   }
 }

@@ -317,6 +317,7 @@ class _YouScreenState extends ConsumerState<YouScreen>
     ReelsViewerSheet.show(
       context,
       authorName: user?.name.isNotEmpty == true ? user!.name : 'Lord Uzih',
+      authorVerified: user?.hasActiveVerificationBadge == true,
       authorAvatar: user?.avatarUrl,
       caption: item['caption'] as String? ?? 'Content preview',
       videoThumbnail: item['image'] as String,
@@ -344,6 +345,7 @@ class _YouScreenState extends ConsumerState<YouScreen>
 
     final authorName = user?.name.isNotEmpty == true ? user!.name : 'User';
     final authorUsername = user?.username.isNotEmpty == true ? user!.username : 'user';
+    final hasVerificationBadge = user?.hasActiveVerificationBadge == true;
     final rawAvatar = user?.avatarUrl;
     final resolvedAvatar = rawAvatar != null ? ApiClient.resolveUrl(rawAvatar) : null;
     final rawBanner = user?.bannerUrl;
@@ -392,7 +394,8 @@ class _YouScreenState extends ConsumerState<YouScreen>
               ),
             ),
             const SizedBox(width: 4),
-            const Icon(Icons.verified_rounded, size: 16, color: DesignTokens.primary),
+            if (hasVerificationBadge)
+              const Icon(Icons.verified_rounded, size: 16, color: DesignTokens.primary),
           ],
         ),
         centerTitle: true,
@@ -577,7 +580,8 @@ class _YouScreenState extends ConsumerState<YouScreen>
                           ),
                         ),
                         const SizedBox(width: 4),
-                        const Icon(Icons.verified_rounded, size: 18, color: DesignTokens.primary),
+                        if (hasVerificationBadge)
+                          const Icon(Icons.verified_rounded, size: 18, color: DesignTokens.primary),
                       ],
                     ),
                     const SizedBox(height: 2),

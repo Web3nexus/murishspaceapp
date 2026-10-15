@@ -908,6 +908,10 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
                     final author = item['author'] is Map
                         ? item['author']['name'] as String? ?? 'Creator'
                         : 'Creator';
+                    final authorVerified = item['author'] is Map &&
+                        (item['author']['has_active_verification_badge'] ==
+                                true ||
+                            item['author']['is_verified'] == true);
                     final likesCount =
                         (item['likes_count'] as num?)?.toInt() ??
                         (item['reactions_count'] as num?)?.toInt() ??
@@ -922,6 +926,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
                           ReelsViewerSheet.show(
                             context,
                             authorName: author,
+                            authorVerified: authorVerified,
                             caption: caption,
                             videoThumbnail: url,
                             likesCount: displayCount,

@@ -2635,6 +2635,7 @@ class _PreviewProfileScreenState extends ConsumerState<PreviewProfileScreen> {
         authorName: widget.displayName,
         authorUsername: widget.username,
         authorAvatar: widget.avatarUrl ?? '',
+        authorVerified: _profileData?['has_active_verification_badge'] == true,
       ),
     );
   }
@@ -2895,12 +2896,14 @@ class _PreviewProfileScreenState extends ConsumerState<PreviewProfileScreen> {
                               letterSpacing: -0.3,
                             ),
                           ),
-                          const SizedBox(width: 5),
-                          const Icon(
-                            Icons.verified_rounded,
-                            color: primaryBlue,
-                            size: 18,
-                          ),
+                          if (_profileData?['has_active_verification_badge'] == true) ...[
+                            const SizedBox(width: 5),
+                            const Icon(
+                              Icons.verified_rounded,
+                              color: primaryBlue,
+                              size: 18,
+                            ),
+                          ],
                         ],
                       ),
                       const SizedBox(height: 2),
@@ -3540,12 +3543,14 @@ class _PreviewPostDetailSheet extends StatelessWidget {
   final String authorName;
   final String authorUsername;
   final String authorAvatar;
+  final bool authorVerified;
 
   const _PreviewPostDetailSheet({
     required this.postData,
     required this.authorName,
     required this.authorUsername,
     required this.authorAvatar,
+    this.authorVerified = false,
   });
 
   @override
@@ -3640,11 +3645,12 @@ class _PreviewPostDetailSheet extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(width: 4),
-                          const Icon(
-                            Icons.verified_rounded,
-                            size: 14,
-                            color: Color(0xFF1B64F2),
-                          ),
+                          if (authorVerified)
+                            const Icon(
+                              Icons.verified_rounded,
+                              size: 14,
+                              color: Color(0xFF1B64F2),
+                            ),
                         ],
                       ),
                       Text(

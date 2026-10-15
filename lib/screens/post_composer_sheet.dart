@@ -927,8 +927,7 @@ class _PostComposerState extends ConsumerState<_PostComposer> {
                               ),
                               children: [
                                 TextSpan(text: user?.name ?? 'You'),
-                                if (user?.kycStatus == 'verified' ||
-                                    user?.kycStatus == 'approved')
+                                if (user?.hasActiveVerificationBadge == true)
                                   const WidgetSpan(
                                     alignment: PlaceholderAlignment.middle,
                                     child: Padding(

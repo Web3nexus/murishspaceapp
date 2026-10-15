@@ -613,6 +613,7 @@ class _CreatorHubScreenState extends ConsumerState<CreatorHubScreen> {
 
     final displayName = user?.name.isNotEmpty == true ? user!.name : 'Creator';
     final username = user?.username.isNotEmpty == true ? user!.username : 'creator';
+    final hasVerificationBadge = user?.hasActiveVerificationBadge == true;
     final avatarUrl = user?.avatarUrl;
 
     return Scaffold(
@@ -724,8 +725,9 @@ class _CreatorHubScreenState extends ConsumerState<CreatorHubScreen> {
                                       ),
                                     ),
                                     const SizedBox(width: 4),
-                                    const Icon(
-                                      Icons.verified_rounded,
+                                    if (hasVerificationBadge)
+                                      const Icon(
+                                        Icons.verified_rounded,
                                       color: DesignTokens.primary,
                                       size: 16,
                                     ),

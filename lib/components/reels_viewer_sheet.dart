@@ -5,6 +5,7 @@ import '../core/design_tokens.dart';
 /// Fullscreen Short Video / Reels Player Sheet matching MurihSpace design reference.
 class ReelsViewerSheet extends StatefulWidget {
   final String authorName;
+  final bool authorVerified;
   final String? authorAvatar;
   final String caption;
   final String location;
@@ -16,6 +17,7 @@ class ReelsViewerSheet extends StatefulWidget {
   const ReelsViewerSheet({
     super.key,
     this.authorName = 'Amina Bello',
+    this.authorVerified = false,
     this.authorAvatar,
     this.caption =
         'Unforgettable night at the Sunset Party! 🌅 Music, friends and good vibes only! 💙',
@@ -30,6 +32,7 @@ class ReelsViewerSheet extends StatefulWidget {
   static void show(
     BuildContext context, {
     String authorName = 'Amina Bello',
+    bool authorVerified = false,
     String? authorAvatar,
     String caption =
         'Unforgettable night at the Sunset Party! 🌅 Music, friends and good vibes only! 💙',
@@ -47,6 +50,7 @@ class ReelsViewerSheet extends StatefulWidget {
       backgroundColor: Colors.black,
       builder: (ctx) => ReelsViewerSheet(
         authorName: authorName,
+        authorVerified: authorVerified,
         authorAvatar: authorAvatar,
         caption: caption,
         location: location,
@@ -289,11 +293,12 @@ class _ReelsViewerSheetState extends State<ReelsViewerSheet> {
                       ),
                     ),
                     const SizedBox(width: 4),
-                    const Icon(
-                      Icons.verified_rounded,
-                      color: DesignTokens.primary,
-                      size: 16,
-                    ),
+                    if (widget.authorVerified)
+                      const Icon(
+                        Icons.verified_rounded,
+                        color: DesignTokens.primary,
+                        size: 16,
+                      ),
                     const SizedBox(width: 10),
                     GestureDetector(
                       onTap: () => setState(() => _isFollowing = !_isFollowing),

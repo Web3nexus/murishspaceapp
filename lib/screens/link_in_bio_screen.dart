@@ -928,6 +928,7 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
 
   // ── HERO CARD WITH PHONE MOCKUP PREVIEW ─────────────────────────
   Widget _buildHeroCard(String name, String username, String bioUrl, bool isDark) {
+    final hasBadge = ref.read(authProvider).user?.hasActiveVerificationBadge == true;
     return Container(
       height: 190,
       decoration: BoxDecoration(
@@ -1015,7 +1016,8 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
                                 ),
                               ),
                               const SizedBox(width: 4),
-                              const Icon(Icons.verified_rounded, color: Color(0xFF1A68D4), size: 16),
+                              if (hasBadge)
+                                const Icon(Icons.verified_rounded, color: Color(0xFF1A68D4), size: 16),
                             ],
                           ),
                           Text(
@@ -1793,6 +1795,7 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
 
   // ── PHONE LIVE PREVIEW CONTAINER ────────────────────────────────
   Widget _buildPhoneLivePreview(String name, String username, bool isDark) {
+    final hasBadge = ref.read(authProvider).user?.hasActiveVerificationBadge == true;
     return Container(
       width: 320,
       padding: const EdgeInsets.all(20),
@@ -1840,7 +1843,8 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
                 style: TextStyle(color: _selectedTheme.textPrimary, fontWeight: FontWeight.w900, fontSize: 18),
               ),
               const SizedBox(width: 4),
-              const Icon(Icons.verified_rounded, color: Color(0xFF1A68D4), size: 16),
+              if (hasBadge)
+                const Icon(Icons.verified_rounded, color: Color(0xFF1A68D4), size: 16),
             ],
           ),
           Text('@$username', style: TextStyle(color: _selectedTheme.textSecondary, fontSize: 13)),
