@@ -1,10 +1,12 @@
 import 'dart:io';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../components/murih_icon.dart';
+import '../core/api_client.dart';
 import '../core/design_tokens.dart';
 import '../providers/hashtag_provider.dart';
 import 'post_composer_sheet.dart';
@@ -105,25 +107,71 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
     }
 
     setState(() => _isPublishing = true);
-    await Future.delayed(const Duration(milliseconds: 900));
 
-    if (!mounted) return;
-    setState(() {
-      _isPublishing = false;
-      _captionController.clear();
-      _selectedMedia.clear();
-    });
+    try {
+      final mediaUrls = <String>[];
+      for (final media in _selectedMedia) {
+        final bytes = await media.readAsBytes();
+        String filename = media.name;
+        final ext = filename.contains('.')
+            ? filename.split('.').last.toLowerCase()
+            : 'jpg';
+        if (!filename.contains('.')) {
+          filename = '$filename.$ext';
+        }
+        final mimeSubtype = (ext == 'png' || ext == 'webp' || ext == 'gif') ? ext : 'jpeg';
+        final form = FormData.fromMap({
+          'file': MultipartFile.fromBytes(
+            bytes,
+            filename: filename,
+            contentType: DioMediaType('image', mimeSubtype),
+          ),
+        });
+        final upload = await ApiClient.instance.dio.post('/upload', data: form);
+        final payload = ApiClient.instance.unwrap(upload);
+        final url = payload is Map<String, dynamic>
+            ? (payload['url'] ?? payload['data']?['url'])
+            : null;
+        if (url is String && url.isNotEmpty) mediaUrls.add(url);
+      }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          _isScheduled
-              ? 'Post scheduled successfully for ${_scheduledDate.day}/${_scheduledDate.month} at ${_scheduledDate.hour}:${_scheduledDate.minute.toString().padLeft(2, '0')}!'
-              : 'Post published successfully to MurihSpace!',
+      final postPayload = <String, dynamic>{
+        'content': caption,
+        'privacy': _selectedAudience.toLowerCase(),
+        if (mediaUrls.isNotEmpty) 'media_urls': mediaUrls,
+        if (_locationController.text.trim().isNotEmpty)
+          'location': _locationController.text.trim(),
+      };
+
+      await ApiClient.instance.dio.post(
+        '/posts',
+        data: postPayload,
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _isPublishing = false;
+        _captionController.clear();
+        _selectedMedia.clear();
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _isScheduled
+                ? 'Post scheduled successfully for ${_scheduledDate.day}/${_scheduledDate.month} at ${_scheduledDate.hour}:${_scheduledDate.minute.toString().padLeft(2, '0')}!'
+                : 'Post published successfully to MurihSpace!',
+          ),
+          backgroundColor: const Color(0xFF16A34A),
         ),
-        backgroundColor: const Color(0xFF16A34A),
-      ),
-    );
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isPublishing = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to publish post: $e')),
+      );
+    }
   }
 
   void _showTemplatesModal() {
