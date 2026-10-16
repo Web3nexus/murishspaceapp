@@ -4,15 +4,42 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../models/live_models.dart';
 import '../core/design_tokens.dart';
 import '../providers/live_discovery_provider.dart';
 import 'live_stream_card.dart';
 
-/// Public entry point for a broadcast: the `/live/:trackingId` deep-link page
-/// resolves the stream server-side and drops the viewer into the room.
-void openLiveStream(BuildContext context, String trackingId) {
-  if (trackingId.isEmpty) return;
-  context.push('/live/$trackingId');
+/// Public entry point for a broadcast. If a full [LiveStream] instance is provided,
+/// opens `/app/live` directly with complete room context so the user drops into
+/// the stream immediately without a redundant HTTP resolution step.
+/// If only a tracking ID / token is provided, opens `/live/:trackingId` to resolve.
+void openLiveStream(BuildContext context, dynamic streamOrToken) {
+  if (streamOrToken is LiveStream) {
+    final query = <String, String>{
+      'streamId': streamOrToken.id.toString(),
+      if (streamOrToken.trackingId.isNotEmpty)
+        'trackingId': streamOrToken.trackingId,
+      'title': streamOrToken.title.isNotEmpty
+          ? streamOrToken.title
+          : 'Live Broadcast',
+      'hostName': streamOrToken.host?.name ?? 'Creator',
+      'isHost': 'false',
+      'streamMode': streamOrToken.streamMode,
+      if (streamOrToken.host?.avatarUrl != null &&
+          streamOrToken.host!.avatarUrl!.isNotEmpty)
+        'hostAvatarUrl': streamOrToken.host!.avatarUrl!,
+      if (streamOrToken.community?.name != null &&
+          streamOrToken.community!.name.isNotEmpty)
+        'communityName': streamOrToken.community!.name,
+    };
+    final uri = Uri(path: '/app/live', queryParameters: query);
+    context.push(uri.toString());
+    return;
+  }
+
+  final token = streamOrToken?.toString().trim() ?? '';
+  if (token.isEmpty) return;
+  context.push('/live/$token');
 }
 
 /// Horizontal "Live Now" rail shown above the home feed. Hidden entirely when
@@ -127,7 +154,7 @@ class _LiveNowRailState extends ConsumerState<LiveNowRail>
                       width: LiveNowRail._cardWidth,
                       child: LiveStreamCard(
                         stream: stream,
-                        onTap: () => openLiveStream(ctx, stream.trackingId),
+                        onTap: () => openLiveStream(ctx, stream),
                       ),
                     );
                   },

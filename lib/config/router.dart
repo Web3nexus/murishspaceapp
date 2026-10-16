@@ -507,14 +507,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           final title = state.uri.queryParameters['title'] ?? 'Live Broadcast';
           final hostName = state.uri.queryParameters['hostName'] ?? 'Creator';
           final communityName = state.uri.queryParameters['communityName'];
-          final isHost = state.uri.queryParameters['isHost'] != 'false';
+          final isHost = state.uri.queryParameters['isHost'] == 'true';
+          final hostAvatarUrl = state.uri.queryParameters['hostAvatarUrl'];
+          final streamMode = state.uri.queryParameters['streamMode'] ?? 'video';
           return LiveStreamScreen(
             streamId: streamId,
             trackingId: trackingId,
             streamTitle: title,
             hostName: hostName,
+            hostAvatarUrl: hostAvatarUrl,
             communityName: communityName,
             isHost: isHost,
+            streamMode: streamMode,
           );
         },
       ),

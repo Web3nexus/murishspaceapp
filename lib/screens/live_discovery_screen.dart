@@ -149,7 +149,7 @@ class _LiveDiscoveryScreenState extends ConsumerState<LiveDiscoveryScreen> {
               final stream = state.streams[i];
               return LiveStreamCard(
                 stream: stream,
-                onTap: () => openLiveStream(ctx, stream.trackingId),
+                onTap: () => openLiveStream(ctx, stream),
               );
             }, childCount: state.streams.length),
           ),

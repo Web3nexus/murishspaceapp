@@ -358,3 +358,4 @@ class _ProfileQrSheetState extends State<ProfileQrSheet> {
     );
   }
 }
+

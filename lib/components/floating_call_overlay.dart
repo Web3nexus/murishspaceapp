@@ -61,6 +61,7 @@ class _FloatingCallOverlayState extends State<FloatingCallOverlay> {
               left: clampedX,
               top: clampedY,
               child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
                 onPanUpdate: (details) {
                   setState(() {
                     _pos = Offset(clampedX + details.delta.dx, clampedY + details.delta.dy);
@@ -124,9 +125,11 @@ class _FloatingCallOverlayState extends State<FloatingCallOverlay> {
       children: [
         // Video Preview Feed
         if (activeVideoTrack != null)
-          VideoTrackRenderer(
-            activeVideoTrack,
-            fit: VideoViewFit.cover,
+          IgnorePointer(
+            child: VideoTrackRenderer(
+              activeVideoTrack,
+              fit: VideoViewFit.cover,
+            ),
           )
         else
           Container(

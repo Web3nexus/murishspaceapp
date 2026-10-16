@@ -84,13 +84,41 @@ class Env {
     return webBaseUrl.replaceAll(RegExp(r'/+$'), '');
   }
 
+  static String? _runtimeProfileDomain;
+
+  /// Sets an explicit profile domain override at runtime (e.g. from backend /platform config).
+  static void setRuntimeProfileDomain(String? domain) {
+    if (domain != null && domain.trim().isNotEmpty) {
+      _runtimeProfileDomain = domain
+          .trim()
+          .replaceFirst(RegExp(r'^https?://'), '')
+          .replaceAll(RegExp(r'/+$'), '');
+    }
+  }
+
   /// Host that serves vanity profile / link-in-bio pages (bare, no scheme).
   /// Override at build time with `--dart-define=PROFILE_DOMAIN=...`; keep it
   /// aligned with the backend CANONICAL_PROFILE_DOMAIN and web VITE_PROFILE_DOMAIN.
-  static const String profileDomain = String.fromEnvironment(
-    'PROFILE_DOMAIN',
-    defaultValue: 'murih.me',
-  );
+  static String get profileDomain {
+    if (_runtimeProfileDomain != null && _runtimeProfileDomain!.isNotEmpty) {
+      return _runtimeProfileDomain!;
+    }
+
+    const explicit = String.fromEnvironment('PROFILE_DOMAIN');
+    if (explicit.isNotEmpty) return explicit;
+
+    switch (apiEnv) {
+      case 'staging':
+        final parsed = Uri.tryParse(_stagingWebUrl);
+        return parsed?.host ?? 'staging.murihspace.com';
+      case 'local':
+        return 'localhost:5173';
+      case 'production':
+      case 'prod':
+      default:
+        return 'murih.me';
+    }
+  }
 
   /// Generates the canonical profile URL for any user handle.
   static String profileUrl(String username) {

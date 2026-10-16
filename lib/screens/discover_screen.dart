@@ -1824,7 +1824,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
           final stream = liveState.streams[i];
           return LiveStreamCard(
             stream: stream,
-            onTap: () => openLiveStream(ctx, stream.trackingId),
+            onTap: () => openLiveStream(ctx, stream),
           );
         },
       ),

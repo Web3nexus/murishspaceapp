@@ -41,6 +41,7 @@ class LiveStreamScreen extends ConsumerStatefulWidget {
   final String hostName;
   final String? communityName;
   final bool isHost;
+  final String? hostAvatarUrl;
   final bool cameraEnabled;
   final bool micEnabled;
   final String streamMode;
@@ -53,6 +54,7 @@ class LiveStreamScreen extends ConsumerStatefulWidget {
     this.trackingId,
     this.streamTitle = 'Live Broadcast',
     this.hostName = 'Creator',
+    this.hostAvatarUrl,
     this.communityName,
     this.isHost = true,
     this.cameraEnabled = true,
@@ -184,6 +186,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
     super.initState();
     _activeStreamId = widget.streamId;
     _trackingId = widget.trackingId;
+    _hostAvatarUrl = widget.hostAvatarUrl;
     _cameraOn = widget.cameraEnabled;
     _micOn = widget.micEnabled;
     _pinnedProduct = widget.pinnedProduct;
@@ -340,6 +343,46 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
                 liveKitData['is_publisher'] == true ||
                 liveKitData['is_publisher'] == 1,
           );
+        }
+      } else if (_trackingId != null && _trackingId!.isNotEmpty) {
+        // Resolve stream by tracking ID / token
+        final resolveRes = await api.get(
+          '/live/resolve/${Uri.encodeComponent(_trackingId!)}',
+        );
+        final payload = ApiClient.instance.unwrap(resolveRes) as Map<String, dynamic>;
+        final streamData = payload['stream'] as Map<String, dynamic>?;
+        if (streamData != null && mounted) {
+          final parsedHost = _parseHostName(streamData);
+          final parsedAvatar = _parseHostAvatarUrl(streamData);
+          setState(() {
+            _activeStreamId = (streamData['id'] as num?)?.toInt();
+            _hostUserId = (streamData['user_id'] as num?)?.toInt() ??
+                (streamData['user']?['id'] as num?)?.toInt();
+            if (parsedHost != null) _resolvedHostName = parsedHost;
+            if (parsedAvatar != null) _hostAvatarUrl = parsedAvatar;
+            _viewerCount = (streamData['viewers_count'] as num?)?.toInt() ?? 1;
+            _likesCount = (streamData['likes_count'] as num?)?.toInt() ?? 0;
+            _totalGiftsCoins =
+                (streamData['total_coins_earned'] as num?)?.toInt() ?? 0;
+          });
+        }
+        if (_activeStreamId != null) {
+          final joinRes = await api.post('/live/$_activeStreamId/join');
+          final joinStreamData = joinRes.data['data']?['stream'] ?? joinRes.data['stream'];
+          _applyPinnedProduct(
+            joinRes.data['data']?['pinned_product'] ?? joinRes.data['pinned_product'],
+          );
+          if (joinStreamData != null && mounted) {
+            final parsedHost = _parseHostName(joinStreamData);
+            if (parsedHost != null) setState(() => _resolvedHostName = parsedHost);
+          }
+          final liveKitData = joinRes.data['data']?['livekit'] ?? joinRes.data['livekit'];
+          if (liveKitData is Map) {
+            await _connectToLiveKit(
+              liveKitData,
+              isPublisher: false,
+            );
+          }
         }
       }
 

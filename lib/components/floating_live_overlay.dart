@@ -17,6 +17,8 @@ class FloatingLiveOverlay extends StatefulWidget {
 
 class _FloatingLiveOverlayState extends State<FloatingLiveOverlay> {
   Offset? _pos;
+  bool _isDragging = false;
+  double _dragDistance = 0.0;
 
   @override
   Widget build(BuildContext context) {
@@ -34,20 +36,23 @@ class _FloatingLiveOverlayState extends State<FloatingLiveOverlay> {
             final mediaQuery = MediaQuery.of(context);
             final screenSize = mediaQuery.size;
 
-            const pipWidth = 136.0;
-            const pipHeight = 198.0;
+            const pipWidth = 140.0;
+            const pipHeight = 200.0;
 
-            // Default position top-right
-            _pos ??= Offset(
-              screenSize.width - pipWidth - 16,
-              mediaQuery.padding.top + 50,
-            );
-
-            // Clamp within screen bounds
             final minX = 8.0;
-            final maxX = screenSize.width - pipWidth - 8.0;
+            final maxX = (screenSize.width - pipWidth - 8.0).clamp(minX, double.infinity);
             final minY = mediaQuery.padding.top + 8.0;
-            final maxY = screenSize.height - mediaQuery.padding.bottom - pipHeight - 12.0;
+            final maxY = (screenSize.height - mediaQuery.padding.bottom - pipHeight - 12.0).clamp(minY, double.infinity);
+
+            // Default position top-right or saved in manager
+            if (_pos == null) {
+              final saved = live.pipPosition;
+              if (saved != Offset.zero && saved.dx >= minX && saved.dx <= maxX) {
+                _pos = saved;
+              } else {
+                _pos = Offset(maxX - 8, minY + 40);
+              }
+            }
 
             final clampedX = _pos!.dx.clamp(minX, maxX);
             final clampedY = _pos!.dy.clamp(minY, maxY);
@@ -56,16 +61,42 @@ class _FloatingLiveOverlayState extends State<FloatingLiveOverlay> {
               left: clampedX,
               top: clampedY,
               child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onPanStart: (_) {
+                  _isDragging = true;
+                  _dragDistance = 0.0;
+                },
                 onPanUpdate: (details) {
+                  _dragDistance += details.delta.distance;
+                  final next = Offset(
+                    (clampedX + details.delta.dx).clamp(minX, maxX),
+                    (clampedY + details.delta.dy).clamp(minY, maxY),
+                  );
                   setState(() {
-                    _pos = Offset(
-                      clampedX + details.delta.dx,
-                      clampedY + details.delta.dy,
-                    );
+                    _pos = next;
+                  });
+                  live.updatePipPosition(next);
+                },
+                onPanEnd: (_) {
+                  Future.delayed(const Duration(milliseconds: 120), () {
+                    if (mounted) {
+                      setState(() {
+                        _isDragging = false;
+                      });
+                    }
                   });
                 },
+                onPanCancel: () {
+                  if (mounted) {
+                    setState(() {
+                      _isDragging = false;
+                    });
+                  }
+                },
                 onTap: () {
-                  live.restoreLive(context);
+                  if (!_isDragging && _dragDistance < 10) {
+                    live.restoreLive(context);
+                  }
                 },
                 child: Material(
                   color: Colors.transparent,
@@ -99,52 +130,53 @@ class _FloatingLiveOverlayState extends State<FloatingLiveOverlay> {
                     child: Stack(
                       fit: StackFit.expand,
                       children: [
-                        // Video Feed or Audio Avatar Visualizer
-                        if (live.videoTrack != null)
-                          VideoTrackRenderer(
-                            live.videoTrack!,
-                            fit: VideoViewFit.cover,
-                          )
-                        else
-                          Container(
-                            color: const Color(0xFF10141D),
-                            child: Center(
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  CircleAvatar(
-                                    radius: 26,
-                                    backgroundColor: DesignTokens.primary,
-                                    backgroundImage: live.hostAvatarUrl != null &&
-                                            live.hostAvatarUrl!.isNotEmpty
-                                        ? NetworkImage(live.hostAvatarUrl!)
-                                        : null,
-                                    child: live.hostAvatarUrl == null ||
-                                            live.hostAvatarUrl!.isEmpty
-                                        ? Text(
-                                            live.hostName.isNotEmpty
-                                                ? live.hostName[0].toUpperCase()
-                                                : 'L',
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 18,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          )
-                                        : null,
+                        // Video Feed or Audio Avatar Visualizer - ignore pointer so outer gesture detector gets all drag & tap
+                        IgnorePointer(
+                          child: live.videoTrack != null
+                              ? VideoTrackRenderer(
+                                  live.videoTrack!,
+                                  fit: VideoViewFit.cover,
+                                )
+                              : Container(
+                                  color: const Color(0xFF10141D),
+                                  child: Center(
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        CircleAvatar(
+                                          radius: 26,
+                                          backgroundColor: DesignTokens.primary,
+                                          backgroundImage: live.hostAvatarUrl != null &&
+                                                  live.hostAvatarUrl!.isNotEmpty
+                                              ? NetworkImage(live.hostAvatarUrl!)
+                                              : null,
+                                          child: live.hostAvatarUrl == null ||
+                                                  live.hostAvatarUrl!.isEmpty
+                                              ? Text(
+                                                  live.hostName.isNotEmpty
+                                                      ? live.hostName[0].toUpperCase()
+                                                      : 'L',
+                                                  style: const TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 18,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                )
+                                              : null,
+                                        ),
+                                        const SizedBox(height: 6),
+                                        const Icon(
+                                          Icons.mic_rounded,
+                                          color: Colors.white70,
+                                          size: 16,
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                                  const SizedBox(height: 6),
-                                  const Icon(
-                                    Icons.mic_rounded,
-                                    color: Colors.white70,
-                                    size: 16,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
+                                ),
+                        ),
 
-                        // Top gradient overlay with badges
+                        // Top gradient overlay with badges and close button
                         Positioned(
                           top: 0,
                           left: 0,
@@ -187,19 +219,20 @@ class _FloatingLiveOverlayState extends State<FloatingLiveOverlay> {
                                 ),
                                 const Spacer(),
                                 GestureDetector(
+                                  behavior: HitTestBehavior.opaque,
                                   onTap: () {
                                     live.closeLive();
                                   },
                                   child: Container(
-                                    padding: const EdgeInsets.all(3),
+                                    padding: const EdgeInsets.all(4),
                                     decoration: BoxDecoration(
-                                      color: Colors.black.withValues(alpha: 0.6),
+                                      color: Colors.black.withValues(alpha: 0.65),
                                       shape: BoxShape.circle,
                                     ),
                                     child: const Icon(
                                       Icons.close_rounded,
                                       color: Colors.white,
-                                      size: 12,
+                                      size: 13,
                                     ),
                                   ),
                                 ),
@@ -213,45 +246,47 @@ class _FloatingLiveOverlayState extends State<FloatingLiveOverlay> {
                           bottom: 0,
                           left: 0,
                           right: 0,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [
-                                  Colors.transparent,
-                                  Colors.black.withValues(alpha: 0.8),
-                                ],
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
+                          child: IgnorePointer(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 6,
                               ),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  live.streamTitle,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    Colors.transparent,
+                                    Colors.black.withValues(alpha: 0.8),
+                                  ],
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
                                 ),
-                                Text(
-                                  live.hostName,
-                                  style: const TextStyle(
-                                    color: Colors.white70,
-                                    fontSize: 9,
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    live.streamTitle,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ],
+                                  Text(
+                                    live.hostName,
+                                    style: const TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 9,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ),
@@ -267,4 +302,3 @@ class _FloatingLiveOverlayState extends State<FloatingLiveOverlay> {
     );
   }
 }
-

@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../config/env.dart';
 import '../core/api_client.dart';
 import 'package:dio/dio.dart';
 
@@ -47,6 +48,11 @@ class PlatformConfig {
     final innerData = json.containsKey('data') && json['data'] is Map
         ? json['data'] as Map<String, dynamic>
         : json;
+
+    final profileDomain = innerData['canonical_profile_domain'] as String?;
+    if (profileDomain != null && profileDomain.isNotEmpty) {
+      Env.setRuntimeProfileDomain(profileDomain);
+    }
 
     final authMethodsRaw = innerData['auth_methods'];
     if (authMethodsRaw is! Map<String, dynamic>) {

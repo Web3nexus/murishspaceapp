@@ -939,21 +939,26 @@ class CallSessionManager extends ChangeNotifier {
   void restoreCall(BuildContext context) {
     _isMinimized = false;
     notifyListeners();
-    rootNavigatorKey.currentState?.push(
-      MaterialPageRoute(
-        builder: (_) => CallScreen(
-          contactName: _contactName,
-          avatarUrl: _avatarUrl,
-          phoneNumber: _phoneNumber,
-          isVideo: _isVideo,
-          callId: _activeCallId,
-          isIncoming: _isIncoming,
-          isAccepted: _isAccepted,
-          recipientId: _recipientId,
-          conversationId: _conversationId,
-        ),
-      ),
-    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final rootNav = rootNavigatorKey.currentState;
+      if (rootNav != null && rootNav.mounted) {
+        rootNav.push(
+          MaterialPageRoute(
+            builder: (_) => CallScreen(
+              contactName: _contactName,
+              avatarUrl: _avatarUrl,
+              phoneNumber: _phoneNumber,
+              isVideo: _isVideo,
+              callId: _activeCallId,
+              isIncoming: _isIncoming,
+              isAccepted: _isAccepted,
+              recipientId: _recipientId,
+              conversationId: _conversationId,
+            ),
+          ),
+        );
+      }
+    });
   }
 
   void sendReaction(String emoji) {

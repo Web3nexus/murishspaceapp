@@ -63,9 +63,14 @@ class _LiveLinkScreenState extends ConsumerState<LiveLinkScreen> {
         _loading = false;
       });
       if (isLive) {
-        _continueToStream(stream);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            _continueToStream(stream);
+          }
+        });
       }
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[LiveLinkScreen] Could not resolve live stream: $e');
       if (!mounted) return;
       setState(() {
         _loading = false;
@@ -75,6 +80,7 @@ class _LiveLinkScreenState extends ConsumerState<LiveLinkScreen> {
   }
 
   void _continueToStream(Map<String, dynamic> stream) {
+    if (!mounted) return;
     if (ref.read(authProvider).token == null) return;
     if (stream['status'] != 'live') return;
 
@@ -102,6 +108,7 @@ class _LiveLinkScreenState extends ConsumerState<LiveLinkScreen> {
               '${Uri.encodeQueryComponent(entry.key)}=${Uri.encodeQueryComponent(entry.value)}',
         )
         .join('&');
+    if (!mounted) return;
     if (context.canPop()) {
       context.pushReplacement('/app/live?$encodedQuery');
     } else {
