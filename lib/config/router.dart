@@ -59,6 +59,7 @@ import '../screens/followers_screen.dart';
 import '../screens/link_in_bio_screen.dart';
 import '../screens/user_profile_screen.dart';
 import '../screens/suggested_creators_screen.dart';
+import '../screens/suggested_vendors_screen.dart';
 import '../core/roles.dart';
 import '../providers/feature_flag_provider.dart';
 import 'deep_links.dart';
@@ -468,6 +469,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(path: '/creators', builder: (_, _) => const SuggestedCreatorsScreen()),
       GoRoute(path: '/suggested-creators', builder: (_, _) => const SuggestedCreatorsScreen()),
+      GoRoute(path: '/vendors', builder: (_, _) => const SuggestedVendorsScreen()),
+      GoRoute(path: '/suggested-vendors', builder: (_, _) => const SuggestedVendorsScreen()),
+      GoRoute(path: '/discover/vendors', builder: (_, _) => const SuggestedVendorsScreen()),
       GoRoute(path: '/settings', builder: (_, _) => const SettingsScreen()),
       GoRoute(path: '/add-account', builder: (_, _) => const AddAccountScreen()),
       GoRoute(

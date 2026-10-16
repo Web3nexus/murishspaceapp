@@ -46,6 +46,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
 
   List<Map<String, dynamic>> _trendingTopics = [];
   List<Map<String, dynamic>> _suggestedCreators = [];
+  List<Map<String, dynamic>> _suggestedVendors = [];
   List<Map<String, dynamic>> _peopleYouMayKnow = [];
   List<MatchedContact> _matchedContacts = [];
   bool _loadingTrending = true;
@@ -109,15 +110,19 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
       if (data is Map<String, dynamic> && mounted) {
         final rawPymk = data['people_you_may_know'];
         final rawCreators = data['suggested_creators'];
+        final rawVendors = data['suggested_vendors'];
         final pymk = rawPymk is List
             ? rawPymk.whereType<Map<String, dynamic>>().toList()
             : <Map<String, dynamic>>[];
         final creators = rawCreators is List
             ? rawCreators.whereType<Map<String, dynamic>>().toList()
             : <Map<String, dynamic>>[];
+        final vendors = rawVendors is List
+            ? rawVendors.whereType<Map<String, dynamic>>().toList()
+            : <Map<String, dynamic>>[];
 
         final statuses = <int, bool>{};
-        for (final item in [...pymk, ...creators]) {
+        for (final item in [...pymk, ...creators, ...vendors]) {
           final id = (item['id'] as num?)?.toInt();
           if (id != null && item['is_following'] != null) {
             statuses[id] = item['is_following'] == true;
@@ -130,6 +135,9 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
             _peopleYouMayKnow = pymk;
             if (creators.isNotEmpty) {
               _suggestedCreators = creators;
+            }
+            if (vendors.isNotEmpty) {
+              _suggestedVendors = vendors;
             }
           });
         }
@@ -151,6 +159,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
       if (data is Map<String, dynamic> && mounted) {
         final topics = data['trending_topics'];
         final creators = data['suggested_creators'];
+        final vendors = data['suggested_vendors'];
         final featured = data['featured_trending'];
         setState(() {
           if (topics is List) {
@@ -169,6 +178,20 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
               }
             }
             ref.read(followProvider.notifier).seedFollowing(statuses);
+          }
+          if (vendors is List) {
+            _suggestedVendors = vendors
+                .whereType<Map<String, dynamic>>()
+                .toList();
+
+            final vendorStatuses = <int, bool>{};
+            for (final v in _suggestedVendors) {
+              final id = (v['id'] as num?)?.toInt();
+              if (id != null && v['is_following'] != null) {
+                vendorStatuses[id] = v['is_following'] == true;
+              }
+            }
+            ref.read(followProvider.notifier).seedFollowing(vendorStatuses);
           }
           if (featured is Map<String, dynamic>) {
             _featuredTrending = featured;
@@ -683,116 +706,248 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
           ),
         ),
 
-        const SizedBox(height: 24),
-
-        // D. Suggested Creators Section
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Suggested Creators',
-                style: TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w800,
-                  color: textPrimary,
-                ),
-              ),
-              GestureDetector(
-                onTap: () => context.push('/creators'),
-                child: const Text(
-                  'View All',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: DesignTokens.primary,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
-        SizedBox(
-          height: 175,
-          child: ListView.builder(
+        if (_suggestedCreators.isNotEmpty) ...[
+          const SizedBox(height: 24),
+          // D. Suggested Creators Section
+          Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            scrollDirection: Axis.horizontal,
-            itemCount: _suggestedCreators.length,
-            itemBuilder: (ctx, i) {
-              final c = _suggestedCreators[i];
-              final rawAvatar =
-                  c['avatar_url'] as String? ?? c['avatar'] as String?;
-              final resolvedAvatar = rawAvatar != null && rawAvatar.isNotEmpty
-                  ? ApiClient.resolveUrl(rawAvatar)
-                  : null;
-              final name = c['name'] as String? ?? 'Creator';
-              final username = c['username'] as String? ?? '';
-              final creatorId = (c['id'] as num?)?.toInt() ?? 0;
-              final followers = c['followers'] as String? ?? 'Popular';
-
-              return GestureDetector(
-                onTap: () {
-                  if (username.isNotEmpty) {
-                    context.push('/u/$username');
-                  }
-                },
-                child: Container(
-                  width: 140,
-                  margin: const EdgeInsets.only(right: 12),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: cardBg,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: borderColor),
-                  ),
-                  child: Column(
-                    children: [
-                      CircleAvatar(
-                        radius: 26,
-                        backgroundColor: DesignTokens.primary.withValues(
-                          alpha: 0.15,
-                        ),
-                        backgroundImage: resolvedAvatar != null
-                            ? CachedNetworkImageProvider(resolvedAvatar)
-                            : null,
-                        child: resolvedAvatar == null
-                            ? Text(
-                                name.isNotEmpty ? name[0].toUpperCase() : 'C',
-                              )
-                            : null,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        name,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: textPrimary,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      Text(
-                        '@$username · $followers',
-                        style: TextStyle(fontSize: 10, color: textSecondary),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const Spacer(),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 28,
-                        child: _buildFollowButton(creatorId),
-                      ),
-                    ],
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Suggested Creators',
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                    color: textPrimary,
                   ),
                 ),
-              );
-            },
+                GestureDetector(
+                  onTap: () => context.push('/creators'),
+                  child: const Text(
+                    'View All',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: DesignTokens.primary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 175,
+            child: ListView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              scrollDirection: Axis.horizontal,
+              itemCount: _suggestedCreators.length,
+              itemBuilder: (ctx, i) {
+                final c = _suggestedCreators[i];
+                final rawAvatar =
+                    c['avatar_url'] as String? ?? c['avatar'] as String?;
+                final resolvedAvatar = rawAvatar != null && rawAvatar.isNotEmpty
+                    ? ApiClient.resolveUrl(rawAvatar)
+                    : null;
+                final name = c['name'] as String? ?? 'Creator';
+                final username = c['username'] as String? ?? '';
+                final creatorId = (c['id'] as num?)?.toInt() ?? 0;
+                final followers = c['followers'] as String? ?? 'Popular';
+
+                return GestureDetector(
+                  onTap: () {
+                    if (username.isNotEmpty) {
+                      context.push('/u/$username');
+                    }
+                  },
+                  child: Container(
+                    width: 140,
+                    margin: const EdgeInsets.only(right: 12),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: cardBg,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: borderColor),
+                    ),
+                    child: Column(
+                      children: [
+                        CircleAvatar(
+                          radius: 26,
+                          backgroundColor: DesignTokens.primary.withValues(
+                            alpha: 0.15,
+                          ),
+                          backgroundImage: resolvedAvatar != null
+                              ? CachedNetworkImageProvider(resolvedAvatar)
+                              : null,
+                          child: resolvedAvatar == null
+                              ? Text(
+                                  name.isNotEmpty ? name[0].toUpperCase() : 'C',
+                                )
+                              : null,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          name,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: textPrimary,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Text(
+                          '@$username · $followers',
+                          style: TextStyle(fontSize: 10, color: textSecondary),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const Spacer(),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 28,
+                          child: _buildFollowButton(creatorId),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+
+        if (_suggestedVendors.isNotEmpty) ...[
+          const SizedBox(height: 24),
+          // Suggested Vendors Section
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.storefront_rounded,
+                      size: 20,
+                      color: DesignTokens.primary,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Suggested Vendors',
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w800,
+                        color: textPrimary,
+                      ),
+                    ),
+                  ],
+                ),
+                GestureDetector(
+                  onTap: () => context.push('/vendors'),
+                  child: const Text(
+                    'View All',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: DesignTokens.primary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 175,
+            child: ListView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              scrollDirection: Axis.horizontal,
+              itemCount: _suggestedVendors.length,
+              itemBuilder: (ctx, i) {
+                final v = _suggestedVendors[i];
+                final rawAvatar =
+                    v['avatar_url'] as String? ?? v['avatar'] as String?;
+                final resolvedAvatar = rawAvatar != null && rawAvatar.isNotEmpty
+                    ? ApiClient.resolveUrl(rawAvatar)
+                    : null;
+                final name = v['name'] as String? ?? 'Vendor';
+                final storeName = v['store_name'] as String?;
+                final storeSlug = v['store_slug'] as String?;
+                final displayName = (storeName != null && storeName.isNotEmpty)
+                    ? storeName
+                    : name;
+                final username = v['username'] as String? ?? '';
+                final vendorId = (v['id'] as num?)?.toInt() ?? 0;
+                final followers = v['followers'] as String? ?? 'Popular';
+
+                return GestureDetector(
+                  onTap: () {
+                    if (storeSlug != null && storeSlug.isNotEmpty) {
+                      context.push('/store/$storeSlug');
+                    } else if (username.isNotEmpty) {
+                      context.push('/u/$username');
+                    }
+                  },
+                  child: Container(
+                    width: 140,
+                    margin: const EdgeInsets.only(right: 12),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: cardBg,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: borderColor),
+                    ),
+                    child: Column(
+                      children: [
+                        CircleAvatar(
+                          radius: 26,
+                          backgroundColor: DesignTokens.primary.withValues(
+                            alpha: 0.15,
+                          ),
+                          backgroundImage: resolvedAvatar != null
+                              ? CachedNetworkImageProvider(resolvedAvatar)
+                              : null,
+                          child: resolvedAvatar == null
+                              ? Text(
+                                  displayName.isNotEmpty
+                                      ? displayName[0].toUpperCase()
+                                      : 'V',
+                                )
+                              : null,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          displayName,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: textPrimary,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Text(
+                          '@$username · $followers',
+                          style: TextStyle(fontSize: 10, color: textSecondary),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const Spacer(),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 28,
+                          child: _buildFollowButton(vendorId),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
 
         const SizedBox(height: 20),
 
@@ -1221,10 +1376,31 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
             const SizedBox(height: 16),
           ],
 
+          // 4. Suggested Vendors
+          if (_suggestedVendors.isNotEmpty) ...[
+            _buildSectionHeader(
+              title: 'Suggested Vendors',
+              icon: Icons.storefront_rounded,
+              textPrimary: textPrimary,
+              trailingCount: _suggestedVendors.length,
+            ),
+            const SizedBox(height: 8),
+            ..._suggestedVendors.map((vendor) {
+              return _buildPersonTile(
+                person: vendor,
+                cardBg: cardBg,
+                textPrimary: textPrimary,
+                textSecondary: textSecondary,
+              );
+            }),
+            const SizedBox(height: 16),
+          ],
+
           // If completely empty
           if (_matchedContacts.isEmpty &&
               _peopleYouMayKnow.isEmpty &&
-              _suggestedCreators.isEmpty)
+              _suggestedCreators.isEmpty &&
+              _suggestedVendors.isEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 40),
               child: CenteredEmptyStateWidget(
@@ -1292,11 +1468,17 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
         ? ApiClient.resolveUrl(rawAvatar)
         : null;
     final name = person['name'] as String? ?? 'User';
+    final storeName = person['store_name'] as String?;
+    final storeSlug = person['store_slug'] as String?;
+    final displayName =
+        (storeName != null && storeName.isNotEmpty) ? storeName : name;
     final username = person['username'] as String? ?? '';
     final userId = (person['id'] as num?)?.toInt() ?? 0;
     final followers = person['followers'] as String?;
     final reason = person['reason'] as String?;
     final isVerified = person['is_verified'] == true;
+    final isVendor = person['type'] == 'suggested_vendor' ||
+        (storeSlug != null && storeSlug.isNotEmpty);
 
     final subtitle = reason != null && reason.isNotEmpty
         ? reason
@@ -1306,7 +1488,9 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
 
     return GestureDetector(
       onTap: () {
-        if (username.isNotEmpty) {
+        if (storeSlug != null && storeSlug.isNotEmpty) {
+          context.push('/store/$storeSlug');
+        } else if (username.isNotEmpty) {
           context.push('/u/$username');
         }
       },
@@ -1327,7 +1511,9 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
                   : null,
               child: resolvedAvatar == null
                   ? Text(
-                      name.isNotEmpty ? name[0].toUpperCase() : 'U',
+                      displayName.isNotEmpty
+                          ? displayName[0].toUpperCase()
+                          : (isVendor ? 'V' : 'U'),
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     )
                   : null,
@@ -1341,7 +1527,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
                     children: [
                       Flexible(
                         child: Text(
-                          name,
+                          displayName,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
@@ -1351,6 +1537,14 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
                           ),
                         ),
                       ),
+                      if (isVendor) ...[
+                        const SizedBox(width: 4),
+                        const Icon(
+                          Icons.storefront_rounded,
+                          size: 15,
+                          color: DesignTokens.primary,
+                        ),
+                      ],
                       if (isVerified) ...[
                         const SizedBox(width: 4),
                         const Icon(
@@ -1373,7 +1567,15 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
                 ],
               ),
             ),
-            const SizedBox(width: 10),
+            if (storeSlug != null && storeSlug.isNotEmpty) ...[
+              IconButton(
+                icon: const Icon(Icons.storefront_rounded, size: 20),
+                color: DesignTokens.primary,
+                tooltip: 'Visit Store',
+                onPressed: () => context.push('/store/$storeSlug'),
+              ),
+            ],
+            const SizedBox(width: 6),
             _buildFollowButton(userId),
           ],
         ),

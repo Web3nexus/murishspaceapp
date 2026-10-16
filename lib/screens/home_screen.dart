@@ -716,70 +716,61 @@ class _PeopleYouMayKnow extends ConsumerWidget {
     final suggestions = state.suggestions;
     if (suggestions.isEmpty) return const SizedBox.shrink();
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-        decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1B1B1F) : Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE4E6EB),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+          child: Row(
+            children: [
+              Icon(
+                Icons.groups_rounded,
+                size: 16,
+                color: DesignTokens.primary,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                'People You May Know',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  color: isDark ? Colors.white : Colors.black,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                '${suggestions.length}',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.grey[500] : Colors.grey[500],
+                ),
+              ),
+            ],
           ),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  Icons.groups_rounded,
-                  size: 16,
-                  color: DesignTokens.primary,
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  'People You May Know',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                    color: isDark ? Colors.white : Colors.black,
-                  ),
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  '${suggestions.length}',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    color: isDark ? Colors.grey[500] : Colors.grey[500],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              height: 168,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                physics: const BouncingScrollPhysics(),
-                itemCount: suggestions.length,
-                separatorBuilder: (_, _) => const SizedBox(width: 10),
-                itemBuilder: (context, i) {
-                  final user = suggestions[i];
-                  return _PeopleYouMayKnowCard(
-                    user: user,
-                    isDark: isDark,
-                    onAdd: () => notifier.sendRequest(user),
-                    onCancel: () => notifier.cancelRequest(user),
-                    onDismiss: () => notifier.dismiss(user.id),
-                  );
-                },
-              ),
-            ),
-          ],
+        SizedBox(
+          height: 168,
+          child: ListView.separated(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            itemCount: suggestions.length,
+            separatorBuilder: (_, _) => const SizedBox(width: 10),
+            itemBuilder: (context, i) {
+              final user = suggestions[i];
+              return _PeopleYouMayKnowCard(
+                user: user,
+                isDark: isDark,
+                onAdd: () => notifier.sendRequest(user),
+                onCancel: () => notifier.cancelRequest(user),
+                onDismiss: () => notifier.dismiss(user.id),
+              );
+            },
+          ),
         ),
-      ),
+        const SizedBox(height: 6),
+      ],
     );
   }
 }
@@ -809,8 +800,12 @@ class _PeopleYouMayKnowCard extends StatelessWidget {
       width: 108,
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF242426) : const Color(0xFFF6F7F9),
+        color: isDark ? const Color(0xFF242426) : const Color(0xFFF0F2F5),
         borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isDark ? const Color(0xFF3A3A3C) : const Color(0xFFE4E6EB),
+          width: 0.8,
+        ),
       ),
       child: Stack(
         children: [
