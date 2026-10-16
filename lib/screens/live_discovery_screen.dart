@@ -29,6 +29,9 @@ class _LiveDiscoveryScreenState extends ConsumerState<LiveDiscoveryScreen> {
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(liveDiscoveryProvider.notifier).refresh(silent: true);
+    });
   }
 
   @override

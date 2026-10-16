@@ -60,7 +60,7 @@ class LiveDiscoveryNotifier extends Notifier<LiveDiscoveryState> {
 
   @override
   LiveDiscoveryState build() {
-    _load();
+    _load(reset: true);
     return const LiveDiscoveryState(loading: true);
   }
 
@@ -82,7 +82,10 @@ class LiveDiscoveryNotifier extends Notifier<LiveDiscoveryState> {
       final payload = ApiClient.instance.unwrap(response);
       final rawList = payload is Map<String, dynamic> ? payload['data'] : payload;
       final list = rawList is List
-          ? rawList.map(LiveStream.fromJson).toList()
+          ? rawList
+              .map(LiveStream.fromJson)
+              .where((s) => s.isLive && s.status != 'ended')
+              .toList()
           : <LiveStream>[];
       final hasMore =
           payload is Map<String, dynamic> &&
@@ -113,6 +116,13 @@ class LiveDiscoveryNotifier extends Notifier<LiveDiscoveryState> {
       // flag; a newer reset has taken over otherwise.
       if (gen == _gen) _refreshing = false;
     }
+  }
+
+  /// Immediately removes an ended broadcast from the feed without waiting for network.
+  void removeStream(int streamId) {
+    state = state.copyWith(
+      streams: state.streams.where((s) => s.id != streamId).toList(),
+    );
   }
 
   Future<void> refresh({bool silent = false}) => _load(reset: true, silent: silent);

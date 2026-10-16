@@ -15,6 +15,12 @@ import 'live_stream_card.dart';
 /// If only a tracking ID / token is provided, opens `/live/:trackingId` to resolve.
 void openLiveStream(BuildContext context, dynamic streamOrToken) {
   if (streamOrToken is LiveStream) {
+    if (!streamOrToken.isLive || streamOrToken.status == 'ended') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('This live stream has ended.')),
+      );
+      return;
+    }
     final query = <String, String>{
       'streamId': streamOrToken.id.toString(),
       if (streamOrToken.trackingId.isNotEmpty)

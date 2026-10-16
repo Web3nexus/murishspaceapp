@@ -79,6 +79,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
   int _likesCount = 0;
   int _totalGiftsCoins = 0;
   final Set<dynamic> _seenGiftMessageIds = {};
+  bool _hostEndedStream = false;
 
   /// First character of the host's name, ignoring any leading "@" so a handle
   /// like "@vincent" yields "V".
@@ -436,11 +437,29 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
         }
       }
       // A broadcast that ended (410) or was removed (404) must not linger in the
-      // session-wide "Live Now" cache, or the home rail keeps offering it.
+      // session-wide "Live Now" cache, and the viewer should be cleanly returned to home.
       if (e is DioException) {
         final status = e.response?.statusCode;
-        if ((status == 410 || status == 404) && _activeStreamId != null) {
-          ref.invalidate(liveDiscoveryProvider);
+        final responseData = e.response?.data;
+        final isEnded = status == 410 ||
+            (responseData is Map && responseData['code'] == 'STREAM_ENDED');
+        if (isEnded || status == 404) {
+          final idToRemove = _activeStreamId ?? widget.streamId;
+          if (idToRemove != null) {
+            ref.read(liveDiscoveryProvider.notifier).removeStream(idToRemove);
+          }
+          ref.read(liveDiscoveryProvider.notifier).refresh(silent: true);
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('This live broadcast has ended.')),
+            );
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop();
+            } else {
+              context.go('/app/home');
+            }
+            return;
+          }
         }
       }
 
@@ -875,6 +894,13 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
     if (!isMinimized) {
       LiveSessionManager.instance.onTeardown = null;
       unawaited(_leaveViewerStream());
+      final streamIdToEnd = _activeStreamId ?? widget.streamId;
+      if (widget.isHost && streamIdToEnd != null && !_hostEndedStream) {
+        _hostEndedStream = true;
+        unawaited(ref.read(apiClientProvider).post('/live/$streamIdToEnd/end'));
+        ref.read(liveDiscoveryProvider.notifier).removeStream(streamIdToEnd);
+        ref.read(liveDiscoveryProvider.notifier).refresh(silent: true);
+      }
       unawaited(_disconnectLiveKit());
       LiveSessionManager.instance.closeLive();
     }
@@ -1066,8 +1092,29 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
         _handleRealtimeCommentUnpinned();
       } else if (eventName == 'LiveStreamViewerCountUpdated' || event.event.contains('LiveStreamViewerCountUpdated')) {
         _handleRealtimeViewerCount(data);
+      } else if (eventName == 'LiveStreamEnded' || event.event.contains('LiveStreamEnded')) {
+        _handleRealtimeStreamEnded(data);
       }
     });
+  }
+
+  void _handleRealtimeStreamEnded(Map<String, dynamic> data) {
+    if (!mounted) return;
+    final streamId = _activeStreamId ?? widget.streamId;
+    if (streamId != null) {
+      ref.read(liveDiscoveryProvider.notifier).removeStream(streamId);
+      ref.read(liveDiscoveryProvider.notifier).refresh(silent: true);
+    }
+    LiveSessionManager.instance.closeLive();
+    unawaited(_disconnectLiveKit());
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('The host has ended this live broadcast.')),
+    );
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+    } else {
+      context.go('/app/home');
+    }
   }
 
   /// Private `live-room.{id}` channel: carries roster and moderation events for
@@ -1902,18 +1949,24 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
       LiveSessionManager.instance.onTeardown = null;
       LiveSessionManager.instance.closeLive();
       await _disconnectLiveKit();
-      if (isHost && _activeStreamId != null) {
+      final streamIdToEnd = _activeStreamId ?? widget.streamId ?? LiveSessionManager.instance.activeStreamId;
+      if (isHost && streamIdToEnd != null) {
+        _hostEndedStream = true;
         try {
           final api = ref.read(apiClientProvider);
-          await api.post('/live/$_activeStreamId/end');
-        } catch (_) {}
-      } else if (!isHost && _activeStreamId != null) {
+          await api.post('/live/$streamIdToEnd/end');
+        } catch (e) {
+          debugPrint('[LiveStream] End stream error: $e');
+        }
+      } else if (!isHost && streamIdToEnd != null) {
         await _leaveViewerStream();
       }
 
-      // Drop the ended broadcast from the session-wide live discovery cache so
-      // the home "Live Now" rail stops showing a stream that is no longer live.
-      ref.invalidate(liveDiscoveryProvider);
+      // Immediately purge the ended broadcast from discovery cache and request a silent refresh
+      if (streamIdToEnd != null) {
+        ref.read(liveDiscoveryProvider.notifier).removeStream(streamIdToEnd);
+      }
+      ref.read(liveDiscoveryProvider.notifier).refresh(silent: true);
 
       if (mounted) {
         if (Navigator.of(context).canPop()) {
