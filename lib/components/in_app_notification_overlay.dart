@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../models/chat_models.dart';
 import '../models/notification_models.dart';
+import '../services/sound_service.dart';
 import '../utils/format.dart';
 
 class InAppNotificationItem {
@@ -41,9 +42,12 @@ class InAppNotificationNotifier extends Notifier<InAppNotificationItem?> {
     return null;
   }
 
-  void show(InAppNotificationItem item) {
+  void show(InAppNotificationItem item, {bool playSound = true}) {
     _dismissTimer?.cancel();
     state = item;
+    if (playSound) {
+      SoundService.instance.playNotification();
+    }
     _dismissTimer = Timer(const Duration(seconds: 5), () {
       dismiss();
     });
@@ -115,17 +119,20 @@ class InAppNotificationNotifier extends Notifier<InAppNotificationItem?> {
         ? msg.user!.name
         : (msg.user?.username.isNotEmpty == true ? '@${msg.user!.username}' : 'New Message');
     final preview = messagePreview(msg);
-    show(InAppNotificationItem(
-      id: 'msg_${msg.id}',
-      title: sender,
-      body: preview.isNotEmpty
-          ? preview
-          : (msg.attachmentType != null ? 'Sent an attachment' : 'Sent a message'),
-      subtitle: msg.user?.username != null && msg.user!.username.isNotEmpty ? '@${msg.user!.username}' : null,
-      route: '/app/conversation/${msg.conversationId}',
-      icon: Icons.chat_bubble_rounded,
-      accentColor: DesignTokens.primary,
-    ));
+    show(
+      InAppNotificationItem(
+        id: 'msg_${msg.id}',
+        title: sender,
+        body: preview.isNotEmpty
+            ? preview
+            : (msg.attachmentType != null ? 'Sent an attachment' : 'Sent a message'),
+        subtitle: msg.user?.username != null && msg.user!.username.isNotEmpty ? '@${msg.user!.username}' : null,
+        route: '/app/conversation/${msg.conversationId}',
+        icon: Icons.chat_bubble_rounded,
+        accentColor: DesignTokens.primary,
+      ),
+      playSound: false,
+    );
   }
 
   void dismiss() {

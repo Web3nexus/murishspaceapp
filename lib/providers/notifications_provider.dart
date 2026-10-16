@@ -17,6 +17,12 @@ class NotificationsState {
     this.unread = 0,
   });
 
+  /// Guaranteed unread count whether returned from backend envelope or derived from items.
+  int get effectiveUnread {
+    if (unread > 0) return unread;
+    return notifications.where((n) => !n.read).length;
+  }
+
   NotificationsState copyWith({
     bool? loading,
     String? error,
@@ -56,13 +62,35 @@ class NotificationsNotifier extends Notifier<NotificationsState> {
       final list = rawList is List
           ? rawList.whereType<Map<String, dynamic>>().map(AppNotification.fromJson).toList()
           : <AppNotification>[];
-      final unread = map != null ? (map['unread'] as num?)?.toInt() ?? 0 : 0;
+      int unread = 0;
+      if (map != null) {
+        unread = (map['unread'] as num?)?.toInt() ??
+            (map['unread_count'] as num?)?.toInt() ??
+            0;
+      }
+      if (unread == 0 && list.isNotEmpty) {
+        unread = list.where((n) => !n.read).length;
+      }
       state = NotificationsState(notifications: list, unread: unread);
     } on DioException catch (e) {
       state = state.copyWith(loading: false, error: _errorMessage(e));
     } catch (_) {
       state = state.copyWith(loading: false, error: 'Failed to load notifications.');
     }
+  }
+
+  /// Optimistically adds a new incoming notification to the top of the feed
+  /// and increments unread count with zero latency.
+  void addNotification(AppNotification notif) {
+    if (notif.id.isNotEmpty && state.notifications.any((n) => n.id == notif.id)) {
+      return;
+    }
+    final nextList = [notif, ...state.notifications];
+    final nextUnread = (state.effectiveUnread + 1).clamp(0, 1 << 31);
+    state = state.copyWith(
+      notifications: nextList,
+      unread: nextUnread,
+    );
   }
 
   Future<void> refresh() => _load(showLoading: true);

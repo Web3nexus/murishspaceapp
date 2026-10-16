@@ -50,12 +50,31 @@ class SoundService {
         await _notifyPlayer!.dispose();
         _notifyPlayer = null;
       }
-      _notifyPlayer = AudioPlayer();
-      await _notifyPlayer!.setReleaseMode(ReleaseMode.stop);
-      await _notifyPlayer!.play(AssetSource('sounds/sound_chime.wav'));
+      final player = AudioPlayer();
+      _notifyPlayer = player;
+      await player.setAudioContext(AudioContext(
+        iOS: AudioContextIOS(
+          category: AVAudioSessionCategory.playback,
+          options: {
+            AVAudioSessionOptions.mixWithOthers,
+          },
+        ),
+        android: const AudioContextAndroid(
+          isSpeakerphoneOn: false,
+          stayAwake: false,
+          contentType: AndroidContentType.sonification,
+          usageType: AndroidUsageType.notification,
+          audioFocus: AndroidAudioFocus.gainTransientMayDuck,
+        ),
+      ));
+      await player.setReleaseMode(ReleaseMode.stop);
+      await player.play(AssetSource('sounds/sound_chime.wav'));
       HapticFeedback.lightImpact();
-    } catch (_) {
-      HapticFeedback.selectionClick();
+    } catch (e) {
+      try {
+        await SystemSound.play(SystemSoundType.alert);
+      } catch (_) {}
+      HapticFeedback.lightImpact();
     }
   }
 

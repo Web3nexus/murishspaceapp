@@ -27,6 +27,12 @@ class PushService {
   /// any lingering in-app call state can be cleared. Wired up in `main.dart`.
   void Function(Map<String, dynamic> extra)? onExternalCallEnded;
 
+  /// Invoked when a non-call push arrives while the app is in the foreground.
+  void Function(Map<String, dynamic> data, RemoteNotification? notification)? onNotificationForeground;
+
+  /// Invoked when the user taps an OS push notification to open the app.
+  void Function(Map<String, dynamic> data)? onNotificationOpened;
+
   String? _lastToken;
   String? _lastVoipToken;
 
@@ -80,6 +86,20 @@ class PushService {
 
     // Messages received while the app is foregrounded.
     FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
+
+    // Push notification tapped from background.
+    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+      debugPrint('[PushService] onMessageOpenedApp: ${message.data}');
+      onNotificationOpened?.call(Map<String, dynamic>.from(message.data));
+    });
+
+    // Push notification tapped from terminated state (cold start).
+    FirebaseMessaging.instance.getInitialMessage().then((RemoteMessage? message) {
+      if (message != null) {
+        debugPrint('[PushService] getInitialMessage: ${message.data}');
+        onNotificationOpened?.call(Map<String, dynamic>.from(message.data));
+      }
+    });
 
     await _registerVoipToken();
 
@@ -181,6 +201,15 @@ class PushService {
         onIncomingCallForeground?.call(Map<String, dynamic>.from(message.data));
       } catch (e) {
         debugPrint('[PushService] onIncomingCallForeground error: $e');
+      }
+    } else {
+      try {
+        onNotificationForeground?.call(
+          Map<String, dynamic>.from(message.data),
+          message.notification,
+        );
+      } catch (e) {
+        debugPrint('[PushService] onNotificationForeground error: $e');
       }
     }
   }

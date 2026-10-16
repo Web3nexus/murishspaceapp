@@ -167,23 +167,22 @@ class RealtimeService {
         return;
       }
 
-      if (event.event == 'notification' ||
-          event.event == '.notification' ||
-          event.event.contains('NotificationBroadcast') ||
-          event.event.contains('Notifications\\')) {
-        try {
-          final notif = AppNotification.fromJson(data);
-          _ref.read(inAppNotificationProvider.notifier).showFromAppNotification(notif);
-          _ref.read(notificationsProvider.notifier).refresh();
-          _ref.read(broadcastProvider.notifier).fetchBackendBroadcasts();
-        } catch (_) {}
-      }
-
       // Read/unread state changed on another device (e.g. Web). Reconcile the
       // feed and badge without showing a spinner or a toast.
       if (normalizedEvent == 'notification.state' ||
           event.event.contains('NotificationStateChanged')) {
         try {
+          _ref.read(notificationsProvider.notifier).sync();
+          _ref.read(broadcastProvider.notifier).fetchBackendBroadcasts();
+        } catch (_) {}
+        return;
+      }
+
+      if (event.event.toLowerCase().contains('notification')) {
+        try {
+          final notif = AppNotification.fromJson(data);
+          _ref.read(inAppNotificationProvider.notifier).showFromAppNotification(notif);
+          _ref.read(notificationsProvider.notifier).addNotification(notif);
           _ref.read(notificationsProvider.notifier).sync();
           _ref.read(broadcastProvider.notifier).fetchBackendBroadcasts();
         } catch (_) {}

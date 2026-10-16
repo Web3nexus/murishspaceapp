@@ -254,7 +254,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final bg = isDark ? Colors.black : const Color(0xFFF7FAFC);
     final user = ref.watch(authProvider).user;
 
-    final unreadNotes = ref.watch(notificationsProvider).unread;
+    final unreadNotes = ref.watch(notificationsProvider).effectiveUnread;
     final unreadChats = ref.watch(conversationsProvider).unreadTotal;
     final cardBg = isDark ? const Color(0xFF161B26) : Colors.white;
     final borderColor = isDark ? const Color(0xFF2E384D) : const Color(0xFFE4E7EC);
@@ -288,11 +288,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     top: -2,
                     right: -2,
                     child: Container(
-                      width: 8,
-                      height: 8,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFDC2626),
+                      width: 10,
+                      height: 10,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFDC2626),
                         shape: BoxShape.circle,
+                        border: Border.all(
+                          color: bg,
+                          width: 1.5,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFFDC2626).withValues(alpha: 0.5),
+                            blurRadius: 4,
+                            spreadRadius: 0.5,
+                          ),
+                        ],
                       ),
                     ),
                   ),

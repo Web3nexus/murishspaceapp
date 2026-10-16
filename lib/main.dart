@@ -13,12 +13,16 @@ import 'components/incoming_call_overlay.dart';
 import 'components/floating_call_overlay.dart';
 import 'components/floating_live_overlay.dart';
 import 'core/api_client.dart';
+import 'package:go_router/go_router.dart';
+import 'models/notification_models.dart';
 import 'providers/appearance_provider.dart';
 import 'providers/auth_provider.dart';
 import 'providers/chat_provider.dart';
 import 'providers/calls_provider.dart';
 import 'providers/messages_provider.dart';
+import 'providers/notifications_provider.dart';
 import 'providers/realtime_provider.dart';
+import 'services/sound_service.dart';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -79,11 +83,49 @@ class _MurihSpaceAppState extends ConsumerState<MurihSpaceApp> with WidgetsBindi
     // call UI.
     PushService.instance.onExternalCallEnded = _handleExternalCallEnded;
 
+    // Handle regular push notifications while foregrounded
+    PushService.instance.onNotificationForeground = _handleForegroundNotification;
+    // Handle tapping an OS push notification to open the app
+    PushService.instance.onNotificationOpened = _handleNotificationOpened;
+
     // If the app was cold-started by answering a CallKit call, the navigator
     // is not mounted when the accept event arrives; replay it after first frame.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       PushService.instance.processPendingAcceptedCall();
     });
+  }
+
+  void _handleForegroundNotification(Map<String, dynamic> data, RemoteNotification? notification) {
+    final title = notification?.title ?? data['title']?.toString() ?? '';
+    final body = notification?.body ?? data['body']?.toString() ?? data['message']?.toString() ?? '';
+    final notif = AppNotification.fromJson({
+      ...data,
+      if (data['title'] == null && title.isNotEmpty) 'title': title,
+      if (data['body'] == null && body.isNotEmpty) 'body': body,
+    });
+
+    // Play alert sound
+    SoundService.instance.playNotification();
+
+    // Show in-app banner
+    ref.read(inAppNotificationProvider.notifier).showFromAppNotification(notif);
+
+    // Optimistically update notifications provider and sync
+    ref.read(notificationsProvider.notifier).addNotification(notif);
+    ref.read(notificationsProvider.notifier).sync();
+  }
+
+  void _handleNotificationOpened(Map<String, dynamic> data) {
+    ref.read(notificationsProvider.notifier).sync();
+    final route = data['route']?.toString() ?? data['action_url']?.toString();
+    final ctx = rootNavigatorKey.currentContext;
+    if (ctx != null && ctx.mounted) {
+      if (route != null && route.isNotEmpty) {
+        ctx.push(route);
+      } else {
+        ctx.push('/profile/notifications');
+      }
+    }
   }
 
   void _handleForegroundCallData(Map<String, dynamic> data) {
@@ -131,6 +173,7 @@ class _MurihSpaceAppState extends ConsumerState<MurihSpaceApp> with WidgetsBindi
       ref.read(securityProvider.notifier).onAppForegrounded();
       ref.read(realtimeProvider).onAppResume();
       ref.read(conversationsProvider.notifier).refresh();
+      ref.read(notificationsProvider.notifier).sync();
       final activeId = ref.read(realtimeProvider).activeConversationId;
       if (activeId != null) {
         ref.read(conversationMessagesProvider(activeId).notifier).catchUp();

@@ -9,11 +9,24 @@ import '../models/notification_models.dart';
 import '../providers/notifications_provider.dart';
 
 /// In-app notifications feed — message alerts with read/unread state.
-class NotificationsScreen extends ConsumerWidget {
+class NotificationsScreen extends ConsumerStatefulWidget {
   const NotificationsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<NotificationsScreen> createState() => _NotificationsScreenState();
+}
+
+class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(notificationsProvider.notifier).sync();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final state = ref.watch(notificationsProvider);
     final notifier = ref.read(notificationsProvider.notifier);
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -33,7 +46,7 @@ class NotificationsScreen extends ConsumerWidget {
           ),
         ),
         actions: [
-          if (state.unread > 0)
+          if (state.effectiveUnread > 0)
             TextButton(
               onPressed: () => notifier.markAllRead(),
               child: const Text(
