@@ -416,3 +416,4 @@ class _SuggestedVendorsScreenState
     );
   }
 }
+

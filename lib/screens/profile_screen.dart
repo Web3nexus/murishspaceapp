@@ -459,8 +459,20 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       setState(() => _isUploadingPhoto = true);
 
       final bytes = await file.readAsBytes();
+      String filename = file.name;
+      final ext = filename.contains('.')
+          ? filename.split('.').last.toLowerCase()
+          : 'jpg';
+      if (!filename.contains('.')) {
+        filename = '$filename.$ext';
+      }
+      final mimeSubtype = (ext == 'png' || ext == 'webp' || ext == 'gif') ? ext : 'jpeg';
       final form = FormData.fromMap({
-        'file': MultipartFile.fromBytes(bytes, filename: file.name),
+        'file': MultipartFile.fromBytes(
+          bytes,
+          filename: filename,
+          contentType: DioMediaType('image', mimeSubtype),
+        ),
       });
 
       final res = await ApiClient.instance.dio.post(
@@ -469,14 +481,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       );
       final payload = ApiClient.instance.unwrap(res);
       final uploadedUrl = payload is Map<String, dynamic>
-          ? (payload['avatar_url'] ?? payload['url'] ?? payload['avatar'])
-                ?.toString()
+          ? (payload['avatar_url'] ??
+                  payload['url'] ??
+                  payload['avatar'] ??
+                  payload['data']?['avatar_url'] ??
+                  payload['data']?['url'])
+              ?.toString()
           : payload?.toString();
 
       if (uploadedUrl != null && uploadedUrl.isNotEmpty && mounted) {
         setState(() {
           _avatarUrl = uploadedUrl;
-          _hasUnsavedChanges = true;
         });
         await ref.read(authProvider.notifier).refreshProfile();
         if (mounted) {
@@ -505,8 +520,20 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       setState(() => _isUploadingBanner = true);
 
       final bytes = await file.readAsBytes();
+      String filename = file.name;
+      final ext = filename.contains('.')
+          ? filename.split('.').last.toLowerCase()
+          : 'jpg';
+      if (!filename.contains('.')) {
+        filename = '$filename.$ext';
+      }
+      final mimeSubtype = (ext == 'png' || ext == 'webp' || ext == 'gif') ? ext : 'jpeg';
       final form = FormData.fromMap({
-        'file': MultipartFile.fromBytes(bytes, filename: file.name),
+        'file': MultipartFile.fromBytes(
+          bytes,
+          filename: filename,
+          contentType: DioMediaType('image', mimeSubtype),
+        ),
       });
 
       final res = await ApiClient.instance.dio.post(
@@ -515,13 +542,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       );
       final payload = ApiClient.instance.unwrap(res);
       final uploadedUrl = payload is Map<String, dynamic>
-          ? (payload['banner_url'] ?? payload['url'])?.toString()
+          ? (payload['banner_url'] ??
+                  payload['url'] ??
+                  payload['data']?['banner_url'] ??
+                  payload['data']?['url'])
+              ?.toString()
           : payload?.toString();
 
       if (uploadedUrl != null && uploadedUrl.isNotEmpty && mounted) {
         setState(() {
           _bannerUrl = uploadedUrl;
-          _hasUnsavedChanges = true;
         });
         await ref.read(authProvider.notifier).refreshProfile();
         if (mounted) {

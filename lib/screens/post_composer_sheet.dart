@@ -158,12 +158,26 @@ class _PostComposerState extends ConsumerState<_PostComposer> {
       final mediaUrls = <String>[];
       for (final image in _images) {
         final bytes = await image.readAsBytes();
+        String filename = image.name;
+        final ext = filename.contains('.')
+            ? filename.split('.').last.toLowerCase()
+            : 'jpg';
+        if (!filename.contains('.')) {
+          filename = '$filename.$ext';
+        }
+        final mimeSubtype = (ext == 'png' || ext == 'webp' || ext == 'gif') ? ext : 'jpeg';
         final form = FormData.fromMap({
-          'file': MultipartFile.fromBytes(bytes, filename: image.name),
+          'file': MultipartFile.fromBytes(
+            bytes,
+            filename: filename,
+            contentType: DioMediaType('image', mimeSubtype),
+          ),
         });
         final upload = await ApiClient.instance.dio.post('/upload', data: form);
         final payload = ApiClient.instance.unwrap(upload);
-        final url = payload is Map<String, dynamic> ? payload['url'] : null;
+        final url = payload is Map<String, dynamic>
+            ? (payload['url'] ?? payload['data']?['url'])
+            : null;
         if (url is String && url.isNotEmpty) mediaUrls.add(url);
       }
 
@@ -214,11 +228,12 @@ class _PostComposerState extends ConsumerState<_PostComposer> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _submitting = false);
+      final errorMsg = e is ApiException
+          ? e.message
+          : 'Could not publish post. Please check your connection and try again.';
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Could not publish post. Please check your connection and try again.',
-          ),
+        SnackBar(
+          content: Text(errorMsg),
         ),
       );
     }

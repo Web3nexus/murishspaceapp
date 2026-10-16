@@ -163,25 +163,30 @@ class ApiClient {
   dynamic unwrap(Response<dynamic> response) {
     final data = response.data;
     if (data is! Map<String, dynamic>) return data;
-    final isSuccess = data['success'] as bool? ?? (data.containsKey('data'));
-    if (isSuccess) return data['data'];
-    // The backend envelope nests structured error fields under `errors`
-    // (e.g. errors.code); the global exception handler emits `code` top-level.
-    // Accept either so clients see a stable error code. `errors` may also be a
-    // list (Laravel-style validation arrays), so guard the type instead of
-    // hard-casting.
-    final rawErrors = data['errors'];
-    final errors = rawErrors is Map
-        ? Map<String, dynamic>.from(rawErrors)
-        : null;
-    final code = data['code']?.toString() ?? errors?['code']?.toString();
-    throw ApiException(
-      message: data['message']?.toString() ?? 'Request failed.',
-      code: code,
-      errors: errors,
-      status: response.statusCode,
-      requestId: data['request_id']?.toString(),
-    );
+
+    final statusCode = response.statusCode ?? 200;
+    final isHttpSuccess = statusCode >= 200 && statusCode < 300;
+    final explicitSuccess = data['success'] as bool?;
+
+    if (explicitSuccess == false || (!isHttpSuccess && explicitSuccess != true)) {
+      final rawErrors = data['errors'];
+      final errors = rawErrors is Map
+          ? Map<String, dynamic>.from(rawErrors)
+          : null;
+      final code = data['code']?.toString() ?? errors?['code']?.toString();
+      throw ApiException(
+        message: data['message']?.toString() ?? 'Request failed.',
+        code: code,
+        errors: errors,
+        status: response.statusCode,
+        requestId: data['request_id']?.toString(),
+      );
+    }
+
+    if (data.containsKey('data') && data['data'] != null) {
+      return data['data'];
+    }
+    return data;
   }
 
   /// Unwraps a list payload, tolerating plain arrays and paginated shapes.
