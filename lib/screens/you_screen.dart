@@ -6,6 +6,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../components/followers_list_dialog.dart';
 import '../components/murih_icon.dart';
 import '../components/navigation_shell.dart';
+import '../components/profile_qr_dialog.dart';
 import '../components/reels_viewer_sheet.dart';
 import '../components/share_sheet.dart';
 import '../config/env.dart';
@@ -256,11 +257,19 @@ class _YouScreenState extends ConsumerState<YouScreen>
                 onTap: () {
                   Navigator.pop(ctx);
                   final user = ref.read(authProvider).user;
-                  AppShare.showShareSheet(
+                  final username = user?.username ?? '';
+                  final name = user?.name ?? 'MurihSpace User';
+                  final avatarUrl = user?.avatarUrl;
+                  final profileUrl = Env.profileUrl(username);
+                  ProfileQrSheet.show(
                     context,
-                    title: 'Share Profile',
-                    text: 'Connect with ${user?.name ?? 'me'} on MurihSpace!',
-                    url: Env.profileUrl(user?.username ?? ''),
+                    name: name,
+                    username: username,
+                    avatarUrl: avatarUrl,
+                    url: profileUrl,
+                    title: 'My Profile QR Code',
+                    subtitle: 'Scan to connect with @$username on MurihSpace',
+                    sharePrompt: 'Connect with $name on MurihSpace!',
                   );
                 },
               ),

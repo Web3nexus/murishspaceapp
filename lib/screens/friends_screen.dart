@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../components/profile_qr_dialog.dart';
 import '../components/share_sheet.dart';
 import '../config/env.dart';
 import '../core/api_client.dart';
@@ -174,128 +175,19 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
     final user = ref.read(authProvider).user;
     final username = user?.username ?? 'user';
     final name = user?.name ?? 'MurihSpace User';
+    final avatarUrl = user?.avatarUrl;
     final profileUrl = Env.profileUrl(username);
 
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Theme.of(context).brightness == Brightness.dark
-          ? const Color(0xFF1C1C1E)
-          : Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (ctx) {
-        final isDark = Theme.of(ctx).brightness == Brightness.dark;
-        final textPrimary = isDark ? Colors.white : Colors.black;
-        final textSecondary = isDark ? Colors.grey[400] : Colors.grey[600];
-
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 38,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: isDark ? Colors.grey[700] : Colors.grey[300],
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'My Profile QR Code',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                  color: textPrimary,
-                ),
-              ),
-              Text(
-                'Scan to connect with @$username on MurihSpace',
-                style: TextStyle(fontSize: 12, color: textSecondary),
-              ),
-              const SizedBox(height: 20),
-
-              // QR Code Graphic Card
-              Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.08),
-                      blurRadius: 16,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    const Icon(
-                      Icons.qr_code_2_rounded,
-                      size: 180,
-                      color: DesignTokens.primary,
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      name,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        color: Colors.black,
-                      ),
-                    ),
-                    Text(
-                      '@$username',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: DesignTokens.primary,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
-                      onPressed: () {
-                        Navigator.pop(ctx);
-                        AppShare.showShareSheet(
-                          context,
-                          title: 'Invite Friends to Murih Space',
-                          text:
-                              'Join me on Murih Space! Connect, chat, and explore Web3 communities:',
-                          url: profileUrl,
-                        );
-                      },
-                      icon: const Icon(Icons.share_rounded, size: 18),
-                      label: const Text(
-                        'Share Invite Link',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        );
-      },
+    ProfileQrSheet.show(
+      context,
+      name: name,
+      username: username,
+      avatarUrl: avatarUrl,
+      url: profileUrl,
+      title: 'My Profile QR Code',
+      subtitle: 'Scan to connect with @$username on MurihSpace',
+      sharePrompt:
+          'Join me on Murih Space! Connect, chat, and explore Web3 communities:',
     );
   }
 

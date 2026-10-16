@@ -66,6 +66,7 @@ dependencies:
   font_awesome_flutter: ^11.0.0
   flutter_svg: ^2.3.0
   wakelock_plus: ^1.5.2
+  qr_flutter: ^4.1.0
 
 dev_dependencies:
   flutter_test:

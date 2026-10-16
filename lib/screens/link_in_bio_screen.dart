@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../components/animated_action_feedback.dart';
+import '../components/profile_qr_dialog.dart';
 import '../components/share_sheet.dart';
 import '../config/env.dart';
 import '../core/api_client.dart';
@@ -550,118 +550,18 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
   }
 
   void _showQrCodeModal(String username, String bioUrl) {
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF1E293B) : Colors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (ctx) {
-        final isDark = Theme.of(ctx).brightness == Brightness.dark;
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 36,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: isDark ? Colors.grey[700] : Colors.grey[300],
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Bio Link QR Code',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black),
-                ),
-                const SizedBox(height: 6),
-                Text('Scan to open @$username bio hub', style: TextStyle(fontSize: 12, color: isDark ? Colors.grey[400] : Colors.grey[600])),
-                const SizedBox(height: 20),
-
-                Container(
-                  width: 180,
-                  height: 180,
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 16)],
-                  ),
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      GridView.builder(
-                        physics: const NeverScrollableScrollPhysics(),
-                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 7, crossAxisSpacing: 4, mainAxisSpacing: 4),
-                        itemCount: 49,
-                        itemBuilder: (context, index) {
-                          final isDarkCell = (index * 7 + index * 3) % 5 != 0;
-                          return Container(
-                            decoration: BoxDecoration(
-                              color: isDarkCell ? Colors.black : Colors.white,
-                              borderRadius: BorderRadius.circular(2),
-                            ),
-                          );
-                        },
-                      ),
-                      Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-                        child: const Icon(Icons.link_rounded, color: Color(0xFF1A68D4), size: 24),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 20),
-
-                Row(
-                  children: [
-                    Expanded(
-                      child: AnimatedActionFeedbackButton(
-                        idleLabel: 'Copy Link',
-                        idleIcon: Icons.copy_rounded,
-                        activeLabel: 'Copied!',
-                        activeIcon: Icons.check_rounded,
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                        borderRadius: 12,
-                        fontSize: 14,
-                        iconSize: 18,
-                        onAction: () async {
-                          await Clipboard.setData(ClipboardData(text: bioUrl));
-                        },
-                        onComplete: () {
-                          if (Navigator.canPop(ctx)) {
-                            Navigator.pop(ctx);
-                          }
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
-                          foregroundColor: isDark ? Colors.white : Colors.black,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
-                        onPressed: () {
-                          Navigator.pop(ctx);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('QR Code image saved to gallery!')),
-                          );
-                        },
-                        icon: const Icon(Icons.download_rounded, size: 18),
-                        label: const Text('Save QR', style: TextStyle(fontWeight: FontWeight.bold)),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        );
-      },
+    final user = ref.read(authProvider).user;
+    final name = user?.name ?? username;
+    final avatarUrl = user?.avatarUrl;
+    ProfileQrSheet.show(
+      context,
+      name: name,
+      username: username,
+      avatarUrl: avatarUrl,
+      url: bioUrl.startsWith('http') ? bioUrl : 'https://$bioUrl',
+      title: 'Bio Link QR Code',
+      subtitle: 'Scan to open @$username bio hub',
+      sharePrompt: 'Check out my links and profile on MurihSpace:',
     );
   }
 

@@ -8,6 +8,7 @@ import '../utils/format.dart';
 
 import '../components/followers_list_dialog.dart';
 import '../components/murih_icon.dart';
+import '../components/profile_qr_dialog.dart';
 import '../components/send_gift_dialog.dart';
 import '../components/share_sheet.dart';
 import '../config/env.dart';
@@ -637,94 +638,15 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
   }
 
   void _showQrDialog() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final textPrimary = isDark ? Colors.white : Colors.black;
-    final textSecondary = isDark ? Colors.grey[400] : Colors.grey[600];
-
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: isDark ? const Color(0xFF1C1C1E) : Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (ctx) {
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 38,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: isDark ? Colors.grey[700] : Colors.grey[300],
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Profile QR Code',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: textPrimary),
-              ),
-              Text(
-                'Scan to connect with @${widget.username} on MurihSpace',
-                style: TextStyle(fontSize: 12, color: textSecondary),
-              ),
-              const SizedBox(height: 20),
-              Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.08),
-                      blurRadius: 16,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    const Icon(Icons.qr_code_2_rounded, size: 180, color: DesignTokens.primary),
-                    const SizedBox(height: 12),
-                    Text(
-                      widget.name,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.black),
-                    ),
-                    Text(
-                      '@${widget.username}',
-                      style: const TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.w600),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: DesignTokens.primary,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  onPressed: () {
-                    Clipboard.setData(ClipboardData(text: Env.profileUrl(widget.username)));
-                    Navigator.pop(ctx);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Profile URL copied to clipboard!')),
-                    );
-                  },
-                  icon: const Icon(Icons.copy_rounded, size: 16),
-                  label: const Text('Copy Link', style: TextStyle(fontWeight: FontWeight.w700)),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
+    ProfileQrSheet.show(
+      context,
+      name: widget.name,
+      username: widget.username,
+      avatarUrl: widget.avatarUrl,
+      url: Env.profileUrl(widget.username),
+      title: 'Profile QR Code',
+      subtitle: 'Scan to connect with @${widget.username} on MurihSpace',
+      sharePrompt: 'Connect with ${widget.name} on MurihSpace!',
     );
   }
 
