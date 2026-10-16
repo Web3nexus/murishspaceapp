@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../components/app_bottom_sheet.dart';
 import '../components/chat_pattern_background.dart';
+import '../components/murih_icon.dart';
 import '../components/online_status_badge.dart';
 import '../components/share_community_sheet.dart';
 import '../components/share_location_sheet.dart';
@@ -760,7 +761,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: const Icon(Icons.info_outline_rounded, color: DesignTokens.primary),
+              leading: const MurihIcon('Info Square', color: DesignTokens.primary, size: 22),
               title: Text(conversation?.type == 'community' ? 'Community Info & Settings' : 'Contact Info & Settings'),
               onTap: () {
                 Navigator.pop(context);
@@ -775,7 +776,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
               },
             ),
             ListTile(
-              leading: Icon(isMuted ? Icons.volume_up_outlined : Icons.notifications_off_outlined),
+              leading: MurihIcon(isMuted ? 'Volume Up' : 'Volume Off', size: 22),
               title: Text(isMuted ? 'Unmute notifications' : 'Mute notifications'),
               onTap: () {
                 Navigator.pop(context);
@@ -783,7 +784,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
               },
             ),
             ListTile(
-              leading: Icon(isArchived ? Icons.unarchive_outlined : Icons.archive_outlined),
+              leading: const MurihIcon('Folder', size: 22),
               title: Text(isArchived ? 'Unarchive chat' : 'Archive chat'),
               onTap: () {
                 Navigator.pop(context);

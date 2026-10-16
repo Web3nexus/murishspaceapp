@@ -8,6 +8,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../components/animated_action_feedback.dart';
+import '../components/murih_icon.dart';
 import '../components/online_status_badge.dart';
 import '../core/design_tokens.dart';
 import '../core/api_client.dart';
@@ -134,7 +135,7 @@ class _ChatProfileSettingsScreenState extends ConsumerState<ChatProfileSettingsS
                 ),
               ),
               ListTile(
-                leading: const Icon(Icons.access_time_rounded),
+                leading: const MurihIcon('Time Circle', size: 22),
                 title: const Text('Mute for 1 hour'),
                 onTap: () {
                   Navigator.pop(ctx);
@@ -142,7 +143,7 @@ class _ChatProfileSettingsScreenState extends ConsumerState<ChatProfileSettingsS
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.nightlight_round),
+                leading: const MurihIcon('Time Square', size: 22),
                 title: const Text('Mute for 8 hours'),
                 onTap: () {
                   Navigator.pop(ctx);
@@ -150,7 +151,7 @@ class _ChatProfileSettingsScreenState extends ConsumerState<ChatProfileSettingsS
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.calendar_today_rounded),
+                leading: const MurihIcon('Calendar', size: 22),
                 title: const Text('Mute for 2 days'),
                 onTap: () {
                   Navigator.pop(ctx);
@@ -158,7 +159,7 @@ class _ChatProfileSettingsScreenState extends ConsumerState<ChatProfileSettingsS
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.notifications_off_rounded, color: Colors.redAccent),
+                leading: const MurihIcon('Volume Off', color: Colors.redAccent, size: 22),
                 title: const Text('Mute forever', style: TextStyle(color: Colors.redAccent)),
                 onTap: () {
                   Navigator.pop(ctx);
@@ -213,7 +214,7 @@ class _ChatProfileSettingsScreenState extends ConsumerState<ChatProfileSettingsS
                       style: TextStyle(fontWeight: isSelected ? FontWeight.bold : FontWeight.normal),
                     ),
                     trailing: IconButton(
-                      icon: const Icon(Icons.volume_up_rounded, color: DesignTokens.primary, size: 20),
+                      icon: const MurihIcon('Volume Up', color: DesignTokens.primary, size: 20),
                       tooltip: 'Preview sound',
                       onPressed: () {
                         SoundService.instance.playNotificationPreview(sound);
@@ -278,12 +279,12 @@ class _ChatProfileSettingsScreenState extends ConsumerState<ChatProfileSettingsS
                 const SizedBox(height: 18),
                 ListTile(
                   leading: CircleAvatar(
-                    backgroundColor: DesignTokens.primary.withOpacity(0.12),
-                    child: const Icon(Icons.contacts_rounded, color: DesignTokens.primary),
+                    backgroundColor: DesignTokens.primary.withValues(alpha: 0.12),
+                    child: const MurihIcon('Add User', color: DesignTokens.primary, size: 20),
                   ),
                   title: const Text('Save to Device Contacts', style: TextStyle(fontWeight: FontWeight.w600)),
                   subtitle: const Text('Export vCard (.vcf) directly to your phone contacts'),
-                  trailing: const Icon(Icons.chevron_right_rounded),
+                  trailing: const MurihIcon('Arrow - Right 2', size: 16, color: DesignTokens.textSecondary),
                   onTap: () async {
                     Navigator.pop(ctx);
                     final vcard = 'BEGIN:VCARD\r\nVERSION:3.0\r\nFN:$name\r\nTEL;TYPE=CELL:$phone\r\nNOTE:MurihSpace @$username\r\nURL:${Env.absolute(DeepLinks.profile(username))}\r\nEND:VCARD';
@@ -293,12 +294,12 @@ class _ChatProfileSettingsScreenState extends ConsumerState<ChatProfileSettingsS
                 const Divider(height: 1),
                 ListTile(
                   leading: CircleAvatar(
-                    backgroundColor: const Color(0xFFFF9500).withOpacity(0.12),
-                    child: const Icon(Icons.star_rounded, color: Color(0xFFFF9500)),
+                    backgroundColor: const Color(0xFFFF9500).withValues(alpha: 0.12),
+                    child: const MurihIcon('Star', color: Color(0xFFFF9500), size: 20),
                   ),
                   title: const Text('Save to Murih Starred Contacts', style: TextStyle(fontWeight: FontWeight.w600)),
                   subtitle: const Text('Quick-access in your Murih Space contacts tab'),
-                  trailing: const Icon(Icons.chevron_right_rounded),
+                  trailing: const MurihIcon('Arrow - Right 2', size: 16, color: DesignTokens.textSecondary),
                   onTap: () async {
                     Navigator.pop(ctx);
                     final prefs = await SharedPreferences.getInstance();
@@ -309,12 +310,12 @@ class _ChatProfileSettingsScreenState extends ConsumerState<ChatProfileSettingsS
                 const Divider(height: 1),
                 ListTile(
                   leading: CircleAvatar(
-                    backgroundColor: const Color(0xFF34C759).withOpacity(0.12),
-                    child: const Icon(Icons.copy_rounded, color: Color(0xFF34C759)),
+                    backgroundColor: const Color(0xFF34C759).withValues(alpha: 0.12),
+                    child: const MurihIcon('Document', color: Color(0xFF34C759), size: 20),
                   ),
                   title: const Text('Copy Contact Details', style: TextStyle(fontWeight: FontWeight.w600)),
                   subtitle: const Text('Copy full phone number and handle to clipboard'),
-                  trailing: const Icon(Icons.chevron_right_rounded),
+                  trailing: const MurihIcon('Arrow - Right 2', size: 16, color: DesignTokens.textSecondary),
                   onTap: () {
                     Navigator.pop(ctx);
                     Clipboard.setData(ClipboardData(
@@ -403,7 +404,7 @@ class _ChatProfileSettingsScreenState extends ConsumerState<ChatProfileSettingsS
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.insert_drive_file_outlined, size: 48, color: Colors.grey),
+                            MurihIcon('Document', size: 48, color: Colors.grey),
                             SizedBox(height: 8),
                             Text('No files or documents shared yet.'),
                           ],
@@ -414,7 +415,7 @@ class _ChatProfileSettingsScreenState extends ConsumerState<ChatProfileSettingsS
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.link_rounded, size: 48, color: Colors.grey),
+                            MurihIcon('Paper', size: 48, color: Colors.grey),
                             SizedBox(height: 8),
                             Text('No links shared yet.'),
                           ],
@@ -669,7 +670,7 @@ class _ChatProfileSettingsScreenState extends ConsumerState<ChatProfileSettingsS
                         return ListTile(
                           leading: CircleAvatar(
                             backgroundColor: DesignTokens.primarySoft,
-                            child: const Icon(Icons.person, color: DesignTokens.primary, size: 22),
+                            child: const MurihIcon('Profile', color: DesignTokens.primary, size: 20),
                           ),
                           title: Text(cName, style: const TextStyle(fontWeight: FontWeight.w600)),
                           subtitle: tag.isNotEmpty
@@ -879,7 +880,7 @@ class _ChatProfileSettingsScreenState extends ConsumerState<ChatProfileSettingsS
                       backgroundColor: DesignTokens.primarySoft,
                       backgroundImage: avatar.isNotEmpty ? CachedNetworkImageProvider(avatar) : null,
                       child: avatar.isEmpty
-                          ? const Icon(Icons.person, color: DesignTokens.primaryDark, size: 50)
+                          ? const MurihIcon('Profile', color: DesignTokens.primaryDark, size: 48)
                           : null,
                     ),
                   ),
@@ -907,7 +908,7 @@ class _ChatProfileSettingsScreenState extends ConsumerState<ChatProfileSettingsS
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
                     _QuickActionButton(
-                      icon: Icons.call_rounded,
+                      murihIcon: 'Calling',
                       label: 'Audio',
                       color: const Color(0xFF34C759),
                       onTap: () {
@@ -925,7 +926,7 @@ class _ChatProfileSettingsScreenState extends ConsumerState<ChatProfileSettingsS
                       },
                     ),
                     _QuickActionButton(
-                      icon: Icons.videocam_rounded,
+                      murihIcon: 'Video',
                       label: 'Video',
                       color: DesignTokens.primary,
                       onTap: () {
@@ -943,7 +944,7 @@ class _ChatProfileSettingsScreenState extends ConsumerState<ChatProfileSettingsS
                       },
                     ),
                     _QuickActionButton(
-                      icon: _isNotificationsEnabled ? Icons.notifications_none_rounded : Icons.notifications_off_rounded,
+                      murihIcon: _isNotificationsEnabled ? 'Notification' : 'Volume Off',
                       label: _isNotificationsEnabled ? 'Mute' : 'Unmute',
                       color: _isNotificationsEnabled ? const Color(0xFFFF9500) : Colors.grey,
                       onTap: () {
@@ -955,7 +956,7 @@ class _ChatProfileSettingsScreenState extends ConsumerState<ChatProfileSettingsS
                       },
                     ),
                     _QuickActionButton(
-                      icon: Icons.person_add_alt_1_rounded,
+                      murihIcon: 'Add User',
                       label: 'Save',
                       color: const Color(0xFF5856D6),
                       onTap: () => _showSaveContactModal(title, phone, username),
@@ -984,7 +985,7 @@ class _ChatProfileSettingsScreenState extends ConsumerState<ChatProfileSettingsS
                   ),
                 ),
                 ListTile(
-                  leading: const Icon(Icons.info_outline_rounded, color: DesignTokens.primary),
+                  leading: const MurihIcon('Info Square', color: DesignTokens.primary, size: 22),
                   title: const Text('Bio', style: TextStyle(fontSize: 13, color: DesignTokens.textSecondary)),
                   subtitle: const Text(bio, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
                   trailing: AnimatedCopyIcon(
@@ -996,7 +997,7 @@ class _ChatProfileSettingsScreenState extends ConsumerState<ChatProfileSettingsS
                 const Divider(height: 1),
                 if (!isCommunity) ...[
                   ListTile(
-                    leading: const Icon(Icons.alternate_email_rounded, color: DesignTokens.primary),
+                    leading: const MurihIcon('Profile', color: DesignTokens.primary, size: 22),
                     title: const Text('Username', style: TextStyle(fontSize: 13, color: DesignTokens.textSecondary)),
                     subtitle: Text('@$username', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
                     trailing: AnimatedCopyIcon(
@@ -1007,10 +1008,10 @@ class _ChatProfileSettingsScreenState extends ConsumerState<ChatProfileSettingsS
                   ),
                   const Divider(height: 1),
                   ListTile(
-                    leading: const Icon(Icons.phone_rounded, color: DesignTokens.primary),
+                    leading: const MurihIcon('Calling', color: DesignTokens.primary, size: 22),
                     title: const Text('Mobile', style: TextStyle(fontSize: 13, color: DesignTokens.textSecondary)),
                     subtitle: const Text(phone, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
-                    trailing: const Icon(Icons.call_rounded, size: 18, color: Color(0xFF34C759)),
+                    trailing: const MurihIcon('Call', size: 18, color: Color(0xFF34C759)),
                     onTap: () => launchUrl(Uri.parse('tel:$phone')),
                   ),
                 ],
@@ -1026,10 +1027,10 @@ class _ChatProfileSettingsScreenState extends ConsumerState<ChatProfileSettingsS
               borderRadius: BorderRadius.circular(16),
             ),
             child: ListTile(
-              leading: const Icon(Icons.photo_library_outlined, color: DesignTokens.primary),
+              leading: const MurihIcon('Image 2', color: DesignTokens.primary, size: 22),
               title: const Text('Media, Links & Docs', style: TextStyle(fontWeight: FontWeight.w600)),
               subtitle: Text('$mediaCount shared items'),
-              trailing: const Icon(Icons.chevron_right_rounded),
+              trailing: const MurihIcon('Arrow - Right 2', size: 16, color: DesignTokens.textSecondary),
               onTap: () => _showMediaGallery(messagesState.messages),
             ),
           ),
@@ -1052,7 +1053,7 @@ class _ChatProfileSettingsScreenState extends ConsumerState<ChatProfileSettingsS
                   ),
                 ),
                 SwitchListTile(
-                  secondary: const Icon(Icons.notifications_active_outlined, color: Color(0xFFFF9500)),
+                  secondary: const MurihIcon('Notification', color: Color(0xFFFF9500), size: 22),
                   title: const Text('Notifications', style: TextStyle(fontWeight: FontWeight.w600)),
                   subtitle: Text(_isNotificationsEnabled ? 'Active' : 'Muted ($_muteDuration)'),
                   value: _isNotificationsEnabled,
@@ -1066,15 +1067,15 @@ class _ChatProfileSettingsScreenState extends ConsumerState<ChatProfileSettingsS
                 ),
                 const Divider(height: 1),
                 ListTile(
-                  leading: const Icon(Icons.music_note_rounded, color: Color(0xFFFF2D55)),
+                  leading: const MurihIcon('Voice 2', color: Color(0xFFFF2D55), size: 22),
                   title: const Text('Notification Sound'),
                   subtitle: Text(_selectedSound),
-                  trailing: const Icon(Icons.chevron_right_rounded),
+                  trailing: const MurihIcon('Arrow - Right 2', size: 16, color: DesignTokens.textSecondary),
                   onTap: _showNotificationSoundPicker,
                 ),
                 const Divider(height: 1),
                 SwitchListTile(
-                  secondary: const Icon(Icons.lock_outline_rounded, color: Color(0xFF34C759)),
+                  secondary: const MurihIcon('Lock', color: Color(0xFF34C759), size: 22),
                   title: const Text('Lock Chat', style: TextStyle(fontWeight: FontWeight.w600)),
                   subtitle: const Text('Require Face ID / Touch ID / PIN to open'),
                   value: _isChatLocked,
@@ -1102,16 +1103,16 @@ class _ChatProfileSettingsScreenState extends ConsumerState<ChatProfileSettingsS
                   ),
                 ),
                 ListTile(
-                  leading: const Icon(Icons.group_add_outlined, color: Color(0xFF5856D6)),
+                  leading: const MurihIcon('2 User', color: Color(0xFF5856D6), size: 22),
                   title: Text('Create Private Group with $title'),
-                  trailing: const Icon(Icons.chevron_right_rounded),
+                  trailing: const MurihIcon('Arrow - Right 2', size: 16, color: DesignTokens.textSecondary),
                   onTap: () => _createPrivateGroup(title),
                 ),
                 const Divider(height: 1),
                 ListTile(
-                  leading: const Icon(Icons.diversity_3_outlined, color: DesignTokens.primary),
+                  leading: const MurihIcon('3 User', color: DesignTokens.primary, size: 22),
                   title: const Text('Groups & Communities in Common'),
-                  trailing: const Icon(Icons.chevron_right_rounded),
+                  trailing: const MurihIcon('Arrow - Right 2', size: 16, color: DesignTokens.textSecondary),
                   onTap: () => _showMutualCommunitiesSheet(otherUser?.id ?? 0, title),
                 ),
               ],
@@ -1136,16 +1137,17 @@ class _ChatProfileSettingsScreenState extends ConsumerState<ChatProfileSettingsS
                   ),
                 ),
                 ListTile(
-                  leading: const Icon(Icons.cleaning_services_rounded, color: Colors.orange),
+                  leading: const MurihIcon('Delete', color: Colors.orange, size: 22),
                   title: const Text('Clear Chat History', style: TextStyle(color: Colors.orange, fontWeight: FontWeight.w600)),
                   onTap: _confirmClearChat,
                 ),
                 const Divider(height: 1),
                 if (!isCommunity) ...[
                   ListTile(
-                    leading: Icon(
-                      _isBlocked ? Icons.lock_open_rounded : Icons.block_flipped,
+                    leading: MurihIcon(
+                      _isBlocked ? 'Unlock' : 'Shield Fail',
                       color: Colors.redAccent,
+                      size: 22,
                     ),
                     title: Text(
                       _isBlocked ? 'Unblock $title' : 'Block $title',
@@ -1158,7 +1160,7 @@ class _ChatProfileSettingsScreenState extends ConsumerState<ChatProfileSettingsS
                   const Divider(height: 1),
                 ],
                 ListTile(
-                  leading: const Icon(Icons.flag_outlined, color: Colors.redAccent),
+                  leading: const MurihIcon('Danger Triangle', color: Colors.redAccent, size: 22),
                   title: Text('Report ${isCommunity ? 'Community' : title}', style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.w600)),
                   onTap: () => _showReportSheet(otherUser?.id ?? widget.conversationId, title, isCommunity),
                 ),
@@ -1173,13 +1175,13 @@ class _ChatProfileSettingsScreenState extends ConsumerState<ChatProfileSettingsS
 }
 
 class _QuickActionButton extends StatelessWidget {
-  final IconData icon;
+  final String murihIcon;
   final String label;
   final Color color;
   final VoidCallback onTap;
 
   const _QuickActionButton({
-    required this.icon,
+    required this.murihIcon,
     required this.label,
     required this.color,
     required this.onTap,
@@ -1197,8 +1199,8 @@ class _QuickActionButton extends StatelessWidget {
           children: [
             CircleAvatar(
               radius: 22,
-              backgroundColor: color.withOpacity(0.12),
-              child: Icon(icon, color: color, size: 22),
+              backgroundColor: color.withValues(alpha: 0.12),
+              child: MurihIcon(murihIcon, color: color, size: 22),
             ),
             const SizedBox(height: 6),
             Text(
