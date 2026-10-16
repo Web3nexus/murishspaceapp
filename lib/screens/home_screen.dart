@@ -750,7 +750,7 @@ class _PeopleYouMayKnow extends ConsumerWidget {
           ),
         ),
         SizedBox(
-          height: 168,
+          height: 136,
           child: ListView.separated(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             scrollDirection: Axis.horizontal,
@@ -797,8 +797,8 @@ class _PeopleYouMayKnowCard extends StatelessWidget {
         : null;
 
     return Container(
-      width: 108,
-      padding: const EdgeInsets.all(10),
+      width: 110,
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 7),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF242426) : const Color(0xFFF0F2F5),
         borderRadius: BorderRadius.circular(12),
@@ -814,55 +814,60 @@ class _PeopleYouMayKnowCard extends StatelessWidget {
               GestureDetector(
                 onTap: () => _openProfile(context),
                 child: CircleAvatar(
-                  radius: 26,
+                  radius: 22,
                   backgroundColor: DesignTokens.primary,
                   backgroundImage: avatarUrl != null
                       ? NetworkImage(avatarUrl)
                       : null,
                   child: avatarUrl == null
-                      ? const Icon(Icons.person, color: Colors.white, size: 24)
+                      ? const Icon(Icons.person, color: Colors.white, size: 20)
                       : null,
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 4),
               GestureDetector(
                 onTap: () => _openProfile(context),
                 child: Text(
                   user.name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w700,
                     color: isDark ? Colors.white : Colors.black,
                   ),
                 ),
               ),
+              const SizedBox(height: 1),
               Text(
                 '@${user.username}',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontSize: 10,
+                  fontSize: 9.5,
                   color: isDark ? Colors.grey[400] : Colors.grey[600],
                 ),
               ),
-              const Spacer(),
-              if (user.mutualCount > 0)
+              if (user.mutualCount > 0) ...[
+                const SizedBox(height: 2),
                 Text(
                   '${user.mutualCount} mutual',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize: 10,
+                    fontSize: 9,
                     color: DesignTokens.primary,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-              const SizedBox(height: 6),
+              ],
+              const Spacer(),
               SizedBox(
                 width: double.infinity,
-                height: 28,
+                height: 26,
                 child: user.status == 'accepted'
                     ? ElevatedButton(
                         style: ElevatedButton.styleFrom(
@@ -878,11 +883,11 @@ class _PeopleYouMayKnowCard extends StatelessWidget {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.check_circle_rounded, size: 14, color: DesignTokens.primary),
+                            Icon(Icons.check_circle_rounded, size: 13, color: DesignTokens.primary),
                             const SizedBox(width: 3),
                             const Text(
                               'Friends',
-                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                              style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold),
                             ),
                           ],
                         ),
@@ -900,7 +905,7 @@ class _PeopleYouMayKnowCard extends StatelessWidget {
                             onPressed: () => context.push('/friends'),
                             child: const Text(
                               'Respond',
-                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                              style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold),
                             ),
                           )
                         : user.status == 'pending_sent'
@@ -919,13 +924,13 @@ class _PeopleYouMayKnowCard extends StatelessWidget {
                               children: [
                                 Icon(
                                   Icons.hourglass_top_rounded,
-                                  size: 13,
+                                  size: 12,
                                   color: DesignTokens.primary,
                                 ),
                                 const SizedBox(width: 3),
                                 const Text(
                                   'Requested',
-                                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
                                 ),
                               ],
                             ),
@@ -944,12 +949,12 @@ class _PeopleYouMayKnowCard extends StatelessWidget {
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                const Icon(Icons.person_add_rounded, size: 14, color: Colors.white),
+                                const Icon(Icons.person_add_rounded, size: 13, color: Colors.white),
                                 const SizedBox(width: 3),
                                 const Text(
                                   'Add',
                                   style: TextStyle(
-                                    fontSize: 11,
+                                    fontSize: 10.5,
                                     fontWeight: FontWeight.bold,
                                     color: Colors.white,
                                   ),
