@@ -22,6 +22,7 @@ import 'post_report_dialog.dart';
 import '../components/go_live_setup_dialog.dart';
 import '../components/kyc_live_gate_dialog.dart';
 import '../components/send_gift_dialog.dart';
+import '../components/share_sheet.dart';
 
 /// Community home: header + join/leave + Feed / Courses / Chats / Members tabs.
 class CommunityDetailScreen extends ConsumerStatefulWidget {
@@ -744,11 +745,23 @@ class _FeedTab extends ConsumerWidget {
           );
         }
         final post = state.posts[i];
+        notifier.recordView(post);
         return PostCard(
           post: post,
           myId: myId ?? 0,
           onLike: () => notifier.toggleLike(post, myId: myId ?? 0),
-          onSave: () => notifier.toggleSave(post),
+          onSave: () async {
+            final wasSaved = post.savedByMe;
+            await notifier.toggleSave(post);
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(wasSaved ? 'Post removed from bookmarks.' : 'Post saved to bookmarks! 🔖'),
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+            }
+          },
           onCommentTap: () => showPostComments(
             context,
             post: post,
@@ -758,9 +771,9 @@ class _FeedTab extends ConsumerWidget {
           onShare: () async {
             await notifier.share(post);
             if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Post shared.')),
-              );
+              final link = Env.absolute('/posts/${post.id}');
+              final text = post.content.isNotEmpty ? '${post.content}\n\n$link' : link;
+              AppShare.share(context, text: text, title: 'Share Post');
             }
           },
           onReport: () async {

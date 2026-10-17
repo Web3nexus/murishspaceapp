@@ -217,6 +217,7 @@ class Post {
   final int commentsCount;
   final int sharesCount;
   final int savesCount;
+  final int viewsCount;
   final ChatUser? author;
   final CommunityRef? community;
   final List<PostReaction> reactions;
@@ -246,6 +247,7 @@ class Post {
     this.commentsCount = 0,
     this.sharesCount = 0,
     this.savesCount = 0,
+    this.viewsCount = 0,
     this.author,
     this.community,
     this.reactions = const [],
@@ -271,6 +273,7 @@ class Post {
     int? commentsCount,
     int? sharesCount,
     int? savesCount,
+    int? viewsCount,
     bool? likedByMe,
     bool? savedByMe,
     bool? isPinned,
@@ -292,6 +295,7 @@ class Post {
       commentsCount: commentsCount ?? this.commentsCount,
       sharesCount: sharesCount ?? this.sharesCount,
       savesCount: savesCount ?? this.savesCount,
+      viewsCount: viewsCount ?? this.viewsCount,
       author: author,
       community: community,
       reactions: reactions,
@@ -331,9 +335,12 @@ class Post {
       commentsCount: (json['comments_count'] as num?)?.toInt() ?? 0,
       sharesCount: (json['shares_count'] as num?)?.toInt() ?? 0,
       savesCount: (json['saves_count'] as num?)?.toInt() ?? 0,
+      viewsCount: (json['views_count'] as num?)?.toInt() ?? 0,
       author: ChatUser.fromJson(json['author']),
       community: CommunityRef.fromJson(json['community']),
       reactions: rawReactions is List ? rawReactions.map(PostReaction.fromJson).toList() : const [],
+      likedByMe: json['is_liked'] == true || json['liked_by_me'] == true,
+      savedByMe: json['is_saved'] == true || json['saved_by_me'] == true,
       pollQuestion: json['poll_question'] as String?,
       pollOptions: rawPollOptions is List ? rawPollOptions.map((e) => e.toString()).toList() : const [],
       pollEndsAt: json['poll_ends_at'] != null ? DateTime.tryParse(json['poll_ends_at'].toString()) : null,

@@ -377,6 +377,17 @@ class PostsNotifier extends Notifier<PostsState> {
     }
   }
 
+  final Set<int> _recordedViewIds = {};
+
+  /// Records an impression/view for a post securely.
+  Future<void> recordView(Post post) async {
+    if (_recordedViewIds.contains(post.id) || post.id <= 0) return;
+    _recordedViewIds.add(post.id);
+    try {
+      await _dio.post('/posts/${post.id}/view');
+    } catch (_) {}
+  }
+
   /// Shares a post (increments the share count server-side) and confirms.
   Future<void> share(Post post) async {
     final target = post.copyWith(sharesCount: post.sharesCount + 1);

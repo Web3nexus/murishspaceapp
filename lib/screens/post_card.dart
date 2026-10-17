@@ -1,12 +1,13 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../config/env.dart';
 import '../core/design_tokens.dart';
 import '../models/community_models.dart';
 import '../providers/community_provider.dart';
 import '../providers/follow_provider.dart';
-import '../components/murih_icon.dart';
 import '../utils/format.dart';
 
 /// One post card with author header, announcement badge, poll widget, content, media and engagement actions.
@@ -83,7 +84,15 @@ class PostCard extends ConsumerWidget {
             ),
           ],
 
-          _Header(post: post, author: author, onReport: onReport, isDark: isDark),
+          _Header(
+            post: post,
+            author: author,
+            myId: myId,
+            onSave: onSave,
+            onShare: onShare,
+            onReport: onReport,
+            isDark: isDark,
+          ),
 
           if (post.content.isNotEmpty && !post.isPoll) ...[
             const SizedBox(height: 8),
@@ -386,15 +395,104 @@ class _PollCard extends StatelessWidget {
 class _Header extends ConsumerWidget {
   final Post post;
   final dynamic author;
+  final int myId;
+  final VoidCallback? onSave;
+  final VoidCallback? onShare;
   final VoidCallback? onReport;
   final bool isDark;
 
   const _Header({
     required this.post,
     required this.author,
+    required this.myId,
+    this.onSave,
+    this.onShare,
     this.onReport,
     required this.isDark,
   });
+
+  void _showPostOptions(BuildContext context) {
+    final cardBg = isDark ? const Color(0xFF1E293B) : Colors.white;
+    final textPrimary = isDark ? Colors.white : const Color(0xFF0F172A);
+    final textSecondary = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: cardBg,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 36,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white24 : Colors.black12,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              ListTile(
+                leading: Icon(
+                  post.savedByMe ? Icons.bookmark_remove_rounded : Icons.bookmark_add_rounded,
+                  color: post.savedByMe ? DesignTokens.primary : textPrimary,
+                ),
+                title: Text(
+                  post.savedByMe ? 'Remove from Saved' : 'Save Post',
+                  style: TextStyle(fontWeight: FontWeight.w600, color: textPrimary),
+                ),
+                subtitle: Text(
+                  post.savedByMe ? 'Remove this item from your saved list' : 'Add to your personal saved list',
+                  style: TextStyle(fontSize: 12, color: textSecondary),
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  onSave?.call();
+                },
+              ),
+              ListTile(
+                leading: Icon(Icons.share_rounded, color: textPrimary),
+                title: Text('Share Post', style: TextStyle(fontWeight: FontWeight.w600, color: textPrimary)),
+                subtitle: Text('Send to friends or other apps', style: TextStyle(fontSize: 12, color: textSecondary)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  onShare?.call();
+                },
+              ),
+              ListTile(
+                leading: Icon(Icons.link_rounded, color: textPrimary),
+                title: Text('Copy Link', style: TextStyle(fontWeight: FontWeight.w600, color: textPrimary)),
+                subtitle: Text('Copy post link to clipboard', style: TextStyle(fontSize: 12, color: textSecondary)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  final link = Env.absolute('/posts/${post.id}');
+                  Clipboard.setData(ClipboardData(text: link));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Post link copied to clipboard! 📋')),
+                  );
+                },
+              ),
+              if (onReport != null)
+                ListTile(
+                  leading: const Icon(Icons.flag_outlined, color: Color(0xFFEF4444)),
+                  title: const Text('Report Post', style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFFEF4444))),
+                  subtitle: Text('Flag inappropriate or abusive content', style: TextStyle(fontSize: 12, color: textSecondary)),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    onReport?.call();
+                  },
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -471,16 +569,15 @@ class _Header extends ConsumerWidget {
             ],
           ),
         ),
-        if (onReport != null)
-          IconButton(
-            onPressed: onReport,
-            icon: Icon(
-              Icons.more_horiz,
-              size: 20,
-              color: isDark ? Colors.grey[400] : Colors.grey[600],
-            ),
-            visualDensity: VisualDensity.compact,
+        IconButton(
+          onPressed: () => _showPostOptions(context),
+          icon: Icon(
+            Icons.more_horiz,
+            size: 20,
+            color: isDark ? Colors.grey[400] : Colors.grey[600],
           ),
+          visualDensity: VisualDensity.compact,
+        ),
       ],
     );
   }
@@ -597,7 +694,7 @@ class _ActionRow extends StatelessWidget {
                 ],
               ),
               Text(
-                '${post.commentsCount} comments · ${post.sharesCount} shares',
+                '${post.commentsCount} comments · ${post.sharesCount} shares${post.viewsCount > 0 ? " · ${_count(post.viewsCount)} views" : ""}',
                 style: TextStyle(
                   fontSize: 12,
                   color: defaultColor,
@@ -616,7 +713,7 @@ class _ActionRow extends StatelessWidget {
             _ActionButton(
               icon: post.likedByMe ? Icons.favorite_rounded : Icons.favorite_border_rounded,
               color: post.likedByMe ? const Color(0xFFDC2626) : defaultColor,
-              label: 'Like',
+              label: post.likedByMe ? 'Liked' : 'Like',
               onTap: onLike,
             ),
             _ActionButton(
@@ -635,7 +732,7 @@ class _ActionRow extends StatelessWidget {
             _ActionButton(
               icon: post.savedByMe ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
               color: post.savedByMe ? DesignTokens.primary : defaultColor,
-              label: 'Save',
+              label: post.savedByMe ? 'Saved' : 'Save',
               onTap: onSave,
             ),
           ],

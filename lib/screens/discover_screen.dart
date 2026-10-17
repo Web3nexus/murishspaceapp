@@ -20,6 +20,8 @@ import '../providers/live_discovery_provider.dart';
 import 'post_card.dart';
 import 'post_comments_sheet.dart';
 import 'post_report_dialog.dart';
+import '../config/env.dart';
+import '../components/share_sheet.dart';
 
 /// Complete Redesigned Discover Screen matching MurihSpace visual reference:
 /// Search bar · Category tabs (For You, Trending, People, Communities, Live) ·
@@ -2009,6 +2011,7 @@ class _FeedList extends ConsumerWidget {
       itemCount: state.posts.length,
       itemBuilder: (ctx, i) {
         final post = state.posts[i];
+        ref.read(postsProvider(source).notifier).recordView(post);
         return PostCard(
           post: post,
           myId: myId,
@@ -2024,9 +2027,26 @@ class _FeedList extends ConsumerWidget {
           onLike: () => ref
               .read(postsProvider(source).notifier)
               .toggleLike(post, myId: myId),
-          onSave: () =>
-              ref.read(postsProvider(source).notifier).toggleSave(post),
-          onShare: () => ref.read(postsProvider(source).notifier).share(post),
+          onSave: () async {
+            final wasSaved = post.savedByMe;
+            await ref.read(postsProvider(source).notifier).toggleSave(post);
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(wasSaved ? 'Post removed from bookmarks.' : 'Post saved to bookmarks! 🔖'),
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+            }
+          },
+          onShare: () async {
+            await ref.read(postsProvider(source).notifier).share(post);
+            if (context.mounted) {
+              final link = Env.absolute('/posts/${post.id}');
+              final text = post.content.isNotEmpty ? '${post.content}\n\n$link' : link;
+              AppShare.share(context, text: text, title: 'Share Post');
+            }
+          },
           onReport: () => showPostReportDialog(context, post: post),
         );
       },

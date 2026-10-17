@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../components/brand.dart';
 import '../components/ui_states.dart';
+import '../config/env.dart';
 import '../core/api_client.dart';
 import '../core/design_tokens.dart';
 import '../providers/auth_provider.dart';
@@ -24,6 +25,7 @@ import '../components/murih_icon.dart';
 import '../providers/chat_provider.dart';
 import '../providers/notifications_provider.dart';
 import '../providers/live_discovery_provider.dart';
+import '../components/share_sheet.dart';
 
 /// FB/Instagram style Home Feed screen with MurihSpace Brand Logo & Messenger jump action.
 class HomeScreen extends ConsumerStatefulWidget {
@@ -1049,11 +1051,23 @@ class _HomeFeedPosts extends ConsumerWidget {
       itemCount: state.posts.length,
       itemBuilder: (_, i) {
         final post = state.posts[i];
+        notifier.recordView(post);
         return PostCard(
           post: post,
           myId: myId,
           onLike: () => notifier.toggleLike(post, myId: myId),
-          onSave: () => notifier.toggleSave(post),
+          onSave: () async {
+            final wasSaved = post.savedByMe;
+            await notifier.toggleSave(post);
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(wasSaved ? 'Post removed from bookmarks.' : 'Post saved to bookmarks! 🔖'),
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+            }
+          },
           onCommentTap: () => showPostComments(
             context,
             post: post,
@@ -1063,9 +1077,9 @@ class _HomeFeedPosts extends ConsumerWidget {
           onShare: () async {
             await notifier.share(post);
             if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Post shared.')),
-              );
+              final link = Env.absolute('/posts/${post.id}');
+              final text = post.content.isNotEmpty ? '${post.content}\n\n$link' : link;
+              AppShare.share(context, text: text, title: 'Share Post');
             }
           },
           onReport: () async {
