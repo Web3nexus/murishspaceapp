@@ -79,27 +79,32 @@ class MessageBubble extends StatelessWidget {
       ],
     );
 
-    final content = selectionMode
-        ? Row(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.end,
+    if (selectionMode) {
+      return InkWell(
+        onTap: onToggleSelect,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              GestureDetector(
-                onTap: onToggleSelect,
-                child: _SelectionBadge(selected: selected),
+              _SelectionBadge(selected: selected),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Align(
+                  alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
+                  child: bubbleColumn,
+                ),
               ),
-              const SizedBox(width: 4),
-              Flexible(child: bubbleColumn),
             ],
-          )
-        : bubbleColumn;
+          ),
+        ),
+      );
+    }
 
     final aligned = Align(
       alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
-      child: content,
+      child: bubbleColumn,
     );
-
-    if (selectionMode) return aligned;
 
     return _SwipeToReplyWrapper(
       onReply: onReply,
@@ -218,6 +223,11 @@ class MessageBubble extends StatelessWidget {
 
   Future<void> _confirmDelete(BuildContext context) async {
     final mine = message.userId == myId;
+    final isRead = message.read == true || message.status == 'read';
+    final isWithinTimeWindow = message.createdAt != null &&
+        DateTime.now().difference(message.createdAt!).inMinutes < 15;
+    final canDeleteForEveryone = mine && !isRead && isWithinTimeWindow;
+
     final choice = await showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
@@ -233,74 +243,105 @@ class MessageBubble extends StatelessWidget {
             color: bg,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           ),
-          padding: EdgeInsets.only(
-            left: 20,
-            right: 20,
-            top: 12,
-            bottom: MediaQuery.of(ctx).viewInsets.bottom + MediaQuery.of(ctx).padding.bottom + 20,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: isDark ? Colors.white30 : Colors.black26,
-                  borderRadius: BorderRadius.circular(2),
+          child: Padding(
+            padding: EdgeInsets.only(
+              left: 20,
+              right: 20,
+              top: 12,
+              bottom: MediaQuery.of(ctx).viewInsets.bottom + MediaQuery.of(ctx).padding.bottom + 20,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.white30 : Colors.black26,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Delete Message',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: textPrimary,
+                const SizedBox(height: 16),
+                Text(
+                  'Delete Message',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: textPrimary,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                mine ? 'Delete this message for everyone, or only for you?' : 'Delete this message for you?',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 14, color: textSecondary),
-              ),
-              const SizedBox(height: 20),
-              if (mine) ...[
+                const SizedBox(height: 8),
+                Text(
+                  canDeleteForEveryone
+                      ? 'Delete this message for everyone, or only for you?'
+                      : (mine
+                          ? 'This message can only be deleted for you.'
+                          : 'Delete this message for you?'),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 14, color: textSecondary),
+                ),
+                if (mine && !canDeleteForEveryone) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF2E384D) : const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: isDark ? Colors.white12 : Colors.black12),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.info_outline_rounded, size: 16, color: textSecondary),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            isRead
+                                ? 'The recipient has already read this message, so it cannot be deleted for everyone.'
+                                : 'Messages can only be deleted for everyone within 15 minutes of sending.',
+                            style: TextStyle(fontSize: 12.5, color: textSecondary, height: 1.3),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 18),
+                if (canDeleteForEveryone) ...[
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: DesignTokens.danger,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      onPressed: () => Navigator.pop(ctx, 'everyone'),
+                      child: const Text('Delete for Everyone', style: TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                ],
                 SizedBox(
                   width: double.infinity,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: DesignTokens.danger,
-                      foregroundColor: Colors.white,
+                  child: OutlinedButton(
+                    style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 14),
-                      elevation: 0,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      side: BorderSide(color: isDark ? DesignTokens.darkBorder : DesignTokens.lightBorder),
                     ),
-                    onPressed: () => Navigator.pop(ctx, 'everyone'),
-                    child: const Text('Delete for Everyone', style: TextStyle(fontWeight: FontWeight.bold)),
+                    onPressed: () => Navigator.pop(ctx, 'me'),
+                    child: Text(mine ? 'Delete for Me' : 'Delete', style: TextStyle(color: textPrimary, fontWeight: FontWeight.bold)),
                   ),
                 ),
                 const SizedBox(height: 10),
-              ],
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton(
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    side: BorderSide(color: isDark ? DesignTokens.darkBorder : DesignTokens.lightBorder),
-                  ),
-                  onPressed: () => Navigator.pop(ctx, 'me'),
-                  child: Text(mine ? 'Delete for Me' : 'Delete', style: TextStyle(color: textPrimary, fontWeight: FontWeight.bold)),
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, null),
+                  child: Text('Cancel', style: TextStyle(color: textSecondary, fontWeight: FontWeight.w500)),
                 ),
-              ),
-              const SizedBox(height: 10),
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, null),
-                child: Text('Cancel', style: TextStyle(color: textSecondary, fontWeight: FontWeight.w500)),
-              ),
-            ],
+              ],
+            ),
           ),
         );
       },
@@ -339,24 +380,21 @@ class _SelectionBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 120),
-        width: 22,
-        height: 22,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: selected ? DesignTokens.primary : Colors.transparent,
-          border: Border.all(
-            color: selected ? DesignTokens.primary : Colors.grey.withValues(alpha: 0.6),
-            width: 2,
-          ),
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 120),
+      width: 22,
+      height: 22,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: selected ? DesignTokens.primary : Colors.transparent,
+        border: Border.all(
+          color: selected ? DesignTokens.primary : Colors.grey.withValues(alpha: 0.6),
+          width: 2,
         ),
-        child: selected
-            ? const Icon(Icons.check, size: 14, color: Colors.white)
-            : null,
       ),
+      child: selected
+          ? const Icon(Icons.check, size: 14, color: Colors.white)
+          : null,
     );
   }
 }
