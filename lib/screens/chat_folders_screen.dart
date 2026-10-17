@@ -2,11 +2,38 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/design_tokens.dart';
+import '../components/dust_effect.dart';
 import '../providers/chat_folders_provider.dart';
 
 /// Telegram iOS style Chat Folders management screen connected to chatFoldersProvider.
-class ChatFoldersScreen extends ConsumerWidget {
+class ChatFoldersScreen extends ConsumerStatefulWidget {
   const ChatFoldersScreen({super.key});
+
+  @override
+  ConsumerState<ChatFoldersScreen> createState() => _ChatFoldersScreenState();
+}
+
+class _ChatFoldersScreenState extends ConsumerState<ChatFoldersScreen> {
+  final Set<String> _deletingFolderIds = {};
+
+  Future<void> _deleteFolder(String id, String name) async {
+    if (_deletingFolderIds.contains(id)) return;
+    final notifier = ref.read(chatFoldersProvider.notifier);
+    setState(() => _deletingFolderIds.add(id));
+    try {
+      await Future.delayed(const Duration(milliseconds: 750));
+      notifier.deleteFolder(id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Folder "$name" deleted.')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _deletingFolderIds.remove(id));
+      }
+    }
+  }
 
   void _showCreateFolderSheet(BuildContext context, WidgetRef ref) {
     final nameCtrl = TextEditingController();
@@ -161,7 +188,7 @@ class ChatFoldersScreen extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final state = ref.watch(chatFoldersProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bg = isDark ? Colors.black : const Color(0xFFF2F2F7);
@@ -210,49 +237,51 @@ class ChatFoldersScreen extends ConsumerWidget {
               separatorBuilder: (_, _) => const Divider(height: 1, indent: 64),
               itemBuilder: (ctx, i) {
                 final folder = state.folders[i];
-                return ListTile(
-                  leading: Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: folder.color.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(10),
+                return DustEffectItem(
+                  key: ValueKey('folder_${folder.id}'),
+                  isDisintegrating: _deletingFolderIds.contains(folder.id),
+                  particleColor: folder.color,
+                  child: ListTile(
+                    leading: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: folder.color.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(folder.icon, color: folder.color, size: 22),
                     ),
-                    child: Icon(folder.icon, color: folder.color, size: 22),
-                  ),
-                  title: Text(
-                    folder.name,
-                    style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 15,
-                      color: textPrimary,
+                    title: Text(
+                      folder.name,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15,
+                        color: textPrimary,
+                      ),
                     ),
-                  ),
-                  subtitle: Text(
-                    folder.description,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: textSecondary,
+                    subtitle: Text(
+                      folder.description,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: textSecondary,
+                      ),
                     ),
-                  ),
-                  trailing: folder.isDefault
-                      ? Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: Colors.grey.withValues(alpha: 0.2),
-                            borderRadius: BorderRadius.circular(8),
+                    trailing: folder.isDefault
+                        ? Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.grey.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Text('DEFAULT', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)),
+                          )
+                        : IconButton(
+                            icon: const Icon(Icons.delete_outline_rounded, color: Color(0xFFFF3B30)),
+                            onPressed: _deletingFolderIds.contains(folder.id)
+                                ? null
+                                : () => _deleteFolder(folder.id, folder.name),
                           ),
-                          child: const Text('DEFAULT', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)),
-                        )
-                      : IconButton(
-                          icon: const Icon(Icons.delete_outline_rounded, color: Color(0xFFFF3B30)),
-                          onPressed: () {
-                            ref.read(chatFoldersProvider.notifier).deleteFolder(folder.id);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Folder "${folder.name}" deleted.')),
-                            );
-                          },
-                        ),
+                  ),
                 );
               },
             ),

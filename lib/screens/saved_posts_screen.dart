@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/api_client.dart';
 import '../core/design_tokens.dart';
+import '../components/dust_effect.dart';
 import '../models/community_models.dart';
 import '../providers/auth_provider.dart';
 import '../providers/saved_messages_provider.dart';
@@ -24,6 +25,8 @@ class _SavedPostsScreenState extends ConsumerState<SavedPostsScreen> with Single
   List<Post> _savedPosts = [];
   bool _loadingPosts = true;
   String? _postsError;
+  final Set<int> _deletingPostIds = {};
+  final Set<String> _deletingNoteIds = {};
 
   // Saved Notes state
   final _inputCtrl = TextEditingController();
@@ -82,6 +85,7 @@ class _SavedPostsScreenState extends ConsumerState<SavedPostsScreen> with Single
   }
 
   Future<void> _toggleSavePost(Post post) async {
+    if (_deletingPostIds.contains(post.id)) return;
     HapticFeedback.lightImpact();
     try {
       final res = await ApiClient.instance.dio.post('/posts/${post.id}/save');
@@ -90,10 +94,17 @@ class _SavedPostsScreenState extends ConsumerState<SavedPostsScreen> with Single
 
       if (mounted) {
         if (!isSaved) {
-          setState(() => _savedPosts.removeWhere((p) => p.id == post.id));
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Removed from Saved Posts.')),
-          );
+          setState(() => _deletingPostIds.add(post.id));
+          await Future.delayed(const Duration(milliseconds: 750));
+          if (mounted) {
+            setState(() {
+              _deletingPostIds.remove(post.id);
+              _savedPosts.removeWhere((p) => p.id == post.id);
+            });
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Removed from Saved Posts.')),
+            );
+          }
         }
       }
     } catch (_) {
@@ -101,6 +112,20 @@ class _SavedPostsScreenState extends ConsumerState<SavedPostsScreen> with Single
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Failed to update bookmark.')),
         );
+      }
+    }
+  }
+
+  Future<void> _deleteNote(String id) async {
+    if (_deletingNoteIds.contains(id)) return;
+    final notifier = ref.read(savedMessagesProvider.notifier);
+    setState(() => _deletingNoteIds.add(id));
+    try {
+      await Future.delayed(const Duration(milliseconds: 750));
+      notifier.deleteMessage(id);
+    } finally {
+      if (mounted) {
+        setState(() => _deletingNoteIds.remove(id));
       }
     }
   }
@@ -227,10 +252,15 @@ class _SavedPostsScreenState extends ConsumerState<SavedPostsScreen> with Single
                             separatorBuilder: (_, __) => const SizedBox(height: 12),
                             itemBuilder: (ctx, idx) {
                               final post = _savedPosts[idx];
-                              return PostCard(
-                                post: post,
-                                myId: myId,
-                                onSave: () => _toggleSavePost(post),
+                              return DustEffectItem(
+                                key: ValueKey('saved_post_${post.id}'),
+                                isDisintegrating: _deletingPostIds.contains(post.id),
+                                particleColor: DesignTokens.primary,
+                                child: PostCard(
+                                  post: post,
+                                  myId: myId,
+                                  onSave: () => _toggleSavePost(post),
+                                ),
                               );
                             },
                           ),
@@ -334,36 +364,40 @@ class _SavedPostsScreenState extends ConsumerState<SavedPostsScreen> with Single
                   separatorBuilder: (_, __) => const SizedBox(height: 10),
                   itemBuilder: (ctx, idx) {
                     final item = state.items[idx];
-                    return Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: cardBg,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: isDark ? Colors.grey[800]! : Colors.grey[200]!),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(item.content, style: TextStyle(fontSize: 14, color: textPrimary)),
-                          const SizedBox(height: 8),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: DesignTokens.primary.withOpacity(0.15),
-                                  borderRadius: BorderRadius.circular(6),
+                    return DustEffectItem(
+                      key: ValueKey('vault_note_${item.id}'),
+                      isDisintegrating: _deletingNoteIds.contains(item.id),
+                      child: Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: cardBg,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: isDark ? Colors.grey[800]! : Colors.grey[200]!),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(item.content, style: TextStyle(fontSize: 14, color: textPrimary)),
+                            const SizedBox(height: 8),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: DesignTokens.primary.withOpacity(0.15),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(item.category, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: DesignTokens.primary)),
                                 ),
-                                child: Text(item.category, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: DesignTokens.primary)),
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.delete_outline_rounded, size: 16, color: Colors.grey),
-                                onPressed: () => ref.read(savedMessagesProvider.notifier).deleteMessage(item.id),
-                              ),
-                            ],
-                          ),
-                        ],
+                                IconButton(
+                                  icon: const Icon(Icons.delete_outline_rounded, size: 16, color: Colors.grey),
+                                  onPressed: () => _deleteNote(item.id),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
                     );
                   },

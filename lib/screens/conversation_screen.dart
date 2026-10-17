@@ -20,6 +20,7 @@ import '../providers/auth_provider.dart';
 import '../providers/chat_provider.dart';
 import '../providers/messages_provider.dart';
 import '../providers/realtime_provider.dart';
+import '../components/dust_effect.dart';
 import '../components/send_gift_dialog.dart';
 import 'call_screen.dart';
 import 'chat_profile_settings_screen.dart';
@@ -48,6 +49,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
 
   bool _selectionMode = false;
   final Set<int> _selectedIds = {};
+  final Set<int> _deletingMessageIds = {};
 
   @override
   void initState() {
@@ -498,6 +500,18 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
       reverse: true,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       itemCount: itemCount,
+      findChildIndexCallback: (Key key) {
+        if (key is ValueKey<String> && key.value.startsWith('msg_col_')) {
+          final id = int.tryParse(key.value.substring(8));
+          if (id != null) {
+            final msgIdx = messages.indexWhere((m) => m.id == id);
+            if (msgIdx != -1) {
+              return typer != null ? msgIdx + 1 : msgIdx;
+            }
+          }
+        }
+        return null;
+      },
       itemBuilder: (_, i) {
         // With `reverse: true`, index 0 is at the bottom (closest to composer).
         // If someone is typing, show the typing bubble at index 0 (bottom).
@@ -509,13 +523,56 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
           if (msgIndex < messages.length) {
             final msg = messages[msgIndex];
             final showDateHeader = _isFirstOfDay(msgIndex, messages);
+            final myId = ref.watch(authProvider).user?.id;
             return Column(
+              key: ValueKey('msg_col_${msg.id}'),
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (showDateHeader) _ChatDateHeader(date: msg.createdAt),
-                MessageBubble(
+                DustEffectItem(
+                  key: ValueKey('dust_msg_${msg.id}'),
+                  isDisintegrating: _deletingMessageIds.contains(msg.id),
+                  particleColor: msg.userId == myId ? DesignTokens.primary : null,
+                  child: MessageBubble(
+                    message: msg,
+                    myId: myId,
+                    showSenderName: isGroup,
+                    selectionMode: _selectionMode,
+                    selected: _selectedIds.contains(msg.id),
+                    onToggleSelect: () => _handleSelectTap(msg),
+                    onReact: (emoji) => _toggleReaction(msg, emoji),
+                    onReply: () => setState(() => _replyTo = msg),
+                    onDelete: (forEveryone) => _deleteMessage(msg, forEveryone),
+                    onForward: () => _forwardMessage(msg),
+                    onRetry: msg.status == 'failed'
+                        ? () => ref.read(conversationMessagesProvider(widget.conversationId).notifier)
+                              .retrySending(msg)
+                        : null,
+                    onCall: _startCall,
+                  ),
+                ),
+              ],
+            );
+          }
+          return _topLoader(state);
+        }
+
+        if (i < messages.length) {
+          final msg = messages[i];
+          final showDateHeader = _isFirstOfDay(i, messages);
+          final myId = ref.watch(authProvider).user?.id;
+          return Column(
+            key: ValueKey('msg_col_${msg.id}'),
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (showDateHeader) _ChatDateHeader(date: msg.createdAt),
+              DustEffectItem(
+                key: ValueKey('dust_msg_${msg.id}'),
+                isDisintegrating: _deletingMessageIds.contains(msg.id),
+                particleColor: msg.userId == myId ? DesignTokens.primary : null,
+                child: MessageBubble(
                   message: msg,
-                  myId: ref.watch(authProvider).user?.id,
+                  myId: myId,
                   showSenderName: isGroup,
                   selectionMode: _selectionMode,
                   selected: _selectedIds.contains(msg.id),
@@ -530,35 +587,6 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                       : null,
                   onCall: _startCall,
                 ),
-              ],
-            );
-          }
-          return _topLoader(state);
-        }
-
-        if (i < messages.length) {
-          final msg = messages[i];
-          final showDateHeader = _isFirstOfDay(i, messages);
-          return Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (showDateHeader) _ChatDateHeader(date: msg.createdAt),
-              MessageBubble(
-                message: msg,
-                myId: ref.watch(authProvider).user?.id,
-                showSenderName: isGroup,
-                selectionMode: _selectionMode,
-                selected: _selectedIds.contains(msg.id),
-                onToggleSelect: () => _handleSelectTap(msg),
-                onReact: (emoji) => _toggleReaction(msg, emoji),
-                onReply: () => setState(() => _replyTo = msg),
-                onDelete: (forEveryone) => _deleteMessage(msg, forEveryone),
-                onForward: () => _forwardMessage(msg),
-                onRetry: msg.status == 'failed'
-                    ? () => ref.read(conversationMessagesProvider(widget.conversationId).notifier)
-                          .retrySending(msg)
-                    : null,
-                onCall: _startCall,
               ),
             ],
           );
@@ -609,13 +637,35 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
       return;
     }
 
-    final ok = await ref
-        .read(conversationMessagesProvider(widget.conversationId).notifier)
-        .deleteMessage(message.id, forEveryone: forEveryone);
-    if (!ok && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not delete this message.')),
-      );
+    final notifier = ref.read(conversationMessagesProvider(widget.conversationId).notifier);
+    if (mounted) {
+      setState(() {
+        _deletingMessageIds.add(message.id);
+      });
+    }
+
+    try {
+      // Allow dust particles disintegration and collapse animation to complete
+      await Future.delayed(const Duration(milliseconds: 750));
+
+      if (!mounted) return;
+      if (_isConversationLocked()) {
+        await _showLockedNotice();
+        return;
+      }
+
+      final ok = await notifier.deleteMessage(message.id, forEveryone: forEveryone);
+      if (!ok && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not delete this message.')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _deletingMessageIds.remove(message.id);
+        });
+      }
     }
   }
 
@@ -694,21 +744,40 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
       });
       return;
     }
+
     final notifier = ref.read(conversationMessagesProvider(widget.conversationId).notifier);
-    var failed = 0;
-    for (final id in ids) {
-      final ok = await notifier.deleteMessage(id, forEveryone: false);
-      if (!ok) failed++;
-    }
-    if (!mounted) return;
     setState(() {
+      _deletingMessageIds.addAll(ids);
       _selectionMode = false;
       _selectedIds.clear();
     });
-    if (failed > 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$failed message${failed == 1 ? '' : 's'} could not be deleted.')),
-      );
+
+    try {
+      // Let the dust disintegration animation play across all selected messages
+      await Future.delayed(const Duration(milliseconds: 750));
+
+      if (!mounted) return;
+      if (_isConversationLocked()) {
+        await _showLockedNotice();
+        return;
+      }
+
+      var failed = 0;
+      for (final id in ids) {
+        final ok = await notifier.deleteMessage(id, forEveryone: false);
+        if (!ok) failed++;
+      }
+      if (failed > 0 && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$failed message${failed == 1 ? '' : 's'} could not be deleted.')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _deletingMessageIds.removeAll(ids);
+        });
+      }
     }
   }
 
