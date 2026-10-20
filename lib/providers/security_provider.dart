@@ -1,8 +1,15 @@
 import 'dart:convert';
+import 'dart:isolate';
+import 'dart:math';
+import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:local_auth/local_auth.dart';
+import 'package:pointycastle/digests/sha256.dart';
+import 'package:pointycastle/key_derivators/api.dart';
+import 'package:pointycastle/key_derivators/pbkdf2.dart';
+import 'package:pointycastle/macs/hmac.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class SecurityState {
@@ -127,7 +134,9 @@ class SecurityNotifier extends Notifier<SecurityState> {
     } else {
       _lastPeriodicCheck = DateTime.now();
       await prefs.setString(
-          'last_periodic_check', _lastPeriodicCheck!.toIso8601String());
+        'last_periodic_check',
+        _lastPeriodicCheck!.toIso8601String(),
+      );
     }
 
     if (!ref.mounted) return;
@@ -144,7 +153,7 @@ class SecurityNotifier extends Notifier<SecurityState> {
   }
 
   Future<void> setTransactionPin(String newPin) async {
-    final hash = _hashPin(newPin);
+    final hash = await _hashPin(newPin);
     await _secureStorage.write(key: 'txn_pin_hash', value: hash);
     if (ref.mounted) {
       state = state.copyWith(isTransactionPinSet: true);
@@ -157,7 +166,11 @@ class SecurityNotifier extends Notifier<SecurityState> {
     final storedHash = await _secureStorage.read(key: 'txn_pin_hash');
     if (storedHash == null) return false;
 
-    final isCorrect = _hashPin(pin) == storedHash;
+    final isCorrect = await _checkPinAndMigrate(
+      pin,
+      storedHash,
+      'txn_pin_hash',
+    );
     if (isCorrect) {
       if (ref.mounted) {
         state = state.copyWith(failedPinAttempts: 0, clearLockout: true);
@@ -200,12 +213,14 @@ class SecurityNotifier extends Notifier<SecurityState> {
       return false;
     }
     try {
-      final isAvailable = await _localAuth.canCheckBiometrics ||
+      final isAvailable =
+          await _localAuth.canCheckBiometrics ||
           await _localAuth.isDeviceSupported();
       if (!isAvailable) return false;
 
       final authenticated = await _localAuth.authenticate(
-        localizedReason: reason ?? 'Unlock MurihSpace with ${state.biometricLabel}',
+        localizedReason:
+            reason ?? 'Unlock MurihSpace with ${state.biometricLabel}',
         persistAcrossBackgrounding: true,
         biometricOnly: true,
       );
@@ -226,8 +241,7 @@ class SecurityNotifier extends Notifier<SecurityState> {
     final storedHash = await _secureStorage.read(key: 'app_pin_hash');
     if (storedHash == null) return false;
 
-    final inputHash = _hashPin(pin);
-    if (inputHash == storedHash) {
+    if (await _checkPinAndMigrate(pin, storedHash, 'app_pin_hash')) {
       _unlock();
       return true;
     }
@@ -257,10 +271,14 @@ class SecurityNotifier extends Notifier<SecurityState> {
     _lastActiveTime = DateTime.now();
     _lastPeriodicCheck = DateTime.now();
 
-    SharedPreferences.getInstance().then((prefs) async {
-      await prefs.setString(
-          'last_periodic_check', _lastPeriodicCheck!.toIso8601String());
-    }).then<void>((_) {}, onError: (_) {});
+    SharedPreferences.getInstance()
+        .then((prefs) async {
+          await prefs.setString(
+            'last_periodic_check',
+            _lastPeriodicCheck!.toIso8601String(),
+          );
+        })
+        .then<void>((_) {}, onError: (_) {});
 
     if (ref.mounted) {
       state = state.copyWith(
@@ -272,7 +290,7 @@ class SecurityNotifier extends Notifier<SecurityState> {
   }
 
   Future<void> setPin(String newPin) async {
-    final hash = _hashPin(newPin);
+    final hash = await _hashPin(newPin);
     await _secureStorage.write(key: 'app_pin_hash', value: hash);
     _unlock();
     if (ref.mounted) {
@@ -312,11 +330,157 @@ class SecurityNotifier extends Notifier<SecurityState> {
     }
   }
 
-  String _hashPin(String pin) {
-    final bytes = utf8.encode(pin + "murih_space_salt_2026");
-    return sha256.convert(bytes).toString();
+  Future<String> _hashPin(String pin) => hashPinForStorageAsync(pin);
+
+  /// Checks [pin] against [storedHash]. A legacy SHA-256 hash that matches is
+  /// re-hashed in the current format and written back under [storageKey], so
+  /// the legacy check runs at most once per user. A failed write-back never
+  /// fails the unlock.
+  Future<bool> _checkPinAndMigrate(
+    String pin,
+    String storedHash,
+    String storageKey,
+  ) async {
+    if (!isPbkdf2PinHash(storedHash)) {
+      if (!verifyLegacyPinHash(pin, storedHash)) return false;
+      try {
+        await _secureStorage.write(
+          key: storageKey,
+          value: await hashPinForStorageAsync(pin),
+        );
+      } catch (_) {}
+      return true;
+    }
+    return verifyPbkdf2PinHashAsync(pin, storedHash);
   }
 }
 
-final securityProvider =
-    NotifierProvider<SecurityNotifier, SecurityState>(SecurityNotifier.new);
+const _pinHashPrefix = 'pbkdf2-sha256';
+const _pinHashIterations = 210000;
+const _pinHashSaltBytes = 16;
+const _pinHashKeyBytes = 32;
+
+/// Encodes a new PIN hash as `pbkdf2-sha256$<iterations>$<salt b64>$<hash b64>`
+/// with a fresh random salt on every call.
+String hashPinForStorage(String pin, {Random? random}) {
+  final rng = random ?? Random.secure();
+  final salt = Uint8List.fromList(
+    List<int>.generate(_pinHashSaltBytes, (_) => rng.nextInt(256)),
+  );
+  final key = pbkdf2HmacSha256(
+    utf8.encode(pin),
+    salt,
+    _pinHashIterations,
+    _pinHashKeyBytes,
+  );
+  return '$_pinHashPrefix\$$_pinHashIterations\$${base64Encode(salt)}\$${base64Encode(key)}';
+}
+
+bool isPbkdf2PinHash(String stored) => stored.startsWith('$_pinHashPrefix\$');
+
+/// Verifies [pin] against a value in the current PBKDF2 format. Malformed
+/// values fail closed.
+bool verifyPbkdf2PinHash(String pin, String stored) {
+  final parts = stored.split('\$');
+  if (parts.length != 4 || parts[0] != _pinHashPrefix) return false;
+  final iterations = int.tryParse(parts[1]);
+  if (iterations == null || iterations < 1) return false;
+  try {
+    final salt = base64Decode(parts[2]);
+    final expected = base64Decode(parts[3]);
+    final actual = pbkdf2HmacSha256(
+      utf8.encode(pin),
+      salt,
+      iterations,
+      expected.length,
+    );
+    return _constantTimeEquals(actual, expected);
+  } on FormatException {
+    return false;
+  }
+}
+
+/// Same output as [hashPinForStorage], but the PBKDF2 derivation runs in a
+/// background isolate so the UI thread stays responsive. The salt is still
+/// drawn on the calling isolate.
+Future<String> hashPinForStorageAsync(String pin, {Random? random}) async {
+  final rng = random ?? Random.secure();
+  final salt = Uint8List.fromList(
+    List<int>.generate(_pinHashSaltBytes, (_) => rng.nextInt(256)),
+  );
+  final key = await _derivePinKeyInIsolate(
+    utf8.encode(pin),
+    salt,
+    _pinHashIterations,
+    _pinHashKeyBytes,
+  );
+  return '$_pinHashPrefix\$$_pinHashIterations\$${base64Encode(salt)}\$${base64Encode(key)}';
+}
+
+/// Async counterpart of [verifyPbkdf2PinHash] with identical results. The
+/// key derivation runs in a background isolate; parsing and the comparison
+/// stay on the calling isolate.
+Future<bool> verifyPbkdf2PinHashAsync(String pin, String stored) async {
+  final parts = stored.split('\$');
+  if (parts.length != 4 || parts[0] != _pinHashPrefix) return false;
+  final iterations = int.tryParse(parts[1]);
+  if (iterations == null || iterations < 1) return false;
+  try {
+    final salt = base64Decode(parts[2]);
+    final expected = base64Decode(parts[3]);
+    final actual = await _derivePinKeyInIsolate(
+      utf8.encode(pin),
+      salt,
+      iterations,
+      expected.length,
+    );
+    return _constantTimeEquals(actual, expected);
+  } on FormatException {
+    return false;
+  }
+}
+
+Future<Uint8List> _derivePinKeyInIsolate(
+  List<int> password,
+  List<int> salt,
+  int iterations,
+  int keyLength,
+) {
+  return Isolate.run(
+    () => pbkdf2HmacSha256(password, salt, iterations, keyLength),
+  );
+}
+
+/// Verifies [pin] against the legacy unsalted-per-user SHA-256 format.
+/// Used only to migrate existing PINs.
+bool verifyLegacyPinHash(String pin, String stored) {
+  final legacy = sha256.convert(utf8.encode('${pin}murih_space_salt_2026'));
+  return _constantTimeEquals(
+    utf8.encode(legacy.toString()),
+    utf8.encode(stored),
+  );
+}
+
+Uint8List pbkdf2HmacSha256(
+  List<int> password,
+  List<int> salt,
+  int iterations,
+  int keyLength,
+) {
+  final derivator = PBKDF2KeyDerivator(HMac(SHA256Digest(), 64))
+    ..init(Pbkdf2Parameters(Uint8List.fromList(salt), iterations, keyLength));
+  return derivator.process(Uint8List.fromList(password));
+}
+
+bool _constantTimeEquals(List<int> a, List<int> b) {
+  if (a.length != b.length) return false;
+  var diff = 0;
+  for (var i = 0; i < a.length; i++) {
+    diff |= a[i] ^ b[i];
+  }
+  return diff == 0;
+}
+
+final securityProvider = NotifierProvider<SecurityNotifier, SecurityState>(
+  SecurityNotifier.new,
+);

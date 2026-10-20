@@ -139,7 +139,7 @@ class PushService {
 
   Future<void> _sendTokenToBackend(String token) async {
     _lastToken = token;
-    debugPrint('[PushService] FCM Token: $token');
+    debugPrint('[PushService] FCM token received');
     try {
       final authToken = await ApiClient.readToken();
       if (authToken == null || authToken.isEmpty) {

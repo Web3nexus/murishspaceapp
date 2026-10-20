@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../components/app_bottom_sheet.dart';
+import '../config/env.dart';
 import '../core/api_client.dart';
 import '../core/currency_formatter.dart';
 import '../core/design_tokens.dart';
@@ -26,7 +28,9 @@ class _AdsManagerScreenState extends ConsumerState<AdsManagerScreen>
 
   // New Ad Campaign state
   String _selectedObjective = 'Catalog Sales';
-  final _campaignTitleController = TextEditingController(text: 'Summer Catalog Special');
+  final _campaignTitleController = TextEditingController(
+    text: 'Summer Catalog Special',
+  );
   double _dailyBudget = 25.0;
   int _durationDays = 7;
   String _ctaButtonText = 'Shop Now';
@@ -70,19 +74,36 @@ class _AdsManagerScreenState extends ConsumerState<AdsManagerScreen>
         for (final e in objs) {
           if (e is Map) parsed.add(Map<String, dynamic>.from(e));
         }
-        if (parsed.isNotEmpty) setState(() => _objectives..clear()..addAll(parsed));
+        if (parsed.isNotEmpty)
+          setState(
+            () => _objectives
+              ..clear()
+              ..addAll(parsed),
+          );
       }
       final ctas = m['cta_options'];
       if (ctas is List && ctas.isNotEmpty) {
-        setState(() => _ctaOptions..clear()..addAll(ctas.map((e) => e.toString())));
+        setState(
+          () => _ctaOptions
+            ..clear()
+            ..addAll(ctas.map((e) => e.toString())),
+        );
       }
       final sts = m['statuses'];
       if (sts is List) {
-        setState(() => _campaignStatuses..clear()..addAll(sts.map((e) => e.toString())));
+        setState(
+          () => _campaignStatuses
+            ..clear()
+            ..addAll(sts.map((e) => e.toString())),
+        );
       }
       final rev = m['review_statuses'];
       if (rev is List) {
-        setState(() => _reviewStatuses..clear()..addAll(rev.map((e) => e.toString())));
+        setState(
+          () => _reviewStatuses
+            ..clear()
+            ..addAll(rev.map((e) => e.toString())),
+        );
       }
     } catch (_) {}
   }
@@ -122,13 +143,6 @@ class _AdsManagerScreenState extends ConsumerState<AdsManagerScreen>
     return null;
   }
 
-  String _objectiveLabelFor(String? code) {
-    for (final o in _objectives) {
-      if (o['value']?.toString() == code) return o['label']?.toString() ?? code ?? '';
-    }
-    return code?.replaceAll('_', ' ') ?? '';
-  }
-
   @override
   void dispose() {
     _tabController.dispose();
@@ -164,8 +178,11 @@ class _AdsManagerScreenState extends ConsumerState<AdsManagerScreen>
                 color: const Color(0xFFFF9500).withOpacity(0.15),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.verified_user_rounded,
-                  color: Color(0xFFFF9500), size: 36),
+              child: const Icon(
+                Icons.verified_user_rounded,
+                color: Color(0xFFFF9500),
+                size: 36,
+              ),
             ),
             const SizedBox(height: 16),
             const Text(
@@ -176,7 +193,10 @@ class _AdsManagerScreenState extends ConsumerState<AdsManagerScreen>
             const SizedBox(height: 8),
             Text(
               'High-conversion Ad Campaigns require a verified Creator or Vendor account to ensure safety and trust across MurihSpace Escrow.',
-              style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600], fontSize: 13),
+              style: TextStyle(
+                color: isDark ? Colors.grey[400] : Colors.grey[600],
+                fontSize: 13,
+              ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
@@ -191,9 +211,14 @@ class _AdsManagerScreenState extends ConsumerState<AdsManagerScreen>
                 style: ElevatedButton.styleFrom(
                   backgroundColor: DesignTokens.primary,
                   foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
                 ),
-                child: const Text('Verify Identity (KYC)', style: TextStyle(fontWeight: FontWeight.bold)),
+                child: const Text(
+                  'Verify Identity (KYC)',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
               ),
             ),
             const SizedBox(height: 10),
@@ -206,9 +231,14 @@ class _AdsManagerScreenState extends ConsumerState<AdsManagerScreen>
                   context.push('/upgrade-account');
                 },
                 style: OutlinedButton.styleFrom(
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
                 ),
-                child: const Text('Upgrade to Creator or Vendor', style: TextStyle(fontWeight: FontWeight.bold)),
+                child: const Text(
+                  'Upgrade to Creator or Vendor',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
               ),
             ),
           ],
@@ -229,14 +259,17 @@ class _AdsManagerScreenState extends ConsumerState<AdsManagerScreen>
     final activeW = wallet.wallets.isNotEmpty ? wallet.wallets.first : null;
     final bal = (activeW?.available ?? 0) / 100.0;
 
-    final sysWallet = wallet.wallets.where((w) => w.type == WalletType.system).firstOrNull;
+    final sysWallet = wallet.wallets
+        .where((w) => w.type == WalletType.system)
+        .firstOrNull;
     final localRate = sysWallet?.localRate ?? 0.0;
     final localCurrency = sysWallet?.localCurrency ?? 'USD';
 
     final confirm = await AppBottomSheet.showConfirmation(
       context: context,
       title: 'Confirm Campaign Launch',
-      message: 'Campaign: ${_campaignTitleController.text}\nObjective: $_selectedObjective\nDuration: $_durationDays Days\nTotal Budget: ${CurrencyFormatter.formatDual((totalBudget * 100).round(), localRate: localRate, localCurrency: localCurrency)}\nWallet Balance: \$${bal.toStringAsFixed(2)}',
+      message:
+          'Campaign: ${_campaignTitleController.text}\nObjective: $_selectedObjective\nDuration: $_durationDays Days\nTotal Budget: ${CurrencyFormatter.formatDual((totalBudget * 100).round(), localRate: localRate, localCurrency: localCurrency)}\nWallet Balance: \$${bal.toStringAsFixed(2)}',
       confirmText: 'Launch Now',
       icon: Icons.campaign_rounded,
     );
@@ -248,25 +281,38 @@ class _AdsManagerScreenState extends ConsumerState<AdsManagerScreen>
       final productId = int.tryParse(_selectedCatalogItem?.id ?? '');
 
       try {
-        final res = await ApiClient.instance.dio.post('/ads', data: {
-          'name': _campaignTitleController.text.trim(),
-          'objective': _objectiveCodeFor(_selectedObjective) ?? 'product_sales',
-          'daily_budget': _dailyBudget,
-          'total_budget': totalBudget,
-          'start_date': start.toIso8601String(),
-          'end_date': end.toIso8601String(),
-          'targeting': <String, dynamic>{},
-          'placements': ['home_feed', 'community_feed', 'video_feed', 'marketplace', 'search'],
-          'headline': _campaignTitleController.text.trim(),
-          'description': 'Promoted catalog item via MurihSpace Ads.',
-          'cta_text': _ctaButtonText,
-          'destination_url': null,
-          'media_url': image.isEmpty ? null : image,
-          'media_type': image.isEmpty ? null : 'image',
-          if (_selectedCatalogItem != null)
-            'promotable_type': _selectedCatalogItem!.productType == 'digital' ? 'digital' : 'physical',
-          if (_selectedCatalogItem != null && productId != null) 'promotable_id': productId,
-        });
+        final res = await ApiClient.instance.dio.post(
+          '/ads',
+          data: {
+            'name': _campaignTitleController.text.trim(),
+            'objective':
+                _objectiveCodeFor(_selectedObjective) ?? 'product_sales',
+            'daily_budget': _dailyBudget,
+            'total_budget': totalBudget,
+            'start_date': start.toIso8601String(),
+            'end_date': end.toIso8601String(),
+            'targeting': <String, dynamic>{},
+            'placements': [
+              'home_feed',
+              'community_feed',
+              'video_feed',
+              'marketplace',
+              'search',
+            ],
+            'headline': _campaignTitleController.text.trim(),
+            'description': 'Promoted catalog item via MurihSpace Ads.',
+            'cta_text': _ctaButtonText,
+            'destination_url': null,
+            'media_url': image.isEmpty ? null : image,
+            'media_type': image.isEmpty ? null : 'image',
+            if (_selectedCatalogItem != null)
+              'promotable_type': _selectedCatalogItem!.productType == 'digital'
+                  ? 'digital'
+                  : 'physical',
+            if (_selectedCatalogItem != null && productId != null)
+              'promotable_id': productId,
+          },
+        );
         ApiClient.instance.unwrap(res);
 
         await _fetchCampaigns();
@@ -275,7 +321,9 @@ class _AdsManagerScreenState extends ConsumerState<AdsManagerScreen>
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Campaign launched! It was submitted for review and is now live.'),
+            content: Text(
+              'Campaign launched! It was submitted for review and is now live.',
+            ),
             backgroundColor: Color(0xFF34C759),
           ),
         );
@@ -308,7 +356,11 @@ class _AdsManagerScreenState extends ConsumerState<AdsManagerScreen>
         scrolledUnderElevation: 0,
         title: Text(
           'Sponsored Ads & Catalog Hub',
-          style: TextStyle(color: textPrimary, fontWeight: FontWeight.w900, fontSize: 20),
+          style: TextStyle(
+            color: textPrimary,
+            fontWeight: FontWeight.w900,
+            fontSize: 20,
+          ),
         ),
         bottom: TabBar(
           controller: _tabController,
@@ -316,7 +368,10 @@ class _AdsManagerScreenState extends ConsumerState<AdsManagerScreen>
           unselectedLabelColor: textSecondary,
           indicatorColor: DesignTokens.primary,
           indicatorWeight: 3,
-          labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+          labelStyle: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 13,
+          ),
           tabs: const [
             Tab(text: 'Create Ad'),
             Tab(text: 'Catalog View'),
@@ -329,117 +384,161 @@ class _AdsManagerScreenState extends ConsumerState<AdsManagerScreen>
           // "For You: Create Your Ads Today" Banner Card — Premium Clean Design
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-            child: Builder(builder: (context) {
-              final isDarkCard = Theme.of(context).brightness == Brightness.dark;
-              final cardBg = isDarkCard ? const Color(0xFF1A1D27) : const Color(0xFFF8FAFC);
-              final borderColor = isDarkCard ? const Color(0xFF2E3347) : const Color(0xFFDDE3EF);
-              final titleColor = isDarkCard ? Colors.white : const Color(0xFF0D1117);
-              final subtitleColor = isDarkCard ? const Color(0xFF8B92A5) : const Color(0xFF5A6478);
+            child: Builder(
+              builder: (context) {
+                final isDarkCard =
+                    Theme.of(context).brightness == Brightness.dark;
+                final cardBg = isDarkCard
+                    ? const Color(0xFF1A1D27)
+                    : const Color(0xFFF8FAFC);
+                final borderColor = isDarkCard
+                    ? const Color(0xFF2E3347)
+                    : const Color(0xFFDDE3EF);
+                final titleColor = isDarkCard
+                    ? Colors.white
+                    : const Color(0xFF0D1117);
+                final subtitleColor = isDarkCard
+                    ? const Color(0xFF8B92A5)
+                    : const Color(0xFF5A6478);
 
-              return Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: cardBg,
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: borderColor, width: 1),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(isDarkCard ? 0.25 : 0.06),
-                      blurRadius: 12,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    // Left accent bar
-                    Container(
-                      width: 3,
-                      height: 64,
-                      margin: const EdgeInsets.only(right: 14),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF00C9A7),
-                        borderRadius: BorderRadius.circular(4),
+                return Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: cardBg,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: borderColor, width: 1),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(
+                          isDarkCard ? 0.25 : 0.06,
+                        ),
+                        blurRadius: 12,
+                        offset: const Offset(0, 3),
                       ),
-                    ),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF00C9A7).withOpacity(0.12),
-                                  borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(
-                                    color: const Color(0xFF00C9A7).withOpacity(0.3),
-                                    width: 1,
-                                  ),
-                                ),
-                                child: const Text(
-                                  'FOR YOU',
-                                  style: TextStyle(
-                                    color: Color(0xFF00C9A7),
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: 9,
-                                    letterSpacing: 0.8,
-                                  ),
-                                ),
-                              ),
-                              if (!verified) ...[
-                                const SizedBox(width: 8),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      // Left accent bar
+                      Container(
+                        width: 3,
+                        height: 64,
+                        margin: const EdgeInsets.only(right: 14),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF00C9A7),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 7,
+                                    vertical: 3,
+                                  ),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFFFF9500).withOpacity(0.12),
+                                    color: const Color(
+                                      0xFF00C9A7,
+                                    ).withOpacity(0.12),
                                     borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(
+                                      color: const Color(
+                                        0xFF00C9A7,
+                                      ).withOpacity(0.3),
+                                      width: 1,
+                                    ),
                                   ),
                                   child: const Text(
-                                    'Verification Needed',
-                                    style: TextStyle(color: Color(0xFFFF9500), fontWeight: FontWeight.bold, fontSize: 9),
+                                    'FOR YOU',
+                                    style: TextStyle(
+                                      color: Color(0xFF00C9A7),
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 9,
+                                      letterSpacing: 0.8,
+                                    ),
                                   ),
                                 ),
+                                if (!verified) ...[
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 7,
+                                      vertical: 3,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: const Color(
+                                        0xFFFF9500,
+                                      ).withOpacity(0.12),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: const Text(
+                                      'Verification Needed',
+                                      style: TextStyle(
+                                        color: Color(0xFFFF9500),
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 9,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ],
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Create Your Ads Today',
-                            style: TextStyle(
-                              color: titleColor,
-                              fontSize: 17,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: -0.3,
                             ),
-                          ),
-                          const SizedBox(height: 3),
-                          Text(
-                            'Promote products & boost high-conversion sales across feeds and messenger.',
-                            style: TextStyle(color: subtitleColor, fontSize: 12, height: 1.4),
-                          ),
-                        ],
+                            const SizedBox(height: 8),
+                            Text(
+                              'Create Your Ads Today',
+                              style: TextStyle(
+                                color: titleColor,
+                                fontSize: 17,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: -0.3,
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              'Promote products & boost high-conversion sales across feeds and messenger.',
+                              style: TextStyle(
+                                color: subtitleColor,
+                                fontSize: 12,
+                                height: 1.4,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    ElevatedButton(
-                      onPressed: () {
-                        _tabController.animateTo(0);
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF00C9A7),
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        elevation: 0,
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      const SizedBox(width: 12),
+                      ElevatedButton(
+                        onPressed: () {
+                          _tabController.animateTo(0);
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF00C9A7),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 10,
+                          ),
+                        ),
+                        child: const Text(
+                          'Start Ad',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 13,
+                          ),
+                        ),
                       ),
-                      child: const Text('Start Ad', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
-                    ),
-                  ],
-                ),
-              );
-            }),
+                    ],
+                  ),
+                );
+              },
+            ),
           ),
 
           Expanded(
@@ -450,7 +549,12 @@ class _AdsManagerScreenState extends ConsumerState<AdsManagerScreen>
                 _buildCreateAdTab(cardBg, textPrimary, textSecondary, isDark),
 
                 // Tab 2: Catalog View (Promote Catalog Items)
-                _buildCatalogViewTab(cardBg, textPrimary, textSecondary, isDark),
+                _buildCatalogViewTab(
+                  cardBg,
+                  textPrimary,
+                  textSecondary,
+                  isDark,
+                ),
 
                 // Tab 3: Status View (Promoted Ads Tracking)
                 _buildStatusViewTab(cardBg, textPrimary, textSecondary, isDark),
@@ -465,15 +569,27 @@ class _AdsManagerScreenState extends ConsumerState<AdsManagerScreen>
   // ---------------------------------------------------------------------------
   // TAB 1: Conversions for Ads Creation
   // ---------------------------------------------------------------------------
-  Widget _buildCreateAdTab(Color cardBg, Color textPrimary, Color? textSecondary, bool isDark) {
+  Widget _buildCreateAdTab(
+    Color cardBg,
+    Color textPrimary,
+    Color? textSecondary,
+    bool isDark,
+  ) {
     // Objectives and CTAs come from GET /ads/meta (server-driven), with a
     // safe fallback only while the initial request is in flight.
     final objectives = _objectives.isNotEmpty
-        ? _objectives.map((o) => o['label']?.toString() ?? '').where((e) => e.isNotEmpty).toList()
+        ? _objectives
+              .map((o) => o['label']?.toString() ?? '')
+              .where((e) => e.isNotEmpty)
+              .toList()
         : const ['Catalog Sales'];
     final ctaOptions = _ctaOptions;
 
-    final sysWallet = ref.watch(walletProvider).wallets.where((w) => w.type == WalletType.system).firstOrNull;
+    final sysWallet = ref
+        .watch(walletProvider)
+        .wallets
+        .where((w) => w.type == WalletType.system)
+        .firstOrNull;
     final localRate = sysWallet?.localRate ?? 0.0;
     final localCurrency = sysWallet?.localCurrency ?? 'USD';
 
@@ -482,8 +598,14 @@ class _AdsManagerScreenState extends ConsumerState<AdsManagerScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Select Campaign Objective',
-              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: textPrimary)),
+          Text(
+            'Select Campaign Objective',
+            style: TextStyle(
+              fontWeight: FontWeight.w800,
+              fontSize: 15,
+              color: textPrimary,
+            ),
+          ),
           const SizedBox(height: 8),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
@@ -498,7 +620,9 @@ class _AdsManagerScreenState extends ConsumerState<AdsManagerScreen>
                     selectedColor: DesignTokens.primary,
                     labelStyle: TextStyle(
                       color: selected ? Colors.white : textPrimary,
-                      fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+                      fontWeight: selected
+                          ? FontWeight.bold
+                          : FontWeight.normal,
                     ),
                     onSelected: (val) {
                       if (val) setState(() => _selectedObjective = obj);
@@ -510,12 +634,21 @@ class _AdsManagerScreenState extends ConsumerState<AdsManagerScreen>
           ),
           const SizedBox(height: 18),
 
-          Text('Campaign Details',
-              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: textPrimary)),
+          Text(
+            'Campaign Details',
+            style: TextStyle(
+              fontWeight: FontWeight.w800,
+              fontSize: 15,
+              color: textPrimary,
+            ),
+          ),
           const SizedBox(height: 8),
           Container(
             padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(color: cardBg, borderRadius: BorderRadius.circular(16)),
+            decoration: BoxDecoration(
+              color: cardBg,
+              borderRadius: BorderRadius.circular(16),
+            ),
             child: Column(
               children: [
                 TextField(
@@ -524,7 +657,9 @@ class _AdsManagerScreenState extends ConsumerState<AdsManagerScreen>
                   decoration: InputDecoration(
                     labelText: 'Campaign Name',
                     labelStyle: TextStyle(color: textSecondary),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 14),
@@ -534,10 +669,15 @@ class _AdsManagerScreenState extends ConsumerState<AdsManagerScreen>
                   decoration: InputDecoration(
                     labelText: 'Call to Action Button',
                     labelStyle: TextStyle(color: textSecondary),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                   items: ctaOptions.map((opt) {
-                    return DropdownMenuItem(value: opt, child: Text(opt, style: TextStyle(color: textPrimary)));
+                    return DropdownMenuItem(
+                      value: opt,
+                      child: Text(opt, style: TextStyle(color: textPrimary)),
+                    );
                   }).toList(),
                   onChanged: (val) {
                     if (val != null) setState(() => _ctaButtonText = val);
@@ -548,21 +688,39 @@ class _AdsManagerScreenState extends ConsumerState<AdsManagerScreen>
           ),
           const SizedBox(height: 18),
 
-          Text('Budget & Duration',
-              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: textPrimary)),
+          Text(
+            'Budget & Duration',
+            style: TextStyle(
+              fontWeight: FontWeight.w800,
+              fontSize: 15,
+              color: textPrimary,
+            ),
+          ),
           const SizedBox(height: 8),
           Container(
             padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(color: cardBg, borderRadius: BorderRadius.circular(16)),
+            decoration: BoxDecoration(
+              color: cardBg,
+              borderRadius: BorderRadius.circular(16),
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Daily Budget:', style: TextStyle(color: textSecondary, fontSize: 14)),
-                    Text('\$${_dailyBudget.toInt()}/day',
-                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: DesignTokens.primary)),
+                    Text(
+                      'Daily Budget:',
+                      style: TextStyle(color: textSecondary, fontSize: 14),
+                    ),
+                    Text(
+                      '\$${_dailyBudget.toInt()}/day',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 16,
+                        color: DesignTokens.primary,
+                      ),
+                    ),
                   ],
                 ),
                 Slider(
@@ -577,9 +735,18 @@ class _AdsManagerScreenState extends ConsumerState<AdsManagerScreen>
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Duration:', style: TextStyle(color: textSecondary, fontSize: 14)),
-                    Text('$_durationDays Days',
-                        style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: textPrimary)),
+                    Text(
+                      'Duration:',
+                      style: TextStyle(color: textSecondary, fontSize: 14),
+                    ),
+                    Text(
+                      '$_durationDays Days',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 15,
+                        color: textPrimary,
+                      ),
+                    ),
                   ],
                 ),
                 Slider(
@@ -588,16 +755,31 @@ class _AdsManagerScreenState extends ConsumerState<AdsManagerScreen>
                   max: 30,
                   divisions: 29,
                   activeColor: const Color(0xFF5856D6),
-                  onChanged: (val) => setState(() => _durationDays = val.toInt()),
+                  onChanged: (val) =>
+                      setState(() => _durationDays = val.toInt()),
                 ),
                 const Divider(),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('Total Budget:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                    const Text(
+                      'Total Budget:',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                      ),
+                    ),
                     Text(
-                      CurrencyFormatter.formatDual((_dailyBudget * _durationDays * 100).round(), localRate: localRate, localCurrency: localCurrency),
-                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Color(0xFF34C759)),
+                      CurrencyFormatter.formatDual(
+                        (_dailyBudget * _durationDays * 100).round(),
+                        localRate: localRate,
+                        localCurrency: localCurrency,
+                      ),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 18,
+                        color: Color(0xFF34C759),
+                      ),
                     ),
                   ],
                 ),
@@ -614,10 +796,15 @@ class _AdsManagerScreenState extends ConsumerState<AdsManagerScreen>
               style: ElevatedButton.styleFrom(
                 backgroundColor: DesignTokens.primary,
                 foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
                 elevation: 0,
               ),
-              child: const Text('Launch Ad Campaign', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+              child: const Text(
+                'Launch Ad Campaign',
+                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+              ),
             ),
           ),
           const SizedBox(height: 20),
@@ -629,7 +816,12 @@ class _AdsManagerScreenState extends ConsumerState<AdsManagerScreen>
   // ---------------------------------------------------------------------------
   // TAB 2: Catalog View (Promote Catalog Item)
   // ---------------------------------------------------------------------------
-  Widget _buildCatalogViewTab(Color cardBg, Color textPrimary, Color? textSecondary, bool isDark) {
+  Widget _buildCatalogViewTab(
+    Color cardBg,
+    Color textPrimary,
+    Color? textSecondary,
+    bool isDark,
+  ) {
     final marketplaceState = ref.watch(marketplaceProvider);
     final products = marketplaceState.myProducts;
 
@@ -642,7 +834,11 @@ class _AdsManagerScreenState extends ConsumerState<AdsManagerScreen>
       children: [
         Text(
           'Select a Product from Your Catalog to Promote',
-          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: textPrimary),
+          style: TextStyle(
+            fontWeight: FontWeight.w800,
+            fontSize: 15,
+            color: textPrimary,
+          ),
         ),
         const SizedBox(height: 4),
         Text(
@@ -653,16 +849,30 @@ class _AdsManagerScreenState extends ConsumerState<AdsManagerScreen>
         if (products.isEmpty)
           Container(
             padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(color: cardBg, borderRadius: BorderRadius.circular(16)),
+            decoration: BoxDecoration(
+              color: cardBg,
+              borderRadius: BorderRadius.circular(16),
+            ),
             child: Column(
               children: [
-                const Icon(Icons.inventory_2_outlined, size: 48, color: Colors.grey),
+                const Icon(
+                  Icons.inventory_2_outlined,
+                  size: 48,
+                  color: Colors.grey,
+                ),
                 const SizedBox(height: 12),
-                Text('No Catalog Items Yet',
-                    style: TextStyle(fontWeight: FontWeight.bold, color: textPrimary)),
+                Text(
+                  'No Catalog Items Yet',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: textPrimary,
+                  ),
+                ),
                 const SizedBox(height: 4),
-                Text('Add items to your shop catalog to start promoting.',
-                    style: TextStyle(color: textSecondary, fontSize: 12)),
+                Text(
+                  'Add items to your shop catalog to start promoting.',
+                  style: TextStyle(color: textSecondary, fontSize: 12),
+                ),
               ],
             ),
           )
@@ -682,7 +892,9 @@ class _AdsManagerScreenState extends ConsumerState<AdsManagerScreen>
                   color: cardBg,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: isSelected ? DesignTokens.primary : Colors.transparent,
+                    color: isSelected
+                        ? DesignTokens.primary
+                        : Colors.transparent,
                     width: 2,
                   ),
                 ),
@@ -691,7 +903,9 @@ class _AdsManagerScreenState extends ConsumerState<AdsManagerScreen>
                     ClipRRect(
                       borderRadius: BorderRadius.circular(12),
                       child: Image.network(
-                        item.images.isNotEmpty ? item.images.first : 'https://picsum.photos/seed/item/100/100',
+                        item.images.isNotEmpty
+                            ? item.images.first
+                            : 'https://picsum.photos/seed/item/100/100',
                         width: 64,
                         height: 64,
                         fit: BoxFit.cover,
@@ -708,16 +922,25 @@ class _AdsManagerScreenState extends ConsumerState<AdsManagerScreen>
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(item.title,
-                              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: textPrimary),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis),
+                          Text(
+                            item.title,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 15,
+                              color: textPrimary,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                           const SizedBox(height: 2),
-                          Text('\$${item.price.toStringAsFixed(2)} USD · ${item.category}',
-                              style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF34C759), fontSize: 13)),
-                          const SizedBox(height: 4),
-                          Text('Est. reach: 8,500 - 15,000 views',
-                              style: TextStyle(fontSize: 11, color: textSecondary)),
+                          Text(
+                            '\$${item.price.toStringAsFixed(2)} USD · ${item.category}',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF34C759),
+                              fontSize: 13,
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -725,7 +948,8 @@ class _AdsManagerScreenState extends ConsumerState<AdsManagerScreen>
                       onPressed: () {
                         setState(() {
                           _selectedCatalogItem = item;
-                          _campaignTitleController.text = 'Promote: ${item.title}';
+                          _campaignTitleController.text =
+                              'Promote: ${item.title}';
                           _selectedObjective = 'Catalog Sales';
                         });
                         _tabController.animateTo(0);
@@ -733,10 +957,21 @@ class _AdsManagerScreenState extends ConsumerState<AdsManagerScreen>
                       style: ElevatedButton.styleFrom(
                         backgroundColor: DesignTokens.primary,
                         foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
                       ),
-                      child: const Text('Promote', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                      child: const Text(
+                        'Promote',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -748,12 +983,26 @@ class _AdsManagerScreenState extends ConsumerState<AdsManagerScreen>
   }
 
   // ---------------------------------------------------------------------------
-  // TAB 3: Status View (Promoted Ads Tracking)
+  // TAB 3: Status View (headline numbers only; full stats live on the web)
   // ---------------------------------------------------------------------------
-  Widget _buildStatusViewTab(Color cardBg, Color textPrimary, Color? textSecondary, bool isDark) {
+  Widget _buildStatusViewTab(
+    Color cardBg,
+    Color textPrimary,
+    Color? textSecondary,
+    bool isDark,
+  ) {
     if (_loadingCampaigns && _campaigns.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
+
+    final liveCount = _campaigns.where((c) {
+      return (c['status']?.toString() ?? '') == 'active' &&
+          (c['review_status']?.toString() ?? '') == 'approved';
+    }).length;
+    final totalBudget = _campaigns.fold<double>(
+      0,
+      (sum, c) => sum + ((c['total_budget'] as num?)?.toDouble() ?? 0),
+    );
 
     return RefreshIndicator(
       onRefresh: _fetchCampaigns,
@@ -761,145 +1010,134 @@ class _AdsManagerScreenState extends ConsumerState<AdsManagerScreen>
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(16),
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('Active & Past Campaigns',
-                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: textPrimary)),
-              Text('${_campaigns.length} Campaigns',
-                  style: TextStyle(color: textSecondary, fontSize: 13, fontWeight: FontWeight.bold)),
-            ],
+          Text(
+            'Headline Numbers',
+            style: TextStyle(
+              fontWeight: FontWeight.w800,
+              fontSize: 16,
+              color: textPrimary,
+            ),
           ),
           const SizedBox(height: 14),
-          if (_campaigns.isEmpty)
-            Container(
-              padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 16),
-              alignment: Alignment.center,
-              decoration: BoxDecoration(color: cardBg, borderRadius: BorderRadius.circular(20)),
-              child: Column(
-                children: [
-                  Icon(Icons.campaign_outlined, size: 40, color: textSecondary),
-                  const SizedBox(height: 10),
-                  Text('No campaigns created yet', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: textPrimary)),
-                  const SizedBox(height: 4),
-                  Text('Create an ad campaign above to promote products or channels.', style: TextStyle(fontSize: 12, color: textSecondary), textAlign: TextAlign.center),
-                ],
+          Row(
+            children: [
+              Expanded(
+                child: _headlineTile(
+                  'Campaigns',
+                  '${_campaigns.length}',
+                  textPrimary,
+                  textSecondary,
+                  cardBg,
+                ),
               ),
-            )
-          else
-            ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: _campaigns.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 14),
-              itemBuilder: (ctx, i) => _buildCampaignCard(_campaigns[i], cardBg, textPrimary, textSecondary),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _headlineTile(
+                  'Live',
+                  '$liveCount',
+                  const Color(0xFF34C759),
+                  textSecondary,
+                  cardBg,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _headlineTile(
+                  'Total budget',
+                  '\$${totalBudget.toStringAsFixed(2)}',
+                  DesignTokens.primary,
+                  textSecondary,
+                  cardBg,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          if (_campaigns.isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: Text(
+                'No campaigns created yet. Create an ad in the first tab.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 12, color: textSecondary),
+              ),
+            ),
+          if (Env.adsManagerUrl.isNotEmpty)
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: ElevatedButton.icon(
+                onPressed: _openFullStatsOnWeb,
+                icon: const Icon(Icons.open_in_new_rounded, size: 18),
+                label: const Text(
+                  'View full stats on web',
+                  style: TextStyle(fontWeight: FontWeight.w800),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: DesignTokens.primary,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+              ),
             ),
         ],
       ),
     );
   }
 
-  Widget _buildCampaignCard(Map<String, dynamic> c, Color cardBg, Color textPrimary, Color? textSecondary) {
-    final status = c['status']?.toString() ?? 'draft';
-    final reviewStatus = c['review_status']?.toString() ?? 'pending';
-    final isLive = status == 'active' && reviewStatus == 'approved';
-
-    final creatives = c['creatives'] is List ? (c['creatives'] as List) : const [];
-    String image = '';
-    if (creatives.isNotEmpty && creatives.first is Map) {
-      image = (creatives.first as Map)['media_url']?.toString() ?? '';
-    }
-
-    final dailyBudget = (c['daily_budget'] as num?)?.toDouble();
-    final totalBudget = (c['total_budget'] as num?)?.toDouble();
-    final objective = _objectiveLabelFor(c['objective']?.toString());
-
+  Widget _headlineTile(
+    String label,
+    String value,
+    Color valueColor,
+    Color? textSecondary,
+    Color cardBg,
+  ) {
     return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: cardBg, borderRadius: BorderRadius.circular(20)),
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 10),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(16),
+      ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: image.isNotEmpty
-                    ? Image.network(
-                        image,
-                        width: 48,
-                        height: 48,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Container(
-                          width: 48,
-                          height: 48,
-                          color: Colors.grey,
-                          child: const Icon(Icons.campaign),
-                        ),
-                      )
-                    : Container(
-                        width: 48,
-                        height: 48,
-                        color: Colors.grey[800],
-                        child: const Icon(Icons.campaign, color: Colors.white),
-                      ),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              value,
+              style: TextStyle(
+                fontWeight: FontWeight.w900,
+                fontSize: 18,
+                color: valueColor,
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(c['name']?.toString() ?? 'Campaign',
-                        style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: textPrimary),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis),
-                    Text('#${c['id']} · $objective',
-                        style: TextStyle(fontSize: 11, color: textSecondary)),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: isLive ? const Color(0xFF34C759).withOpacity(0.15) : Colors.grey.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  reviewStatus,
-                  style: TextStyle(
-                    color: isLive ? const Color(0xFF34C759) : textSecondary,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 11,
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
-          const SizedBox(height: 14),
-          const Divider(height: 1),
-          const SizedBox(height: 12),
-
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _metricBox('Status', status, isLive ? const Color(0xFF34C759) : textPrimary, textSecondary),
-              _metricBox('Daily', dailyBudget != null ? '\$${dailyBudget.toStringAsFixed(2)}' : '—', textPrimary, textSecondary),
-              _metricBox('Total', totalBudget != null ? '\$${totalBudget.toStringAsFixed(2)}' : '—', DesignTokens.primary, textSecondary),
-              _metricBox('Review', reviewStatus, const Color(0xFF5856D6), textSecondary),
-            ],
+          const SizedBox(height: 4),
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 11, color: textSecondary),
           ),
         ],
       ),
     );
   }
 
-  Widget _metricBox(String title, String val, Color valColor, Color? textSecondary) {
-    return Column(
-      children: [
-        Text(val, style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: valColor)),
-        const SizedBox(height: 2),
-        Text(title, style: TextStyle(fontSize: 11, color: textSecondary)),
-      ],
+  Future<void> _openFullStatsOnWeb() async {
+    final uri = Uri.tryParse(Env.adsManagerUrl);
+    try {
+      if (uri != null &&
+          await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+        return;
+      }
+    } catch (_) {}
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Could not open the Ads Manager. Please try again.'),
+      ),
     );
   }
 }

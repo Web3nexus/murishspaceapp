@@ -210,7 +210,11 @@ class _CommunityDetailScreenState extends ConsumerState<CommunityDetailScreen> {
     final myId = ref.watch(authProvider).user?.id;
     final inMyList = myId != null &&
         ref.watch(myCommunitiesProvider).communities.any((c) => c.id == community.id);
-    final isMember = isCreator || (membership?.isMember ?? false) || inMyList || community.isJoined;
+    // An explicit membership status wins; `community.isJoined` is only a fallback
+    // when no membership was loaded (it defaults to true in the model).
+    final isMember = isCreator ||
+        inMyList ||
+        (membership != null ? membership.isMember : community.isJoined);
     final tabCount = isCreator ? 5 : 4;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final cardBg = isDark ? const Color(0xFF1C1C1E) : Colors.white;

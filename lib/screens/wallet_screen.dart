@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import '../components/brand.dart';
 import '../components/buy_coins_sheet.dart';
+import '../components/escrow_deal_sheet.dart';
+import '../components/refund_balances_card.dart';
 import '../components/murih_pay_card.dart';
 import '../components/send_money_sheet.dart';
 import '../components/transaction_details_sheet.dart';
@@ -1175,14 +1177,28 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
 
                   const SizedBox(height: 24),
 
+                  if (activeWallet?.kycRequiredToWithdraw ?? false) ...[
+                    _VerifyToWithdrawBanner(onVerify: () => context.push('/kyc')),
+                    const SizedBox(height: 16),
+                  ],
+
                   // 5. 2x2 Balance Metrics Breakdown
                   WalletBalanceBreakdown(
                     pendingFormatted: '\$${((activeWallet?.pending ?? 0) / 100.0).toStringAsFixed(2)}',
                     reservedFormatted: '\$${((activeWallet?.reserved ?? 0) / 100.0).toStringAsFixed(2)}',
                     escrowFormatted: '\$${((activeWallet?.escrow ?? 0) / 100.0).toStringAsFixed(2)}',
                     totalFormatted: '\$${((activeWallet?.total ?? 0) / 100.0).toStringAsFixed(2)}',
+                    withdrawableFormatted: '\$${((activeWallet?.withdrawable ?? 0) / 100.0).toStringAsFixed(2)}',
+                    heldFormatted: '\$${((activeWallet?.disputed ?? 0) / 100.0).toStringAsFixed(2)}',
                     isBalanceHidden: _hideBalance,
                   ),
+
+                  const SizedBox(height: 16),
+
+                  // Dispute refunds and escrows that still hold funds
+                  const RefundBalancesCard(),
+                  const SizedBox(height: 16),
+                  const ActiveEscrowDeals(),
 
                   const SizedBox(height: 24),
 
@@ -1202,3 +1218,41 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     );
   }
 }
+
+/// Shown when money is withdrawable but identity is not verified. The balance is kept.
+class _VerifyToWithdrawBanner extends StatelessWidget {
+  final VoidCallback onVerify;
+
+  const _VerifyToWithdrawBanner({required this.onVerify});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0x1AD97706),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0x66D97706)),
+      ),
+      child: Row(
+        children: [
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Verify your identity to withdraw',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
+                SizedBox(height: 2),
+                Text('Your earnings are safe. Withdrawals open once your identity is verified.',
+                    style: TextStyle(fontSize: 12)),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          FilledButton(onPressed: onVerify, child: const Text('Verify')),
+        ],
+      ),
+    );
+  }
+}
+

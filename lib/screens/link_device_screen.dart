@@ -28,7 +28,6 @@ class _LinkDeviceScreenState extends ConsumerState<LinkDeviceScreen> {
     detectionSpeed: DetectionSpeed.noDuplicates,
   );
   final TextEditingController _manualController = TextEditingController();
-  final TextEditingController _codeController = TextEditingController();
 
   _Stage _stage = _Stage.scanning;
   bool _busy = false;
@@ -54,7 +53,6 @@ class _LinkDeviceScreenState extends ConsumerState<LinkDeviceScreen> {
   void dispose() {
     _controller.dispose();
     _manualController.dispose();
-    _codeController.dispose();
     super.dispose();
   }
 
@@ -171,12 +169,6 @@ class _LinkDeviceScreenState extends ConsumerState<LinkDeviceScreen> {
     final id = _transactionId;
     if (id == null || _busy) return;
 
-    final code = _codeController.text.replaceAll(RegExp(r'\D'), '');
-    if (approve && code.length != 6) {
-      setState(() => _error = 'Enter the 6-digit code shown on the browser.');
-      return;
-    }
-
     setState(() {
       _busy = true;
       _error = null;
@@ -186,7 +178,7 @@ class _LinkDeviceScreenState extends ConsumerState<LinkDeviceScreen> {
       final api = ref.read(apiClientProvider);
       final path = approve ? '/auth/qr/$id/approve' : '/auth/qr/$id/deny';
       await api.unwrap(
-        await api.post(path, data: approve ? {'confirmation_code': code} : null),
+        await api.post(path),
       );
       HapticFeedback.mediumImpact();
       if (!mounted) return;
@@ -204,7 +196,6 @@ class _LinkDeviceScreenState extends ConsumerState<LinkDeviceScreen> {
   }
 
   Future<void> _rescan() async {
-    _codeController.clear();
     _manualController.clear();
     setState(() {
       _stage = _Stage.scanning;
@@ -406,29 +397,6 @@ class _LinkDeviceScreenState extends ConsumerState<LinkDeviceScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          TextField(
-            controller: _codeController,
-            keyboardType: TextInputType.number,
-            maxLength: 6,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: textPrimary,
-              fontSize: 22,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 8,
-            ),
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            decoration: InputDecoration(
-              labelText: 'Confirmation code',
-              hintText: '••••••',
-              helperText: 'Enter the 6-digit code shown on the browser.',
-              helperMaxLines: 2,
-              counterText: '',
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-            onSubmitted: (_) => _decide(true),
-          ),
-          const SizedBox(height: 16),
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
@@ -442,7 +410,7 @@ class _LinkDeviceScreenState extends ConsumerState<LinkDeviceScreen> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Only approve if this request is yours and the code matches the browser screen. If you did not just try to sign in on a browser, deny it and secure your account.',
+                    'Only approve if you just tried to sign in on a browser. If you did not, deny this request and secure your account.',
                     style: TextStyle(color: textSecondary, fontSize: 12, height: 1.35),
                   ),
                 ),

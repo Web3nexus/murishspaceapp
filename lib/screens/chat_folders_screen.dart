@@ -17,21 +17,14 @@ class _ChatFoldersScreenState extends ConsumerState<ChatFoldersScreen> {
   final Set<String> _deletingFolderIds = {};
 
   Future<void> _deleteFolder(String id, String name) async {
-    if (_deletingFolderIds.contains(id)) return;
-    final notifier = ref.read(chatFoldersProvider.notifier);
     setState(() => _deletingFolderIds.add(id));
-    try {
-      await Future.delayed(const Duration(milliseconds: 750));
-      notifier.deleteFolder(id);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Folder "$name" deleted.')),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _deletingFolderIds.remove(id));
-      }
+    await Future.delayed(const Duration(milliseconds: 750));
+    ref.read(chatFoldersProvider.notifier).deleteFolder(id);
+    if (mounted) {
+      setState(() => _deletingFolderIds.remove(id));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Folder "$name" deleted.')),
+      );
     }
   }
 
@@ -277,9 +270,7 @@ class _ChatFoldersScreenState extends ConsumerState<ChatFoldersScreen> {
                           )
                         : IconButton(
                             icon: const Icon(Icons.delete_outline_rounded, color: Color(0xFFFF3B30)),
-                            onPressed: _deletingFolderIds.contains(folder.id)
-                                ? null
-                                : () => _deleteFolder(folder.id, folder.name),
+                            onPressed: () => _deleteFolder(folder.id, folder.name),
                           ),
                   ),
                 );

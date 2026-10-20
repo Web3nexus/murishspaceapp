@@ -31,10 +31,14 @@ class MessageBubble extends StatelessWidget {
   final bool selected;
   final VoidCallback? onToggleSelect;
 
+  /// Set while a business chat is locked. Delete-for-everyone is hidden until this date.
+  final DateTime? deleteLockedUntil;
+
   const MessageBubble({
     super.key,
     required this.message,
     required this.myId,
+    this.deleteLockedUntil,
     this.showSenderName = true,
     required this.onReact,
     required this.onReply,
@@ -226,7 +230,9 @@ class MessageBubble extends StatelessWidget {
     final isRead = message.read == true || message.status == 'read';
     final isWithinTimeWindow = message.createdAt != null &&
         DateTime.now().difference(message.createdAt!).inMinutes < 15;
-    final canDeleteForEveryone = mine && !isRead && isWithinTimeWindow;
+    final lockedUntil = deleteLockedUntil;
+    final locked = lockedUntil != null && lockedUntil.isAfter(DateTime.now());
+    final canDeleteForEveryone = mine && !isRead && isWithinTimeWindow && !locked;
 
     final choice = await showModalBottomSheet<String>(
       context: context,
@@ -274,9 +280,11 @@ class MessageBubble extends StatelessWidget {
                 Text(
                   canDeleteForEveryone
                       ? 'Delete this message for everyone, or only for you?'
-                      : (mine
-                          ? 'This message can only be deleted for you.'
-                          : 'Delete this message for you?'),
+                      : (locked && mine
+                          ? 'Business chats can be deleted for everyone only after ${_shortDate(lockedUntil)}.'
+                          : (mine
+                              ? 'This message can only be deleted for you.'
+                              : 'Delete this message for you?')),
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 14, color: textSecondary),
                 ),
@@ -2703,3 +2711,4 @@ class _CallMessageWidget extends StatelessWidget {
   }
 }
 
+String _shortDate(DateTime date) => '${date.day}/${date.month}/${date.year}';

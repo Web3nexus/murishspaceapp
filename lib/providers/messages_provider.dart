@@ -17,6 +17,8 @@ class ConversationMessagesState {
   final bool loadingMore;
   final bool hasMore;
   final String? error;
+  /// Set while a business chat is locked: delete-for-everyone is unavailable until this date.
+  final DateTime? deleteLockedUntil;
 
   const ConversationMessagesState({
     this.messages = const [],
@@ -24,6 +26,7 @@ class ConversationMessagesState {
     this.loadingMore = false,
     this.hasMore = false,
     this.error,
+    this.deleteLockedUntil,
   });
 
   ConversationMessagesState copyWith({
@@ -40,6 +43,7 @@ class ConversationMessagesState {
       loadingMore: loadingMore ?? this.loadingMore,
       hasMore: hasMore ?? this.hasMore,
       error: clearError ? null : (error ?? this.error),
+      deleteLockedUntil: deleteLockedUntil,
     );
   }
 }
@@ -86,7 +90,11 @@ class ConversationMessagesNotifier extends Notifier<ConversationMessagesState> {
       final response = await _dio.get('/conversations/$_effectiveConversationId/messages');
       final payload = ApiClient.instance.unwrap(response);
       final (list, hasMore) = _messagesFromPayload(payload);
-      state = ConversationMessagesState(messages: list, hasMore: hasMore);
+      state = ConversationMessagesState(
+        messages: list,
+        hasMore: hasMore,
+        deleteLockedUntil: _deleteLockFrom(response),
+      );
       final me = ref.read(authProvider).user;
       if (me != null) {
         final toAcknowledge = list
@@ -111,6 +119,16 @@ class ConversationMessagesNotifier extends Notifier<ConversationMessagesState> {
   }
 
   Future<void> retry() => _load();
+
+  /// The date a business chat's delete-for-everyone window opens, or null when it is open now.
+  /// The messages response carries it under data.delete_for_everyone_unlocks_at.
+  DateTime? _deleteLockFrom(Response<dynamic> response) {
+    final body = response.data;
+    final inner = body is Map ? body['data'] : null;
+    final raw = inner is Map ? inner['delete_for_everyone_unlocks_at'] : null;
+    final parsed = raw is String ? DateTime.tryParse(raw) : null;
+    return parsed != null && parsed.isAfter(DateTime.now()) ? parsed : null;
+  }
 
   /// Catch-up sync called on app resume or reconnect to merge missed messages
   Future<void> catchUp() async {
@@ -165,6 +183,7 @@ class ConversationMessagesNotifier extends Notifier<ConversationMessagesState> {
       state = ConversationMessagesState(
         messages: [...state.messages, ...older],
         hasMore: hasMore,
+        deleteLockedUntil: state.deleteLockedUntil,
       );
     } catch (_) {
       state = state.copyWith(loadingMore: false, error: 'Failed to load older messages.');
@@ -256,10 +275,11 @@ class ConversationMessagesNotifier extends Notifier<ConversationMessagesState> {
       _appendOrReplace(confirmed, byUuid: clientUuid);
       ref.read(conversationsProvider.notifier).applyMessage(confirmed, currentUserId: me?.id ?? 0);
     } on DioException catch (e) {
-      debugPrint('[messages_provider] sendMessage DioException: ${e.response?.statusCode} -> ${e.response?.data}');
+      // Status only: the response body can echo the message content.
+      debugPrint('[messages_provider] sendMessage DioException: ${e.response?.statusCode}');
       _markFailed(clientUuid);
     } on ApiException catch (e) {
-      debugPrint('[messages_provider] sendMessage ApiException: ${e.message} -> ${e.errors}');
+      debugPrint('[messages_provider] sendMessage ApiException: ${e.message}');
       _markFailed(clientUuid);
     } catch (e) {
       debugPrint('[messages_provider] sendMessage error: $e');

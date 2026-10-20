@@ -30,7 +30,9 @@ class _AppShellState extends ConsumerState<AppShell> {
 
   void _showQuickCreateMenu(BuildContext context, bool isDark) {
     final textPrimary = isDark ? Colors.white : const Color(0xFF17202B);
-    final textSecondary = isDark ? const Color(0xFF94A3B8) : const Color(0xFF667085);
+    final textSecondary = isDark
+        ? const Color(0xFF94A3B8)
+        : const Color(0xFF667085);
 
     showModalBottomSheet<void>(
       context: context,
@@ -49,7 +51,9 @@ class _AppShellState extends ConsumerState<AppShell> {
                 width: 36,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF2E384D) : const Color(0xFFE4E7EC),
+                  color: isDark
+                      ? const Color(0xFF2E384D)
+                      : const Color(0xFFE4E7EC),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -67,7 +71,11 @@ class _AppShellState extends ConsumerState<AppShell> {
                     ),
                   ),
                   IconButton(
-                    icon: Icon(Icons.close_rounded, color: textSecondary, size: 20),
+                    icon: Icon(
+                      Icons.close_rounded,
+                      color: textSecondary,
+                      size: 20,
+                    ),
                     onPressed: () => Navigator.pop(ctx),
                   ),
                 ],
@@ -193,7 +201,9 @@ class _AppShellState extends ConsumerState<AppShell> {
               subtitle,
               style: TextStyle(
                 fontSize: 11,
-                color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF667085),
+                color: isDark
+                    ? const Color(0xFF94A3B8)
+                    : const Color(0xFF667085),
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -215,16 +225,23 @@ class _AppShellState extends ConsumerState<AppShell> {
       key: appShellScaffoldKey,
       drawer: const ProfileDrawer(),
       drawerEnableOpenDragGesture: false,
+      // The floating bar sits over the content, so screens scroll under it,
+      // edge to edge, the way the floating bars in social apps do.
+      extendBody: true,
       body: Column(
         children: [
           if (auth.user != null && !isOnboarded && !_bannerDismissed)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF181A20) : const Color(0xFFF4F6F8),
+                color: isDark
+                    ? const Color(0xFF181A20)
+                    : const Color(0xFFF4F6F8),
                 border: Border(
                   bottom: BorderSide(
-                    color: isDark ? const Color(0xFF2B2F38) : const Color(0xFFE2E8F0),
+                    color: isDark
+                        ? const Color(0xFF2B2F38)
+                        : const Color(0xFFE2E8F0),
                     width: 1,
                   ),
                 ),
@@ -236,7 +253,9 @@ class _AppShellState extends ConsumerState<AppShell> {
                     Container(
                       padding: const EdgeInsets.all(6),
                       decoration: BoxDecoration(
-                        color: isDark ? const Color(0xFF262933) : const Color(0xFFEAEFF5),
+                        color: isDark
+                            ? const Color(0xFF262933)
+                            : const Color(0xFFEAEFF5),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const BrandFavicon(size: 16),
@@ -249,7 +268,9 @@ class _AppShellState extends ConsumerState<AppShell> {
                           Text(
                             'Complete Your Space Setup',
                             style: TextStyle(
-                              color: isDark ? Colors.white : const Color(0xFF111827),
+                              color: isDark
+                                  ? Colors.white
+                                  : const Color(0xFF111827),
                               fontSize: 12,
                               fontWeight: FontWeight.w700,
                             ),
@@ -258,7 +279,9 @@ class _AppShellState extends ConsumerState<AppShell> {
                           Text(
                             'Set your profile, bio & preferences.',
                             style: TextStyle(
-                              color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                              color: isDark
+                                  ? const Color(0xFF94A3B8)
+                                  : const Color(0xFF64748B),
                               fontSize: 11,
                             ),
                           ),
@@ -268,33 +291,63 @@ class _AppShellState extends ConsumerState<AppShell> {
                     const SizedBox(width: 8),
                     FilledButton.tonal(
                       style: FilledButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
                         minimumSize: Size.zero,
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        backgroundColor: isDark ? const Color(0xFF2D3748) : const Color(0xFFE2E8F0),
-                        foregroundColor: isDark ? Colors.white : const Color(0xFF0F172A),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        backgroundColor: isDark
+                            ? const Color(0xFF2D3748)
+                            : const Color(0xFFE2E8F0),
+                        foregroundColor: isDark
+                            ? Colors.white
+                            : const Color(0xFF0F172A),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
                       ),
                       onPressed: () => AiOnboardingWizardDialog.show(context),
-                      child: const Text('Setup', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 11)),
+                      child: const Text(
+                        'Setup',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 11,
+                        ),
+                      ),
                     ),
                     const SizedBox(width: 4),
                     IconButton(
                       icon: Icon(
                         Icons.close_rounded,
                         size: 16,
-                        color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8),
+                        color: isDark
+                            ? const Color(0xFF64748B)
+                            : const Color(0xFF94A3B8),
                       ),
                       visualDensity: VisualDensity.compact,
                       padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                      constraints: const BoxConstraints(
+                        minWidth: 28,
+                        minHeight: 28,
+                      ),
                       onPressed: () => setState(() => _bannerDismissed = true),
                     ),
                   ],
                 ),
               ),
             ),
-          Expanded(child: widget.navigationShell),
+          Expanded(
+            child: MediaQuery(
+              // Lists read the bottom padding, so their last items stop above the bar.
+              data: MediaQuery.of(context).copyWith(
+                padding: MediaQuery.of(
+                  context,
+                ).padding.copyWith(bottom: floatingNavSpace(context)),
+              ),
+              child: widget.navigationShell,
+            ),
+          ),
         ],
       ),
       bottomNavigationBar: _BottomBar(
@@ -316,8 +369,17 @@ class _AppShellState extends ConsumerState<AppShell> {
   }
 }
 
-/// Unified 5-Item Persistent Mobile Navigation Bar
-/// 1: Home · 2: Discover · 3: Create (Elevated +) · 4: Messages (BrandFavicon) · 5: Profile
+/// Space the floating bar takes at the bottom of the screen, including the
+/// device's bottom inset. Screens use it as their scroll padding.
+double floatingNavSpace(BuildContext context) =>
+    _BottomBar.pillHeight +
+    _BottomBar.bottomGap +
+    MediaQuery.of(context).padding.bottom;
+
+/// Floating five-item navigation pill, in the style of Instagram's floating bar.
+/// Icons only, a selected dot under the active tab, and the centre Create action
+/// lifted above the pill.
+/// 1: Home · 2: Discover · 3: Create (+) · 4: Messages · 5: Profile
 class _BottomBar extends StatelessWidget {
   final int currentIndex;
   final int unreadMessages;
@@ -331,33 +393,42 @@ class _BottomBar extends StatelessWidget {
     required this.onCreateLongPress,
   });
 
+  static const double pillHeight = 54;
+  static const double bottomGap = 8;
+  static const double _createSize = 44;
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    const brandBlue = DesignTokens.primary; // #1A68D4
-    final inactiveColor = isDark ? const Color(0xFF94A3B8) : const Color(0xFF667085);
-    final bgColor = isDark ? const Color(0xFF121620) : Colors.white;
-    final borderColor = isDark ? const Color(0xFF222B3D) : const Color(0xFFE4E7EC);
+    const brandBlue = DesignTokens.primary; // #2164B6
+    final inactiveColor = isDark
+        ? const Color(0xFF94A3B8)
+        : const Color(0xFF667085);
+    final pillColor = isDark ? const Color(0xFF1E2638) : Colors.white;
+    final borderColor = isDark
+        ? const Color(0xFF2E384D)
+        : const Color(0xFFE4E7EC);
 
-    return Container(
-      decoration: BoxDecoration(
-        color: bgColor,
-        border: Border(top: BorderSide(color: borderColor, width: 0.5)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.04),
-            blurRadius: 8,
-            offset: const Offset(0, -2),
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, bottomGap),
+        child: Container(
+          height: pillHeight,
+          decoration: BoxDecoration(
+            color: pillColor,
+            borderRadius: BorderRadius.circular(pillHeight / 2),
+            border: Border.all(color: borderColor),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isDark ? 0.45 : 0.12),
+                blurRadius: 24,
+                offset: const Offset(0, 8),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: SafeArea(
-        top: false,
-        child: SizedBox(
-          height: 60,
           child: Row(
             children: [
-              // 1. Home (Feed)
               Expanded(
                 child: _navItem(
                   index: 0,
@@ -368,8 +439,6 @@ class _BottomBar extends StatelessWidget {
                   inactiveColor: inactiveColor,
                 ),
               ),
-
-              // 2. Discover
               Expanded(
                 child: _navItem(
                   index: 1,
@@ -380,41 +449,7 @@ class _BottomBar extends StatelessWidget {
                   inactiveColor: inactiveColor,
                 ),
               ),
-
-              // 3. Central Elevated Create Action (+)
-              Expanded(
-                child: GestureDetector(
-                  onTap: () => onSelect(2),
-                  onLongPress: onCreateLongPress,
-                  behavior: HitTestBehavior.opaque,
-                  child: Center(
-                    child: Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: brandBlue,
-                        borderRadius: BorderRadius.circular(14),
-                        boxShadow: [
-                          BoxShadow(
-                            color: brandBlue.withValues(alpha: 0.35),
-                            blurRadius: 8,
-                            offset: const Offset(0, 3),
-                          ),
-                        ],
-                      ),
-                      child: const Center(
-                        child: Icon(
-                          Icons.add_rounded,
-                          color: Colors.white,
-                          size: 26,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-
-              // 4. Messages (Preserved BrandFavicon system chat icon with unread badge)
+              Expanded(child: _createItem(brandBlue, pillColor)),
               Expanded(
                 child: _chatNavItem(
                   index: 3,
@@ -426,8 +461,6 @@ class _BottomBar extends StatelessWidget {
                   isDark: isDark,
                 ),
               ),
-
-              // 5. Profile
               Expanded(
                 child: _navItem(
                   index: 4,
@@ -445,6 +478,58 @@ class _BottomBar extends StatelessWidget {
     );
   }
 
+  /// Centre Create button: a brand circle that rises above the pill, with a
+  /// ring in the pill colour so it reads as cut out of the bar.
+  Widget _createItem(Color brandBlue, Color pillColor) {
+    return Semantics(
+      button: true,
+      label: 'Create',
+      child: GestureDetector(
+        onTap: () => onSelect(2),
+        onLongPress: onCreateLongPress,
+        behavior: HitTestBehavior.opaque,
+        child: Center(
+          child: Transform.translate(
+            offset: const Offset(0, -8),
+            child: Container(
+              width: _createSize,
+              height: _createSize,
+              decoration: BoxDecoration(
+                color: brandBlue,
+                shape: BoxShape.circle,
+                border: Border.all(color: pillColor, width: 4),
+                boxShadow: [
+                  BoxShadow(
+                    color: brandBlue.withValues(alpha: 0.35),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: const Icon(
+                Icons.add_rounded,
+                color: Colors.white,
+                size: 24,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _selectedDot(bool isSelected, Color brandBlue) {
+    return AnimatedOpacity(
+      opacity: isSelected ? 1 : 0,
+      duration: const Duration(milliseconds: 150),
+      child: Container(
+        width: 4,
+        height: 4,
+        decoration: BoxDecoration(color: brandBlue, shape: BoxShape.circle),
+      ),
+    );
+  }
+
   Widget _navItem({
     required int index,
     required String label,
@@ -454,25 +539,22 @@ class _BottomBar extends StatelessWidget {
     required Color inactiveColor,
   }) {
     final activeColor = isSelected ? brandBlue : inactiveColor;
-    return InkWell(
-      onTap: () => onSelect(index),
-      splashColor: Colors.transparent,
-      highlightColor: Colors.transparent,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          MurihIcon(iconName, size: 22, color: activeColor),
-          const SizedBox(height: 3),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-              color: activeColor,
-              letterSpacing: -0.2,
-            ),
-          ),
-        ],
+    return Semantics(
+      button: true,
+      selected: isSelected,
+      label: label,
+      child: InkWell(
+        onTap: () => onSelect(index),
+        splashColor: Colors.transparent,
+        highlightColor: Colors.transparent,
+        customBorder: const CircleBorder(),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            MurihIcon(iconName, size: 22, color: activeColor),
+            Positioned(bottom: 4, child: _selectedDot(isSelected, brandBlue)),
+          ],
+        ),
       ),
     );
   }
@@ -487,68 +569,73 @@ class _BottomBar extends StatelessWidget {
     required bool isDark,
   }) {
     final activeColor = isSelected ? brandBlue : inactiveColor;
-    return InkWell(
-      onTap: () => onSelect(index),
-      splashColor: Colors.transparent,
-      highlightColor: Colors.transparent,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Stack(
-            clipBehavior: Clip.none,
-            children: [
-              SizedBox(
-                width: 22,
-                height: 22,
-                child: Center(
-                  child: BrandFavicon(
-                    size: 22,
-                    isDark: isDark,
-                    color: isSelected ? brandBlue : inactiveColor,
+    return Semantics(
+      button: true,
+      selected: isSelected,
+      label: label,
+      child: InkWell(
+        onTap: () => onSelect(index),
+        splashColor: Colors.transparent,
+        highlightColor: Colors.transparent,
+        customBorder: const CircleBorder(),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: Center(
+                    child: BrandFavicon(
+                      size: 24,
+                      isDark: isDark,
+                      color: activeColor,
+                    ),
                   ),
                 ),
-              ),
-              if (unreadCount > 0)
-                Positioned(
-                  top: -4,
-                  right: -8,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFDC2626),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: isDark ? const Color(0xFF121620) : Colors.white,
-                        width: 1.5,
+                if (unreadCount > 0)
+                  Positioned(
+                    top: -4,
+                    right: -8,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 5,
+                        vertical: 1.5,
                       ),
-                    ),
-                    constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
-                    child: Center(
-                      child: Text(
-                        unreadCount > 99 ? '99+' : '$unreadCount',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 9,
-                          fontWeight: FontWeight.w800,
-                          height: 1,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFDC2626),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: isDark
+                              ? const Color(0xFF1E2638)
+                              : Colors.white,
+                          width: 1.5,
+                        ),
+                      ),
+                      constraints: const BoxConstraints(
+                        minWidth: 16,
+                        minHeight: 16,
+                      ),
+                      child: Center(
+                        child: Text(
+                          unreadCount > 99 ? '99+' : '$unreadCount',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w800,
+                            height: 1,
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 3),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-              color: activeColor,
-              letterSpacing: -0.2,
+              ],
             ),
-          ),
-        ],
+            Positioned(bottom: 4, child: _selectedDot(isSelected, brandBlue)),
+          ],
+        ),
       ),
     );
   }

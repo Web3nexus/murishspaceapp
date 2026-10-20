@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../providers/wallet_provider.dart';
 
-/// Premium fintech digital payment card matching MurihSpace brand identity (#1A68D4).
+/// Premium fintech digital payment card matching MurihSpace brand identity (#2164B6).
 /// Showcases Available Balance directly on the card with live country currency conversion,
 /// user name and @tag, and clean EMV/contactless presentation.
 class MurihPayCard extends StatelessWidget {
@@ -78,14 +78,14 @@ class MurihPayCard extends StatelessWidget {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              Color(0xFF1A68D4),
+              Color(0xFF2164B6),
               Color(0xFF1555AD),
               Color(0xFF0E3D7D),
             ],
           ),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF1A68D4).withValues(alpha: 0.38),
+              color: const Color(0xFF2164B6).withValues(alpha: 0.38),
               blurRadius: 24,
               offset: const Offset(0, 10),
             ),

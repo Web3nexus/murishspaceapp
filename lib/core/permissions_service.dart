@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'contacts_service.dart';
 
 enum AppPermissionType {
   notifications,
@@ -98,10 +100,16 @@ class PermissionsNotifier extends Notifier<PermissionStatusState> {
         state = state.copyWith(photosGranted: true);
         return true;
       case AppPermissionType.contacts:
+        // Only a real OS grant counts. Recording it without asking would make
+        // sync read nothing.
+        final granted = await ContactsService.instance.requestPermission();
+        if (!granted) return false;
         await prefs.setBool(_contactsKey, true);
         state = state.copyWith(contactsGranted: true);
         return true;
       case AppPermissionType.location:
+        final locationStatus = await Permission.locationWhenInUse.request();
+        if (!locationStatus.isGranted) return false;
         await prefs.setBool(_locationKey, true);
         state = state.copyWith(locationGranted: true);
         return true;
@@ -256,7 +264,7 @@ class PermissionsNotifier extends Notifier<PermissionStatusState> {
     return showPermissionRationaleSheet(
       context: context,
       title: 'Contacts Sync & Discovery',
-      description: 'MurihSpace securely hashes and matches your address book to connect you with friends, creators, and vendors already on the platform.',
+      description: 'We read the names and phone numbers in your contacts and check them against MurihSpace to suggest people you may know. Contacts are not shared publicly.',
       icon: Icons.contacts_rounded,
       type: AppPermissionType.contacts,
     );

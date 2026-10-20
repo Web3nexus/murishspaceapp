@@ -13,7 +13,7 @@ class ChatBackupScreen extends StatefulWidget {
 class _ChatBackupScreenState extends State<ChatBackupScreen> {
   bool _includeMedia = true;
   String _autoBackupFrequency = 'Weekly';
-  final _emailController = TextEditingController(text: 'user@murihspace.com');
+  final _emailController = TextEditingController(text: 'you@example.com');
   bool _isBackingUp = false;
   String _lastBackupTime = 'Yesterday at 11:42 PM';
   String _lastBackupSize = '42.8 MB';

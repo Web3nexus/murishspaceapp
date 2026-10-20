@@ -40,6 +40,8 @@ class Wallet {
   final String localFormatted;
   final bool hasPin;
   final String status;
+  /// Money is withdrawable, but the owner has not verified their identity, so withdrawals are refused.
+  final bool kycRequiredToWithdraw;
 
   const Wallet({
     required this.id,
@@ -61,6 +63,7 @@ class Wallet {
     required this.localFormatted,
     required this.hasPin,
     required this.status,
+    this.kycRequiredToWithdraw = false,
   });
 
   factory Wallet.fromJson(Map<String, dynamic> json) {
@@ -90,6 +93,7 @@ class Wallet {
       localFormatted: json['local_formatted'] as String? ?? '',
       hasPin: json['has_pin'] as bool? ?? false,
       status: json['status'] as String? ?? 'active',
+      kycRequiredToWithdraw: json['kyc_required_to_withdraw'] as bool? ?? false,
     );
   }
 
@@ -168,13 +172,20 @@ class WalletTransaction {
 }
 
 /// An order escrow from `GET /wallet/escrow`. Only escrows where funds are
-/// still locked (held / disputed) count as active deals.
+/// still locked (held / on hold / disputed) count as active deals.
 class EscrowDeal {
   final int id;
   final String title;
   final int amount;
   final String currency;
   final String status;
+  final String? holdReason;
+  final String? deliveryKind;
+  final DateTime? deliveredAt;
+  final DateTime? buyerConfirmedAt;
+  final DateTime? releaseAt;
+  final int buyerId;
+  final int sellerId;
   final DateTime createdAt;
 
   const EscrowDeal({
@@ -183,10 +194,21 @@ class EscrowDeal {
     required this.amount,
     required this.currency,
     required this.status,
+    this.holdReason,
+    this.deliveryKind,
+    this.deliveredAt,
+    this.buyerConfirmedAt,
+    this.releaseAt,
+    this.buyerId = 0,
+    this.sellerId = 0,
     required this.createdAt,
   });
 
-  bool get isActive => status == 'held' || status == 'disputed';
+  bool get isOnHold => status == 'on_hold';
+  bool get isActive => status == 'held' || status == 'on_hold' || status == 'disputed';
+
+  static DateTime? _date(Object? value) =>
+      value == null ? null : DateTime.tryParse(value.toString());
 
   factory EscrowDeal.fromJson(Map<String, dynamic> json) {
     final rawOrder = json['order'];
@@ -198,9 +220,52 @@ class EscrowDeal {
       amount: (json['amount'] as num?)?.toInt() ?? 0,
       currency: json['currency'] as String? ?? 'USD',
       status: json['status'] as String? ?? 'held',
+      holdReason: json['hold_reason'] as String?,
+      deliveryKind: json['delivery_kind'] as String?,
+      deliveredAt: _date(json['delivered_at']),
+      buyerConfirmedAt: _date(json['buyer_confirmed_at']),
+      releaseAt: _date(json['release_at']),
+      buyerId: (json['buyer_id'] as num?)?.toInt() ?? 0,
+      sellerId: (json['seller_id'] as num?)?.toInt() ?? 0,
       createdAt: json['created_at'] != null
           ? DateTime.tryParse(json['created_at'].toString()) ?? DateTime.now()
           : DateTime.now(),
+    );
+  }
+}
+
+/// A refund from a dispute the buyer won. It stays on the platform: it can be spent,
+/// or sent back to the card that paid (`POST /wallet/refund-balances/{id}/refund-to-card`).
+class RefundBalance {
+  final int id;
+  final int orderId;
+  final int amountUsd;
+  final String originalAmount;
+  final String originalCurrency;
+  final String status;
+  final String? failureReason;
+
+  const RefundBalance({
+    required this.id,
+    required this.orderId,
+    required this.amountUsd,
+    required this.originalAmount,
+    required this.originalCurrency,
+    required this.status,
+    this.failureReason,
+  });
+
+  bool get canSendToCard => status == 'available';
+
+  factory RefundBalance.fromJson(Map<String, dynamic> json) {
+    return RefundBalance(
+      id: (json['id'] as num?)?.toInt() ?? 0,
+      orderId: (json['order_id'] as num?)?.toInt() ?? 0,
+      amountUsd: (json['amount_usd'] as num?)?.toInt() ?? 0,
+      originalAmount: '${json['original_amount'] ?? ''}',
+      originalCurrency: json['original_currency'] as String? ?? 'USD',
+      status: json['status'] as String? ?? 'available',
+      failureReason: json['failure_reason'] as String?,
     );
   }
 }
@@ -211,6 +276,7 @@ class WalletState {
   final List<Wallet> wallets;
   final List<WalletTransaction> transactions;
   final List<EscrowDeal> escrows;
+  final List<RefundBalance> refundBalances;
   final FeePreview? feePreview;
 
   const WalletState({
@@ -219,6 +285,7 @@ class WalletState {
     this.wallets = const [],
     this.transactions = const [],
     this.escrows = const [],
+    this.refundBalances = const [],
     this.feePreview,
   });
 
@@ -352,6 +419,7 @@ class WalletState {
     List<Wallet>? wallets,
     List<WalletTransaction>? transactions,
     List<EscrowDeal>? escrows,
+    List<RefundBalance>? refundBalances,
     FeePreview? feePreview,
     bool clearError = false,
   }) {
@@ -361,6 +429,7 @@ class WalletState {
       wallets: wallets ?? this.wallets,
       transactions: transactions ?? this.transactions,
       escrows: escrows ?? this.escrows,
+      refundBalances: refundBalances ?? this.refundBalances,
       feePreview: feePreview ?? this.feePreview,
     );
   }
@@ -393,7 +462,18 @@ class WalletNotifier extends Notifier<WalletState> {
         escrowList = ApiClient.instance.unwrapList<EscrowDeal>(escrowRes, EscrowDeal.fromJson);
       } catch (_) {}
 
-      state = WalletState(wallets: list, transactions: txList, escrows: escrowList);
+      List<RefundBalance> refundList = [];
+      try {
+        final refundRes = await _dio.get('/wallet/refund-balances');
+        refundList = ApiClient.instance.unwrapList<RefundBalance>(refundRes, RefundBalance.fromJson);
+      } catch (_) {}
+
+      state = WalletState(
+        wallets: list,
+        transactions: txList,
+        escrows: escrowList,
+        refundBalances: refundList,
+      );
     } on DioException catch (e) {
       state = state.copyWith(loading: false, error: _errorMessage(e));
     } catch (_) {
@@ -402,6 +482,33 @@ class WalletNotifier extends Notifier<WalletState> {
   }
 
   Future<void> refresh() => _load(showLoading: true);
+
+  /// POST /wallet/escrow/{id}/{action}: `resume`, `confirm-receipt`, `release-now`, or `dispute`
+  /// (with `reason`). Returns null on success, or the message to show.
+  Future<String?> escrowAction(int id, String action, {Map<String, dynamic>? data}) async {
+    try {
+      await _dio.post('/wallet/escrow/$id/$action', data: data);
+      await _load();
+      return null;
+    } on DioException catch (e) {
+      return _errorMessage(e);
+    } catch (_) {
+      return 'That action could not be completed.';
+    }
+  }
+
+  /// POST /wallet/refund-balances/{id}/refund-to-card. Returns null on success, or the message to show.
+  Future<String?> refundToCard(int id) async {
+    try {
+      await _dio.post('/wallet/refund-balances/$id/refund-to-card');
+      await _load();
+      return null;
+    } on DioException catch (e) {
+      return _errorMessage(e);
+    } catch (_) {
+      return 'The refund could not be sent to the card.';
+    }
+  }
 
   Wallet? walletOf(WalletType type) {
     for (final w in state.wallets) {

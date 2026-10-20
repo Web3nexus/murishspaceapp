@@ -85,7 +85,6 @@ class _SavedPostsScreenState extends ConsumerState<SavedPostsScreen> with Single
   }
 
   Future<void> _toggleSavePost(Post post) async {
-    if (_deletingPostIds.contains(post.id)) return;
     HapticFeedback.lightImpact();
     try {
       final res = await ApiClient.instance.dio.post('/posts/${post.id}/save');
@@ -117,16 +116,11 @@ class _SavedPostsScreenState extends ConsumerState<SavedPostsScreen> with Single
   }
 
   Future<void> _deleteNote(String id) async {
-    if (_deletingNoteIds.contains(id)) return;
-    final notifier = ref.read(savedMessagesProvider.notifier);
     setState(() => _deletingNoteIds.add(id));
-    try {
-      await Future.delayed(const Duration(milliseconds: 750));
-      notifier.deleteMessage(id);
-    } finally {
-      if (mounted) {
-        setState(() => _deletingNoteIds.remove(id));
-      }
+    await Future.delayed(const Duration(milliseconds: 750));
+    ref.read(savedMessagesProvider.notifier).deleteMessage(id);
+    if (mounted) {
+      setState(() => _deletingNoteIds.remove(id));
     }
   }
 

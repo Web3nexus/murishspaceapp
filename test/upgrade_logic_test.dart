@@ -99,7 +99,8 @@ void main() {
       final wallet = Wallet.fromJson(const {'wallet_type': 'creator'});
       expect(wallet.type, WalletType.creator);
       expect(wallet.available, 0);
-      expect(wallet.currency, 'NGN');
+      // Matches the platform fallback in config/payments.php (default_currency = USD).
+      expect(wallet.currency, 'USD');
       expect(wallet.hasPin, isFalse);
     });
 

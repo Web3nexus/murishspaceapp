@@ -46,6 +46,9 @@ class _MessagesNotifier extends ConversationMessagesNotifier {
   }
 
   @override
+  Future<void> markRead() async {}
+
+  @override
   Future<void> sendTyping(bool isTyping) async {}
 
   @override
@@ -170,6 +173,9 @@ class _GroupConversationsNotifier extends ConversationsNotifier {
 
 class _GroupMessagesNotifier extends ConversationMessagesNotifier {
   _GroupMessagesNotifier() : super(50);
+
+  @override
+  Future<void> markRead() async {}
 
   @override
   ConversationMessagesState build() {

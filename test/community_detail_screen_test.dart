@@ -51,6 +51,10 @@ class _StubDetail extends CommunityDetailNotifier {
 class _StubPosts extends PostsNotifier {
   _StubPosts() : super(const PostsSource.community(4));
 
+  // Skip the real view-tracking request.
+  @override
+  Future<void> recordView(Post post) async {}
+
   @override
   PostsState build() {
     return const PostsState(
@@ -97,6 +101,7 @@ void main() {
         communityDetailProvider('murih').overrideWith(_StubDetail.new),
         postsProvider(const PostsSource.community(4)).overrideWith(_StubPosts.new),
         communityMembersProvider(4).overrideWith(_StubMembers.new),
+        myCommunitiesProvider.overrideWith(_StubMyCommunities.new),
       ],
       child: const MaterialApp(home: CommunityDetailScreen(slug: 'murih')),
     );
@@ -109,9 +114,12 @@ void main() {
     expect(find.text('Murih Society'), findsWidgets);
     expect(find.textContaining('42 members'), findsOneWidget);
     expect(find.text('A community post'), findsOneWidget);
-    // Member state shows the Leave button instead of Join.
-    expect(find.text('Leave'), findsOneWidget);
+    // Member state shows "Joined"; leaving lives in the membership menu.
+    expect(find.text('Joined'), findsOneWidget);
     expect(find.text('Join community'), findsNothing);
+    await tester.tap(find.byTooltip('Membership options'));
+    await tester.pumpAndSettle();
+    expect(find.text('Leave Community'), findsOneWidget);
   });
 
   testWidgets('shows pending state when join request is waiting', (tester) async {
@@ -121,6 +129,7 @@ void main() {
         communityDetailProvider('murih').overrideWith(_PendingDetail.new),
         postsProvider(const PostsSource.community(4)).overrideWith(_StubPosts.new),
         communityMembersProvider(4).overrideWith(_StubMembers.new),
+        myCommunitiesProvider.overrideWith(_StubMyCommunities.new),
       ],
       child: const MaterialApp(home: CommunityDetailScreen(slug: 'murih')),
     ));
@@ -142,4 +151,10 @@ class _PendingDetail extends CommunityDetailNotifier {
       membership: MembershipStatus(isMember: false, isPending: true, status: 'pending'),
     );
   }
+}
+
+class _StubMyCommunities extends MyCommunitiesNotifier {
+  // Avoid the real /my-communities request during tests.
+  @override
+  CommunitiesState build() => const CommunitiesState(communities: [], loading: false);
 }

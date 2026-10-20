@@ -56,9 +56,11 @@ class AppNotification {
     // broadcasts (NotificationBroadcast / Laravel broadcast notifications) put
     // the payload keys at the top level, so merge the relevant ones.
     final data = (json['data'] as Map<String, dynamic>?)?.cast<String, dynamic>() ?? <String, dynamic>{};
+    // The payload's own `type` (e.g. new_message) is the app-level kind; the
+    // top-level `type` is the PHP class name, so it only fills in when absent.
     final merged = <String, dynamic>{
-      ...data,
       if (json['type'] != null) 'type': json['type'],
+      ...data,
       if (json['title'] != null) 'title': json['title'],
       if (json['message'] != null) 'message': json['message'],
       if (json['body'] != null) 'body': json['body'],

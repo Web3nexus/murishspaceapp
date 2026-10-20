@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:livekit_client/livekit_client.dart';
 
 import 'config/env.dart';
+import 'providers/platform_provider.dart';
 import 'config/router.dart';
 import 'config/theme.dart';
 import 'providers/security_provider.dart';
@@ -55,6 +57,10 @@ void main() async {
     Env.setRuntimeEnv(savedEnv);
     ApiClient.instance.updateBaseUrl(Env.apiBaseUrl);
   }
+  // Profile and bio links use the backend's canonical domain. Restore the one
+  // saved on this device, then refresh it in the background.
+  await Env.restoreProfileDomain();
+  unawaited(refreshCanonicalProfileDomain());
   runApp(
     const ProviderScope(
       child: MurihSpaceApp(),

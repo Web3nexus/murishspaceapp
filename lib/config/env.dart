@@ -1,5 +1,7 @@
 import 'dart:io' show Platform;
 
+import 'package:shared_preferences/shared_preferences.dart';
+
 import 'deep_links.dart';
 
 /// Resolves which API backend (and Reverb cluster) the app talks to.
@@ -15,6 +17,11 @@ import 'deep_links.dart';
 ///       - Android emulator -> http://10.0.2.2:8000/api/v1
 ///       - everything else   -> http://127.0.0.1:8000/api/v1
 ///
+/// Other build-time defines:
+///  - `ADS_MANAGER_URL` — Web Ads Manager link. No default; when unset, the
+///    "View full stats on web" button on the Ads screen is hidden.
+///    e.g. `flutter build apk --dart-define=ADS_MANAGER_URL=https://ads.example.com`
+///
 /// To archive or run against staging:
 ///   `flutter build ipa --dart-define=API_ENV=staging`
 /// To archive or run against production:
@@ -26,6 +33,15 @@ class Env {
   );
 
   static const String _explicitBaseUrl = String.fromEnvironment('API_BASE_URL');
+
+  /// Web Ads Manager, where full campaign stats are viewed after logging in.
+  /// Set with `--dart-define=ADS_MANAGER_URL=https://...`. There is no
+  /// built-in default: when empty, the "View full stats on web" button is hidden.
+  static const String adsManagerUrl = String.fromEnvironment('ADS_MANAGER_URL');
+
+  /// LiveKit server (wss://...). Set with `--dart-define=LIVEKIT_URL=wss://...`. There is no
+  /// built-in default: calls and live streams refuse to connect when it is empty.
+  static const String livekitUrl = String.fromEnvironment('LIVEKIT_URL');
 
   static const String _rawApiEnv = String.fromEnvironment('API_ENV');
 
@@ -85,50 +101,67 @@ class Env {
   }
 
   static String? _runtimeProfileDomain;
+  static String? _cachedProfileDomain;
 
-  /// Sets an explicit profile domain override at runtime (e.g. from backend /platform config).
+  static const String _profileDomainKey = 'canonical_profile_domain';
+
+  /// Records the canonical profile domain the backend reports (`/platform`).
+  /// It is kept in memory and on the device, so links still work on a cold
+  /// start before the network answers.
   static void setRuntimeProfileDomain(String? domain) {
-    if (domain != null && domain.trim().isNotEmpty) {
-      _runtimeProfileDomain = domain
-          .trim()
-          .replaceFirst(RegExp(r'^https?://'), '')
-          .replaceAll(RegExp(r'/+$'), '');
-    }
+    final clean = _cleanDomain(domain);
+    if (clean == null) return;
+    _runtimeProfileDomain = clean;
+    _cachedProfileDomain = clean;
+    SharedPreferences.getInstance()
+        .then((prefs) => prefs.setString(_profileDomainKey, clean))
+        .ignore();
   }
 
-  /// Host that serves vanity profile / link-in-bio pages (bare, no scheme).
-  /// Override at build time with `--dart-define=PROFILE_DOMAIN=...`; keep it
-  /// aligned with the backend CANONICAL_PROFILE_DOMAIN and web VITE_PROFILE_DOMAIN.
+  /// Loads the last canonical profile domain saved on this device. Call once at
+  /// startup, before any screen builds a profile or bio link.
+  static Future<void> restoreProfileDomain() async {
+    final prefs = await SharedPreferences.getInstance();
+    _cachedProfileDomain = _cleanDomain(prefs.getString(_profileDomainKey));
+  }
+
+  static String? _cleanDomain(String? raw) {
+    final trimmed = raw?.trim() ?? '';
+    if (trimmed.isEmpty) return null;
+    return trimmed
+        .replaceFirst(RegExp(r'^https?://'), '')
+        .replaceAll(RegExp(r'/+$'), '');
+  }
+
+  /// Host that serves vanity profile and link-in-bio pages (bare, no scheme).
+  ///
+  /// Comes from the backend's `canonical_profile_domain` setting, never from a
+  /// built-in guess. Resolution: the value from the backend this session, then
+  /// the last value saved on the device, then an explicit
+  /// `--dart-define=PROFILE_DOMAIN=...` for local builds. Returns an empty
+  /// string until one of them is known.
   static String get profileDomain {
-    if (_runtimeProfileDomain != null && _runtimeProfileDomain!.isNotEmpty) {
-      return _runtimeProfileDomain!;
-    }
-
+    if (_runtimeProfileDomain != null) return _runtimeProfileDomain!;
+    if (_cachedProfileDomain != null) return _cachedProfileDomain!;
     const explicit = String.fromEnvironment('PROFILE_DOMAIN');
-    if (explicit.isNotEmpty) return explicit;
-
-    switch (apiEnv) {
-      case 'staging':
-        final parsed = Uri.tryParse(_stagingWebUrl);
-        return parsed?.host ?? 'staging.murihspace.com';
-      case 'local':
-        return 'localhost:5173';
-      case 'production':
-      case 'prod':
-      default:
-        return 'murih.me';
-    }
+    return _cleanDomain(explicit) ?? '';
   }
 
-  /// Generates the canonical profile URL for any user handle.
+  /// Public profile link, e.g. `https://<canonical>/@handle`.
   static String profileUrl(String username) {
-    final cleanHandle = username.trim().replaceFirst(RegExp(r'^@'), '');
-    return 'https://$profileDomain/@$cleanHandle';
+    final handle = username.trim().replaceFirst(RegExp(r'^@'), '');
+    final domain = profileDomain;
+    if (domain.isEmpty) return '';
+    return 'https://$domain/@$handle';
   }
 
-  /// Generates the canonical link-in-bio URL.
+  /// Link-in-bio link, e.g. `https://<canonical>/l/handle`. Separate from the
+  /// profile link: it opens the creator's bio page, not the profile.
   static String linkInBioUrl(String username) {
-    return absolute(DeepLinks.linkInBio(username));
+    final handle = username.trim().replaceFirst(RegExp(r'^@'), '');
+    final domain = profileDomain;
+    if (domain.isEmpty) return '';
+    return 'https://$domain/l/$handle';
   }
 
   /// Builds a shareable, environment-aware deep link to a live stream.

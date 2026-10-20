@@ -6,6 +6,10 @@ import 'package:mobile/providers/notifications_provider.dart';
 import 'package:mobile/screens/notifications_screen.dart';
 
 class _StubNotifications extends NotificationsNotifier {
+  // Keep the screen from hitting the network during initState.
+  @override
+  Future<void> sync() async {}
+
   @override
   NotificationsState build() {
     return NotificationsState(
@@ -46,8 +50,9 @@ void main() {
     ));
     await tester.pump();
 
-    expect(find.text('Ann sent you a message'), findsOneWidget);
-    expect(find.text('Bob sent you a message'), findsOneWidget);
+    // Each row shows the sender as the channel name and the message preview as the body.
+    expect(find.text('Ann'), findsWidgets);
+    expect(find.text('Bob'), findsWidgets);
     expect(find.text('Hi there'), findsOneWidget);
     expect(find.text('Mark all read'), findsOneWidget);
   });
@@ -66,6 +71,9 @@ void main() {
 }
 
 class _EmptyNotifications extends NotificationsNotifier {
+  @override
+  Future<void> sync() async {}
+
   @override
   NotificationsState build() => const NotificationsState();
 }

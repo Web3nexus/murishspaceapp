@@ -55,6 +55,7 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+/android/build/
 
 # Private Keys
 *.p8
@@ -63,3 +64,11 @@ firebase-auth.json
 
 # local UI review artifacts
 .impeccable/
+
+# Release signing (keep the keystore and its passwords out of git)
+android/key.properties
+**/*.jks
+**/*.keystore
+
+# Flutter crash reports written by the CLI
+flutter_*.log

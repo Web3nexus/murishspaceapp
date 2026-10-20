@@ -291,6 +291,9 @@ class AuthState {
   }
 }
 
+/// google_sign_in 7 needs a single initialize() call before authenticate().
+bool _googleSignInReady = false;
+
 class AuthNotifier extends Notifier<AuthState> {
   Dio get _dio => ApiClient.instance.dio;
 
@@ -332,8 +335,7 @@ class AuthNotifier extends Notifier<AuthState> {
     } catch (e) {
       if (e is DioException && (e.response?.statusCode == 401 || e.response?.statusCode == 403)) {
         // Token is rejected or expired on the backend: clear and send to login
-        await ApiClient.clearToken();
-        await ApiClient.clearUserProfile();
+        await _forgetCredentials(token);
         state = const AuthState();
         return;
       }
@@ -672,8 +674,23 @@ class AuthNotifier extends Notifier<AuthState> {
         // Best-effort: keep local logout working even if the API call fails.
       }
     }
-    await ApiClient.clearToken();
+    await _forgetCredentials(token);
     state = const AuthState();
+  }
+
+  /// Removes everything this device keeps for [token]: the active token, the
+  /// cached profile, and that account's entry in the saved-accounts list.
+  Future<void> _forgetCredentials(String? token) async {
+    await ApiClient.clearToken();
+    await ApiClient.clearUserProfile();
+    if (token == null) return;
+    try {
+      final accounts = await getSavedAccounts();
+      final remaining = accounts.where((acc) => acc['token'] != token).toList();
+      if (remaining.length != accounts.length) {
+        await ApiClient.saveSavedAccounts(jsonEncode(remaining));
+      }
+    } catch (_) {}
   }
 
   Future<bool> deleteAccount({String? password, String? reason, String confirmation = 'DELETE'}) async {
@@ -688,7 +705,7 @@ class AuthNotifier extends Notifier<AuthState> {
         },
       );
       ApiClient.instance.unwrap(response);
-      await ApiClient.clearToken();
+      await _forgetCredentials(state.token);
       state = const AuthState();
       return true;
     } on DioException catch (e) {
@@ -706,17 +723,31 @@ class AuthNotifier extends Notifier<AuthState> {
   Future<bool> loginWithGoogle() async {
     state = state.copyWith(loading: true, clearError: true);
     try {
-      final googleSignIn = GoogleSignIn(
-        scopes: ['email', 'profile'],
-      );
-      final account = await googleSignIn.signIn();
-      if (account == null) {
-        state = state.copyWith(loading: false, errorMessage: 'Sign in cancelled');
+      const googleScopes = ['email', 'profile'];
+      final googleSignIn = GoogleSignIn.instance;
+      if (!_googleSignInReady) {
+        await googleSignIn.initialize();
+        _googleSignInReady = true;
+      }
+      if (!googleSignIn.supportsAuthenticate()) {
+        state = state.copyWith(
+            loading: false, errorMessage: 'Google sign in is not supported on this device.');
         return false;
       }
-      final auth = await account.authentication;
-      final idToken = auth.idToken;
-      final accessToken = auth.accessToken;
+      final GoogleSignInAccount account;
+      try {
+        account = await googleSignIn.authenticate(scopeHint: googleScopes);
+      } on GoogleSignInException catch (e) {
+        if (e.code == GoogleSignInExceptionCode.canceled) {
+          state = state.copyWith(loading: false, errorMessage: 'Sign in cancelled');
+          return false;
+        }
+        rethrow;
+      }
+      final idToken = account.authentication.idToken;
+      final authz = await account.authorizationClient.authorizationForScopes(googleScopes) ??
+          await account.authorizationClient.authorizeScopes(googleScopes);
+      final accessToken = authz.accessToken;
 
       // Post to backend native handler
       final response = await _dio.post('/auth/social/google/native', data: {
@@ -734,6 +765,9 @@ class AuthNotifier extends Notifier<AuthState> {
       return false;
     } on DioException catch (e) {
       state = state.copyWith(loading: false, errorMessage: _dioError(e, 'Google Sign in failed'));
+      return false;
+    } on GoogleSignInException catch (e) {
+      state = state.copyWith(loading: false, errorMessage: 'Google Sign in failed (${e.code.name}).');
       return false;
     } catch (e) {
       state = state.copyWith(loading: false, errorMessage: 'An error occurred during Google Sign in');

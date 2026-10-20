@@ -1,0 +1,8 @@
+# Copy this file to android/key.properties and fill in your real values.
+# android/key.properties is git-ignored. Never commit the real file or the keystore.
+# Follow android/RELEASE_SIGNING.md to create the keystore.
+storePassword=CHANGE_ME_STORE_PASSWORD
+keyPassword=CHANGE_ME_KEY_PASSWORD
+keyAlias=CHANGE_ME_KEY_ALIAS
+# Path is relative to the android/app/ folder, e.g. ../../../keys/upload-keystore.jks
+storeFile=CHANGE_ME_PATH_TO_KEYSTORE.jks

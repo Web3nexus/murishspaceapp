@@ -193,7 +193,7 @@ class _BuyCoinsSheetState extends ConsumerState<BuyCoinsSheet> {
                             gradient: const LinearGradient(
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
-                              colors: [Color(0xFF1A68D4), Color(0xFF1555AD)],
+                              colors: [Color(0xFF2164B6), Color(0xFF1555AD)],
                             ),
                             borderRadius: BorderRadius.circular(16),
                             boxShadow: [

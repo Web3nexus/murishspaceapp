@@ -12,6 +12,7 @@ import '../core/api_client.dart';
 import '../screens/call_screen.dart';
 import 'sound_service.dart';
 import 'pip_service.dart';
+import '../config/env.dart';
 
 enum CallStatus {
   idle,
@@ -526,7 +527,10 @@ class CallSessionManager extends ChangeNotifier {
 
       await Permission.microphone.request();
 
-      var wsHost = host ?? 'wss://livekit.murihspace.com';
+      var wsHost = (host != null && host.isNotEmpty) ? host : Env.livekitUrl;
+      if (wsHost.isEmpty) {
+        throw StateError('LIVEKIT_URL is not set for this build.');
+      }
       if (!wsHost.startsWith('ws://') && !wsHost.startsWith('wss://')) {
         wsHost = 'wss://$wsHost';
       }

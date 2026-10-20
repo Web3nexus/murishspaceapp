@@ -46,11 +46,22 @@ class ChatsScreen extends ConsumerWidget {
             child: TextButton.icon(
               onPressed: () => context.push('/friends'),
               style: TextButton.styleFrom(
-                backgroundColor: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFEFF3F6),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                backgroundColor: isDark
+                    ? const Color(0xFF2C2C2E)
+                    : const Color(0xFFEFF3F6),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
               ),
-              icon: const Icon(Icons.person_add_rounded, size: 16, color: DesignTokens.primary),
+              icon: const Icon(
+                Icons.person_add_rounded,
+                size: 16,
+                color: DesignTokens.primary,
+              ),
               label: const Text(
                 'Requests',
                 style: TextStyle(
@@ -129,7 +140,11 @@ class _SavedMessagesRow extends ConsumerWidget {
       leading: CircleAvatar(
         radius: 18,
         backgroundColor: DesignTokens.primarySoft,
-        child: const Icon(Icons.bookmark_outline, color: DesignTokens.primaryDark, size: 20),
+        child: const Icon(
+          Icons.bookmark_outline,
+          color: DesignTokens.primaryDark,
+          size: 20,
+        ),
       ),
       title: const Text(
         'Saved Messages',
@@ -140,8 +155,9 @@ class _SavedMessagesRow extends ConsumerWidget {
         style: TextStyle(fontSize: 12, color: DesignTokens.textSecondary),
       ),
       onTap: () async {
-        final conversation =
-            await ref.read(conversationsProvider.notifier).openSavedMessages();
+        final conversation = await ref
+            .read(conversationsProvider.notifier)
+            .openSavedMessages();
         if (conversation != null && context.mounted) {
           context.push('/app/conversation/${conversation.id}');
         }
@@ -166,10 +182,9 @@ class _CommunityPickerSheet extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
             child: Text(
               'Start a community chat',
-              style: Theme.of(context)
-                  .textTheme
-                  .titleSmall
-                  ?.copyWith(fontWeight: FontWeight.w700),
+              style: Theme.of(
+                context,
+              ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
             ),
           ),
           if (communities.isEmpty)
@@ -192,11 +207,16 @@ class _CommunityPickerSheet extends StatelessWidget {
                   return ListTile(
                     leading: CircleAvatar(
                       backgroundColor: DesignTokens.primarySoft,
-                      backgroundImage: c.logoUrl != null && c.logoUrl!.isNotEmpty
+                      backgroundImage:
+                          c.logoUrl != null && c.logoUrl!.isNotEmpty
                           ? CachedNetworkImageProvider(c.logoUrl!)
                           : null,
                       child: c.logoUrl == null || c.logoUrl!.isEmpty
-                          ? const Icon(Icons.person, color: DesignTokens.primaryDark, size: 20)
+                          ? const Icon(
+                              Icons.person,
+                              color: DesignTokens.primaryDark,
+                              size: 20,
+                            )
                           : null,
                     ),
                     title: Text(c.name ?? 'Community'),
@@ -221,8 +241,24 @@ class _ChatBody extends ConsumerStatefulWidget {
 
 class _ChatBodyState extends ConsumerState<_ChatBody> {
   String _filter = 'All';
+  final _searchController = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
   bool _showPullHeader = false;
-  static const _filters = ['All', 'App', 'Communities', 'Marketplace', 'Requests', 'Spam'];
+  static const _filters = [
+    'All',
+    'App',
+    'Communities',
+    'Marketplace',
+    'Requests',
+    'Spam',
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -235,44 +271,97 @@ class _ChatBodyState extends ConsumerState<_ChatBody> {
 
     final filtered = switch (_filter) {
       // 'App' = personal/direct DMs that are NOT marketplace, community, or group chats
-      'App' => base
-          .where((c) =>
-              (c.type == 'direct' || c.type == 'app') &&
-              !c.hasActiveEscrow &&
-              c.type != 'marketplace' &&
-              c.community == null &&
-              (c.memberCount == null || c.memberCount! <= 2))
-          .toList(),
+      'App' =>
+        base
+            .where(
+              (c) =>
+                  (c.type == 'direct' || c.type == 'app') &&
+                  !c.hasActiveEscrow &&
+                  c.type != 'marketplace' &&
+                  c.community == null &&
+                  (c.memberCount == null || c.memberCount! <= 2),
+            )
+            .toList(),
       // 'Communities' = group chats, community channels, and chats with member count > 2
-      'Communities' => base
-          .where((c) =>
-              c.type == 'community' ||
-              c.type == 'group' ||
-              c.community != null ||
-              (c.memberCount != null && c.memberCount! > 2))
-          .toList(),
+      'Communities' =>
+        base
+            .where(
+              (c) =>
+                  c.type == 'community' ||
+                  c.type == 'group' ||
+                  c.community != null ||
+                  (c.memberCount != null && c.memberCount! > 2),
+            )
+            .toList(),
       // 'Marketplace' = escrow/commerce/deal/product chats
-      'Marketplace' => base
-          .where((c) =>
-              c.type == 'marketplace' ||
-              c.hasActiveEscrow ||
-              (c.escrowAmount != null && c.escrowAmount! > 0) ||
-              c.title.toLowerCase().contains('order') ||
-              c.title.toLowerCase().contains('deal') ||
-              c.title.toLowerCase().contains('product') ||
-              c.title.toLowerCase().contains('store') ||
-              c.title.toLowerCase().contains('escrow') ||
-              c.title.toLowerCase().contains('seller') ||
-              c.title.toLowerCase().contains('buyer'))
-          .toList(),
+      'Marketplace' =>
+        base
+            .where(
+              (c) =>
+                  c.type == 'marketplace' ||
+                  c.hasActiveEscrow ||
+                  (c.escrowAmount != null && c.escrowAmount! > 0) ||
+                  c.title.toLowerCase().contains('order') ||
+                  c.title.toLowerCase().contains('deal') ||
+                  c.title.toLowerCase().contains('product') ||
+                  c.title.toLowerCase().contains('store') ||
+                  c.title.toLowerCase().contains('escrow') ||
+                  c.title.toLowerCase().contains('seller') ||
+                  c.title.toLowerCase().contains('buyer'),
+            )
+            .toList(),
       // 'Spam' uses `all` so must also exclude saved
-      'Spam' => all.where((c) => c.type != 'saved' && (c.isMuted || c.type == 'spam')).toList(),
+      'Spam' =>
+        all
+            .where((c) => c.type != 'saved' && (c.isMuted || c.type == 'spam'))
+            .toList(),
       _ => base,
     };
+
+    // Search matches the conversation name and its latest message text.
+    final q = _query.trim().toLowerCase();
+    final visible = q.isEmpty
+        ? filtered
+        : filtered
+              .where(
+                (c) =>
+                    c.title.toLowerCase().contains(q) ||
+                    (c.latestMessage?.content ?? '').toLowerCase().contains(q),
+              )
+              .toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 6, 16, 4),
+          child: TextField(
+            controller: _searchController,
+            onChanged: (v) => setState(() => _query = v),
+            textInputAction: TextInputAction.search,
+            decoration: InputDecoration(
+              hintText: 'Search messages',
+              prefixIcon: const Icon(Icons.search_rounded, size: 20),
+              suffixIcon: _query.isEmpty
+                  ? null
+                  : IconButton(
+                      icon: const Icon(Icons.close_rounded, size: 18),
+                      onPressed: () {
+                        _searchController.clear();
+                        setState(() => _query = '');
+                      },
+                    ),
+              isDense: true,
+              filled: true,
+              fillColor: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+              contentPadding: const EdgeInsets.symmetric(vertical: 10),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide.none,
+              ),
+            ),
+          ),
+        ),
         // Meta / Instagram Segmented Category Pill Bar with Saved Messages Icon & Divider
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -285,8 +374,9 @@ class _ChatBodyState extends ConsumerState<_ChatBody> {
                   // Saved Messages Quick Bookmark Button
                   GestureDetector(
                     onTap: () async {
-                      final conversation =
-                          await ref.read(conversationsProvider.notifier).openSavedMessages();
+                      final conversation = await ref
+                          .read(conversationsProvider.notifier)
+                          .openSavedMessages();
                       if (conversation != null && context.mounted) {
                         context.push('/app/conversation/${conversation.id}');
                       }
@@ -295,7 +385,9 @@ class _ChatBodyState extends ConsumerState<_ChatBody> {
                       height: 38,
                       width: 38,
                       decoration: BoxDecoration(
-                        color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFEFF3F6),
+                        color: isDark
+                            ? const Color(0xFF2C2C2E)
+                            : const Color(0xFFEFF3F6),
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(
@@ -332,16 +424,23 @@ class _ChatBodyState extends ConsumerState<_ChatBody> {
                         },
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 180),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
                           decoration: BoxDecoration(
                             color: selected
                                 ? DesignTokens.primary
-                                : (isDark ? const Color(0xFF2C2C2E) : const Color(0xFFEFF3F6)),
+                                : (isDark
+                                      ? const Color(0xFF2C2C2E)
+                                      : const Color(0xFFEFF3F6)),
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(
                               color: selected
                                   ? DesignTokens.primary
-                                  : (isDark ? Colors.grey[800]! : Colors.transparent),
+                                  : (isDark
+                                        ? Colors.grey[800]!
+                                        : Colors.transparent),
                               width: 1,
                             ),
                           ),
@@ -351,40 +450,79 @@ class _ChatBodyState extends ConsumerState<_ChatBody> {
                               if (f == 'App')
                                 Padding(
                                   padding: const EdgeInsets.only(right: 6),
-                                  child: Icon(Icons.chat_bubble_outline_rounded,
-                                      size: 15, color: selected ? Colors.white : (isDark ? Colors.grey[400] : Colors.grey[700])),
+                                  child: Icon(
+                                    Icons.chat_bubble_outline_rounded,
+                                    size: 15,
+                                    color: selected
+                                        ? Colors.white
+                                        : (isDark
+                                              ? Colors.grey[400]
+                                              : Colors.grey[700]),
+                                  ),
                                 )
                               else if (f == 'Communities')
                                 Padding(
                                   padding: const EdgeInsets.only(right: 6),
-                                  child: Icon(Icons.groups_rounded,
-                                      size: 15, color: selected ? Colors.white : (isDark ? Colors.grey[400] : Colors.grey[700])),
+                                  child: Icon(
+                                    Icons.groups_rounded,
+                                    size: 15,
+                                    color: selected
+                                        ? Colors.white
+                                        : (isDark
+                                              ? Colors.grey[400]
+                                              : Colors.grey[700]),
+                                  ),
                                 )
                               else if (f == 'Marketplace')
                                 Padding(
                                   padding: const EdgeInsets.only(right: 6),
-                                  child: Icon(Icons.storefront_rounded,
-                                      size: 15, color: selected ? Colors.white : (isDark ? Colors.grey[400] : Colors.grey[700])),
+                                  child: Icon(
+                                    Icons.storefront_rounded,
+                                    size: 15,
+                                    color: selected
+                                        ? Colors.white
+                                        : (isDark
+                                              ? Colors.grey[400]
+                                              : Colors.grey[700]),
+                                  ),
                                 )
                               else if (f == 'Requests')
                                 Padding(
                                   padding: const EdgeInsets.only(right: 6),
-                                  child: Icon(Icons.person_add_rounded,
-                                      size: 15, color: selected ? Colors.white : (isDark ? Colors.grey[400] : Colors.grey[700])),
+                                  child: Icon(
+                                    Icons.person_add_rounded,
+                                    size: 15,
+                                    color: selected
+                                        ? Colors.white
+                                        : (isDark
+                                              ? Colors.grey[400]
+                                              : Colors.grey[700]),
+                                  ),
                                 )
                               else if (f == 'Spam')
                                 Padding(
                                   padding: const EdgeInsets.only(right: 6),
-                                  child: Icon(Icons.shield_outlined,
-                                      size: 15, color: selected ? Colors.white : (isDark ? Colors.grey[400] : Colors.grey[700])),
+                                  child: Icon(
+                                    Icons.shield_outlined,
+                                    size: 15,
+                                    color: selected
+                                        ? Colors.white
+                                        : (isDark
+                                              ? Colors.grey[400]
+                                              : Colors.grey[700]),
+                                  ),
                                 ),
                               Text(
                                 f,
                                 style: TextStyle(
                                   color: selected
                                       ? Colors.white
-                                      : (isDark ? Colors.grey[300] : const Color(0xFF1C1E21)),
-                                  fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                                      : (isDark
+                                            ? Colors.grey[300]
+                                            : const Color(0xFF1C1E21)),
+                                  fontWeight: selected
+                                      ? FontWeight.w800
+                                      : FontWeight.w600,
                                   fontSize: 13,
                                 ),
                               ),
@@ -413,9 +551,10 @@ class _ChatBodyState extends ConsumerState<_ChatBody> {
             },
             child: _ConversationList(
               state: state,
-              filtered: filtered,
+              filtered: visible,
               filter: _filter,
-              onRefresh: () => ref.read(conversationsProvider.notifier).refresh(),
+              onRefresh: () =>
+                  ref.read(conversationsProvider.notifier).refresh(),
             ),
           ),
         ),
@@ -459,7 +598,9 @@ class _ConversationList extends ConsumerWidget {
     if (filtered.isEmpty) {
       return EmptyStateWidget(
         icon: Icons.filter_alt_outlined,
-        title: filter == 'Archived' ? 'No archived chats' : 'Nothing matches this filter',
+        title: filter == 'Archived'
+            ? 'No archived chats'
+            : 'Nothing matches this filter',
         description: filter == 'Archived'
             ? 'Archive a chat by swiping it to the left.'
             : 'Try another filter to see more conversations.',
@@ -468,12 +609,20 @@ class _ConversationList extends ConsumerWidget {
 
     // Sort: Pinned items at the top (sorted by date), followed by unpinned items (sorted by date)
     final bState = ref.watch(broadcastProvider);
-    final systemDate = bState.messages.isNotEmpty ? bState.messages.first.timestamp : DateTime.fromMillisecondsSinceEpoch(0);
+    final systemDate = bState.messages.isNotEmpty
+        ? bState.messages.first.timestamp
+        : DateTime.fromMillisecondsSinceEpoch(0);
 
     final pinnedConvs = filtered.where((c) => c.isPinned).toList()
-      ..sort((a, b) => (b.updatedAt ?? DateTime(0)).compareTo(a.updatedAt ?? DateTime(0)));
+      ..sort(
+        (a, b) =>
+            (b.updatedAt ?? DateTime(0)).compareTo(a.updatedAt ?? DateTime(0)),
+      );
     final unpinnedConvs = filtered.where((c) => !c.isPinned).toList()
-      ..sort((a, b) => (b.updatedAt ?? DateTime(0)).compareTo(a.updatedAt ?? DateTime(0)));
+      ..sort(
+        (a, b) =>
+            (b.updatedAt ?? DateTime(0)).compareTo(a.updatedAt ?? DateTime(0)),
+      );
 
     final List<Widget> listWidgets = [];
 
@@ -541,8 +690,12 @@ class _ConversationTile extends ConsumerWidget {
         alignRight: false,
       ),
       secondaryBackground: _SwipeBackground(
-        color: conversation.isArchived ? DesignTokens.primary : const Color(0xFFE53935),
-        icon: conversation.isArchived ? Icons.unarchive_outlined : Icons.archive_outlined,
+        color: conversation.isArchived
+            ? DesignTokens.primary
+            : const Color(0xFFE53935),
+        icon: conversation.isArchived
+            ? Icons.unarchive_outlined
+            : Icons.archive_outlined,
         label: conversation.isArchived ? 'Unarchive' : 'Archive',
         alignRight: true,
       ),
@@ -562,12 +715,19 @@ class _ConversationTile extends ConsumerWidget {
                     Row(
                       children: [
                         if (conversation.isPinned) ...[
-                          const Icon(Icons.push_pin_rounded, size: 14, color: DesignTokens.primary),
+                          const Icon(
+                            Icons.push_pin_rounded,
+                            size: 14,
+                            color: DesignTokens.primary,
+                          ),
                           const SizedBox(width: 4),
                         ],
                         if (conversation.isMuted) ...[
-                          const Icon(Icons.volume_off_outlined,
-                              size: 14, color: DesignTokens.textSecondary),
+                          const Icon(
+                            Icons.volume_off_outlined,
+                            size: 14,
+                            color: DesignTokens.textSecondary,
+                          ),
                           const SizedBox(width: 4),
                         ],
                         Expanded(
@@ -577,7 +737,9 @@ class _ConversationTile extends ConsumerWidget {
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               fontSize: 16,
-                              fontWeight: unread > 0 ? FontWeight.w700 : FontWeight.w500,
+                              fontWeight: unread > 0
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
                               color: DesignTokens.textPrimary,
                             ),
                           ),
@@ -586,8 +748,12 @@ class _ConversationTile extends ConsumerWidget {
                           formatConversationTime(conversation.updatedAt),
                           style: TextStyle(
                             fontSize: 12,
-                            color: unread > 0 ? DesignTokens.primaryDark : DesignTokens.textSecondary,
-                            fontWeight: unread > 0 ? FontWeight.w600 : FontWeight.w400,
+                            color: unread > 0
+                                ? DesignTokens.primaryDark
+                                : DesignTokens.textSecondary,
+                            fontWeight: unread > 0
+                                ? FontWeight.w600
+                                : FontWeight.w400,
                           ),
                         ),
                       ],
@@ -596,12 +762,19 @@ class _ConversationTile extends ConsumerWidget {
                     Row(
                       children: [
                         Expanded(
-                          child: _PreviewLine(conversation: conversation, unread: unread > 0, myId: myId),
+                          child: _PreviewLine(
+                            conversation: conversation,
+                            unread: unread > 0,
+                            myId: myId,
+                          ),
                         ),
                         if (unread > 0) ...[
                           const SizedBox(width: 8),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 7,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
                               color: DesignTokens.primary,
                               borderRadius: BorderRadius.circular(12),
@@ -661,13 +834,18 @@ class _ConversationTile extends ConsumerWidget {
                 conversation.title,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                style: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 16,
+                ),
               ),
             ),
             const Divider(height: 1),
             ListTile(
               leading: Icon(
-                conversation.isPinned ? Icons.push_pin_outlined : Icons.push_pin_rounded,
+                conversation.isPinned
+                    ? Icons.push_pin_outlined
+                    : Icons.push_pin_rounded,
                 color: DesignTokens.primary,
               ),
               title: Text(
@@ -683,18 +861,35 @@ class _ConversationTile extends ConsumerWidget {
                 onTap: () => Navigator.pop(ctx, 'read'),
               ),
             ListTile(
-              leading: Icon(conversation.isMuted ? Icons.volume_up_outlined : Icons.volume_off_outlined),
-              title: Text(conversation.isMuted ? 'Unmute notifications' : 'Mute notifications'),
+              leading: Icon(
+                conversation.isMuted
+                    ? Icons.volume_up_outlined
+                    : Icons.volume_off_outlined,
+              ),
+              title: Text(
+                conversation.isMuted
+                    ? 'Unmute notifications'
+                    : 'Mute notifications',
+              ),
               onTap: () => Navigator.pop(ctx, 'mute'),
             ),
             ListTile(
-              leading: Icon(conversation.isArchived ? Icons.unarchive_outlined : Icons.archive_outlined),
-              title: Text(conversation.isArchived ? 'Unarchive chat' : 'Archive chat'),
+              leading: Icon(
+                conversation.isArchived
+                    ? Icons.unarchive_outlined
+                    : Icons.archive_outlined,
+              ),
+              title: Text(
+                conversation.isArchived ? 'Unarchive chat' : 'Archive chat',
+              ),
               onTap: () => Navigator.pop(ctx, 'archive'),
             ),
             ListTile(
               leading: const Icon(Icons.delete_outline, color: Colors.red),
-              title: const Text('Delete chat', style: TextStyle(color: Colors.red)),
+              title: const Text(
+                'Delete chat',
+                style: TextStyle(color: Colors.red),
+              ),
               onTap: () => Navigator.pop(ctx, 'delete'),
             ),
             const SizedBox(height: 8),
@@ -709,23 +904,31 @@ class _ConversationTile extends ConsumerWidget {
       case 'read':
         if (myId != null) notifier.markRead(conversation.id, myId);
       case 'mute':
-        await notifier.setSettings(conversation.id, muted: !conversation.isMuted);
+        await notifier.setSettings(
+          conversation.id,
+          muted: !conversation.isMuted,
+        );
       case 'archive':
-        await notifier.setSettings(conversation.id, archived: !conversation.isArchived);
+        await notifier.setSettings(
+          conversation.id,
+          archived: !conversation.isArchived,
+        );
       case 'delete':
         if (['business', 'marketplace', 'escrow'].contains(conversation.type)) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Business chats can only be deleted after 6 months of inactivity for transaction security.'),
+              content: Text(
+                'Business chats can only be deleted after 6 months of inactivity for transaction security.',
+              ),
               duration: Duration(seconds: 4),
             ),
           );
         } else {
           final success = await notifier.deleteConversation(conversation.id);
           if (success && context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Chat deleted.')),
-            );
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(const SnackBar(content: Text('Chat deleted.')));
           }
         }
     }
@@ -738,7 +941,9 @@ class _ConversationTile extends ConsumerWidget {
     final maxPinLimit = isVerified ? 5 : 3;
 
     if (!conversation.isPinned) {
-      final currentPinnedCount = conversations.where((c) => c.isPinned && !c.isArchived).length;
+      final currentPinnedCount = conversations
+          .where((c) => c.isPinned && !c.isArchived)
+          .length;
       if (currentPinnedCount >= maxPinLimit) {
         showModalBottomSheet<void>(
           context: context,
@@ -760,12 +965,19 @@ class _ConversationTile extends ConsumerWidget {
                       color: DesignTokens.primary.withOpacity(0.15),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.push_pin_rounded, color: DesignTokens.primary, size: 30),
+                    child: const Icon(
+                      Icons.push_pin_rounded,
+                      color: DesignTokens.primary,
+                      size: 30,
+                    ),
                   ),
                   const SizedBox(height: 16),
                   Text(
                     'Pin Limit Reached ($currentPinnedCount/$maxPinLimit)',
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                   const SizedBox(height: 8),
                   Text(
@@ -773,7 +985,11 @@ class _ConversationTile extends ConsumerWidget {
                         ? 'You have reached the maximum 5 pinned chats limit for Premium members.'
                         : 'Non-Premium users can pin up to 3 chats. Upgrade to MurihSpace Premium to pin up to 5 chats, get your verified star badge, and unlock 4GB file uploads!',
                     textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 13, height: 1.4, color: Colors.grey),
+                    style: const TextStyle(
+                      fontSize: 13,
+                      height: 1.4,
+                      color: Colors.grey,
+                    ),
                   ),
                   const SizedBox(height: 20),
                   SizedBox(
@@ -783,7 +999,9 @@ class _ConversationTile extends ConsumerWidget {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: DesignTokens.primary,
                         foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
                       ),
                       onPressed: () {
                         Navigator.pop(ctx);
@@ -793,7 +1011,10 @@ class _ConversationTile extends ConsumerWidget {
                       },
                       child: Text(
                         isVerified ? 'Got it' : 'Upgrade to MurihSpace Premium',
-                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 15,
+                        ),
                       ),
                     ),
                   ),
@@ -836,7 +1057,10 @@ class _SwipeBackground extends StatelessWidget {
           const SizedBox(width: 6),
           Text(
             label,
-            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ],
       ),
@@ -855,8 +1079,11 @@ class _Avatar extends StatelessWidget {
     final avatarUrl = conversation.avatarUrl;
     // Presence dots only apply to one-to-one chats; communities, groups, saved
     // messages, and system threads must never show a contact's online state.
-    final isDirectChat = conversation.type == 'direct' && conversation.otherUser != null;
-    final isOnline = isDirectChat ? (conversation.otherUser?.isOnline ?? false) : false;
+    final isDirectChat =
+        conversation.type == 'direct' && conversation.otherUser != null;
+    final isOnline = isDirectChat
+        ? (conversation.otherUser?.isOnline ?? false)
+        : false;
 
     return OnlineAvatarBadge(
       isOnline: isOnline,
@@ -877,7 +1104,9 @@ class _Avatar extends StatelessWidget {
             ),
             child: CircleAvatar(
               radius: 26,
-              backgroundColor: unread ? DesignTokens.primary : DesignTokens.primarySoft,
+              backgroundColor: unread
+                  ? DesignTokens.primary
+                  : DesignTokens.primarySoft,
               backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
                   ? CachedNetworkImageProvider(avatarUrl)
                   : null,
@@ -894,7 +1123,10 @@ class _Avatar extends StatelessWidget {
             const Positioned(
               right: 0,
               bottom: 0,
-              child: CircleAvatar(radius: 5, backgroundColor: DesignTokens.primary),
+              child: CircleAvatar(
+                radius: 5,
+                backgroundColor: DesignTokens.primary,
+              ),
             ),
         ],
       ),
@@ -907,14 +1139,19 @@ class _PreviewLine extends ConsumerWidget {
   final bool unread;
   final int? myId;
 
-  const _PreviewLine({required this.conversation, required this.unread, this.myId});
+  const _PreviewLine({
+    required this.conversation,
+    required this.unread,
+    this.myId,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final typingMap = ref.watch(typingProvider)[conversation.id];
     if (typingMap != null && typingMap.isNotEmpty) {
       final typer = typingMap.values.first;
-      final prefix = conversation.type == 'community' && typer.userName.isNotEmpty
+      final prefix =
+          conversation.type == 'community' && typer.userName.isNotEmpty
           ? '${typer.userName} is '
           : '';
       return Text(
@@ -941,7 +1178,9 @@ class _PreviewLine extends ConsumerWidget {
     final isMine = message.userId == myId;
     final prefix = isMine
         ? 'You: '
-        : (conversation.type == 'community' ? '${message.user?.name ?? ''}: ' : '');
+        : (conversation.type == 'community'
+              ? '${message.user?.name ?? ''}: '
+              : '');
     return Text(
       '$prefix$preview',
       maxLines: 1,
@@ -1087,13 +1326,15 @@ class _ActiveFriendsRow extends ConsumerWidget {
               final friend = activeList[index];
               final friendId = (friend['id'] as num?)?.toInt() ?? 0;
               final name = friend['name']?.toString() ?? 'Friend';
-              final username = friend['username']?.toString() ?? 'user_$friendId';
+              final username =
+                  friend['username']?.toString() ?? 'user_$friendId';
               final avatarUrl = friend['avatarUrl']?.toString();
               final hasAvatar = avatarUrl != null && avatarUrl.isNotEmpty;
               final isOnline = (friend['isOnline'] as bool?) ?? false;
               final isCommunity = (friend['isCommunity'] as bool?) ?? false;
               final communityId = (friend['communityId'] as num?)?.toInt();
-              final conversationId = (friend['conversationId'] as num?)?.toInt();
+              final conversationId = (friend['conversationId'] as num?)
+                  ?.toInt();
               final colorInt = (friend['color'] as num?)?.toInt() ?? 0xFF38A8D8;
               final color = Color(colorInt);
 
@@ -1121,7 +1362,9 @@ class _ActiveFriendsRow extends ConsumerWidget {
                         CircleAvatar(
                           radius: 25,
                           backgroundColor: color.withOpacity(0.18),
-                          backgroundImage: hasAvatar ? CachedNetworkImageProvider(avatarUrl) : null,
+                          backgroundImage: hasAvatar
+                              ? CachedNetworkImageProvider(avatarUrl)
+                              : null,
                           child: !hasAvatar
                               ? Icon(Icons.person, color: color, size: 28)
                               : null,
@@ -1134,7 +1377,9 @@ class _ActiveFriendsRow extends ConsumerWidget {
                               width: 14,
                               height: 14,
                               decoration: BoxDecoration(
-                                color: isCommunity ? const Color(0xFF5856D6) : const Color(0xFF34C759),
+                                color: isCommunity
+                                    ? const Color(0xFF5856D6)
+                                    : const Color(0xFF34C759),
                                 shape: BoxShape.circle,
                                 border: Border.all(
                                   color: isDark ? Colors.black : Colors.white,
@@ -1225,7 +1470,11 @@ class _SystemBroadcastTile extends ConsumerWidget {
                             color: DesignTokens.primary.withValues(alpha: 0.15),
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(Icons.campaign_rounded, color: DesignTokens.primary, size: 24),
+                          child: const Icon(
+                            Icons.campaign_rounded,
+                            color: DesignTokens.primary,
+                            size: 24,
+                          ),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
@@ -1236,13 +1485,27 @@ class _SystemBroadcastTile extends ConsumerWidget {
                                 children: [
                                   Text(
                                     'MurihSpace Official Broadcast',
-                                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: textPrimary),
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w900,
+                                      color: textPrimary,
+                                    ),
                                   ),
                                   const SizedBox(width: 6),
-                                  const Icon(Icons.verified_rounded, color: DesignTokens.primary, size: 16),
+                                  const Icon(
+                                    Icons.verified_rounded,
+                                    color: DesignTokens.primary,
+                                    size: 16,
+                                  ),
                                 ],
                               ),
-                              Text('Platform updates, security alerts & OTP receipts', style: TextStyle(fontSize: 12, color: textSecondary)),
+                              Text(
+                                'Platform updates, security alerts & OTP receipts',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: textSecondary,
+                                ),
+                              ),
                             ],
                           ),
                         ),
@@ -1257,25 +1520,44 @@ class _SystemBroadcastTile extends ConsumerWidget {
                       child: bState.messages.isEmpty
                           ? Center(
                               child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 24),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 24,
+                                ),
                                 child: Column(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
                                     Container(
                                       padding: const EdgeInsets.all(16),
                                       decoration: BoxDecoration(
-                                        color: DesignTokens.primary.withValues(alpha: 0.1),
+                                        color: DesignTokens.primary.withValues(
+                                          alpha: 0.1,
+                                        ),
                                         shape: BoxShape.circle,
                                       ),
-                                      child: const Icon(Icons.campaign_outlined, size: 36, color: DesignTokens.primary),
+                                      child: const Icon(
+                                        Icons.campaign_outlined,
+                                        size: 36,
+                                        color: DesignTokens.primary,
+                                      ),
                                     ),
                                     const SizedBox(height: 14),
-                                    Text('No System Broadcasts', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: textPrimary)),
+                                    Text(
+                                      'No System Broadcasts',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16,
+                                        color: textPrimary,
+                                      ),
+                                    ),
                                     const SizedBox(height: 6),
                                     Text(
                                       'Official announcements, security alerts and verification codes from MurihSpace will appear here.',
                                       textAlign: TextAlign.center,
-                                      style: TextStyle(fontSize: 13, color: textSecondary, height: 1.4),
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: textSecondary,
+                                        height: 1.4,
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -1283,73 +1565,144 @@ class _SystemBroadcastTile extends ConsumerWidget {
                             )
                           : ListView.separated(
                               itemCount: bState.messages.length,
-                              separatorBuilder: (_, _) => const SizedBox(height: 12),
+                              separatorBuilder: (_, _) =>
+                                  const SizedBox(height: 12),
                               itemBuilder: (context, idx) {
                                 final msg = bState.messages[idx];
                                 return Container(
                                   padding: const EdgeInsets.all(14),
                                   decoration: BoxDecoration(
-                                    color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF2F2F7),
+                                    color: isDark
+                                        ? const Color(0xFF2C2C2E)
+                                        : const Color(0xFFF2F2F7),
                                     borderRadius: BorderRadius.circular(16),
-                                    border: Border.all(color: msg.color.withValues(alpha: 0.3)),
+                                    border: Border.all(
+                                      color: msg.color.withValues(alpha: 0.3),
+                                    ),
                                   ),
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Row(
                                         children: [
-                                          Icon(msg.icon, color: msg.color, size: 18),
+                                          Icon(
+                                            msg.icon,
+                                            color: msg.color,
+                                            size: 18,
+                                          ),
                                           const SizedBox(width: 8),
                                           Expanded(
                                             child: Text(
                                               msg.title,
-                                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: textPrimary),
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 14,
+                                                color: textPrimary,
+                                              ),
                                             ),
                                           ),
                                           Text(
                                             '${msg.timestamp.hour.toString().padLeft(2, '0')}:${msg.timestamp.minute.toString().padLeft(2, '0')}',
-                                            style: TextStyle(fontSize: 11, color: textSecondary),
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              color: textSecondary,
+                                            ),
                                           ),
                                         ],
                                       ),
                                       const SizedBox(height: 6),
                                       Text(
                                         msg.body,
-                                        style: TextStyle(fontSize: 13, color: textPrimary, height: 1.35),
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: textPrimary,
+                                          height: 1.35,
+                                        ),
                                       ),
                                       if (msg.otpCode != null) ...[
                                         const SizedBox(height: 10),
                                         Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 14,
+                                            vertical: 10,
+                                          ),
                                           decoration: BoxDecoration(
-                                            color: const Color(0xFFFF9500).withValues(alpha: 0.15),
-                                            borderRadius: BorderRadius.circular(12),
-                                            border: Border.all(color: const Color(0xFFFF9500).withValues(alpha: 0.3)),
+                                            color: const Color(
+                                              0xFFFF9500,
+                                            ).withValues(alpha: 0.15),
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
+                                            border: Border.all(
+                                              color: const Color(
+                                                0xFFFF9500,
+                                              ).withValues(alpha: 0.3),
+                                            ),
                                           ),
                                           child: Row(
                                             children: [
-                                              const Icon(Icons.key_rounded, color: Color(0xFFFF9500), size: 18),
+                                              const Icon(
+                                                Icons.key_rounded,
+                                                color: Color(0xFFFF9500),
+                                                size: 18,
+                                              ),
                                               const SizedBox(width: 8),
                                               Expanded(
                                                 child: Text(
                                                   'LOGIN CODE: ${msg.otpCode}',
-                                                  style: const TextStyle(color: Color(0xFFFF9500), fontWeight: FontWeight.w900, fontSize: 14, letterSpacing: 1),
+                                                  style: const TextStyle(
+                                                    color: Color(0xFFFF9500),
+                                                    fontWeight: FontWeight.w900,
+                                                    fontSize: 14,
+                                                    letterSpacing: 1,
+                                                  ),
                                                 ),
                                               ),
                                               GestureDetector(
                                                 onTap: () {
-                                                  Clipboard.setData(ClipboardData(text: msg.otpCode!));
-                                                  ScaffoldMessenger.of(context).showSnackBar(
-                                                    const SnackBar(content: Text('Code copied to clipboard!'), duration: Duration(seconds: 2)),
+                                                  Clipboard.setData(
+                                                    ClipboardData(
+                                                      text: msg.otpCode!,
+                                                    ),
+                                                  );
+                                                  ScaffoldMessenger.of(
+                                                    context,
+                                                  ).showSnackBar(
+                                                    const SnackBar(
+                                                      content: Text(
+                                                        'Code copied to clipboard!',
+                                                      ),
+                                                      duration: Duration(
+                                                        seconds: 2,
+                                                      ),
+                                                    ),
                                                   );
                                                 },
                                                 child: Container(
-                                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 10,
+                                                        vertical: 4,
+                                                      ),
                                                   decoration: BoxDecoration(
-                                                    color: const Color(0xFFFF9500),
-                                                    borderRadius: BorderRadius.circular(8),
+                                                    color: const Color(
+                                                      0xFFFF9500,
+                                                    ),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          8,
+                                                        ),
                                                   ),
-                                                  child: const Text('Copy', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
+                                                  child: const Text(
+                                                    'Copy',
+                                                    style: TextStyle(
+                                                      color: Colors.white,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      fontSize: 11,
+                                                    ),
+                                                  ),
                                                 ),
                                               ),
                                             ],
@@ -1362,14 +1715,26 @@ class _SystemBroadcastTile extends ConsumerWidget {
                                           style: OutlinedButton.styleFrom(
                                             foregroundColor: msg.color,
                                             side: BorderSide(color: msg.color),
-                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(10),
+                                            ),
                                           ),
                                           onPressed: () {
                                             Navigator.pop(ctx);
                                             context.push(msg.actionUrl!);
                                           },
-                                          icon: const Icon(Icons.arrow_forward_rounded, size: 14),
-                                          label: const Text('Review Notification', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                          icon: const Icon(
+                                            Icons.arrow_forward_rounded,
+                                            size: 14,
+                                          ),
+                                          label: const Text(
+                                            'Review Notification',
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 12,
+                                            ),
+                                          ),
                                         ),
                                       ],
                                     ],
@@ -1412,11 +1777,15 @@ class _SystemBroadcastTile extends ConsumerWidget {
             const Divider(height: 1),
             ListTile(
               leading: Icon(
-                bState.isPinned ? Icons.push_pin_outlined : Icons.push_pin_rounded,
+                bState.isPinned
+                    ? Icons.push_pin_outlined
+                    : Icons.push_pin_rounded,
                 color: DesignTokens.primary,
               ),
               title: Text(
-                bState.isPinned ? 'Unpin Official Broadcast thread' : 'Pin Official Broadcast thread to top',
+                bState.isPinned
+                    ? 'Unpin Official Broadcast thread'
+                    : 'Pin Official Broadcast thread to top',
                 style: const TextStyle(fontWeight: FontWeight.w600),
               ),
               onTap: () {
@@ -1426,7 +1795,10 @@ class _SystemBroadcastTile extends ConsumerWidget {
             ),
             if (bState.unreadCount > 0)
               ListTile(
-                leading: const Icon(Icons.done_all_rounded, color: Color(0xFF34C759)),
+                leading: const Icon(
+                  Icons.done_all_rounded,
+                  color: Color(0xFF34C759),
+                ),
                 title: const Text('Mark all system broadcasts read'),
                 onTap: () {
                   Navigator.pop(ctx);
@@ -1468,7 +1840,11 @@ class _SystemBroadcastTile extends ConsumerWidget {
                 ),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.campaign_rounded, color: Colors.white, size: 26),
+              child: const Icon(
+                Icons.campaign_rounded,
+                color: Colors.white,
+                size: 26,
+              ),
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -1479,31 +1855,63 @@ class _SystemBroadcastTile extends ConsumerWidget {
                     children: [
                       Text(
                         'MurihSpace Official',
-                        style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: textPrimary),
+                        style: TextStyle(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 15,
+                          color: textPrimary,
+                        ),
                       ),
                       const SizedBox(width: 4),
-                      const Icon(Icons.verified_rounded, color: DesignTokens.primary, size: 16),
+                      const Icon(
+                        Icons.verified_rounded,
+                        color: DesignTokens.primary,
+                        size: 16,
+                      ),
                       if (bState.isPinned) ...[
                         const SizedBox(width: 4),
-                        const Icon(Icons.push_pin_rounded, color: DesignTokens.primary, size: 13),
+                        const Icon(
+                          Icons.push_pin_rounded,
+                          color: DesignTokens.primary,
+                          size: 13,
+                        ),
                       ],
                       const Spacer(),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
                         decoration: BoxDecoration(
                           color: DesignTokens.primary.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: const Text('OFFICIAL', style: TextStyle(color: DesignTokens.primary, fontWeight: FontWeight.w900, fontSize: 9)),
+                        child: const Text(
+                          'OFFICIAL',
+                          style: TextStyle(
+                            color: DesignTokens.primary,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 9,
+                          ),
+                        ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 3),
                   Text(
-                    bState.messages.isNotEmpty ? bState.messages.first.title : 'Official System Broadcasts & Security Alerts',
+                    bState.messages.isNotEmpty
+                        ? bState.messages.first.title
+                        : 'Official System Broadcasts & Security Alerts',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 13, color: bState.unreadCount > 0 ? DesignTokens.primary : textSecondary, fontWeight: bState.unreadCount > 0 ? FontWeight.bold : FontWeight.normal),
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: bState.unreadCount > 0
+                          ? DesignTokens.primary
+                          : textSecondary,
+                      fontWeight: bState.unreadCount > 0
+                          ? FontWeight.bold
+                          : FontWeight.normal,
+                    ),
                   ),
                 ],
               ),
@@ -1518,7 +1926,11 @@ class _SystemBroadcastTile extends ConsumerWidget {
                 ),
                 child: Text(
                   '${bState.unreadCount}',
-                  style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ],

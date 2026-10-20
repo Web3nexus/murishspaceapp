@@ -273,7 +273,7 @@ Widget _sectionLabel(String text, Color color) {
 
 IconData _modeIcon(UserRole role) => switch (role) {
       UserRole.member => Icons.person_rounded,
-      UserRole.creator => Icons.auto_awesome_rounded,
+      UserRole.creator => Icons.workspace_premium_rounded,
       UserRole.vendor => Icons.storefront_rounded,
       UserRole.admin => Icons.admin_panel_settings_rounded,
     };

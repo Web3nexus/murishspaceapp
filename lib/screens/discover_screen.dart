@@ -77,11 +77,15 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
   }
 
   Future<void> _syncContactsAction() async {
-    final granted = await ref.read(permissionsProvider.notifier).ensureContacts(context);
+    final granted = await ref
+        .read(permissionsProvider.notifier)
+        .ensureContacts(context);
     if (!granted) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Contacts access is needed to find your friends.')),
+          const SnackBar(
+            content: Text('Contacts access is needed to find your friends.'),
+          ),
         );
       }
       return;
@@ -351,136 +355,165 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
             letterSpacing: -0.5,
           ),
         ),
-        bottom: PreferredSize(
-          preferredSize: Size.fromHeight(_searchQuery.isNotEmpty ? 54 : 102),
-          child: Column(
-            children: [
-              // Standard Clean Search Input
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Container(
-                  height: 42,
-                  decoration: BoxDecoration(
-                    color: searchBg,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: borderColor),
-                  ),
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.search_rounded,
-                        color: textSecondary,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: TextField(
-                          controller: _searchController,
-                          onChanged: _onSearchChanged,
-                          onSubmitted: (v) => _performSearch(v.trim()),
-                          textInputAction: TextInputAction.search,
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: textPrimary,
-                            fontWeight: FontWeight.w500,
-                          ),
-                          decoration: InputDecoration(
-                            filled: false,
-                            hintText:
-                                'Search people, posts, videos, communities...',
-                            hintStyle: TextStyle(
-                              fontSize: 13,
-                              color: textSecondary,
-                            ),
-                            border: InputBorder.none,
-                            isDense: true,
-                          ),
-                        ),
-                      ),
-                      if (_searchController.text.isNotEmpty)
-                        GestureDetector(
-                          onTap: () {
-                            _searchController.clear();
-                            _onSearchChanged('');
-                          },
-                          child: Icon(
-                            Icons.close_rounded,
-                            size: 18,
-                            color: textSecondary,
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-
-              if (_searchQuery.isEmpty) ...[
-                const SizedBox(height: 8),
-                // Category Navigation Tabs
-                TabBar(
-                  controller: _tab,
-                  isScrollable: true,
-                  tabAlignment: TabAlignment.start,
-                  labelColor: DesignTokens.primary,
-                  unselectedLabelColor: textSecondary,
-                  indicatorColor: DesignTokens.primary,
-                  indicatorWeight: 3,
-                  labelStyle: const TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 14,
-                  ),
-                  unselectedLabelStyle: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                  ),
-                  tabs: const [
-                    Tab(text: 'For You'),
-                    Tab(text: 'Trending'),
-                    Tab(text: 'People'),
-                    Tab(text: 'Communities'),
-                    Tab(text: 'Live'),
-                  ],
-                ),
-              ] else
-                const SizedBox(height: 12),
-            ],
+        actions: [
+          IconButton(
+            tooltip: 'Refresh',
+            icon: Icon(Icons.refresh_rounded, color: textPrimary),
+            onPressed: () => _refreshCurrentTab(),
           ),
-        ),
+        ],
       ),
-      body: _searchQuery.isNotEmpty
-          ? _buildSearchResults(isDark, cardBg, textPrimary, textSecondary)
-          : TabBarView(
+      body: Column(
+        children: [
+          // Search field: always visible, sized by its own layout.
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+            child: Container(
+              height: 42,
+              decoration: BoxDecoration(
+                color: searchBg,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: borderColor),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Row(
+                children: [
+                  Icon(Icons.search_rounded, color: textSecondary, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      controller: _searchController,
+                      onChanged: _onSearchChanged,
+                      onSubmitted: (v) => _performSearch(v.trim()),
+                      textInputAction: TextInputAction.search,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: textPrimary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      decoration: InputDecoration(
+                        filled: false,
+                        hintText:
+                            'Search people, posts, videos, communities...',
+                        hintStyle: TextStyle(
+                          fontSize: 13,
+                          color: textSecondary,
+                        ),
+                        border: InputBorder.none,
+                        isDense: true,
+                      ),
+                    ),
+                  ),
+                  if (_searchController.text.isNotEmpty)
+                    GestureDetector(
+                      onTap: () {
+                        _searchController.clear();
+                        _onSearchChanged('');
+                      },
+                      child: Icon(
+                        Icons.close_rounded,
+                        size: 18,
+                        color: textSecondary,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          // Category tabs are hidden while a search is running.
+          if (_searchQuery.isEmpty)
+            TabBar(
               controller: _tab,
-              children: [
-                _buildForYouTab(
-                  isDark,
-                  cardBg,
-                  textPrimary,
-                  textSecondary,
-                  borderColor,
-                ),
-                _buildTrendingMediaTab(
-                  isDark,
-                  cardBg,
-                  textPrimary,
-                  textSecondary,
-                  borderColor,
-                ),
-                _buildPeopleTab(isDark, cardBg, textPrimary, textSecondary),
-                _buildCommunitiesTab(
-                  isDark,
-                  cardBg,
-                  textPrimary,
-                  textSecondary,
-                ),
-                _buildLiveTab(isDark, cardBg, textPrimary, textSecondary),
+              isScrollable: true,
+              tabAlignment: TabAlignment.center,
+              labelColor: DesignTokens.primary,
+              unselectedLabelColor: textSecondary,
+              indicatorColor: DesignTokens.primary,
+              indicatorWeight: 3,
+              labelStyle: const TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 14,
+              ),
+              unselectedLabelStyle: const TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+              ),
+              tabs: const [
+                Tab(text: 'For You'),
+                Tab(text: 'Trending'),
+                Tab(text: 'People'),
+                Tab(text: 'Communities'),
+                Tab(text: 'Live'),
               ],
             ),
+          Expanded(
+            child: _searchQuery.isNotEmpty
+                ? _buildSearchResults(
+                    isDark,
+                    cardBg,
+                    textPrimary,
+                    textSecondary,
+                  )
+                : TabBarView(
+                    controller: _tab,
+                    children: [
+                      _buildForYouTab(
+                        isDark,
+                        cardBg,
+                        textPrimary,
+                        textSecondary,
+                        borderColor,
+                      ),
+                      _buildTrendingMediaTab(
+                        isDark,
+                        cardBg,
+                        textPrimary,
+                        textSecondary,
+                        borderColor,
+                      ),
+                      _buildPeopleTab(
+                        isDark,
+                        cardBg,
+                        textPrimary,
+                        textSecondary,
+                      ),
+                      _buildCommunitiesTab(
+                        isDark,
+                        cardBg,
+                        textPrimary,
+                        textSecondary,
+                      ),
+                      _buildLiveTab(isDark, cardBg, textPrimary, textSecondary),
+                    ],
+                  ),
+          ),
+        ],
+      ),
     );
   }
 
   // 1. "For You" Discovery Hub (Trending Hero + Category Pills + Topics + Creators + Feed)
+  Future<void> _refreshForYou() =>
+      Future.wait([_fetchDiscoveryData(), _fetchTrendingMedia()]);
+
+  Future<void> _refreshTrending() => _fetchTrendingMedia();
+
+  /// Refreshes whichever tab is on screen.
+  Future<void> _refreshCurrentTab() {
+    switch (_tab.index) {
+      case 0:
+        return _refreshForYou();
+      case 1:
+        return _refreshTrending();
+      case 2:
+        return _fetchPeopleData();
+      case 3:
+        return ref.read(discoverCommunitiesProvider.notifier).refresh();
+      default:
+        return ref.read(liveDiscoveryProvider.notifier).refresh();
+    }
+  }
+
   Widget _buildForYouTab(
     bool isDark,
     Color cardBg,
@@ -488,485 +521,504 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
     Color textSecondary,
     Color borderColor,
   ) {
-    return ListView(
-      padding: const EdgeInsets.symmetric(vertical: 14),
-      children: [
-        // A. Featured Hero Banner: "TRENDING NOW"
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: GestureDetector(
-            onTap: () {
-              final tag =
-                  _featuredTrending?['tag'] as String? ??
-                  (_trendingTopics.isNotEmpty
-                      ? _trendingTopics[0]['tag'] as String?
-                      : null);
-              if (tag != null && tag.isNotEmpty) {
-                _searchController.text = tag;
-                _performSearch(tag);
-              }
-            },
-            child: Container(
-              height: 180,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(18),
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF0F2B48), Color(0xFF1A68D4)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
+    return RefreshIndicator(
+      onRefresh: _refreshForYou,
+      child: ListView(
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        children: [
+          // A. Featured Hero Banner: "TRENDING NOW"
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: GestureDetector(
+              onTap: () {
+                final tag =
+                    _featuredTrending?['tag'] as String? ??
+                    (_trendingTopics.isNotEmpty
+                        ? _trendingTopics[0]['tag'] as String?
+                        : null);
+                if (tag != null && tag.isNotEmpty) {
+                  _searchController.text = tag;
+                  _performSearch(tag);
+                }
+              },
+              child: Container(
+                height: 180,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(18),
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF0F2B48), Color(0xFF2164B6)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
                 ),
-              ),
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(18),
-                      gradient: LinearGradient(
-                        colors: [
-                          Colors.black.withValues(alpha: 0.1),
-                          Colors.black.withValues(alpha: 0.75),
-                        ],
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(18),
+                        gradient: LinearGradient(
+                          colors: [
+                            Colors.black.withValues(alpha: 0.1),
+                            Colors.black.withValues(alpha: 0.75),
+                          ],
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                        ),
                       ),
-                    ),
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 3,
-                          ),
-                          decoration: BoxDecoration(
-                            color: DesignTokens.primary,
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: const Text(
-                            '🔥 TRENDING NOW',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 0.5,
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: DesignTokens.primary,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: const Text(
+                              '🔥 TRENDING NOW',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.5,
+                              ),
                             ),
                           ),
-                        ),
-                        const SizedBox(height: 6),
+                          const SizedBox(height: 6),
+                          Text(
+                            _featuredTrending?['title'] as String? ??
+                                (_trendingTopics.isNotEmpty
+                                    ? _trendingTopics[0]['tag'] as String? ??
+                                          'Trending Topics'
+                                    : 'Discover MurihSpace'),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            _featuredTrending?['subtitle'] as String? ??
+                                (_trendingTopics.isNotEmpty
+                                    ? _trendingTopics[0]['count'] as String? ??
+                                          'Popular Topics'
+                                    : 'Explore what is happening right now'),
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 18),
+
+          // B. Category Shortcuts Row (Music, Travel, Food, Fashion, Tech)
+          SizedBox(
+            // Grows with the user's text size so labels never clip.
+            height: 60 + MediaQuery.textScalerOf(context).scale(12) * 2,
+            child: ListView(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              scrollDirection: Axis.horizontal,
+              children: [
+                _categoryPillItem(
+                  'Music',
+                  Icons.music_note_rounded,
+                  const Color(0xFF8B5CF6),
+                  isDark,
+                ),
+                _categoryPillItem(
+                  'Travel',
+                  Icons.flight_takeoff_rounded,
+                  const Color(0xFF10B981),
+                  isDark,
+                ),
+                _categoryPillItem(
+                  'Food',
+                  Icons.restaurant_rounded,
+                  const Color(0xFFF59E0B),
+                  isDark,
+                ),
+                _categoryPillItem(
+                  'Fashion',
+                  Icons.shopping_bag_rounded,
+                  const Color(0xFFEC4899),
+                  isDark,
+                ),
+                _categoryPillItem(
+                  'Tech',
+                  Icons.devices_rounded,
+                  const Color(0xFF0284C7),
+                  isDark,
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 18),
+
+          // C. Trending Topics Section
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    'Trending Topics',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w800,
+                      color: textPrimary,
+                    ),
+                  ),
+                ),
+                GestureDetector(
+                  onTap: () => _tab.animateTo(1),
+                  child: const Text(
+                    'View All',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: DesignTokens.primary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: _trendingTopics.map((topic) {
+                final tag = topic['tag'] as String? ?? '';
+                final count = topic['count'] as String? ?? '';
+                return GestureDetector(
+                  onTap: () {
+                    _searchController.text = tag;
+                    _performSearch(tag);
+                  },
+                  child: Container(
+                    width: (MediaQuery.of(context).size.width - 42) / 2,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: cardBg,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: borderColor),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                         Text(
-                          _featuredTrending?['title'] as String? ??
-                              (_trendingTopics.isNotEmpty
-                                  ? _trendingTopics[0]['tag'] as String? ??
-                                        'Trending Topics'
-                                  : 'Discover MurihSpace'),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.w800,
+                          tag,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: textPrimary,
                           ),
                         ),
-                        const SizedBox(height: 2),
+                        const SizedBox(height: 3),
                         Text(
-                          _featuredTrending?['subtitle'] as String? ??
-                              (_trendingTopics.isNotEmpty
-                                  ? _trendingTopics[0]['count'] as String? ??
-                                        'Popular Topics'
-                                  : 'Explore what is happening right now'),
-                          style: const TextStyle(
-                            color: Colors.white70,
-                            fontSize: 12,
-                          ),
+                          count,
+                          style: TextStyle(fontSize: 11, color: textSecondary),
                         ),
                       ],
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+
+          if (_suggestedCreators.isNotEmpty) ...[
+            const SizedBox(height: 24),
+            // D. Suggested Creators Section
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Suggested Creators',
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w800,
+                      color: textPrimary,
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () => context.push('/creators'),
+                    child: const Text(
+                      'View All',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: DesignTokens.primary,
+                      ),
                     ),
                   ),
                 ],
               ),
             ),
-          ),
-        ),
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 175,
+              child: ListView.builder(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                scrollDirection: Axis.horizontal,
+                itemCount: _suggestedCreators.length,
+                itemBuilder: (ctx, i) {
+                  final c = _suggestedCreators[i];
+                  final rawAvatar =
+                      c['avatar_url'] as String? ?? c['avatar'] as String?;
+                  final resolvedAvatar =
+                      rawAvatar != null && rawAvatar.isNotEmpty
+                      ? ApiClient.resolveUrl(rawAvatar)
+                      : null;
+                  final name = c['name'] as String? ?? 'Creator';
+                  final username = c['username'] as String? ?? '';
+                  final creatorId = (c['id'] as num?)?.toInt() ?? 0;
+                  final followers = c['followers'] as String? ?? 'Popular';
 
-        const SizedBox(height: 18),
-
-        // B. Category Shortcuts Row (Music, Travel, Food, Fashion, Tech)
-        SizedBox(
-          height: 82,
-          child: ListView(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            scrollDirection: Axis.horizontal,
-            children: [
-              _categoryPillItem(
-                'Music',
-                Icons.music_note_rounded,
-                const Color(0xFF8B5CF6),
-                isDark,
-              ),
-              _categoryPillItem(
-                'Travel',
-                Icons.flight_takeoff_rounded,
-                const Color(0xFF10B981),
-                isDark,
-              ),
-              _categoryPillItem(
-                'Food',
-                Icons.restaurant_rounded,
-                const Color(0xFFF59E0B),
-                isDark,
-              ),
-              _categoryPillItem(
-                'Fashion',
-                Icons.shopping_bag_rounded,
-                const Color(0xFFEC4899),
-                isDark,
-              ),
-              _categoryPillItem(
-                'Tech',
-                Icons.devices_rounded,
-                const Color(0xFF0284C7),
-                isDark,
-              ),
-            ],
-          ),
-        ),
-
-        const SizedBox(height: 18),
-
-        // C. Trending Topics Section
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Trending Topics',
-                style: TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w800,
-                  color: textPrimary,
-                ),
-              ),
-              GestureDetector(
-                onTap: () => _tab.animateTo(1),
-                child: const Text(
-                  'View All',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: DesignTokens.primary,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: _trendingTopics.map((topic) {
-              final tag = topic['tag'] as String? ?? '';
-              final count = topic['count'] as String? ?? '';
-              return GestureDetector(
-                onTap: () {
-                  _searchController.text = tag;
-                  _performSearch(tag);
+                  return GestureDetector(
+                    onTap: () {
+                      if (username.isNotEmpty) {
+                        context.push('/u/$username');
+                      }
+                    },
+                    child: Container(
+                      width: 140,
+                      margin: const EdgeInsets.only(right: 12),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: cardBg,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: borderColor),
+                      ),
+                      child: Column(
+                        children: [
+                          CircleAvatar(
+                            radius: 26,
+                            backgroundColor: DesignTokens.primary.withValues(
+                              alpha: 0.15,
+                            ),
+                            backgroundImage: resolvedAvatar != null
+                                ? CachedNetworkImageProvider(resolvedAvatar)
+                                : null,
+                            child: resolvedAvatar == null
+                                ? Text(
+                                    name.isNotEmpty
+                                        ? name[0].toUpperCase()
+                                        : 'C',
+                                  )
+                                : null,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            name,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: textPrimary,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          Text(
+                            '@$username · $followers',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: textSecondary,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const Spacer(),
+                          SizedBox(
+                            width: double.infinity,
+                            height: 28,
+                            child: _buildFollowButton(creatorId),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
                 },
-                child: Container(
-                  width: (MediaQuery.of(context).size.width - 42) / 2,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: cardBg,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: borderColor),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+              ),
+            ),
+          ],
+
+          if (_suggestedVendors.isNotEmpty) ...[
+            const SizedBox(height: 24),
+            // Suggested Vendors Section
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
                     children: [
+                      const Icon(
+                        Icons.storefront_rounded,
+                        size: 20,
+                        color: DesignTokens.primary,
+                      ),
+                      const SizedBox(width: 6),
                       Text(
-                        tag,
+                        'Suggested Vendors',
                         style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
+                          fontSize: 17,
+                          fontWeight: FontWeight.w800,
                           color: textPrimary,
                         ),
                       ),
-                      const SizedBox(height: 3),
-                      Text(
-                        count,
-                        style: TextStyle(fontSize: 11, color: textSecondary),
-                      ),
                     ],
                   ),
-                ),
-              );
-            }).toList(),
-          ),
-        ),
-
-        if (_suggestedCreators.isNotEmpty) ...[
-          const SizedBox(height: 24),
-          // D. Suggested Creators Section
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Suggested Creators',
-                  style: TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w800,
-                    color: textPrimary,
-                  ),
-                ),
-                GestureDetector(
-                  onTap: () => context.push('/creators'),
-                  child: const Text(
-                    'View All',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: DesignTokens.primary,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            height: 175,
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              scrollDirection: Axis.horizontal,
-              itemCount: _suggestedCreators.length,
-              itemBuilder: (ctx, i) {
-                final c = _suggestedCreators[i];
-                final rawAvatar =
-                    c['avatar_url'] as String? ?? c['avatar'] as String?;
-                final resolvedAvatar = rawAvatar != null && rawAvatar.isNotEmpty
-                    ? ApiClient.resolveUrl(rawAvatar)
-                    : null;
-                final name = c['name'] as String? ?? 'Creator';
-                final username = c['username'] as String? ?? '';
-                final creatorId = (c['id'] as num?)?.toInt() ?? 0;
-                final followers = c['followers'] as String? ?? 'Popular';
-
-                return GestureDetector(
-                  onTap: () {
-                    if (username.isNotEmpty) {
-                      context.push('/u/$username');
-                    }
-                  },
-                  child: Container(
-                    width: 140,
-                    margin: const EdgeInsets.only(right: 12),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: cardBg,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: borderColor),
-                    ),
-                    child: Column(
-                      children: [
-                        CircleAvatar(
-                          radius: 26,
-                          backgroundColor: DesignTokens.primary.withValues(
-                            alpha: 0.15,
-                          ),
-                          backgroundImage: resolvedAvatar != null
-                              ? CachedNetworkImageProvider(resolvedAvatar)
-                              : null,
-                          child: resolvedAvatar == null
-                              ? Text(
-                                  name.isNotEmpty ? name[0].toUpperCase() : 'C',
-                                )
-                              : null,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          name,
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: textPrimary,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        Text(
-                          '@$username · $followers',
-                          style: TextStyle(fontSize: 10, color: textSecondary),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const Spacer(),
-                        SizedBox(
-                          width: double.infinity,
-                          height: 28,
-                          child: _buildFollowButton(creatorId),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
-
-        if (_suggestedVendors.isNotEmpty) ...[
-          const SizedBox(height: 24),
-          // Suggested Vendors Section
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    const Icon(
-                      Icons.storefront_rounded,
-                      size: 20,
-                      color: DesignTokens.primary,
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      'Suggested Vendors',
+                  GestureDetector(
+                    onTap: () => context.push('/vendors'),
+                    child: const Text(
+                      'View All',
                       style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w800,
-                        color: textPrimary,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: DesignTokens.primary,
                       ),
                     ),
-                  ],
-                ),
-                GestureDetector(
-                  onTap: () => context.push('/vendors'),
-                  child: const Text(
-                    'View All',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: DesignTokens.primary,
-                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            height: 175,
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              scrollDirection: Axis.horizontal,
-              itemCount: _suggestedVendors.length,
-              itemBuilder: (ctx, i) {
-                final v = _suggestedVendors[i];
-                final rawAvatar =
-                    v['avatar_url'] as String? ?? v['avatar'] as String?;
-                final resolvedAvatar = rawAvatar != null && rawAvatar.isNotEmpty
-                    ? ApiClient.resolveUrl(rawAvatar)
-                    : null;
-                final name = v['name'] as String? ?? 'Vendor';
-                final storeName = v['store_name'] as String?;
-                final storeSlug = v['store_slug'] as String?;
-                final displayName = (storeName != null && storeName.isNotEmpty)
-                    ? storeName
-                    : name;
-                final username = v['username'] as String? ?? '';
-                final vendorId = (v['id'] as num?)?.toInt() ?? 0;
-                final followers = v['followers'] as String? ?? 'Popular';
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 175,
+              child: ListView.builder(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                scrollDirection: Axis.horizontal,
+                itemCount: _suggestedVendors.length,
+                itemBuilder: (ctx, i) {
+                  final v = _suggestedVendors[i];
+                  final rawAvatar =
+                      v['avatar_url'] as String? ?? v['avatar'] as String?;
+                  final resolvedAvatar =
+                      rawAvatar != null && rawAvatar.isNotEmpty
+                      ? ApiClient.resolveUrl(rawAvatar)
+                      : null;
+                  final name = v['name'] as String? ?? 'Vendor';
+                  final storeName = v['store_name'] as String?;
+                  final storeSlug = v['store_slug'] as String?;
+                  final displayName =
+                      (storeName != null && storeName.isNotEmpty)
+                      ? storeName
+                      : name;
+                  final username = v['username'] as String? ?? '';
+                  final vendorId = (v['id'] as num?)?.toInt() ?? 0;
+                  final followers = v['followers'] as String? ?? 'Popular';
 
-                return GestureDetector(
-                  onTap: () {
-                    if (storeSlug != null && storeSlug.isNotEmpty) {
-                      context.push('/store/$storeSlug');
-                    } else if (username.isNotEmpty) {
-                      context.push('/u/$username');
-                    }
-                  },
-                  child: Container(
-                    width: 140,
-                    margin: const EdgeInsets.only(right: 12),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: cardBg,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: borderColor),
-                    ),
-                    child: Column(
-                      children: [
-                        CircleAvatar(
-                          radius: 26,
-                          backgroundColor: DesignTokens.primary.withValues(
-                            alpha: 0.15,
+                  return GestureDetector(
+                    onTap: () {
+                      if (storeSlug != null && storeSlug.isNotEmpty) {
+                        context.push('/store/$storeSlug');
+                      } else if (username.isNotEmpty) {
+                        context.push('/u/$username');
+                      }
+                    },
+                    child: Container(
+                      width: 140,
+                      margin: const EdgeInsets.only(right: 12),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: cardBg,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: borderColor),
+                      ),
+                      child: Column(
+                        children: [
+                          CircleAvatar(
+                            radius: 26,
+                            backgroundColor: DesignTokens.primary.withValues(
+                              alpha: 0.15,
+                            ),
+                            backgroundImage: resolvedAvatar != null
+                                ? CachedNetworkImageProvider(resolvedAvatar)
+                                : null,
+                            child: resolvedAvatar == null
+                                ? Text(
+                                    displayName.isNotEmpty
+                                        ? displayName[0].toUpperCase()
+                                        : 'V',
+                                  )
+                                : null,
                           ),
-                          backgroundImage: resolvedAvatar != null
-                              ? CachedNetworkImageProvider(resolvedAvatar)
-                              : null,
-                          child: resolvedAvatar == null
-                              ? Text(
-                                  displayName.isNotEmpty
-                                      ? displayName[0].toUpperCase()
-                                      : 'V',
-                                )
-                              : null,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          displayName,
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: textPrimary,
+                          const SizedBox(height: 8),
+                          Text(
+                            displayName,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: textPrimary,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        Text(
-                          '@$username · $followers',
-                          style: TextStyle(fontSize: 10, color: textSecondary),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const Spacer(),
-                        SizedBox(
-                          width: double.infinity,
-                          height: 28,
-                          child: _buildFollowButton(vendorId),
-                        ),
-                      ],
+                          Text(
+                            '@$username · $followers',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: textSecondary,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const Spacer(),
+                          SizedBox(
+                            width: double.infinity,
+                            height: 28,
+                            child: _buildFollowButton(vendorId),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                );
-              },
+                  );
+                },
+              ),
+            ),
+          ],
+
+          const SizedBox(height: 20),
+
+          // E. Recommended Posts Feed
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Text(
+              'Explore Posts',
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w800,
+                color: textPrimary,
+              ),
             ),
           ),
+          const _FeedList(feedType: 'home'),
         ],
-
-        const SizedBox(height: 20),
-
-        // E. Recommended Posts Feed
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Text(
-            'Explore Posts',
-            style: TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.w800,
-              color: textPrimary,
-            ),
-          ),
-        ),
-        const _FeedList(feedType: 'home'),
-      ],
+      ),
     );
   }
 
@@ -980,200 +1032,205 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
   ) {
     const categories = ['All', 'Music', 'Travel', 'Food', 'Lifestyle'];
 
-    return Column(
-      children: [
-        // Filter pills row
-        Container(
-          height: 48,
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: ListView.builder(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            scrollDirection: Axis.horizontal,
-            itemCount: categories.length,
-            itemBuilder: (ctx, i) {
-              final cat = categories[i];
-              final isSelected = cat == _selectedSubCategory;
-              return GestureDetector(
-                onTap: () => setState(() => _selectedSubCategory = cat),
-                child: Container(
-                  margin: const EdgeInsets.only(right: 8),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? DesignTokens.primary
-                        : (isDark ? const Color(0xFF1E2638) : Colors.white),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: isSelected ? DesignTokens.primary : borderColor,
+    return RefreshIndicator(
+      onRefresh: _refreshTrending,
+      child: Column(
+        children: [
+          // Filter pills row
+          Container(
+            height: 48,
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: ListView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              scrollDirection: Axis.horizontal,
+              itemCount: categories.length,
+              itemBuilder: (ctx, i) {
+                final cat = categories[i];
+                final isSelected = cat == _selectedSubCategory;
+                return GestureDetector(
+                  onTap: () => setState(() => _selectedSubCategory = cat),
+                  child: Container(
+                    margin: const EdgeInsets.only(right: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 6,
                     ),
-                  ),
-                  child: Text(
-                    cat,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
+                    decoration: BoxDecoration(
                       color: isSelected
-                          ? Colors.white
-                          : (isDark ? Colors.white : const Color(0xFF17202B)),
+                          ? DesignTokens.primary
+                          : (isDark ? const Color(0xFF1E2638) : Colors.white),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: isSelected ? DesignTokens.primary : borderColor,
+                      ),
+                    ),
+                    child: Text(
+                      cat,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: isSelected
+                            ? Colors.white
+                            : (isDark ? Colors.white : const Color(0xFF17202B)),
+                      ),
                     ),
                   ),
-                ),
-              );
-            },
+                );
+              },
+            ),
           ),
-        ),
 
-        // 3-Column Media Grid
-        Expanded(
-          child: _loadingTrendingMedia
-              ? const Center(
-                  child: LoadingStateWidget(
-                    message: 'Loading trending media...',
-                  ),
-                )
-              : _trendingMedia.isEmpty
-              ? CenteredEmptyStateWidget(
-                  icon: Icons.video_library_outlined,
-                  title: 'No Trending Media',
-                  description:
-                      'Be the first to publish photos and reels on MurihSpace!',
-                )
-              : GridView.builder(
-                  padding: const EdgeInsets.all(2),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 3,
-                    crossAxisSpacing: 2,
-                    mainAxisSpacing: 2,
-                    childAspectRatio: 0.75, // Vertical reel aspect ratio
-                  ),
-                  itemCount: _trendingMedia.length,
-                  itemBuilder: (ctx, i) {
-                    final item = _trendingMedia[i];
-                    final mediaUrls = item['media_urls'] is List
-                        ? item['media_urls'] as List
-                        : [];
-                    final rawUrl = mediaUrls.isNotEmpty
-                        ? mediaUrls.first.toString()
-                        : '';
-                    final url = rawUrl.isNotEmpty
-                        ? (ApiClient.resolveUrl(rawUrl) ?? rawUrl)
-                        : '';
-                    final caption = item['content'] as String? ?? '';
-                    final author = item['author'] is Map
-                        ? item['author']['name'] as String? ?? 'Creator'
-                        : 'Creator';
-                    final authorVerified = item['author'] is Map &&
-                        (item['author']['has_active_verification_badge'] ==
-                                true ||
-                            item['author']['is_verified'] == true);
-                    final likesCount =
-                        (item['likes_count'] as num?)?.toInt() ??
-                        (item['reactions_count'] as num?)?.toInt() ??
-                        0;
-                    final displayCount = likesCount >= 1000
-                        ? '${(likesCount / 1000).toStringAsFixed(1)}K'
-                        : '$likesCount';
+          // 3-Column Media Grid
+          Expanded(
+            child: _loadingTrendingMedia
+                ? const Center(
+                    child: LoadingStateWidget(
+                      message: 'Loading trending media...',
+                    ),
+                  )
+                : _trendingMedia.isEmpty
+                ? CenteredEmptyStateWidget(
+                    icon: Icons.video_library_outlined,
+                    title: 'No Trending Media',
+                    description:
+                        'Be the first to publish photos and reels on MurihSpace!',
+                  )
+                : GridView.builder(
+                    padding: const EdgeInsets.all(2),
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 3,
+                          crossAxisSpacing: 2,
+                          mainAxisSpacing: 2,
+                          childAspectRatio: 0.75, // Vertical reel aspect ratio
+                        ),
+                    itemCount: _trendingMedia.length,
+                    itemBuilder: (ctx, i) {
+                      final item = _trendingMedia[i];
+                      final mediaUrls = item['media_urls'] is List
+                          ? item['media_urls'] as List
+                          : [];
+                      final rawUrl = mediaUrls.isNotEmpty
+                          ? mediaUrls.first.toString()
+                          : '';
+                      final url = rawUrl.isNotEmpty
+                          ? (ApiClient.resolveUrl(rawUrl) ?? rawUrl)
+                          : '';
+                      final caption = item['content'] as String? ?? '';
+                      final author = item['author'] is Map
+                          ? item['author']['name'] as String? ?? 'Creator'
+                          : 'Creator';
+                      final authorVerified =
+                          item['author'] is Map &&
+                          (item['author']['has_active_verification_badge'] ==
+                                  true ||
+                              item['author']['is_verified'] == true);
+                      final likesCount =
+                          (item['likes_count'] as num?)?.toInt() ??
+                          (item['reactions_count'] as num?)?.toInt() ??
+                          0;
+                      final displayCount = likesCount >= 1000
+                          ? '${(likesCount / 1000).toStringAsFixed(1)}K'
+                          : '$likesCount';
 
-                    return GestureDetector(
-                      onTap: () {
-                        if (url.isNotEmpty) {
-                          ReelsViewerSheet.show(
-                            context,
-                            authorName: author,
-                            authorVerified: authorVerified,
-                            caption: caption,
-                            videoThumbnail: url,
-                            likesCount: displayCount,
-                          );
-                        }
-                      },
-                      child: Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          if (url.isNotEmpty)
-                            CachedNetworkImage(
-                              imageUrl: url,
-                              fit: BoxFit.cover,
-                              placeholder: (ctx, url) =>
-                                  Container(color: cardBg),
-                              errorWidget: (ctx, url, err) => Container(
+                      return GestureDetector(
+                        onTap: () {
+                          if (url.isNotEmpty) {
+                            ReelsViewerSheet.show(
+                              context,
+                              authorName: author,
+                              authorVerified: authorVerified,
+                              caption: caption,
+                              videoThumbnail: url,
+                              likesCount: displayCount,
+                            );
+                          }
+                        },
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            if (url.isNotEmpty)
+                              CachedNetworkImage(
+                                imageUrl: url,
+                                fit: BoxFit.cover,
+                                placeholder: (ctx, url) =>
+                                    Container(color: cardBg),
+                                errorWidget: (ctx, url, err) => Container(
+                                  color: cardBg,
+                                  child: const Icon(
+                                    Icons.broken_image_rounded,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                              )
+                            else
+                              Container(
                                 color: cardBg,
-                                child: const Icon(
-                                  Icons.broken_image_rounded,
-                                  color: Colors.grey,
+                                padding: const EdgeInsets.all(8),
+                                child: Center(
+                                  child: Text(
+                                    caption,
+                                    maxLines: 4,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: textPrimary,
+                                    ),
+                                  ),
                                 ),
                               ),
-                            )
-                          else
+                            // Gradient overlay at bottom
                             Container(
-                              color: cardBg,
-                              padding: const EdgeInsets.all(8),
-                              child: Center(
-                                child: Text(
-                                  caption,
-                                  maxLines: 4,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: textPrimary,
-                                  ),
+                              decoration: const BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [Colors.transparent, Colors.black87],
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  stops: [0.6, 1.0],
                                 ),
                               ),
                             ),
-                          // Gradient overlay at bottom
-                          Container(
-                            decoration: const BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [Colors.transparent, Colors.black87],
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                stops: [0.6, 1.0],
-                              ),
-                            ),
-                          ),
-                          // View / like count badge
-                          Positioned(
-                            left: 6,
-                            bottom: 6,
-                            child: Row(
-                              children: [
-                                const Icon(
-                                  Icons.play_arrow_rounded,
-                                  color: Colors.white,
-                                  size: 14,
-                                ),
-                                const SizedBox(width: 2),
-                                Text(
-                                  displayCount,
-                                  style: const TextStyle(
+                            // View / like count badge
+                            Positioned(
+                              left: 6,
+                              bottom: 6,
+                              child: Row(
+                                children: [
+                                  const Icon(
+                                    Icons.play_arrow_rounded,
                                     color: Colors.white,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w700,
+                                    size: 14,
                                   ),
-                                ),
-                              ],
+                                  const SizedBox(width: 2),
+                                  Text(
+                                    displayCount,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
-                          // Reel icon in top right
-                          const Positioned(
-                            top: 6,
-                            right: 6,
-                            child: Icon(
-                              Icons.video_library_rounded,
-                              color: Colors.white70,
-                              size: 14,
+                            // Reel icon in top right
+                            const Positioned(
+                              top: 6,
+                              right: 6,
+                              child: Icon(
+                                Icons.video_library_rounded,
+                                color: Colors.white70,
+                                size: 14,
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-        ),
-      ],
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1200,6 +1257,8 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
           const SizedBox(height: 6),
           Text(
             label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
@@ -1283,10 +1342,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
                         const SizedBox(height: 2),
                         Text(
                           'Connect with people you know on MurihSpace',
-                          style: TextStyle(
-                            color: textSecondary,
-                            fontSize: 12,
-                          ),
+                          style: TextStyle(color: textSecondary, fontSize: 12),
                         ),
                       ],
                     ),
@@ -1408,7 +1464,8 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
               child: CenteredEmptyStateWidget(
                 icon: Icons.people_outline_rounded,
                 title: 'No People Found',
-                description: 'Sync your contacts or search above to find friends.',
+                description:
+                    'Sync your contacts or search above to find friends.',
                 actionLabel: _hasContactPermission ? null : 'Sync Contacts',
                 onAction: _hasContactPermission ? null : _syncContactsAction,
               ),
@@ -1472,21 +1529,23 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
     final name = person['name'] as String? ?? 'User';
     final storeName = person['store_name'] as String?;
     final storeSlug = person['store_slug'] as String?;
-    final displayName =
-        (storeName != null && storeName.isNotEmpty) ? storeName : name;
+    final displayName = (storeName != null && storeName.isNotEmpty)
+        ? storeName
+        : name;
     final username = person['username'] as String? ?? '';
     final userId = (person['id'] as num?)?.toInt() ?? 0;
     final followers = person['followers'] as String?;
     final reason = person['reason'] as String?;
     final isVerified = person['is_verified'] == true;
-    final isVendor = person['type'] == 'suggested_vendor' ||
+    final isVendor =
+        person['type'] == 'suggested_vendor' ||
         (storeSlug != null && storeSlug.isNotEmpty);
 
     final subtitle = reason != null && reason.isNotEmpty
         ? reason
         : (followers != null && followers.isNotEmpty
-            ? followers
-            : (username.isNotEmpty ? '@$username' : ''));
+              ? followers
+              : (username.isNotEmpty ? '@$username' : ''));
 
     return GestureDetector(
       onTap: () {
@@ -1593,8 +1652,8 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
   }) {
     final resolvedAvatar =
         contact.avatarUrl != null && contact.avatarUrl!.isNotEmpty
-            ? ApiClient.resolveUrl(contact.avatarUrl)
-            : null;
+        ? ApiClient.resolveUrl(contact.avatarUrl)
+        : null;
 
     return GestureDetector(
       onTap: () {
@@ -1672,14 +1731,10 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
       return OutlinedButton(
         style: OutlinedButton.styleFrom(
           foregroundColor: DesignTokens.primary,
-          side: BorderSide(
-            color: DesignTokens.primary.withValues(alpha: 0.6),
-          ),
+          side: BorderSide(color: DesignTokens.primary.withValues(alpha: 0.6)),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           minimumSize: const Size(80, 32),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
         onPressed: () {
           ref.read(followProvider.notifier).toggleFollow(userId);
@@ -1696,9 +1751,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
         foregroundColor: Colors.white,
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
         minimumSize: const Size(80, 32),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         elevation: 0,
       ),
       onPressed: () {
@@ -1723,57 +1776,60 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
         child: LoadingStateWidget(message: 'Loading spaces...'),
       );
     }
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      itemCount: commState.communities.length,
-      itemBuilder: (ctx, i) {
-        final c = commState.communities[i];
-        return Container(
-          margin: const EdgeInsets.only(bottom: 10),
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: cardBg,
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: Row(
-            children: [
-              CircleAvatar(
-                radius: 22,
-                backgroundColor: DesignTokens.primary.withValues(alpha: 0.15),
-                child: Text(
-                  c.name.isNotEmpty
-                      ? c.name.substring(0, 1).toUpperCase()
-                      : 'C',
+    return RefreshIndicator(
+      onRefresh: () => ref.read(discoverCommunitiesProvider.notifier).refresh(),
+      child: ListView.builder(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        itemCount: commState.communities.length,
+        itemBuilder: (ctx, i) {
+          final c = commState.communities[i];
+          return Container(
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: cardBg,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 22,
+                  backgroundColor: DesignTokens.primary.withValues(alpha: 0.15),
+                  child: Text(
+                    c.name.isNotEmpty
+                        ? c.name.substring(0, 1).toUpperCase()
+                        : 'C',
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      c.name,
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 14,
-                        color: textPrimary,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        c.name,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14,
+                          color: textPrimary,
+                        ),
                       ),
-                    ),
-                    Text(
-                      '${c.membersCount} members',
-                      style: TextStyle(color: textSecondary, fontSize: 12),
-                    ),
-                  ],
+                      Text(
+                        '${c.membersCount} members',
+                        style: TextStyle(color: textSecondary, fontSize: 12),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              OutlinedButton(
-                onPressed: () => context.push('/c/${c.slug}'),
-                child: const Text('View'),
-              ),
-            ],
-          ),
-        );
-      },
+                OutlinedButton(
+                  onPressed: () => context.push('/c/${c.slug}'),
+                  child: const Text('View'),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 
@@ -2033,7 +2089,11 @@ class _FeedList extends ConsumerWidget {
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text(wasSaved ? 'Post removed from bookmarks.' : 'Post saved to bookmarks! 🔖'),
+                  content: Text(
+                    wasSaved
+                        ? 'Post removed from bookmarks.'
+                        : 'Post saved to bookmarks! 🔖',
+                  ),
                   duration: const Duration(seconds: 2),
                 ),
               );
@@ -2043,7 +2103,9 @@ class _FeedList extends ConsumerWidget {
             await ref.read(postsProvider(source).notifier).share(post);
             if (context.mounted) {
               final link = Env.absolute('/posts/${post.id}');
-              final text = post.content.isNotEmpty ? '${post.content}\n\n$link' : link;
+              final text = post.content.isNotEmpty
+                  ? '${post.content}\n\n$link'
+                  : link;
               AppShare.share(context, text: text, title: 'Share Post');
             }
           },

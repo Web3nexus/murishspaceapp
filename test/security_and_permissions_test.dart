@@ -99,7 +99,7 @@ void main() {
       expect(current, isNotNull);
       expect(current!.title, 'New Direct Message');
       expect(current.body, 'Hey, are you free for a call?');
-      expect(current.route, '/chats/42');
+      expect(current.route, '/app/conversation/42');
 
       notifNotifier.dismiss();
       expect(container.read(inAppNotificationProvider), isNull);

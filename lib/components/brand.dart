@@ -212,7 +212,7 @@ class BrandFavicon extends StatelessWidget {
 
 /// MurihSpace Brand Color Tokens as specified in MurihPay design system.
 abstract final class BrandColors {
-  static const Color primary = Color(0xFF1A68D4);
+  static const Color primary = Color(0xFF2164B6);
   static const Color primaryDark = Color(0xFF1555AD);
   static const Color primarySoft = Color(0xFFE8F1FD);
   static const Color pageBg = Color(0xFFF3F5F8);

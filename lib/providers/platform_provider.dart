@@ -171,3 +171,19 @@ class PlatformNotifier extends Notifier<PlatformState> {
 final platformProvider = NotifierProvider<PlatformNotifier, PlatformState>(() {
   return PlatformNotifier();
 });
+
+/// Asks the backend for its canonical profile domain at startup, so profile and
+/// bio links are correct before any auth screen has loaded the platform config.
+/// On failure the cached domain stays in use.
+Future<void> refreshCanonicalProfileDomain() async {
+  try {
+    final response = await ApiClient.instance.dio.get('/platform');
+    final data = ApiClient.instance.unwrap(response);
+    if (data is Map<String, dynamic>) {
+      final inner = data['data'] is Map<String, dynamic> ? data['data'] as Map<String, dynamic> : data;
+      Env.setRuntimeProfileDomain(inner['canonical_profile_domain'] as String?);
+    }
+  } catch (_) {
+    // Offline or unavailable: keep the cached canonical domain.
+  }
+}

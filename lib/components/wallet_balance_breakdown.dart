@@ -7,6 +7,10 @@ class WalletBalanceBreakdown extends StatelessWidget {
   final String reservedFormatted;
   final String escrowFormatted;
   final String totalFormatted;
+  /// Released money that has cleared review and can be withdrawn. Shown when provided.
+  final String? withdrawableFormatted;
+  /// Money held for an open dispute. Cannot be withdrawn. Shown when provided.
+  final String? heldFormatted;
   final bool isBalanceHidden;
 
   const WalletBalanceBreakdown({
@@ -15,6 +19,8 @@ class WalletBalanceBreakdown extends StatelessWidget {
     required this.reservedFormatted,
     required this.escrowFormatted,
     required this.totalFormatted,
+    this.withdrawableFormatted,
+    this.heldFormatted,
     this.isBalanceHidden = false,
   });
 
@@ -25,6 +31,34 @@ class WalletBalanceBreakdown extends StatelessWidget {
     final borderColor = isDark ? const Color(0xFF2E384D) : const Color(0xFFE4E7EC);
     final textSecondary = isDark ? const Color(0xFF94A3B8) : const Color(0xFF667085);
     final textPrimary = isDark ? Colors.white : const Color(0xFF17202B);
+
+    Widget metricCell(String label, String value, Color color, String caption) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(width: 6, height: 6, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+                const SizedBox(width: 6),
+                Text(
+                  label,
+                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 0.6, color: textSecondary),
+                ),
+              ],
+            ),
+            const SizedBox(height: 5),
+            Text(
+              isBalanceHidden ? '••••••••' : value,
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, letterSpacing: -0.4, color: color),
+            ),
+            const SizedBox(height: 2),
+            Text(caption, style: TextStyle(fontSize: 10.5, color: textSecondary)),
+          ],
+        ),
+      );
+    }
 
     return Container(
       decoration: BoxDecoration(
@@ -57,7 +91,7 @@ class WalletBalanceBreakdown extends StatelessWidget {
                               width: 6,
                               height: 6,
                               decoration: const BoxDecoration(
-                                color: Color(0xFF1A68D4),
+                                color: Color(0xFF2164B6),
                                 shape: BoxShape.circle,
                               ),
                             ),
@@ -219,7 +253,7 @@ class WalletBalanceBreakdown extends StatelessWidget {
                               width: 6,
                               height: 6,
                               decoration: const BoxDecoration(
-                                color: Color(0xFF1A68D4),
+                                color: Color(0xFF2164B6),
                                 shape: BoxShape.circle,
                               ),
                             ),
@@ -242,7 +276,7 @@ class WalletBalanceBreakdown extends StatelessWidget {
                             fontSize: 17,
                             fontWeight: FontWeight.w800,
                             letterSpacing: -0.4,
-                            color: Color(0xFF1A68D4),
+                            color: Color(0xFF2164B6),
                           ),
                         ),
                         const SizedBox(height: 2),
@@ -260,6 +294,33 @@ class WalletBalanceBreakdown extends StatelessWidget {
               ],
             ),
           ),
+
+          if (withdrawableFormatted != null || heldFormatted != null) ...[
+            Divider(height: 1, thickness: 1, color: borderColor),
+            IntrinsicHeight(
+              child: Row(
+                children: [
+                  Expanded(
+                    child: metricCell(
+                      'WITHDRAWABLE',
+                      withdrawableFormatted ?? r'$0.00',
+                      const Color(0xFF16A34A),
+                      'Cleared and ready to withdraw',
+                    ),
+                  ),
+                  VerticalDivider(width: 1, thickness: 1, color: borderColor),
+                  Expanded(
+                    child: metricCell(
+                      'HELD FOR DISPUTE',
+                      heldFormatted ?? r'$0.00',
+                      const Color(0xFFE11D48),
+                      'Not withdrawable while open',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );

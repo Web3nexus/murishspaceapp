@@ -101,7 +101,8 @@ class FriendsNotifier extends Notifier<FriendsState> {
 
   @override
   FriendsState build() {
-    loadAll();
+    // Defer: loadAll() writes `state`, which Riverpod rejects while build() is running.
+    Future.microtask(loadAll);
     return const FriendsState(loading: true);
   }
 

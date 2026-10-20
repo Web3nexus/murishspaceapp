@@ -45,6 +45,15 @@ class ApiClient {
 
   static final ApiClient instance = ApiClient._(_createDio());
 
+  static bool _isApiOrigin(RequestOptions options) {
+    final api = Uri.tryParse(options.baseUrl);
+    if (api == null || !api.hasScheme || api.host.isEmpty) return false;
+    final target = options.uri;
+    return api.scheme == target.scheme &&
+        api.host == target.host &&
+        api.port == target.port;
+  }
+
   static Dio _createDio() {
     final dio = Dio(
       BaseOptions(
@@ -65,7 +74,9 @@ class ApiClient {
       InterceptorsWrapper(
         onRequest: (options, handler) async {
           final token = await readToken();
-          if (token != null && token.isNotEmpty) {
+          // Only the API origin receives the bearer token. An absolute URL on
+          // another host (for example a download_url) must never carry it.
+          if (token != null && token.isNotEmpty && _isApiOrigin(options)) {
             options.headers['Authorization'] = 'Bearer $token';
           }
           if (options.path.startsWith('/live')) {

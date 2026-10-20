@@ -558,9 +558,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen>
     final token = credentials['token']?.toString().trim() ?? '';
     var host = credentials['host']?.toString().trim() ?? '';
     if (host.isEmpty || host.contains('localhost') || host.contains('127.0.0.1')) {
-      host = Env.apiEnv == 'production' || Env.apiEnv == 'prod'
-          ? 'wss://live.murihspace.com'
-          : 'wss://live-staging.murihspace.com';
+      host = Env.livekitUrl;
     }
 
     if (token.isEmpty || host.isEmpty) {

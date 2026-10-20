@@ -49,7 +49,9 @@ class LinkItem {
       url: json['url'] as String? ?? '',
       category: json['category'] as String?,
       badge: json['badge'] as String?,
-      price: json['price'] != null ? double.tryParse(json['price'].toString()) : null,
+      price: json['price'] != null
+          ? double.tryParse(json['price'].toString())
+          : null,
       currency: json['currency'] as String? ?? '\$',
       iconEmoji: json['icon_emoji'] as String? ?? '🔗',
       icon3d: json['icon_3d'] as String? ?? 'link',
@@ -156,11 +158,17 @@ class LinkInBioScreen extends ConsumerStatefulWidget {
 }
 
 class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
-  int _activeNavIndex = 0; // 0: Editor, 1: Live Preview, 2: Themes, 3: Analytics, 4: Settings
+  int _activeNavIndex =
+      0; // 0: Editor, 1: Live Preview, 2: Themes, 3: Analytics, 4: Settings
   final String _selectedPeriod = 'Last 30 Days';
 
-  final _bioTitleCtrl = TextEditingController(text: 'Official Creator & Storefront Hub');
-  final _bioDescCtrl = TextEditingController(text: 'Shop digital products, book 1-on-1 strategy sessions, and watch latest content.');
+  final _bioTitleCtrl = TextEditingController(
+    text: 'Official Creator & Storefront Hub',
+  );
+  final _bioDescCtrl = TextEditingController(
+    text:
+        'Shop digital products, book 1-on-1 strategy sessions, and watch latest content.',
+  );
 
   BioThemePreset _selectedTheme = bioThemes[0];
 
@@ -220,9 +228,10 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
     final nextState = !link.isActive;
     setState(() => link.isActive = nextState);
     try {
-      await ApiClient.instance.dio.patch('/link-in-bio/${link.id}', data: {
-        'is_active': nextState,
-      });
+      await ApiClient.instance.dio.patch(
+        '/link-in-bio/${link.id}',
+        data: {'is_active': nextState},
+      );
     } catch (_) {
       // Revert if API failed
       if (mounted) setState(() => link.isActive = !nextState);
@@ -243,7 +252,9 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
       if (!mounted) return;
       setState(() => _links.insert(index.clamp(0, _links.length), link));
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not delete link. Please try again.')),
+        const SnackBar(
+          content: Text('Could not delete link. Please try again.'),
+        ),
       );
     }
   }
@@ -251,7 +262,9 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
   void _showAddLinkSheet([LinkItem? existing]) {
     final titleCtrl = TextEditingController(text: existing?.title ?? '');
     final urlCtrl = TextEditingController(text: existing?.url ?? '');
-    final priceCtrl = TextEditingController(text: existing?.price != null ? existing!.price.toString() : '');
+    final priceCtrl = TextEditingController(
+      text: existing?.price != null ? existing!.price.toString() : '',
+    );
     String selectedCategory = existing?.category ?? 'Service';
     String selectedBadge = existing?.badge ?? 'Primary';
     String selected3d = existing?.icon3d ?? 'bags';
@@ -259,8 +272,12 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF1E293B) : Colors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
+      backgroundColor: Theme.of(context).brightness == Brightness.dark
+          ? const Color(0xFF1E293B)
+          : Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
       builder: (ctx) => StatefulBuilder(
         builder: (context, setModalState) {
           final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -290,29 +307,62 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
                 const SizedBox(height: 18),
                 Text(
                   existing == null ? 'Add New Link' : 'Edit Link Details',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: textColor),
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                    color: textColor,
+                  ),
                 ),
                 const SizedBox(height: 14),
 
                 // 3D Visual Icon Selection
                 const Text(
                   '3D Icon Graphic',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey),
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey,
+                  ),
                 ),
                 const SizedBox(height: 8),
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: Row(
                     children: [
-                      _build3DChoiceOption('bags', 'Shopping Bag', selected3d, (val) => setModalState(() => selected3d = val)),
+                      _build3DChoiceOption(
+                        'bags',
+                        'Shopping Bag',
+                        selected3d,
+                        (val) => setModalState(() => selected3d = val),
+                      ),
                       const SizedBox(width: 8),
-                      _build3DChoiceOption('camera', 'Video Camera', selected3d, (val) => setModalState(() => selected3d = val)),
+                      _build3DChoiceOption(
+                        'camera',
+                        'Video Camera',
+                        selected3d,
+                        (val) => setModalState(() => selected3d = val),
+                      ),
                       const SizedBox(width: 8),
-                      _build3DChoiceOption('calendar', 'Calendar Date', selected3d, (val) => setModalState(() => selected3d = val)),
+                      _build3DChoiceOption(
+                        'calendar',
+                        'Calendar Date',
+                        selected3d,
+                        (val) => setModalState(() => selected3d = val),
+                      ),
                       const SizedBox(width: 8),
-                      _build3DChoiceOption('box', 'Package Box', selected3d, (val) => setModalState(() => selected3d = val)),
+                      _build3DChoiceOption(
+                        'box',
+                        'Package Box',
+                        selected3d,
+                        (val) => setModalState(() => selected3d = val),
+                      ),
                       const SizedBox(width: 8),
-                      _build3DChoiceOption('link', 'Standard Link', selected3d, (val) => setModalState(() => selected3d = val)),
+                      _build3DChoiceOption(
+                        'link',
+                        'Standard Link',
+                        selected3d,
+                        (val) => setModalState(() => selected3d = val),
+                      ),
                     ],
                   ),
                 ),
@@ -320,13 +370,21 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
 
                 TextField(
                   controller: titleCtrl,
-                  style: TextStyle(color: textColor, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    color: textColor,
+                    fontWeight: FontWeight.bold,
+                  ),
                   decoration: InputDecoration(
                     labelText: 'Link Title',
                     hintText: 'e.g. Full-Stack Services',
                     filled: true,
-                    fillColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                    fillColor: isDark
+                        ? const Color(0xFF0F172A)
+                        : const Color(0xFFF8FAFC),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide.none,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -339,8 +397,13 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
                     labelText: 'Destination URL',
                     hintText: 'https://...',
                     filled: true,
-                    fillColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                    fillColor: isDark
+                        ? const Color(0xFF0F172A)
+                        : const Color(0xFFF8FAFC),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide.none,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -351,19 +414,44 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
                     Expanded(
                       child: DropdownButtonFormField<String>(
                         initialValue: selectedCategory,
-                        dropdownColor: isDark ? const Color(0xFF1E293B) : Colors.white,
-                        style: TextStyle(color: textColor, fontSize: 13, fontWeight: FontWeight.bold),
+                        dropdownColor: isDark
+                            ? const Color(0xFF1E293B)
+                            : Colors.white,
+                        style: TextStyle(
+                          color: textColor,
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                        ),
                         decoration: InputDecoration(
                           labelText: 'Category',
                           filled: true,
-                          fillColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                          fillColor: isDark
+                              ? const Color(0xFF0F172A)
+                              : const Color(0xFFF8FAFC),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: BorderSide.none,
+                          ),
                         ),
-                        items: ['Service', 'Video', 'Booking', 'Resource', 'Shop', 'Custom']
-                            .map((c) => DropdownMenuItem(value: c, child: Text(c)))
-                            .toList(),
+                        items:
+                            [
+                                  'Service',
+                                  'Video',
+                                  'Booking',
+                                  'Resource',
+                                  'Shop',
+                                  'Custom',
+                                ]
+                                .map(
+                                  (c) => DropdownMenuItem(
+                                    value: c,
+                                    child: Text(c),
+                                  ),
+                                )
+                                .toList(),
                         onChanged: (val) {
-                          if (val != null) setModalState(() => selectedCategory = val);
+                          if (val != null)
+                            setModalState(() => selectedCategory = val);
                         },
                       ),
                     ),
@@ -371,19 +459,44 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
                     Expanded(
                       child: DropdownButtonFormField<String>(
                         initialValue: selectedBadge,
-                        dropdownColor: isDark ? const Color(0xFF1E293B) : Colors.white,
-                        style: TextStyle(color: textColor, fontSize: 13, fontWeight: FontWeight.bold),
+                        dropdownColor: isDark
+                            ? const Color(0xFF1E293B)
+                            : Colors.white,
+                        style: TextStyle(
+                          color: textColor,
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                        ),
                         decoration: InputDecoration(
                           labelText: 'Badge Tag',
                           filled: true,
-                          fillColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                          fillColor: isDark
+                              ? const Color(0xFF0F172A)
+                              : const Color(0xFFF8FAFC),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: BorderSide.none,
+                          ),
                         ),
-                        items: ['Primary', 'Popular', 'Featured', 'Download', 'New', 'None']
-                            .map((b) => DropdownMenuItem(value: b, child: Text(b)))
-                            .toList(),
+                        items:
+                            [
+                                  'Primary',
+                                  'Popular',
+                                  'Featured',
+                                  'Download',
+                                  'New',
+                                  'None',
+                                ]
+                                .map(
+                                  (b) => DropdownMenuItem(
+                                    value: b,
+                                    child: Text(b),
+                                  ),
+                                )
+                                .toList(),
                         onChanged: (val) {
-                          if (val != null) setModalState(() => selectedBadge = val);
+                          if (val != null)
+                            setModalState(() => selectedBadge = val);
                         },
                       ),
                     ),
@@ -393,15 +506,25 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
 
                 TextField(
                   controller: priceCtrl,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  style: TextStyle(color: textColor, fontWeight: FontWeight.bold),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  style: TextStyle(
+                    color: textColor,
+                    fontWeight: FontWeight.bold,
+                  ),
                   decoration: InputDecoration(
                     labelText: 'Optional Price Badge',
                     hintText: '49.99',
                     prefixText: '\$ ',
                     filled: true,
-                    fillColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                    fillColor: isDark
+                        ? const Color(0xFF0F172A)
+                        : const Color(0xFFF8FAFC),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide.none,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 18),
@@ -411,9 +534,11 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
                   height: 48,
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF1A68D4),
+                      backgroundColor: const Color(0xFF2164B6),
                       foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
                       elevation: 0,
                     ),
                     onPressed: () async {
@@ -446,12 +571,17 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
                           existing.title = t;
                           existing.url = u;
                           existing.category = selectedCategory;
-                          existing.badge = selectedBadge == 'None' ? null : selectedBadge;
+                          existing.badge = selectedBadge == 'None'
+                              ? null
+                              : selectedBadge;
                           existing.price = p;
                           existing.icon3d = selected3d;
                         });
                         try {
-                          await ApiClient.instance.dio.patch('/link-in-bio/${existing.id}', data: linkData);
+                          await ApiClient.instance.dio.patch(
+                            '/link-in-bio/${existing.id}',
+                            data: linkData,
+                          );
                           success = true;
                         } catch (_) {
                           if (mounted) {
@@ -480,10 +610,15 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
                           sortOrder: _links.length + 1,
                         );
                         try {
-                          final res = await ApiClient.instance.dio.post('/link-in-bio', data: linkData);
+                          final res = await ApiClient.instance.dio.post(
+                            '/link-in-bio',
+                            data: linkData,
+                          );
                           final payload = ApiClient.instance.unwrap(res);
                           if (payload is Map<String, dynamic>) {
-                            final linkObj = (payload['link'] ?? payload['data'] ?? payload) as Map<String, dynamic>?;
+                            final linkObj =
+                                (payload['link'] ?? payload['data'] ?? payload)
+                                    as Map<String, dynamic>?;
                             final rawId = linkObj?['id'] ?? payload['id'];
                             final serverId = (rawId as num?)?.toInt();
                             if (serverId != null) {
@@ -500,18 +635,31 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
                         if (success) {
                           Navigator.pop(ctx);
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text(existing == null ? 'New link added!' : 'Link updated!')),
+                            SnackBar(
+                              content: Text(
+                                existing == null
+                                    ? 'New link added!'
+                                    : 'Link updated!',
+                              ),
+                            ),
                           );
                         } else {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Failed to save link. Please try again.')),
+                            const SnackBar(
+                              content: Text(
+                                'Failed to save link. Please try again.',
+                              ),
+                            ),
                           );
                         }
                       }
                     },
                     child: Text(
                       existing == null ? 'Add Link to Bio' : 'Save Changes',
-                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 14,
+                      ),
                     ),
                   ),
                 ),
@@ -523,17 +671,26 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
     );
   }
 
-  Widget _build3DChoiceOption(String key, String label, String currentSelected, ValueChanged<String> onSelect) {
+  Widget _build3DChoiceOption(
+    String key,
+    String label,
+    String currentSelected,
+    ValueChanged<String> onSelect,
+  ) {
     final isSelected = key == currentSelected;
     return GestureDetector(
       onTap: () => onSelect(key),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF1A68D4).withValues(alpha: 0.15) : Colors.transparent,
+          color: isSelected
+              ? const Color(0xFF2164B6).withValues(alpha: 0.15)
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected ? const Color(0xFF1A68D4) : Colors.grey.withValues(alpha: 0.3),
+            color: isSelected
+                ? const Color(0xFF2164B6)
+                : Colors.grey.withValues(alpha: 0.3),
             width: isSelected ? 1.5 : 1,
           ),
         ),
@@ -542,7 +699,13 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
           children: [
             _build3DIconBadge(key, size: 28),
             const SizedBox(width: 6),
-            Text(label, style: TextStyle(fontSize: 11, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
           ],
         ),
       ),
@@ -570,17 +733,26 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
     final user = ref.watch(authProvider).user;
     final username = user?.username ?? 'user';
     final name = user?.name ?? 'User';
-    final bioUrl = '${Env.profileDomain}/@$username';
+    // Two separate links on the canonical domain: the profile (/@handle) and the
+    // link-in-bio page (/l/handle). Neither uses the main website.
+    final profileLink = Env.profileUrl(username);
+    final bioLink = Env.linkInBioUrl(username);
+    final bioUrl = bioLink.replaceFirst(RegExp(r'^https?://'), '');
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bg = isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC);
     final cardBg = isDark ? const Color(0xFF1E293B) : Colors.white;
     final textPrimary = isDark ? Colors.white : const Color(0xFF0F172A);
-    final textSecondary = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
+    final textSecondary = isDark
+        ? const Color(0xFF94A3B8)
+        : const Color(0xFF64748B);
 
     final totalClicks = _links.fold<int>(0, (sum, l) => sum + l.clickCount);
     final activeCount = _links.where((l) => l.isActive).length;
-    final totalVisitors = _links.fold<int>(0, (sum, l) => sum + l.uniqueVisitors);
+    final totalVisitors = _links.fold<int>(
+      0,
+      (sum, l) => sum + l.uniqueVisitors,
+    );
 
     return Scaffold(
       backgroundColor: bg,
@@ -597,11 +769,15 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
           children: [
             Text(
               'Link in Bio Studio',
-              style: TextStyle(color: textPrimary, fontWeight: FontWeight.w900, fontSize: 17),
+              style: TextStyle(
+                color: textPrimary,
+                fontWeight: FontWeight.w900,
+                fontSize: 17,
+              ),
             ),
             GestureDetector(
               onTap: () {
-                Clipboard.setData(ClipboardData(text: 'https://$bioUrl'));
+                Clipboard.setData(ClipboardData(text: bioLink));
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Link copied to clipboard!')),
                 );
@@ -609,16 +785,24 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    bioUrl,
-                    style: const TextStyle(
-                      color: Color(0xFF1A68D4),
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
+                  Flexible(
+                    child: Text(
+                      bioUrl,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Color(0xFF2164B6),
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 4),
-                  const Icon(Icons.copy_rounded, size: 12, color: Color(0xFF1A68D4)),
+                  const Icon(
+                    Icons.copy_rounded,
+                    size: 12,
+                    color: Color(0xFF2164B6),
+                  ),
                 ],
               ),
             ),
@@ -628,7 +812,7 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
           IconButton(
             icon: Icon(Icons.qr_code_rounded, color: textPrimary),
             tooltip: 'QR Code',
-            onPressed: () => _showQrCodeModal(username, 'https://$bioUrl'),
+            onPressed: () => _showQrCodeModal(username, bioLink),
           ),
           IconButton(
             icon: Icon(Icons.share_outlined, color: textPrimary),
@@ -636,7 +820,7 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
             onPressed: () {
               AppShare.share(
                 context,
-                text: 'Check out my profile on MurihSpace: https://$bioUrl',
+                text: 'Check out my links on MurihSpace: $bioLink',
                 title: '$name - Link in Bio',
               );
             },
@@ -655,15 +839,31 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
                 // Top Hero / Live Phone Mockup Banner
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
                     child: _buildHeroCard(name, username, bioUrl, isDark),
+                  ),
+                ),
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: _linkRow(
+                      label: 'Profile link',
+                      url: profileLink,
+                      isDark: isDark,
+                    ),
                   ),
                 ),
 
                 // Performance Overview Metric Section
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
                     child: _buildPerformanceOverview(
                       totalClicks: totalClicks,
                       activeLinks: activeCount,
@@ -689,7 +889,10 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
                   // EDITOR VIEW (Your Links List)
                   SliverToBoxAdapter(
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         crossAxisAlignment: CrossAxisAlignment.end,
@@ -708,21 +911,36 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
                               const SizedBox(height: 2),
                               Text(
                                 'Drag to reorder • Toggle to show/hide • Tap to edit',
-                                style: TextStyle(fontSize: 11, color: textSecondary, fontWeight: FontWeight.w500),
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: textSecondary,
+                                  fontWeight: FontWeight.w500,
+                                ),
                               ),
                             ],
                           ),
                           ElevatedButton.icon(
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF1A68D4),
+                              backgroundColor: const Color(0xFF2164B6),
                               foregroundColor: Colors.white,
                               elevation: 0,
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 10,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(20),
+                              ),
                             ),
                             onPressed: () => _showAddLinkSheet(),
                             icon: const Icon(Icons.add_rounded, size: 18),
-                            label: const Text('Add New Link', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
+                            label: const Text(
+                              'Add New Link',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 13,
+                              ),
+                            ),
                           ),
                         ],
                       ),
@@ -733,7 +951,10 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
                   if (_links.isEmpty)
                     SliverToBoxAdapter(
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 32),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 32,
+                        ),
                         child: Center(
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
@@ -768,22 +989,22 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
                     )
                   else
                     SliverPadding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
                       sliver: SliverList(
-                        delegate: SliverChildBuilderDelegate(
-                          (ctx, index) {
-                            final link = _links[index];
-                            return _buildLinkCardItem(
-                              link: link,
-                              index: index + 1,
-                              cardBg: cardBg,
-                              textPrimary: textPrimary,
-                              textSecondary: textSecondary,
-                              isDark: isDark,
-                            );
-                          },
-                          childCount: _links.length,
-                        ),
+                        delegate: SliverChildBuilderDelegate((ctx, index) {
+                          final link = _links[index];
+                          return _buildLinkCardItem(
+                            link: link,
+                            index: index + 1,
+                            cardBg: cardBg,
+                            textPrimary: textPrimary,
+                            textSecondary: textSecondary,
+                            isDark: isDark,
+                          );
+                        }, childCount: _links.length),
                       ),
                     ),
                 ] else if (_activeNavIndex == 1) ...[
@@ -791,7 +1012,9 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.all(16),
-                      child: Center(child: _buildPhoneLivePreview(name, username, isDark)),
+                      child: Center(
+                        child: _buildPhoneLivePreview(name, username, isDark),
+                      ),
                     ),
                   ),
                 ] else if (_activeNavIndex == 2) ...[
@@ -799,7 +1022,11 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.all(16),
-                      child: _buildThemesGrid(cardBg, textPrimary, textSecondary),
+                      child: _buildThemesGrid(
+                        cardBg,
+                        textPrimary,
+                        textSecondary,
+                      ),
                     ),
                   ),
                 ] else if (_activeNavIndex == 3) ...[
@@ -807,7 +1034,11 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.all(16),
-                      child: _buildDetailedAnalytics(cardBg, textPrimary, textSecondary),
+                      child: _buildDetailedAnalytics(
+                        cardBg,
+                        textPrimary,
+                        textSecondary,
+                      ),
                     ),
                   ),
                 ] else ...[
@@ -815,7 +1046,11 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.all(16),
-                      child: _buildBioSettings(cardBg, textPrimary, textSecondary),
+                      child: _buildBioSettings(
+                        cardBg,
+                        textPrimary,
+                        textSecondary,
+                      ),
                     ),
                   ),
                 ],
@@ -826,9 +1061,78 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
     );
   }
 
+  /// A labelled link with a copy action. Used for the profile link, which is
+  /// kept apart from the link-in-bio.
+  Widget _linkRow({
+    required String label,
+    required String url,
+    required bool isDark,
+  }) {
+    final display = url.replaceFirst(RegExp(r'^https?://'), '');
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+        ),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: isDark
+                        ? const Color(0xFF94A3B8)
+                        : const Color(0xFF64748B),
+                  ),
+                ),
+                Text(
+                  display.isEmpty ? 'Unavailable' : display,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? Colors.white : const Color(0xFF0F172A),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            tooltip: 'Copy profile link',
+            icon: const Icon(Icons.copy_rounded, size: 18),
+            onPressed: url.isEmpty
+                ? null
+                : () {
+                    Clipboard.setData(ClipboardData(text: url));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Profile link copied!')),
+                    );
+                  },
+          ),
+        ],
+      ),
+    );
+  }
+
   // ── HERO CARD WITH PHONE MOCKUP PREVIEW ─────────────────────────
-  Widget _buildHeroCard(String name, String username, String bioUrl, bool isDark) {
-    final hasBadge = ref.read(authProvider).user?.hasActiveVerificationBadge == true;
+  Widget _buildHeroCard(
+    String name,
+    String username,
+    String bioUrl,
+    bool isDark,
+  ) {
+    final hasBadge =
+        ref.read(authProvider).user?.hasActiveVerificationBadge == true;
     return Container(
       height: 190,
       decoration: BoxDecoration(
@@ -840,7 +1144,7 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF1A68D4).withValues(alpha: 0.12),
+            color: const Color(0xFF2164B6).withValues(alpha: 0.12),
             blurRadius: 18,
             offset: const Offset(0, 8),
           ),
@@ -857,7 +1161,11 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
                 child: Container(
                   decoration: const BoxDecoration(
                     gradient: LinearGradient(
-                      colors: [Color(0xFF2563EB), Color(0xFF7C3AED), Color(0xFFDB2777)],
+                      colors: [
+                        Color(0xFF2563EB),
+                        Color(0xFF7C3AED),
+                        Color(0xFFDB2777),
+                      ],
                       begin: Alignment.bottomLeft,
                       end: Alignment.topRight,
                     ),
@@ -884,16 +1192,24 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
                       width: 44,
                       height: 44,
                       decoration: const BoxDecoration(
-                        color: Color(0xFF1A68D4),
+                        color: Color(0xFF2164B6),
                         shape: BoxShape.circle,
                         boxShadow: [
-                          BoxShadow(color: Colors.black26, blurRadius: 6, offset: Offset(0, 2)),
+                          BoxShadow(
+                            color: Colors.black26,
+                            blurRadius: 6,
+                            offset: Offset(0, 2),
+                          ),
                         ],
                       ),
                       child: Center(
                         child: Text(
                           name.isNotEmpty ? name[0].toUpperCase() : 'V',
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 20),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 20,
+                          ),
                         ),
                       ),
                     ),
@@ -917,7 +1233,11 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
                               ),
                               const SizedBox(width: 4),
                               if (hasBadge)
-                                const Icon(Icons.verified_rounded, color: Color(0xFF1A68D4), size: 16),
+                                const Icon(
+                                  Icons.verified_rounded,
+                                  color: Color(0xFF2164B6),
+                                  size: 16,
+                                ),
                             ],
                           ),
                           Text(
@@ -936,11 +1256,16 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
 
                 // Copy URL pill
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 5,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.75),
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: Colors.white.withValues(alpha: 0.9)),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.9),
+                    ),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -957,7 +1282,11 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
                         ),
                       ),
                       const SizedBox(width: 6),
-                      const Icon(Icons.copy_rounded, size: 12, color: Color(0xFF0F172A)),
+                      const Icon(
+                        Icons.copy_rounded,
+                        size: 12,
+                        color: Color(0xFF0F172A),
+                      ),
                     ],
                   ),
                 ),
@@ -970,32 +1299,50 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
                         style: OutlinedButton.styleFrom(
                           backgroundColor: Colors.white.withValues(alpha: 0.8),
                           foregroundColor: const Color(0xFF0F172A),
-                          side: BorderSide(color: Colors.white.withValues(alpha: 0.9)),
+                          side: BorderSide(
+                            color: Colors.white.withValues(alpha: 0.9),
+                          ),
                           padding: const EdgeInsets.symmetric(vertical: 8),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
                         ),
                         onPressed: () {
                           setState(() => _activeNavIndex = 1);
                         },
                         icon: const Icon(Icons.visibility_outlined, size: 14),
-                        label: const Text('View Live Page', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800)),
+                        label: const Text(
+                          'View Live Page',
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 6),
                     Expanded(
                       child: ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF1A68D4),
+                          backgroundColor: const Color(0xFF2164B6),
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 8),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
                           elevation: 0,
                         ),
                         onPressed: () {
                           setState(() => _activeNavIndex = 2);
                         },
                         icon: const Icon(Icons.edit_outlined, size: 14),
-                        label: const Text('Customize', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800)),
+                        label: const Text(
+                          'Customize',
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
                       ),
                     ),
                   ],
@@ -1013,10 +1360,16 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
               width: 124,
               decoration: BoxDecoration(
                 color: const Color(0xFF0B1220),
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(22),
+                ),
                 border: Border.all(color: const Color(0xFF334155), width: 3),
                 boxShadow: const [
-                  BoxShadow(color: Colors.black38, blurRadius: 10, offset: Offset(-2, 4)),
+                  BoxShadow(
+                    color: Colors.black38,
+                    blurRadius: 10,
+                    offset: Offset(-2, 4),
+                  ),
                 ],
               ),
               padding: const EdgeInsets.all(6),
@@ -1026,27 +1379,47 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
                   Container(
                     width: 24,
                     height: 3,
-                    decoration: BoxDecoration(color: Colors.white30, borderRadius: BorderRadius.circular(2)),
+                    decoration: BoxDecoration(
+                      color: Colors.white30,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
                   ),
                   const SizedBox(height: 6),
                   // Avatar
                   Container(
                     width: 24,
                     height: 24,
-                    decoration: const BoxDecoration(color: Color(0xFF1A68D4), shape: BoxShape.circle),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF2164B6),
+                      shape: BoxShape.circle,
+                    ),
                     child: const Center(
-                      child: Text('V', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                      child: Text(
+                        'V',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     name,
-                    style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 8,
+                      fontWeight: FontWeight.bold,
+                    ),
                     maxLines: 1,
                   ),
                   Text(
                     '@$username',
-                    style: const TextStyle(color: Colors.white60, fontSize: 6.5),
+                    style: const TextStyle(
+                      color: Colors.white60,
+                      fontSize: 6.5,
+                    ),
                   ),
                   const SizedBox(height: 6),
                   // Mini social icons
@@ -1062,29 +1435,42 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
                   ),
                   const SizedBox(height: 6),
                   // Mini pill links
-                  ..._links.take(3).map(
-                    (l) => Container(
-                      margin: const EdgeInsets.only(bottom: 3),
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              l.title,
-                              style: const TextStyle(color: Colors.white, fontSize: 6, fontWeight: FontWeight.w600),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
+                  ..._links
+                      .take(3)
+                      .map(
+                        (l) => Container(
+                          margin: const EdgeInsets.only(bottom: 3),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                            vertical: 3,
                           ),
-                          const Icon(Icons.chevron_right, size: 8, color: Colors.white70),
-                        ],
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  l.title,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 6,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const Icon(
+                                Icons.chevron_right,
+                                size: 8,
+                                color: Colors.white70,
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
                 ],
               ),
             ),
@@ -1101,14 +1487,27 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.9),
                   borderRadius: BorderRadius.circular(12),
-                  boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
+                  boxShadow: const [
+                    BoxShadow(color: Colors.black12, blurRadius: 4),
+                  ],
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: const [
-                    Icon(Icons.palette_outlined, size: 11, color: Color(0xFF0F172A)),
+                    Icon(
+                      Icons.palette_outlined,
+                      size: 11,
+                      color: Color(0xFF0F172A),
+                    ),
                     SizedBox(width: 3),
-                    Text('Edit Theme', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w900, color: Color(0xFF0F172A))),
+                    Text(
+                      'Edit Theme',
+                      style: TextStyle(
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF0F172A),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -1140,15 +1539,23 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
                 Container(
                   padding: const EdgeInsets.all(5),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1A68D4).withValues(alpha: 0.1),
+                    color: const Color(0xFF2164B6).withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Icon(Icons.bar_chart_rounded, size: 16, color: Color(0xFF1A68D4)),
+                  child: const Icon(
+                    Icons.bar_chart_rounded,
+                    size: 16,
+                    color: Color(0xFF2164B6),
+                  ),
                 ),
                 const SizedBox(width: 8),
                 Text(
                   'Performance Overview',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: textPrimary),
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                    color: textPrimary,
+                  ),
                 ),
               ],
             ),
@@ -1156,20 +1563,34 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                color: const Color(0xFF1A68D4).withValues(alpha: 0.08),
+                color: const Color(0xFF2164B6).withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0xFF1A68D4).withValues(alpha: 0.2)),
+                border: Border.all(
+                  color: const Color(0xFF2164B6).withValues(alpha: 0.2),
+                ),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.calendar_today_rounded, size: 12, color: Color(0xFF1A68D4)),
+                  const Icon(
+                    Icons.calendar_today_rounded,
+                    size: 12,
+                    color: Color(0xFF2164B6),
+                  ),
                   const SizedBox(width: 5),
                   Text(
                     _selectedPeriod,
-                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF1A68D4)),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF2164B6),
+                    ),
                   ),
                   const SizedBox(width: 4),
-                  const Icon(Icons.keyboard_arrow_down_rounded, size: 14, color: Color(0xFF1A68D4)),
+                  const Icon(
+                    Icons.keyboard_arrow_down_rounded,
+                    size: 14,
+                    color: Color(0xFF2164B6),
+                  ),
                 ],
               ),
             ),
@@ -1184,8 +1605,8 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
             Expanded(
               child: _buildMetricTile(
                 icon: Icons.navigation_rounded,
-                iconColor: const Color(0xFF1A68D4),
-                iconBg: const Color(0xFF1A68D4).withValues(alpha: 0.12),
+                iconColor: const Color(0xFF2164B6),
+                iconBg: const Color(0xFF2164B6).withValues(alpha: 0.12),
                 value: '$totalClicks',
                 label: 'Total Clicks',
                 trend: '+18.4%',
@@ -1218,7 +1639,9 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
                 icon: Icons.person_outline_rounded,
                 iconColor: const Color(0xFFF43F5E),
                 iconBg: const Color(0xFFF43F5E).withValues(alpha: 0.12),
-                value: uniqueVisitors >= 1000 ? '${(uniqueVisitors / 1000).toStringAsFixed(1)}K' : '$uniqueVisitors',
+                value: uniqueVisitors >= 1000
+                    ? '${(uniqueVisitors / 1000).toStringAsFixed(1)}K'
+                    : '$uniqueVisitors',
                 label: 'Unique Visitors',
                 trend: '+12.3%',
                 isPositive: true,
@@ -1238,7 +1661,9 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
                   decoration: BoxDecoration(
                     color: cardBg,
                     borderRadius: BorderRadius.circular(18),
-                    border: Border.all(color: Colors.grey.withValues(alpha: 0.12)),
+                    border: Border.all(
+                      color: Colors.grey.withValues(alpha: 0.12),
+                    ),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1247,10 +1672,16 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
                       Container(
                         padding: const EdgeInsets.all(6),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFA855F7).withValues(alpha: 0.12),
+                          color: const Color(
+                            0xFFA855F7,
+                          ).withValues(alpha: 0.12),
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(Icons.palette_rounded, size: 14, color: Color(0xFFA855F7)),
+                        child: const Icon(
+                          Icons.palette_rounded,
+                          size: 14,
+                          color: Color(0xFFA855F7),
+                        ),
                       ),
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1269,13 +1700,21 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
-                              const Icon(Icons.chevron_right, size: 14, color: Colors.grey),
+                              const Icon(
+                                Icons.chevron_right,
+                                size: 14,
+                                color: Colors.grey,
+                              ),
                             ],
                           ),
                           const SizedBox(height: 2),
                           const Text(
                             'Current Theme',
-                            style: TextStyle(fontSize: 9.5, color: Colors.grey, fontWeight: FontWeight.w500),
+                            style: TextStyle(
+                              fontSize: 9.5,
+                              color: Colors.grey,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                         ],
                       ),
@@ -1323,12 +1762,20 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
             children: [
               Text(
                 value,
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: textPrimary),
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w900,
+                  color: textPrimary,
+                ),
               ),
               const SizedBox(height: 1),
               Text(
                 label,
-                style: const TextStyle(fontSize: 9.5, color: Colors.grey, fontWeight: FontWeight.w500),
+                style: const TextStyle(
+                  fontSize: 9.5,
+                  color: Colors.grey,
+                  fontWeight: FontWeight.w500,
+                ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -1336,7 +1783,9 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
               Row(
                 children: [
                   Icon(
-                    isPositive ? Icons.trending_up_rounded : Icons.trending_down_rounded,
+                    isPositive
+                        ? Icons.trending_up_rounded
+                        : Icons.trending_down_rounded,
                     size: 11,
                     color: isPositive ? const Color(0xFF10B981) : Colors.red,
                   ),
@@ -1370,7 +1819,9 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
 
     return Container(
       decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: Colors.grey.withValues(alpha: 0.2))),
+        border: Border(
+          bottom: BorderSide(color: Colors.grey.withValues(alpha: 0.2)),
+        ),
       ),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
@@ -1383,11 +1834,16 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
             return GestureDetector(
               onTap: () => setState(() => _activeNavIndex = idx),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
                 decoration: BoxDecoration(
                   border: Border(
                     bottom: BorderSide(
-                      color: isSelected ? const Color(0xFF1A68D4) : Colors.transparent,
+                      color: isSelected
+                          ? const Color(0xFF2164B6)
+                          : Colors.transparent,
                       width: 2.5,
                     ),
                   ),
@@ -1397,15 +1853,21 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
                     Icon(
                       t['icon'] as IconData,
                       size: 15,
-                      color: isSelected ? const Color(0xFF1A68D4) : textSecondary,
+                      color: isSelected
+                          ? const Color(0xFF2164B6)
+                          : textSecondary,
                     ),
                     const SizedBox(width: 6),
                     Text(
                       t['label'] as String,
                       style: TextStyle(
                         fontSize: 13,
-                        fontWeight: isSelected ? FontWeight.w900 : FontWeight.w600,
-                        color: isSelected ? const Color(0xFF1A68D4) : textSecondary,
+                        fontWeight: isSelected
+                            ? FontWeight.w900
+                            : FontWeight.w600,
+                        color: isSelected
+                            ? const Color(0xFF2164B6)
+                            : textSecondary,
                       ),
                     ),
                   ],
@@ -1446,7 +1908,11 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           // Drag handle icon
-          const Icon(Icons.drag_indicator_rounded, color: Colors.grey, size: 20),
+          const Icon(
+            Icons.drag_indicator_rounded,
+            color: Colors.grey,
+            size: 20,
+          ),
           const SizedBox(width: 4),
 
           // Number Circle Pill (e.g. 1, 2, 3, 4)
@@ -1454,7 +1920,7 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
             width: 22,
             height: 22,
             decoration: BoxDecoration(
-              color: const Color(0xFF1A68D4).withValues(alpha: 0.1),
+              color: const Color(0xFF2164B6).withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
             child: Center(
@@ -1463,7 +1929,7 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
                 style: const TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.w900,
-                  color: Color(0xFF1A68D4),
+                  color: Color(0xFF2164B6),
                 ),
               ),
             ),
@@ -1497,9 +1963,14 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
                     if (link.price != null) ...[
                       const SizedBox(width: 6),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF10B981).withValues(alpha: 0.12),
+                          color: const Color(
+                            0xFF10B981,
+                          ).withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
@@ -1531,9 +2002,14 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
                     if (link.category != null)
                       Container(
                         margin: const EdgeInsets.only(right: 6),
-                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 7,
+                          vertical: 2,
+                        ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFA855F7).withValues(alpha: 0.12),
+                          color: const Color(
+                            0xFFA855F7,
+                          ).withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
@@ -1547,15 +2023,20 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
                       ),
                     if (link.badge != null)
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 7,
+                          vertical: 2,
+                        ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF1A68D4).withValues(alpha: 0.12),
+                          color: const Color(
+                            0xFF2164B6,
+                          ).withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
                           link.badge!,
                           style: const TextStyle(
-                            color: Color(0xFF1A68D4),
+                            color: Color(0xFF2164B6),
                             fontSize: 9.5,
                             fontWeight: FontWeight.w800,
                           ),
@@ -1568,29 +2049,49 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
                 // Metrics row: Clicks, Unique, Trend
                 Row(
                   children: [
-                    const Icon(Icons.link_rounded, size: 12, color: Color(0xFF1A68D4)),
+                    const Icon(
+                      Icons.link_rounded,
+                      size: 12,
+                      color: Color(0xFF2164B6),
+                    ),
                     const SizedBox(width: 3),
                     Text(
                       '${link.clickCount} clicks',
                       style: const TextStyle(
                         fontSize: 10.5,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF1A68D4),
+                        color: Color(0xFF2164B6),
                       ),
                     ),
                     const SizedBox(width: 8),
-                    const Icon(Icons.bar_chart_rounded, size: 12, color: Colors.grey),
+                    const Icon(
+                      Icons.bar_chart_rounded,
+                      size: 12,
+                      color: Colors.grey,
+                    ),
                     const SizedBox(width: 3),
                     Text(
                       '${link.uniqueVisitors} unique',
-                      style: const TextStyle(fontSize: 10.5, color: Colors.grey, fontWeight: FontWeight.w600),
+                      style: const TextStyle(
+                        fontSize: 10.5,
+                        color: Colors.grey,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                     const SizedBox(width: 8),
-                    const Icon(Icons.trending_up_rounded, size: 12, color: Color(0xFF10B981)),
+                    const Icon(
+                      Icons.trending_up_rounded,
+                      size: 12,
+                      color: Color(0xFF10B981),
+                    ),
                     const SizedBox(width: 2),
                     const Text(
                       '+16%',
-                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF10B981)),
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF10B981),
+                      ),
                     ),
                   ],
                 ),
@@ -1602,19 +2103,27 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
           // Active switch toggle
           Switch(
             value: link.isActive,
-            activeThumbColor: const Color(0xFF1A68D4),
+            activeThumbColor: const Color(0xFF2164B6),
             onChanged: (val) => _toggleLinkActive(link),
           ),
 
           // Tap to edit chevron
           IconButton(
-            icon: const Icon(Icons.chevron_right_rounded, color: Colors.grey, size: 20),
+            icon: const Icon(
+              Icons.chevron_right_rounded,
+              color: Colors.grey,
+              size: 20,
+            ),
             onPressed: () => _showAddLinkSheet(link),
           ),
 
           // More popup menu (delete, duplicate)
           PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert_rounded, color: Colors.grey, size: 18),
+            icon: const Icon(
+              Icons.more_vert_rounded,
+              color: Colors.grey,
+              size: 18,
+            ),
             onSelected: (val) {
               if (val == 'edit') {
                 _showAddLinkSheet(link);
@@ -1624,7 +2133,10 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
             },
             itemBuilder: (context) => [
               const PopupMenuItem(value: 'edit', child: Text('Edit Link')),
-              const PopupMenuItem(value: 'delete', child: Text('Delete Link', style: TextStyle(color: Colors.red))),
+              const PopupMenuItem(
+                value: 'delete',
+                child: Text('Delete Link', style: TextStyle(color: Colors.red)),
+              ),
             ],
           ),
         ],
@@ -1641,26 +2153,46 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
       case 'bags':
       case 'bag':
       case 'shop':
-        gradientColors = [const Color(0xFFFDE8E8), const Color(0xFFFBCFE8), const Color(0xFFF472B6)];
+        gradientColors = [
+          const Color(0xFFFDE8E8),
+          const Color(0xFFFBCFE8),
+          const Color(0xFFF472B6),
+        ];
         icon = Icons.shopping_bag_rounded;
         break;
       case 'camera':
       case 'video':
-        gradientColors = [const Color(0xFFE0E7FF), const Color(0xFFC7D2FE), const Color(0xFF818CF8)];
+        gradientColors = [
+          const Color(0xFFE0E7FF),
+          const Color(0xFFC7D2FE),
+          const Color(0xFF818CF8),
+        ];
         icon = Icons.videocam_rounded;
         break;
       case 'calendar':
       case 'booking':
-        gradientColors = [const Color(0xFFFEE2E2), const Color(0xFFFECACA), const Color(0xFFF87171)];
+        gradientColors = [
+          const Color(0xFFFEE2E2),
+          const Color(0xFFFECACA),
+          const Color(0xFFF87171),
+        ];
         icon = Icons.calendar_month_rounded;
         break;
       case 'box':
       case 'resource':
-        gradientColors = [const Color(0xFFFEF3C7), const Color(0xFFFDE68A), const Color(0xFFF59E0B)];
+        gradientColors = [
+          const Color(0xFFFEF3C7),
+          const Color(0xFFFDE68A),
+          const Color(0xFFF59E0B),
+        ];
         icon = Icons.inventory_2_rounded;
         break;
       default:
-        gradientColors = [const Color(0xFFE0F2FE), const Color(0xFFBAE6FD), const Color(0xFF38BDF8)];
+        gradientColors = [
+          const Color(0xFFE0F2FE),
+          const Color(0xFFBAE6FD),
+          const Color(0xFF38BDF8),
+        ];
         icon = Icons.link_rounded;
     }
 
@@ -1681,21 +2213,21 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
             offset: const Offset(0, 4),
           ),
         ],
-        border: Border.all(color: Colors.white.withValues(alpha: 0.7), width: 1.5),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.7),
+          width: 1.5,
+        ),
       ),
       child: Center(
-        child: Icon(
-          icon,
-          size: size * 0.52,
-          color: const Color(0xFF1E293B),
-        ),
+        child: Icon(icon, size: size * 0.52, color: const Color(0xFF1E293B)),
       ),
     );
   }
 
   // ── PHONE LIVE PREVIEW CONTAINER ────────────────────────────────
   Widget _buildPhoneLivePreview(String name, String username, bool isDark) {
-    final hasBadge = ref.read(authProvider).user?.hasActiveVerificationBadge == true;
+    final hasBadge =
+        ref.read(authProvider).user?.hasActiveVerificationBadge == true;
     return Container(
       width: 320,
       padding: const EdgeInsets.all(20),
@@ -1708,7 +2240,11 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
         borderRadius: BorderRadius.circular(38),
         border: Border.all(color: Colors.grey.withValues(alpha: 0.4), width: 6),
         boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 24, spreadRadius: 4),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.3),
+            blurRadius: 24,
+            spreadRadius: 4,
+          ),
         ],
       ),
       child: Column(
@@ -1718,7 +2254,10 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
           Container(
             width: 56,
             height: 5,
-            decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(3)),
+            decoration: BoxDecoration(
+              color: Colors.white24,
+              borderRadius: BorderRadius.circular(3),
+            ),
           ),
           const SizedBox(height: 18),
 
@@ -1726,11 +2265,18 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
           Container(
             width: 64,
             height: 64,
-            decoration: const BoxDecoration(color: Color(0xFF1A68D4), shape: BoxShape.circle),
+            decoration: const BoxDecoration(
+              color: Color(0xFF2164B6),
+              shape: BoxShape.circle,
+            ),
             child: Center(
               child: Text(
                 name.isNotEmpty ? name[0].toUpperCase() : 'V',
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 26),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 26,
+                ),
               ),
             ),
           ),
@@ -1740,14 +2286,25 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
             children: [
               Text(
                 name,
-                style: TextStyle(color: _selectedTheme.textPrimary, fontWeight: FontWeight.w900, fontSize: 18),
+                style: TextStyle(
+                  color: _selectedTheme.textPrimary,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 18,
+                ),
               ),
               const SizedBox(width: 4),
               if (hasBadge)
-                const Icon(Icons.verified_rounded, color: Color(0xFF1A68D4), size: 16),
+                const Icon(
+                  Icons.verified_rounded,
+                  color: Color(0xFF2164B6),
+                  size: 16,
+                ),
             ],
           ),
-          Text('@$username', style: TextStyle(color: _selectedTheme.textSecondary, fontSize: 13)),
+          Text(
+            '@$username',
+            style: TextStyle(color: _selectedTheme.textSecondary, fontSize: 13),
+          ),
           const SizedBox(height: 6),
           Text(
             _bioDescCtrl.text,
@@ -1799,18 +2356,29 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
                   ),
                   if (link.price != null) ...[
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: _selectedTheme.accent,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
                         '${link.currency}${link.price}',
-                        style: const TextStyle(color: Colors.black, fontSize: 9.5, fontWeight: FontWeight.w900),
+                        style: const TextStyle(
+                          color: Colors.black,
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w900,
+                        ),
                       ),
                     ),
                   ] else
-                    Icon(Icons.chevron_right, size: 16, color: _selectedTheme.textSecondary),
+                    Icon(
+                      Icons.chevron_right,
+                      size: 16,
+                      color: _selectedTheme.textSecondary,
+                    ),
                 ],
               ),
             );
@@ -1820,11 +2388,19 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.lock_outline_rounded, color: _selectedTheme.textSecondary, size: 12),
+              Icon(
+                Icons.lock_outline_rounded,
+                color: _selectedTheme.textSecondary,
+                size: 12,
+              ),
               const SizedBox(width: 4),
               Text(
                 'Protected by MurihSpace Escrow',
-                style: TextStyle(color: _selectedTheme.textSecondary, fontSize: 10, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  color: _selectedTheme.textSecondary,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ],
           ),
@@ -1846,13 +2422,21 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
   }
 
   // ── THEMES GRID TAB ─────────────────────────────────────────────
-  Widget _buildThemesGrid(Color cardBg, Color textPrimary, Color textSecondary) {
+  Widget _buildThemesGrid(
+    Color cardBg,
+    Color textPrimary,
+    Color textSecondary,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           'Select Theme Preset',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: textPrimary),
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w900,
+            color: textPrimary,
+          ),
         ),
         const SizedBox(height: 12),
         GridView.builder(
@@ -1881,7 +2465,9 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
                   gradient: LinearGradient(colors: theme.bgGradient),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: isSelected ? const Color(0xFF1A68D4) : Colors.transparent,
+                    color: isSelected
+                        ? const Color(0xFF2164B6)
+                        : Colors.transparent,
                     width: 2.5,
                   ),
                 ),
@@ -1894,17 +2480,28 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
                         children: [
                           Text(
                             theme.name,
-                            style: TextStyle(color: theme.textPrimary, fontWeight: FontWeight.w900, fontSize: 12),
+                            style: TextStyle(
+                              color: theme.textPrimary,
+                              fontWeight: FontWeight.w900,
+                              fontSize: 12,
+                            ),
                           ),
                           Text(
                             theme.isGlass ? 'Glassmorphism' : 'Solid Clean',
-                            style: TextStyle(color: theme.textSecondary, fontSize: 10),
+                            style: TextStyle(
+                              color: theme.textSecondary,
+                              fontSize: 10,
+                            ),
                           ),
                         ],
                       ),
                     ),
                     if (isSelected)
-                      const Icon(Icons.check_circle_rounded, color: Color(0xFF1A68D4), size: 18),
+                      const Icon(
+                        Icons.check_circle_rounded,
+                        color: Color(0xFF2164B6),
+                        size: 18,
+                      ),
                   ],
                 ),
               ),
@@ -1916,7 +2513,11 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
   }
 
   // ── DETAILED ANALYTICS TAB ──────────────────────────────────────
-  Widget _buildDetailedAnalytics(Color cardBg, Color textPrimary, Color textSecondary) {
+  Widget _buildDetailedAnalytics(
+    Color cardBg,
+    Color textPrimary,
+    Color textSecondary,
+  ) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -1928,7 +2529,11 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
         children: [
           Text(
             'Link Click Distribution',
-            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: textPrimary),
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w900,
+              color: textPrimary,
+            ),
           ),
           const SizedBox(height: 14),
           ..._links.map((l) {
@@ -1940,17 +2545,35 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(l.title, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textPrimary)),
-                      Text('${l.clickCount} clicks', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: Color(0xFF1A68D4))),
+                      Text(
+                        l.title,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: textPrimary,
+                        ),
+                      ),
+                      Text(
+                        '${l.clickCount} clicks',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w900,
+                          color: Color(0xFF2164B6),
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 4),
                   ClipRRect(
                     borderRadius: BorderRadius.circular(4),
                     child: LinearProgressIndicator(
-                      value: l.clickCount > 0 ? (l.clickCount / 1500).clamp(0.05, 1.0) : 0.05,
+                      value: l.clickCount > 0
+                          ? (l.clickCount / 1500).clamp(0.05, 1.0)
+                          : 0.05,
                       backgroundColor: Colors.grey.withValues(alpha: 0.15),
-                      valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF1A68D4)),
+                      valueColor: const AlwaysStoppedAnimation<Color>(
+                        Color(0xFF2164B6),
+                      ),
                       minHeight: 6,
                     ),
                   ),
@@ -1964,7 +2587,11 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
   }
 
   // ── BIO SETTINGS TAB ────────────────────────────────────────────
-  Widget _buildBioSettings(Color cardBg, Color textPrimary, Color textSecondary) {
+  Widget _buildBioSettings(
+    Color cardBg,
+    Color textPrimary,
+    Color textSecondary,
+  ) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -1976,7 +2603,11 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
         children: [
           Text(
             'Bio Hub Information',
-            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: textPrimary),
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w900,
+              color: textPrimary,
+            ),
           ),
           const SizedBox(height: 12),
           TextField(
@@ -1984,7 +2615,9 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
             style: TextStyle(color: textPrimary),
             decoration: InputDecoration(
               labelText: 'Profile Display Name',
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
             ),
           ),
           const SizedBox(height: 12),
@@ -1994,7 +2627,9 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
             style: TextStyle(color: textPrimary),
             decoration: InputDecoration(
               labelText: 'Bio Subtitle & Description',
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
             ),
           ),
           const SizedBox(height: 16),
@@ -2003,24 +2638,34 @@ class _LinkInBioScreenState extends ConsumerState<LinkInBioScreen> {
             height: 46,
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1A68D4),
+                backgroundColor: const Color(0xFF2164B6),
                 foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
               ),
               onPressed: () async {
                 try {
-                  await ApiClient.instance.dio.put('/link-in-bio/profile', data: {
-                    'profile_name': _bioTitleCtrl.text.trim(),
-                    'profile_bio': _bioDescCtrl.text.trim(),
-                  });
+                  await ApiClient.instance.dio.put(
+                    '/link-in-bio/profile',
+                    data: {
+                      'profile_name': _bioTitleCtrl.text.trim(),
+                      'profile_bio': _bioDescCtrl.text.trim(),
+                    },
+                  );
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Bio profile settings updated!')),
+                      const SnackBar(
+                        content: Text('Bio profile settings updated!'),
+                      ),
                     );
                   }
                 } catch (_) {}
               },
-              child: const Text('Save Bio Settings', style: TextStyle(fontWeight: FontWeight.w900)),
+              child: const Text(
+                'Save Bio Settings',
+                style: TextStyle(fontWeight: FontWeight.w900),
+              ),
             ),
           ),
         ],

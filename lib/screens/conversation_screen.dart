@@ -51,9 +51,14 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
   final Set<int> _selectedIds = {};
   final Set<int> _deletingMessageIds = {};
 
+  // Riverpod forbids `ref` once the element is unmounting, so keep the handle
+  // from initState and use it in dispose.
+  late final RealtimeService _realtime;
+
   @override
   void initState() {
     super.initState();
+    _realtime = ref.read(realtimeProvider);
     _controller.addListener(_handleComposerChange);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(conversationMessagesProvider(widget.conversationId).notifier).markRead();
@@ -109,7 +114,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
     _controller.removeListener(_handleComposerChange);
     _controller.dispose();
     _scroll.dispose();
-    ref.read(realtimeProvider).leaveConversation(widget.conversationId);
+    _realtime.leaveConversation(widget.conversationId);
     super.dispose();
   }
 
@@ -536,6 +541,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                   child: MessageBubble(
                     message: msg,
                     myId: myId,
+                    deleteLockedUntil: state.deleteLockedUntil,
                     showSenderName: isGroup,
                     selectionMode: _selectionMode,
                     selected: _selectedIds.contains(msg.id),
@@ -573,6 +579,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                 child: MessageBubble(
                   message: msg,
                   myId: myId,
+                  deleteLockedUntil: state.deleteLockedUntil,
                   showSenderName: isGroup,
                   selectionMode: _selectionMode,
                   selected: _selectedIds.contains(msg.id),
