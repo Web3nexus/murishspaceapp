@@ -69,6 +69,7 @@ firebase-auth.json
 android/key.properties
 **/*.jks
 **/*.keystore
+**/*.pem
 
 # Flutter crash reports written by the CLI
 flutter_*.log
