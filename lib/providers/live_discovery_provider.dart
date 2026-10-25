@@ -55,6 +55,10 @@ class LiveDiscoveryNotifier extends Notifier<LiveDiscoveryState> {
   // mid-reset, request page 1 again under the new generation, and either
   // duplicate page 1 or skip page 2.
   bool _refreshing = false;
+  // Ids of broadcasts this session has seen end. A refresh fired while the end
+  // request was still in flight can return the row as live, so ended ids are
+  // filtered out of every response. Stream ids are never reused.
+  final Set<int> _endedIds = <int>{};
 
   Dio get _dio => ApiClient.instance.dio;
 
@@ -84,7 +88,7 @@ class LiveDiscoveryNotifier extends Notifier<LiveDiscoveryState> {
       final list = rawList is List
           ? rawList
               .map(LiveStream.fromJson)
-              .where((s) => s.isLive && s.status != 'ended')
+              .where((s) => s.isLive && s.status != 'ended' && !_endedIds.contains(s.id))
               .toList()
           : <LiveStream>[];
       final hasMore =
@@ -120,6 +124,7 @@ class LiveDiscoveryNotifier extends Notifier<LiveDiscoveryState> {
 
   /// Immediately removes an ended broadcast from the feed without waiting for network.
   void removeStream(int streamId) {
+    _endedIds.add(streamId);
     state = state.copyWith(
       streams: state.streams.where((s) => s.id != streamId).toList(),
     );
