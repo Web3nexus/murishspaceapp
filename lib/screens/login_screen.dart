@@ -100,6 +100,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         .read(authProvider.notifier)
         .requestOtp(intent: 'login', phoneE164: _phoneE164, forceSms: forceSms);
 
+    // A suspended account gets no code. It goes to the appeal screen instead.
+    if (data != null && data['account_status'] == 'suspended') {
+      if (mounted) context.push('/auth/appeal', extra: _phoneE164);
+      return;
+    }
+
     if (data != null) {
       setState(() {
         _maskedPhone = data['masked_phone'] as String? ?? _phoneE164;

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../screens/account_appeal_screen.dart';
 import '../screens/admin_moderation_screen.dart';
 import '../screens/appearance_screen.dart';
 import '../screens/add_account_screen.dart';
@@ -267,6 +268,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/splash', builder: (_, _) => const SplashScreen()),
       GoRoute(path: '/onboarding', builder: (_, _) => const OnboardingScreen()),
       GoRoute(path: '/auth/login', builder: (_, _) => const LoginScreen()),
+      GoRoute(
+        path: '/auth/appeal',
+        builder: (_, state) => AccountAppealScreen(phoneE164: state.extra as String? ?? ''),
+      ),
       GoRoute(
         path: '/auth/register',
         builder: (_, _) => const RegisterScreen(),
