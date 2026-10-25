@@ -399,8 +399,17 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
                           fontSize: 13,
                           color: textSecondary,
                         ),
+                        // The app theme draws its own outlined border on
+                        // enabled/focused states; clear all of them so only
+                        // the container above is visible.
                         border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
+                        disabledBorder: InputBorder.none,
+                        errorBorder: InputBorder.none,
+                        focusedErrorBorder: InputBorder.none,
                         isDense: true,
+                        contentPadding: EdgeInsets.zero,
                       ),
                     ),
                   ),
