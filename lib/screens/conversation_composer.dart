@@ -36,6 +36,9 @@ class Composer extends StatefulWidget {
   final void Function(File audioFile, int durationSeconds)? onSendVoice;
   final ValueChanged<CommunityShareItem>? onShareCommunity;
   final ValueChanged<LocationShareData>? onShareLocation;
+  /// Brand-deal and vendor chats show a Meeting action in the attachment sheet.
+  final bool isBusinessChat;
+  final VoidCallback? onStartMeeting;
 
   const Composer({
     super.key,
@@ -54,6 +57,8 @@ class Composer extends StatefulWidget {
     this.onSendVoice,
     this.onShareCommunity,
     this.onShareLocation,
+    this.isBusinessChat = false,
+    this.onStartMeeting,
   });
 
   @override
@@ -316,6 +321,8 @@ class _ComposerState extends State<Composer> with TickerProviderStateMixin {
         onSendGift: widget.onSendGift,
         onShareCommunity: widget.onShareCommunity,
         onShareLocation: widget.onShareLocation,
+        isBusinessChat: widget.isBusinessChat,
+        onStartMeeting: widget.onStartMeeting,
       ),
     );
   }
@@ -654,6 +661,8 @@ class _TelegramAttachmentSheet extends StatelessWidget {
   final VoidCallback? onSendGift;
   final ValueChanged<CommunityShareItem>? onShareCommunity;
   final ValueChanged<LocationShareData>? onShareLocation;
+  final bool isBusinessChat;
+  final VoidCallback? onStartMeeting;
 
   const _TelegramAttachmentSheet({
     required this.onPickImage,
@@ -662,6 +671,8 @@ class _TelegramAttachmentSheet extends StatelessWidget {
     this.onSendGift,
     this.onShareCommunity,
     this.onShareLocation,
+    this.isBusinessChat = false,
+    this.onStartMeeting,
   });
 
   @override
@@ -735,6 +746,16 @@ class _TelegramAttachmentSheet extends StatelessWidget {
           WalletSheet.show(context);
         },
       ),
+      if (isBusinessChat && onStartMeeting != null)
+        _AttachmentAction(
+          'Meeting',
+          Icons.video_call_rounded,
+          DesignTokens.primary,
+          () {
+            navigator.pop();
+            onStartMeeting!();
+          },
+        ),
       _AttachmentAction(
         'Location',
         Icons.location_on_rounded,

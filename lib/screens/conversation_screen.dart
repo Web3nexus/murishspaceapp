@@ -212,6 +212,45 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
     _scrollToBottom();
   }
 
+  bool get _isBusinessChat {
+    final conversation = ref
+        .read(conversationsProvider)
+        .conversations
+        .where((c) => c.id == widget.conversationId)
+        .firstOrNull;
+    return conversation?.isBusiness ?? false;
+  }
+
+  /// Creates a meeting for this business chat and posts its link as a message,
+  /// so both parties can open it from the conversation.
+  Future<void> _startMeeting() async {
+    try {
+      final res = await ApiClient.instance.dio.post('/conversations/${widget.conversationId}/meeting');
+      final payload = ApiClient.instance.unwrap(res);
+      final url = payload is Map<String, dynamic> ? payload['url']?.toString() : null;
+      if (url == null || url.isEmpty) {
+        throw StateError('Meeting link missing from response');
+      }
+      await ref.read(conversationMessagesProvider(widget.conversationId).notifier).sendMessage(content: url);
+      _scrollToBottom();
+    } on DioException catch (e) {
+      final data = e.response?.data;
+      final message = data is Map && data['message'] != null
+          ? data['message'].toString()
+          : 'Could not start the meeting.';
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      }
+    } catch (_) {
+      // A missing link or any other failure: tell the user instead of failing silently.
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not start the meeting.')),
+        );
+      }
+    }
+  }
+
   void _openGiftDialog() {
     final conversation = ref
         .read(conversationsProvider)
@@ -471,6 +510,8 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
             onSendVoice: _sendVoice,
             onShareCommunity: _sendCommunity,
             onShareLocation: _sendLocation,
+            isBusinessChat: _isBusinessChat,
+            onStartMeeting: _startMeeting,
           ),
         ],
       ),

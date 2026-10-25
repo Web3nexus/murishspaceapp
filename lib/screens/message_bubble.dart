@@ -4,6 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -13,6 +14,7 @@ import '../core/api_client.dart';
 import '../core/design_tokens.dart';
 import '../core/emoji_assets.dart';
 import '../models/chat_models.dart';
+import '../providers/appearance_provider.dart';
 import '../utils/format.dart';
 import 'call_screen.dart';
 
@@ -407,7 +409,7 @@ class _SelectionBadge extends StatelessWidget {
   }
 }
 
-class _BubbleContent extends StatelessWidget {
+class _BubbleContent extends ConsumerWidget {
   final Message message;
   final bool mine;
   final VoidCallback? onRetry;
@@ -423,11 +425,12 @@ class _BubbleContent extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final maxWidth = MediaQuery.of(context).size.width * 0.72;
+    final accent = ref.watch(appearanceProvider.select((s) => s.bubbleColor));
     final Color bubbleColor = mine
-        ? DesignTokens.primary
+        ? accent
         : (isDark ? const Color(0xFF1C1C1E) : Colors.white);
     final Color textColor = mine
         ? Colors.white
@@ -1810,7 +1813,7 @@ class _JumboEmojiMessageState extends State<_JumboEmojiMessage> {
   }
 }
 
-class _MessageContentWithLinks extends StatelessWidget {
+class _MessageContentWithLinks extends ConsumerWidget {
   final String content;
   final bool mine;
   final bool isDark;
@@ -1829,9 +1832,10 @@ class _MessageContentWithLinks extends StatelessWidget {
   );
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final matches = _urlRegExp.allMatches(content).toList();
-    final baseStyle = TextStyle(color: textColor, fontSize: 15, height: 1.35);
+    final fontSize = ref.watch(appearanceProvider.select((s) => s.fontSize));
+    final baseStyle = TextStyle(color: textColor, fontSize: fontSize, height: 1.35);
 
     // A message that is just 1–3 emoji gets the large, Telegram-style
     // treatment instead of being drawn inline at text size.
@@ -1873,7 +1877,7 @@ class _MessageContentWithLinks extends StatelessWidget {
           text: url,
           style: TextStyle(
             color: linkColor,
-            fontSize: 15,
+            fontSize: fontSize,
             height: 1.35,
             decoration: TextDecoration.underline,
             fontWeight: FontWeight.w600,

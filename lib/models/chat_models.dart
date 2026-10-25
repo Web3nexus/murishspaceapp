@@ -233,6 +233,8 @@ class Conversation {
   final String? escrowCurrency;
   final bool isFinancial;
   final List<String> tags;
+  /// Brand deal or vendor-order chat, where video meetings can be started.
+  final bool isBusiness;
 
   const Conversation({
     required this.id,
@@ -252,6 +254,7 @@ class Conversation {
     this.escrowCurrency = 'USD',
     this.isFinancial = false,
     this.tags = const [],
+    this.isBusiness = false,
   });
 
   String? get avatarUrl => otherUser?.avatarUrl ?? community?.logoUrl;
@@ -276,6 +279,7 @@ class Conversation {
     String? escrowCurrency,
     bool? isFinancial,
     List<String>? tags,
+    bool? isBusiness,
   }) {
     return Conversation(
       id: id,
@@ -295,6 +299,7 @@ class Conversation {
       escrowCurrency: escrowCurrency ?? this.escrowCurrency,
       isFinancial: isFinancial ?? this.isFinancial,
       tags: tags ?? this.tags,
+      isBusiness: isBusiness ?? this.isBusiness,
     );
   }
 
@@ -343,6 +348,7 @@ class Conversation {
       escrowCurrency: json['escrow_currency']?.toString() ?? 'USD',
       isFinancial: isFinancialFromServer,
       tags: tags,
+      isBusiness: (json['is_business'] as bool?) ?? false,
     );
   }
 }

@@ -1,4 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -50,6 +51,23 @@ class _ChatProfileSettingsScreenState
   void initState() {
     super.initState();
     _loadLocalSettings();
+    _loadBlockState();
+  }
+
+  /// Reads whether the other person is already blocked, so the button shows the right action.
+  Future<void> _loadBlockState() async {
+    final otherId = widget.initialConversation?.otherUser?.id;
+    if (otherId == null || otherId == 0) return;
+    try {
+      final res = await ApiClient.instance.dio.get('/blocked-users');
+      final payload = ApiClient.instance.unwrap(res);
+      final list = payload is Map ? payload['data'] : payload;
+      final blocked = list is List &&
+          list.any((u) => u is Map && (u['id'] as num?)?.toInt() == otherId);
+      if (mounted) setState(() => _isBlocked = blocked);
+    } catch (_) {
+      // Keep the default; the action buttons still report errors when used.
+    }
   }
 
   Future<void> _loadLocalSettings() async {
@@ -589,67 +607,44 @@ class _ChatProfileSettingsScreenState
     );
   }
 
+  /// Clears the chat for this user only. The other person keeps their own copy,
+  /// so the dialog never offers to clear it for them.
   void _confirmClearChat() {
-    bool alsoDeleteForRecipient = false;
     showDialog(
       context: context,
       builder: (ctx) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              title: const Text('Clear Chat History?'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'This will delete all messages in this chat. This action cannot be undone.',
-                  ),
-                  const SizedBox(height: 12),
-                  CheckboxListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text(
-                      'Also clear for recipient',
-                      style: TextStyle(fontSize: 14),
-                    ),
-                    value: alsoDeleteForRecipient,
-                    onChanged: (val) {
-                      setDialogState(
-                        () => alsoDeleteForRecipient = val ?? false,
-                      );
-                    },
-                  ),
-                ],
+        return AlertDialog(
+          title: const Text('Clear Chat History?'),
+          content: const Text(
+            'This clears the chat from your view only. The other person keeps their messages. This cannot be undone.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () async {
+                Navigator.pop(ctx);
+                await ref
+                    .read(
+                      conversationMessagesProvider(
+                        widget.conversationId,
+                      ).notifier,
+                    )
+                    .clearChat();
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Chat history cleared for you.')),
+                  );
+                }
+              },
+              child: const Text(
+                'Clear Chat',
+                style: TextStyle(color: Colors.red),
               ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: const Text('Cancel'),
-                ),
-                TextButton(
-                  onPressed: () async {
-                    Navigator.pop(ctx);
-                    await ref
-                        .read(
-                          conversationMessagesProvider(
-                            widget.conversationId,
-                          ).notifier,
-                        )
-                        .clearChat(forEveryone: alsoDeleteForRecipient);
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Chat history cleared.')),
-                      );
-                    }
-                  },
-                  child: const Text(
-                    'Clear Chat',
-                    style: TextStyle(color: Colors.red),
-                  ),
-                ),
-              ],
-            );
-          },
+            ),
+          ],
         );
       },
     );
@@ -677,7 +672,11 @@ class _ChatProfileSettingsScreenState
                   await ApiClient.instance.dio.post('/users/$userId/block');
                   if (mounted) setState(() => _isBlocked = true);
                 } catch (e) {
-                  if (mounted) setState(() => _isBlocked = true);
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Could not block $name. Please try again.')),
+                    );
+                  }
                 }
               },
               child: const Text('Block', style: TextStyle(color: Colors.white)),
@@ -710,7 +709,11 @@ class _ChatProfileSettingsScreenState
                   await ApiClient.instance.dio.delete('/users/$userId/block');
                   if (mounted) setState(() => _isBlocked = false);
                 } catch (e) {
-                  if (mounted) setState(() => _isBlocked = false);
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Could not unblock $name. Please try again.')),
+                    );
+                  }
                 }
               },
               child: const Text(
@@ -971,13 +974,14 @@ class _ChatProfileSettingsScreenState
                               ),
                             );
                           }
-                        } catch (e) {
+                        } on DioException catch (e) {
+                          // Show the real reason, for example "already reported", instead of a false success.
+                          final data = e.response?.data;
+                          final serverMessage = data is Map && data['message'] is String
+                              ? data['message'] as String
+                              : 'Could not submit the report. Please try again.';
                           if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Report submitted successfully.'),
-                              ),
-                            );
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(serverMessage)));
                           }
                         }
                       },
@@ -1545,11 +1549,16 @@ class _ChatProfileSettingsScreenState
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  onTap: () => _showReportSheet(
-                    otherUser?.id ?? widget.conversationId,
-                    title,
-                    isCommunity,
-                  ),
+                  onTap: () {
+                    // Only a real person can be reported from here. Community reports are not supported yet.
+                    if (isCommunity || otherUser == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('You can report a person from their direct chat.')),
+                      );
+                      return;
+                    }
+                    _showReportSheet(otherUser.id, title, false);
+                  },
                 ),
               ],
             ),
