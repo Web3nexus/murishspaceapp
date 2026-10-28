@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/api_client.dart';
+import '../core/e2ee/e2ee_flags.dart';
+import '../core/e2ee/e2ee_service.dart';
 import '../models/chat_models.dart';
 import 'auth_provider.dart';
 import 'chat_provider.dart';
@@ -89,7 +91,8 @@ class ConversationMessagesNotifier extends Notifier<ConversationMessagesState> {
     try {
       final response = await _dio.get('/conversations/$_effectiveConversationId/messages');
       final payload = ApiClient.instance.unwrap(response);
-      final (list, hasMore) = _messagesFromPayload(payload);
+      final (parsedList, hasMore) = _messagesFromPayload(payload);
+      final list = await _revealAll(parsedList);
       state = ConversationMessagesState(
         messages: list,
         hasMore: hasMore,
@@ -135,8 +138,9 @@ class ConversationMessagesNotifier extends Notifier<ConversationMessagesState> {
     try {
       final response = await _dio.get('/conversations/$_effectiveConversationId/messages');
       final payload = ApiClient.instance.unwrap(response);
-      final (latestList, hasMore) = _messagesFromPayload(payload);
-      if (latestList.isEmpty) return;
+      final (parsedLatest, hasMore) = _messagesFromPayload(payload);
+      if (parsedLatest.isEmpty) return;
+      final latestList = await _revealAll(parsedLatest);
 
       final existingMap = {for (final m in state.messages) m.id: m};
       for (final m in latestList) {
@@ -178,7 +182,8 @@ class ConversationMessagesNotifier extends Notifier<ConversationMessagesState> {
         queryParameters: {'page': nextPage},
       );
       final payload = ApiClient.instance.unwrap(response);
-      final (older, hasMore) = _messagesFromPayload(payload);
+      final (parsedOlder, hasMore) = _messagesFromPayload(payload);
+      final older = await _revealAll(parsedOlder);
       _page = nextPage;
       state = ConversationMessagesState(
         messages: [...state.messages, ...older],
@@ -199,6 +204,52 @@ class ConversationMessagesNotifier extends Notifier<ConversationMessagesState> {
         ? (payload['next_page_url'] as String?) != null
         : false;
     return (list, hasMore);
+  }
+
+  /// The 1:1 peer's user id when [conversationId] is a direct chat we know about.
+  int? _directPeerUserId(int conversationId) {
+    for (final conversation in ref.read(conversationsProvider).conversations) {
+      if (conversation.id == conversationId && conversation.type == 'direct') {
+        return conversation.otherUser?.id;
+      }
+    }
+    return null;
+  }
+
+  static bool _needsReveal(Message message) =>
+      message.encryption == e2eeSignalEncryption && message.content.isEmpty;
+
+  /// Decrypts the encrypted messages in [list], oldest first, so the ratchet moves in order.
+  /// Returns [list] in its original order.
+  Future<List<Message>> _revealAll(List<Message> list) async {
+    final revealed = <Message, Message>{};
+    final encrypted = list.where(_needsReveal).toList()..sort((a, b) => a.id.compareTo(b.id));
+    for (final message in encrypted) {
+      revealed[message] = await _revealIncoming(message);
+    }
+    return [for (final message in list) revealed[message] ?? message];
+  }
+
+  /// Returns [message] with its text filled in, or the placeholder when this device cannot read it.
+  Future<Message> _revealIncoming(Message message) async {
+    final me = ref.read(authProvider).user;
+    final ciphertext = message.ciphertext;
+    // A sender cannot read its own ciphertext: it was encrypted for the peer's session.
+    if (me == null || ciphertext == null || message.userId <= 0 || message.userId == me.id) {
+      return message.copyWith(content: e2eeUnreadableText);
+    }
+    try {
+      final plain = await ref.read(e2eeServiceProvider).decryptFrom(
+        ownUserId: me.id,
+        senderUserId: message.userId,
+        ciphertext: ciphertext,
+      );
+      return message.copyWith(content: plain);
+    } catch (error) {
+      // Log the error type only. Never the ciphertext or the text.
+      debugPrint('[messages_provider] could not decrypt message ${message.id}: ${error.runtimeType}');
+      return message.copyWith(content: e2eeUnreadableText);
+    }
   }
 
   /// Optimistically sends a text (or attached) message, then confirms via REST.
@@ -254,16 +305,37 @@ class ConversationMessagesNotifier extends Notifier<ConversationMessagesState> {
     );
     _appendOrReplace(optimistic);
 
+    // Plain text to a 1:1 peer is encrypted on this device before it leaves.
+    final peerUserId = e2eeDirectMessagesEnabled && me != null && content.trim().isNotEmpty &&
+            attachmentUrl == null && attachmentType == null && mediaId == null
+        ? _directPeerUserId(targetConversationId)
+        : null;
+    final encrypt = peerUserId != null;
+    final senderId = me?.id ?? 0;
+
     try {
+      // A failed encryption throws into the catch below, so plaintext is never sent instead.
+      final ciphertext = peerUserId == null
+          ? null
+          : await ref.read(e2eeServiceProvider).encryptFor(
+              ownUserId: senderId,
+              peerUserId: peerUserId,
+              text: content,
+            );
       final response = await _dio.post(
         '/conversations/$targetConversationId/messages',
         data: {
-          'content': content,
           'client_uuid': clientUuid,
           'reply_to_id': ?replyToId,
           'media_id': ?mediaId,
           'attachment_url': ?attachmentUrl,
           'attachment_type': ?attachmentType,
+          if (ciphertext != null) ...{
+            'content': '',
+            'ciphertext': ciphertext,
+            'encryption': e2eeSignalEncryption,
+          } else
+            'content': content,
         },
       );
       final rawPayload = ApiClient.instance.unwrap(response);
@@ -271,6 +343,8 @@ class ConversationMessagesNotifier extends Notifier<ConversationMessagesState> {
       final confirmed = parsed.copyWith(
         status: parsed.status.isEmpty || parsed.status == 'sending' ? 'sent' : parsed.status,
         clientUuid: clientUuid,
+        // The server keeps ciphertext only. The sender's own copy keeps the text for this session.
+        content: encrypt ? content : null,
       );
       _appendOrReplace(confirmed, byUuid: clientUuid);
       ref.read(conversationsProvider.notifier).applyMessage(confirmed, currentUserId: me?.id ?? 0);
@@ -445,6 +519,16 @@ class ConversationMessagesNotifier extends Notifier<ConversationMessagesState> {
   /// Appends a message delivered by Reverb, deduping against id / client_uuid.
   void applyRealtime(Message message) {
     if (message.id <= 0 && message.clientUuid == null) return;
+    if (_needsReveal(message)) {
+      unawaited(_revealIncoming(message).then((revealed) {
+        if (ref.mounted) _applyRevealed(revealed);
+      }));
+      return;
+    }
+    _applyRevealed(message);
+  }
+
+  void _applyRevealed(Message message) {
     _appendOrReplace(message);
     final me = ref.read(authProvider).user;
     ref.read(conversationsProvider.notifier).applyMessage(message, currentUserId: me?.id ?? 0);

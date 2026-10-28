@@ -104,6 +104,10 @@ class Message {
   final List<ReactionSummary> reactions;
   final bool deleted;
   final bool read;
+  /// `signal_v1` for an end-to-end encrypted message, otherwise null.
+  final String? encryption;
+  /// Base64 ciphertext of an encrypted message. Null for plaintext messages.
+  final String? ciphertext;
 
   const Message({
     required this.id,
@@ -124,6 +128,8 @@ class Message {
     this.reactions = const [],
     this.deleted = false,
     this.read = false,
+    this.encryption,
+    this.ciphertext,
   });
 
   bool get hasAttachment =>
@@ -139,6 +145,8 @@ class Message {
     List<ReactionSummary>? reactions,
     bool? deleted,
     bool? read,
+    String? encryption,
+    String? ciphertext,
   }) {
     return Message(
       id: id,
@@ -159,6 +167,8 @@ class Message {
       reactions: reactions ?? this.reactions,
       deleted: deleted ?? this.deleted,
       read: read ?? this.read,
+      encryption: encryption ?? this.encryption,
+      ciphertext: ciphertext ?? this.ciphertext,
     );
   }
 
@@ -192,6 +202,8 @@ class Message {
       reactions: _reactionsFrom(json['reactions']),
       deleted: (json['deleted'] as bool?) ?? false,
       read: (json['read'] as bool?) ?? (json['status'] == 'read'),
+      encryption: json['encryption']?.toString(),
+      ciphertext: json['ciphertext']?.toString(),
     );
   }
 
