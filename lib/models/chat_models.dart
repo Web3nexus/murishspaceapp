@@ -11,6 +11,9 @@ class ChatUser {
   final String? avatarUrl;
   final bool isOnline;
   final String? lastSeen;
+  /// Only set when the server shares it. Phone numbers are hidden from other users.
+  final String? phone;
+  final String? bio;
 
   const ChatUser({
     required this.id,
@@ -19,6 +22,8 @@ class ChatUser {
     this.avatarUrl,
     this.isOnline = false,
     this.lastSeen,
+    this.phone,
+    this.bio,
   });
 
   factory ChatUser.fromJson(dynamic json) {
@@ -31,6 +36,8 @@ class ChatUser {
       avatarUrl: (map['avatar_url'] ?? map['avatar'])?.toString(),
       isOnline: (map['is_online'] as bool?) ?? (map['isOnline'] as bool?) ?? (map['is_online'] == 1 ? true : false),
       lastSeen: map['last_seen']?.toString() ?? map['lastSeen']?.toString(),
+      phone: (map['phone'] ?? map['mobile_number'])?.toString(),
+      bio: map['bio']?.toString(),
     );
   }
 }

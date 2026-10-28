@@ -1028,9 +1028,9 @@ class _ChatProfileSettingsScreenState
         ? otherUser!.username
         : 'user_${widget.conversationId}';
     final avatar = conversation?.avatarUrl ?? '';
-    const phone = '+234 812 000 1122';
-    const bio =
-        'Digital Creator & Web3 Innovator · Murih Space Active Member ✨';
+    // Taken from the other user. Empty when the server does not share it.
+    final phone = otherUser?.phone ?? '';
+    final bio = otherUser?.bio ?? '';
 
     return Scaffold(
       backgroundColor: isDark
@@ -1236,13 +1236,13 @@ class _ChatProfileSettingsScreenState
                       color: DesignTokens.textSecondary,
                     ),
                   ),
-                  subtitle: const Text(
-                    bio,
+                  subtitle: Text(
+                    bio.isEmpty ? 'No bio yet' : bio,
                     style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
                   ),
                   trailing: AnimatedCopyIcon(
                     onCopy: () async {
-                      await Clipboard.setData(const ClipboardData(text: bio));
+                      await Clipboard.setData(ClipboardData(text: bio));
                     },
                   ),
                 ),
@@ -1290,8 +1290,8 @@ class _ChatProfileSettingsScreenState
                         color: DesignTokens.textSecondary,
                       ),
                     ),
-                    subtitle: const Text(
-                      phone,
+                    subtitle: Text(
+                      phone.isEmpty ? 'Not shared' : phone,
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
@@ -1302,7 +1302,9 @@ class _ChatProfileSettingsScreenState
                       size: 18,
                       color: Color(0xFF34C759),
                     ),
-                    onTap: () => launchUrl(Uri.parse('tel:$phone')),
+                    onTap: phone.isEmpty
+                        ? null
+                        : () => launchUrl(Uri.parse('tel:$phone')),
                   ),
                 ],
               ],
